@@ -1201,7 +1201,9 @@ function applyConversationEvent(
   const { event, eventId, conversationId } = payload;
   const timestamp = now();
   const ingestOnDraft = (nextPayload: ConversationEventPayload) => {
-    draft.ingestedEvents.push(nextPayload);
+    if (import.meta.env.DEV) {
+      draft.ingestedEvents.push(nextPayload);
+    }
     applyConversationEvent(draft, nextPayload, context);
   };
 
@@ -1321,7 +1323,10 @@ export const ingestConversationEvent = (
   context: ConversationEventContext
 ): ConversationControllerState =>
   produce(state, (draft) => {
-    draft.ingestedEvents.push(payload);
+    if (import.meta.env.DEV) {
+      // @ts-expect-error Immer Draft typing widens `cells` to Draft<TranscriptCell>[].
+      draft.ingestedEvents.push(payload);
+    }
     applyConversationEvent(draft, payload, context);
   });
 
