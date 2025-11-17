@@ -1,0 +1,156 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  # Validate tag and manifest versions once, and expose the version as an output
+  tag-check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+      is_prerelease: ${{ steps.validate.outputs.is_prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and manifest versions
+        id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::group::Tag validation"
+
+          [[ "${GITHUB_REF_TYPE}" == "tag" ]] || { echo "❌  Not a tag push"; exit 1; }
+          [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+)?$ ]] || { echo "❌  Tag '${GITHUB_REF_NAME}' doesn't match expected format vX.Y.Z or vX.Y.Z-alpha.N"; exit 1; }
+
+          tag_ver="${GITHUB_REF_NAME#v}"
+          pkg_ver="$(jq -r '.version' apps/desktop/package.json)"
+          tauri_ver="$(jq -r '.version' apps/desktop/src-tauri/tauri.conf.json)"
+          cargo_ver="$(grep -m1 '^version' apps/desktop/src-tauri/Cargo.toml | sed -E 's/version *= *\"([^"]+)\".*/\1/')"
+
+          [[ "${tag_ver}" == "${pkg_ver}" ]]   || { echo "❌  Tag ${tag_ver} ≠ package.json ${pkg_ver}"; exit 1; }
+          [[ "${tag_ver}" == "${tauri_ver}" ]] || { echo "❌  Tag ${tag_ver} ≠ tauri.conf.json ${tauri_ver}"; exit 1; }
+          [[ "${tag_ver}" == "${cargo_ver}" ]] || { echo "❌  Tag ${tag_ver} ≠ Cargo.toml ${cargo_ver}"; exit 1; }
+
+          echo "✅  Tag and manifests agree (${tag_ver})"
+          echo "version=${tag_ver}" >> "$GITHUB_OUTPUT"
+
+          # Detect if this is a prerelease
+          if [[ "${tag_ver}" =~ -alpha\. ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "::endgroup::"
+
+  # Create a GitHub release and expose its ID for tauri-action
+  create-release:
+    needs: tag-check
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.gh_release.outputs.id }}
+      version: ${{ needs.tag-check.outputs.version }}
+    steps:
+      - name: Create GitHub release
+        id: gh_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ needs.tag-check.outputs.is_prerelease }}
+          target_commitish: ${{ github.sha }}
+
+  # Build and upload Tauri bundles in parallel per OS
+  tauri-artifacts:
+    needs: create-release
+    strategy:
+      matrix:
+        platform: [macos-latest]
+    runs-on: ${{ matrix.platform }}
+    env:
+      CI: true
+      # Rust compile cache (huge speedups across runs)
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
+      # Recommended when using sccache in CI
+      CARGO_INCREMENTAL: "0"
+
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }} # base64 of .p12
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }} # Issuer ID (UUID)
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }} # Key ID (e.g. ABCDE12345)
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }} # 10-char Team ID
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      # Cache heavy GTK/WebKit deps on Linux runners
+      - name: Cache apt packages (GTK/WebKit)
+        if: runner.os == 'Linux'
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: >
+            libgtk-3-dev
+            libwebkit2gtk-4.1-dev
+            libappindicator3-dev
+            librsvg2-dev
+          # bump this to bust the apt cache when needed
+          version: 1
+
+      - name: Set up Node.js (with npm cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install front-end dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      # sccache binary + GitHub Actions cache backend
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: clippy, rustfmt
+          override: true
+
+      - name: Cache cargo build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            apps/desktop/src-tauri -> target
+
+      - name: Set up Apple API Key for notarization
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "${{ secrets.APPLE_API_KEY_BASE64 }}" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
+          echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" >> $GITHUB_ENV
+
+      - name: Build and upload Tauri bundles
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          includeDebug: false

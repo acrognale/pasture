@@ -1,0 +1,173 @@
+name: CI Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags-ignore:
+      - "v*.*.*"
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+# Use ref (branch/PR) instead of run_id so successive pushes to same PR cancel prior runs.
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Determine what changed so we can skip irrelevant work
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      rust: ${{ steps.filter.outputs.rust }}
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+      - name: Check out (full history for proper diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'apps/desktop/src/**'
+              - 'apps/desktop/vite.config.*'
+              - 'apps/desktop/vitest.config.*'
+              - 'apps/desktop/eslint*'
+              - 'apps/desktop/.eslintrc*'
+              - 'apps/desktop/tsconfig*.json'
+              - 'apps/desktop/package.json'
+              - 'packages/**'
+            rust:
+              - 'apps/desktop/src-tauri/**'
+              - 'apps/**/*.rs'
+              - 'apps/desktop/Cargo.toml'
+              - 'apps/desktop/Cargo.lock'
+            docs_only:
+              - '**/*.md'
+              - 'docs/**'
+
+  # Short-circuit if literally only docs changed
+  skip:
+    needs: changes
+    if: ${{ needs.changes.outputs.docs_only == 'true' && needs.changes.outputs.frontend != 'true' && needs.changes.outputs.rust != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Docs-only change — skipping validation."
+
+  frontend:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      NPM_CONFIG_FUND: false
+      NPM_CONFIG_AUDIT: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js (with npm cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          # if lockfile is not in repo root, set this accordingly
+          cache-dependency-path: package-lock.json
+
+      # Reuse ESLint/TS caches across runs
+      - name: Restore ESLint & TS caches
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            .eslintcache
+            tsconfig.tsbuildinfo
+          key: ts-eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', '.eslintrc*', 'tsconfig*.json') }}
+          restore-keys: |
+            ts-eslint-${{ runner.os }}-
+
+      - name: Install front-end dependencies
+        run: npm ci --prefer-offline
+
+      - name: ESLint
+        working-directory: apps/desktop
+        run: npx eslint . --cache --cache-location .eslintcache
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: TypeScript typecheck (incremental)
+        working-directory: apps/desktop
+        run: npx tsc --noEmit --incremental --tsBuildInfoFile tsconfig.tsbuildinfo
+
+      - name: Vitest
+        working-directory: apps/desktop
+        run: npx vitest run
+
+      - name: Save ESLint & TS caches
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .eslintcache
+            tsconfig.tsbuildinfo
+          key: ts-eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', '.eslintrc*', 'tsconfig*.json') }}
+
+  rust:
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      # sccache: caches compiled crates across runs
+      RUSTC_WRAPPER: sccache
+      SCCACHE_GHA_ENABLED: "true"
+      CARGO_TERM_COLOR: always
+      # optional: faster checks; disable incremental's extra disk i/o
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Cache & install heavy GTK/WebKit deps for Tauri
+      - name: Cache apt packages (GTK/WebKit)
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: >
+            libgtk-3-dev
+            libwebkit2gtk-4.1-dev
+            libappindicator3-dev
+            librsvg2-dev
+          version: 1 # bump to refresh cache
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: clippy, rustfmt
+          override: true
+
+      - name: Cache cargo build artifacts & registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          # Cache target dir for your Tauri workspace
+          workspaces: |
+            apps/desktop/src-tauri -> target
+          # sccache works in addition to this; they complement each other
+
+      - name: Rustfmt
+        run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --config imports_granularity=Item --check
+
+      - name: Cargo check
+        working-directory: apps/desktop/src-tauri
+        run: cargo check --workspace --all-targets

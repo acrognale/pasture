@@ -1,0 +1,60 @@
+{
+  "name": "pasture-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pasture monorepo - desktop GUI and web UI for Codex",
+  "keywords": [],
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Anthony Crognale",
+    "email": "anthony@acrognale.com"
+  },
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=apps/desktop",
+    "copy:app": "npm run copy:app --workspace=apps/desktop",
+    "dev": "npm run dev --workspace=apps/desktop",
+    "format:check": "npm run format:check --workspaces --if-present",
+    "format:fix": "npm run format:fix --workspaces --if-present",
+    "format:rust": "npm run format:rust --workspace=apps/desktop",
+    "generate:types": "npm run generate:types --workspace=apps/desktop",
+    "lint": "npm run lint --workspaces --if-present",
+    "package": "npm run package --workspace=apps/desktop",
+    "prepare": "husky",
+    "storybook": "npm run storybook --workspace=apps/desktop",
+    "test": "npm run test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspaces --if-present",
+    "test:watch": "npm run test:watch --workspace=apps/desktop",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+    "@typescript-eslint/eslint-plugin": "^8.46.3",
+    "@typescript-eslint/parser": "^8.46.3",
+    "eslint": "^9.39.1",
+    "eslint-import-resolver-typescript": "^3.6.1",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-no-barrel-files": "^1.2.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-compiler": "^19.1.0-rc.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-solid": "^0.14.5",
+    "eslint-plugin-storybook": "10.0.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.4",
+    "prettier": "^3.6.2",
+    "prettier-plugin-packagejson": "^2.5.19",
+    "typescript-eslint": "^8.46.4"
+  },
+  "engines": {
+    "node": ">=22",
+    "npm": ">=10.0.0"
+  },
+  "dependencies": {
+    "streamdown": "^1.5.0"
+  }
+}

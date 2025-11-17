@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "codex-events",
+  "description": "Allows the renderer to listen for Codex-specific events",
+  "windows": ["*"],
+  "permissions": [
+    {
+      "identifier": "core:event:allow-listen",
+      "options": {
+        "events": ["codex-event", "codex:window:contextUpdated"]
+      }
+    }
+  ]
+}

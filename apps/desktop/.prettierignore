@@ -1,0 +1,6 @@
+codex/**
+src-tauri/target/**
+dist/**
+*.json
+
+src/routeTree.gen.ts
