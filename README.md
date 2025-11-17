@@ -85,14 +85,14 @@ npm install
 | Command               | Description                                    |
 | --------------------- | ---------------------------------------------- |
 | `npm run dev`         | Launches Vite + Tauri dev mode with hot reload |
-| `npm run format:fix`  | Formats TypeScript, Solid, and Markdown files  |
+| `npm run format:fix`  | Formats TypeScript, React, and Markdown files  |
 | `npm run format:rust` | Formats Rust sources                           |
 
 ### Quality Checks
 
 | Command             | Description                       |
 | ------------------- | --------------------------------- |
-| `npm run lint`      | ESLint for TypeScript/Solid code  |
+| `npm run lint`      | ESLint for TypeScript/React code  |
 | `npm run typecheck` | TypeScript `tsc --noEmit`         |
 | `npm run test`      | Vitest unit and integration suite |
 
