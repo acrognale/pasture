@@ -1324,7 +1324,6 @@ export const ingestConversationEvent = (
 ): ConversationControllerState =>
   produce(state, (draft) => {
     if (import.meta.env.DEV) {
-      // @ts-expect-error Immer Draft typing widens `cells` to Draft<TranscriptCell>[].
       draft.ingestedEvents.push(payload);
     }
     applyConversationEvent(draft, payload, context);
