@@ -7,7 +7,6 @@ pub mod composer;
 pub mod conversations;
 pub mod initialize;
 pub mod review;
-pub mod runtime;
 pub mod workspace;
 
 pub use registry::CommandDescriptor;
@@ -26,10 +25,6 @@ codex_command_descriptors! {
     conversations::initialize_conversation {
         params: conversations::InitializeConversationParams,
         result: conversations::InitializeConversationResponse,
-    },
-    runtime::load_initial_runtime_state {
-        params: runtime::LoadInitialRuntimeStateParams,
-        result: runtime::ConversationRuntimeSnapshot,
     },
     conversations::new_conversation {
         params: conversations::NewConversationCommandParams,

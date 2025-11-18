@@ -6,7 +6,6 @@ import type {
   AuthState,
   CompactConversationParams,
   ComposerTurnConfigPayload,
-  ConversationRuntimeSnapshot,
   GetComposerConfigParams,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
@@ -19,7 +18,6 @@ import type {
   ListConversationsResponse,
   ListTurnSnapshotsParams,
   ListTurnSnapshotsResponse,
-  LoadInitialRuntimeStateParams,
   NewConversationCommandParams,
   NewConversationResponse,
   RemoveConversationListenerParams,
@@ -49,15 +47,6 @@ export namespace Codex {
   ): Promise<InitializeConversationResponse> {
     return await invoke<InitializeConversationResponse>(
       'initialize_conversation',
-      { params }
-    );
-  }
-
-  export async function loadInitialRuntimeState(
-    params: LoadInitialRuntimeStateParams
-  ): Promise<ConversationRuntimeSnapshot> {
-    return await invoke<ConversationRuntimeSnapshot>(
-      'load_initial_runtime_state',
       { params }
     );
   }

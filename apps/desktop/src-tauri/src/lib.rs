@@ -82,7 +82,6 @@ pub fn run() {
             commands::initialize::initialize,
             commands::conversations::list_conversations,
             commands::conversations::initialize_conversation,
-            commands::runtime::load_initial_runtime_state,
             commands::conversations::new_conversation,
             commands::conversations::send_user_message,
             commands::conversations::interrupt_conversation,

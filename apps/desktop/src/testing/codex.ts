@@ -5,7 +5,6 @@ import type { AuthState } from '~/codex.gen/AuthState';
 import type { CodexEvent } from '~/codex.gen/CodexEvent';
 import type { ComposerTurnConfigPayload } from '~/codex.gen/ComposerTurnConfigPayload';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { ConversationRuntimeSnapshot } from '~/codex.gen/ConversationRuntimeSnapshot';
 import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import type { EventMsg } from '~/codex.gen/EventMsg';
 import type { GetTurnDiffRangeResponse } from '~/codex.gen/GetTurnDiffRangeResponse';
@@ -57,14 +56,6 @@ const createDefaultConversationSummary = (): ConversationSummary => ({
 const createDefaultConversationListResponse = () => ({
   items: [createDefaultConversationSummary()],
   nextCursor: null,
-});
-
-const createDefaultRuntimeSnapshot = (): ConversationRuntimeSnapshot => ({
-  activeTurnStartedAt: null,
-  contextTokensInWindow: BigInt(0),
-  maxContextWindow: BigInt(32768),
-  statusHeader: 'Idle',
-  latestTurnDiff: null,
 });
 
 const createDefaultNewConversationResponse = (): NewConversationResponse => ({
@@ -122,9 +113,6 @@ const mockCodexNamespace = {
   initializeConversation: defineStub(
     async (): Promise<InitializeConversationResponse> =>
       createDefaultInitializeConversationResponse()
-  ),
-  loadInitialRuntimeState: defineStub(async () =>
-    createDefaultRuntimeSnapshot()
   ),
   newConversation: defineStub(async () =>
     createDefaultNewConversationResponse()
