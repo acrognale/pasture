@@ -5,12 +5,10 @@ import type { AuthState } from '~/codex.gen/AuthState';
 import type { CodexEvent } from '~/codex.gen/CodexEvent';
 import type { ComposerTurnConfigPayload } from '~/codex.gen/ComposerTurnConfigPayload';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { ConversationRuntimeSnapshot } from '~/codex.gen/ConversationRuntimeSnapshot';
 import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import type { EventMsg } from '~/codex.gen/EventMsg';
 import type { GetTurnDiffRangeResponse } from '~/codex.gen/GetTurnDiffRangeResponse';
 import type { InitializeConversationResponse } from '~/codex.gen/InitializeConversationResponse';
-import type { InitializeResponse } from '~/codex.gen/InitializeResponse';
 import type { InterruptConversationResponse } from '~/codex.gen/InterruptConversationResponse';
 import type { ListConversationsParams } from '~/codex.gen/ListConversationsParams';
 import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
@@ -59,14 +57,6 @@ const createDefaultConversationListResponse = () => ({
   nextCursor: null,
 });
 
-const createDefaultRuntimeSnapshot = (): ConversationRuntimeSnapshot => ({
-  activeTurnStartedAt: null,
-  contextTokensInWindow: BigInt(0),
-  maxContextWindow: BigInt(32768),
-  statusHeader: 'Idle',
-  latestTurnDiff: null,
-});
-
 const createDefaultNewConversationResponse = (): NewConversationResponse => ({
   conversationId: 'mock-conversation',
   model: 'gpt-5-codex',
@@ -102,17 +92,12 @@ const createDefaultComposerConfigPayload = (): ComposerTurnConfigPayload => ({
   approval: null,
 });
 
-const createDefaultInitializeResponse = (): InitializeResponse => ({
-  userAgent: 'codex-testing-agent',
-});
-
 const createDefaultAddConversationSubscriptionResponse =
   (): AddConversationSubscriptionResponse => ({
     subscriptionId: 'mock-subscription',
   });
 
 const mockCodexNamespace = {
-  initialize: defineStub(async () => createDefaultInitializeResponse()),
   listConversations: defineStub(
     async (
       _params?: ListConversationsParams
@@ -122,9 +107,6 @@ const mockCodexNamespace = {
   initializeConversation: defineStub(
     async (): Promise<InitializeConversationResponse> =>
       createDefaultInitializeConversationResponse()
-  ),
-  loadInitialRuntimeState: defineStub(async () =>
-    createDefaultRuntimeSnapshot()
   ),
   newConversation: defineStub(async () =>
     createDefaultNewConversationResponse()

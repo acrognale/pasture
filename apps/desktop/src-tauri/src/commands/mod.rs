@@ -5,9 +5,7 @@ pub mod approvals;
 pub mod auth;
 pub mod composer;
 pub mod conversations;
-pub mod initialize;
 pub mod review;
-pub mod runtime;
 pub mod workspace;
 
 pub use registry::CommandDescriptor;
@@ -15,10 +13,6 @@ pub use registry::CommandDescriptor;
 use registry::codex_command_descriptors;
 
 codex_command_descriptors! {
-    initialize::initialize {
-        params: (),
-        result: initialize::InitializeResponse,
-    },
     conversations::list_conversations {
         params: conversations::ListConversationsParams,
         result: conversations::ListConversationsResponse,
@@ -26,10 +20,6 @@ codex_command_descriptors! {
     conversations::initialize_conversation {
         params: conversations::InitializeConversationParams,
         result: conversations::InitializeConversationResponse,
-    },
-    runtime::load_initial_runtime_state {
-        params: runtime::LoadInitialRuntimeStateParams,
-        result: runtime::ConversationRuntimeSnapshot,
     },
     conversations::new_conversation {
         params: conversations::NewConversationCommandParams,

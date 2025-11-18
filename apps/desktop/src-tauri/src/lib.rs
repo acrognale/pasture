@@ -41,9 +41,14 @@ pub fn run() {
                     .await
                     .map_err(|e| format!("Failed to load config: {}", e))?;
                 env::apply_shell_environment_defaults(&mut cfg).await;
-                crate::codex_runtime::CodexRuntime::with_config(cfg)
+                let runtime = crate::codex_runtime::CodexRuntime::with_config(cfg)
                     .await
-                    .map_err(|e| format!("Failed to construct runtime: {}", e))
+                    .map_err(|e| format!("Failed to construct runtime: {}", e))?;
+                runtime
+                    .initialize("Tauri Codex Client".to_string(), "0.1.0".to_string())
+                    .await
+                    .map_err(|e| format!("Failed to initialize Codex runtime: {}", e))?;
+                Ok::<_, String>(runtime)
             })?;
             app.manage(codex_runtime);
 
@@ -79,10 +84,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::initialize::initialize,
             commands::conversations::list_conversations,
             commands::conversations::initialize_conversation,
-            commands::runtime::load_initial_runtime_state,
             commands::conversations::new_conversation,
             commands::conversations::send_user_message,
             commands::conversations::interrupt_conversation,

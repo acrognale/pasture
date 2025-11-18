@@ -56,7 +56,7 @@ pub async fn create_workspace_window(
     // Create a new window with the workspace route
     let url = format!("/workspaces/{}", urlencoding::encode(&normalized));
 
-    tauri::WebviewWindowBuilder::new(
+    let mut builder = tauri::WebviewWindowBuilder::new(
         &app_handle,
         format!(
             "workspace-{}",
@@ -67,11 +67,16 @@ pub async fn create_workspace_window(
         ),
         tauri::WebviewUrl::App(url.into()),
     )
-    .title(&title)
-    .title_bar_style(tauri::TitleBarStyle::Overlay)
-    .hidden_title(true)
-    .build()
-    .map_err(|e| e.to_string())?;
+    .title(&title);
+
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder
+            .title_bar_style(tauri::TitleBarStyle::Overlay)
+            .hidden_title(true);
+    }
+
+    builder.build().map_err(|e| e.to_string())?;
 
     Ok(())
 }

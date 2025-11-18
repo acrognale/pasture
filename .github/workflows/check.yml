@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     tags-ignore:
-      - "v*.*.*"
+      - 'v*.*.*'
   merge_group:
   workflow_dispatch:
 
@@ -129,10 +129,10 @@ jobs:
     env:
       # sccache: caches compiled crates across runs
       RUSTC_WRAPPER: sccache
-      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_GHA_ENABLED: 'true'
       CARGO_TERM_COLOR: always
       # optional: faster checks; disable incremental's extra disk i/o
-      CARGO_INCREMENTAL: "0"
+      CARGO_INCREMENTAL: '0'
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -160,14 +160,13 @@ jobs:
       - name: Cache cargo build artifacts & registry
         uses: Swatinem/rust-cache@v2
         with:
-          # Cache target dir for your Tauri workspace
+          # Cache target dir for the root Rust workspace
           workspaces: |
-            apps/desktop/src-tauri -> target
+            . -> target
           # sccache works in addition to this; they complement each other
 
       - name: Rustfmt
-        run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --all -- --config imports_granularity=Item --check
+        run: cargo fmt --all -- --config imports_granularity=Item --check
 
       - name: Cargo check
-        working-directory: apps/desktop/src-tauri
         run: cargo check --workspace --all-targets

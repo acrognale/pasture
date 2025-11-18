@@ -38,14 +38,6 @@ export const setupConversationTest = (
     reasoningSummary: 'auto',
   });
 
-  mockCodex.stub.loadInitialRuntimeState.mockResolvedValue({
-    activeTurnStartedAt: null,
-    contextTokensInWindow: BigInt(0),
-    maxContextWindow: BigInt(32768),
-    statusHeader: 'Idle',
-    latestTurnDiff: null,
-  });
-
   mockCodex.stub.getComposerConfig.mockResolvedValue({
     model: null,
     reasoningEffort: null,

@@ -6,20 +6,17 @@ import type {
   AuthState,
   CompactConversationParams,
   ComposerTurnConfigPayload,
-  ConversationRuntimeSnapshot,
   GetComposerConfigParams,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
   InitializeConversationParams,
   InitializeConversationResponse,
-  InitializeResponse,
   InterruptConversationParams,
   InterruptConversationResponse,
   ListConversationsParams,
   ListConversationsResponse,
   ListTurnSnapshotsParams,
   ListTurnSnapshotsResponse,
-  LoadInitialRuntimeStateParams,
   NewConversationCommandParams,
   NewConversationResponse,
   RemoveConversationListenerParams,
@@ -32,10 +29,6 @@ import type {
 } from '~/codex.gen';
 
 export namespace Codex {
-  export async function initialize(): Promise<InitializeResponse> {
-    return await invoke<InitializeResponse>('initialize');
-  }
-
   export async function listConversations(
     params: ListConversationsParams
   ): Promise<ListConversationsResponse> {
@@ -49,15 +42,6 @@ export namespace Codex {
   ): Promise<InitializeConversationResponse> {
     return await invoke<InitializeConversationResponse>(
       'initialize_conversation',
-      { params }
-    );
-  }
-
-  export async function loadInitialRuntimeState(
-    params: LoadInitialRuntimeStateParams
-  ): Promise<ConversationRuntimeSnapshot> {
-    return await invoke<ConversationRuntimeSnapshot>(
-      'load_initial_runtime_state',
       { params }
     );
   }

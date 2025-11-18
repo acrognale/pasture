@@ -25,7 +25,6 @@ export const useWorkspaceConversations = () => {
   const query = useQuery<WorkspaceConversationsState>({
     queryKey: keys.conversations(),
     queryFn: async () => {
-      await Codex.initialize();
       if (!normalizedWorkspacePath) {
         return { items: [], nextCursor: null };
       }
