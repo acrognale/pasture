@@ -11,7 +11,6 @@ import type {
   GetTurnDiffRangeResponse,
   InitializeConversationParams,
   InitializeConversationResponse,
-  InitializeResponse,
   InterruptConversationParams,
   InterruptConversationResponse,
   ListConversationsParams,
@@ -30,10 +29,6 @@ import type {
 } from '~/codex.gen';
 
 export namespace Codex {
-  export async function initialize(): Promise<InitializeResponse> {
-    return await invoke<InitializeResponse>('initialize');
-  }
-
   export async function listConversations(
     params: ListConversationsParams
   ): Promise<ListConversationsResponse> {

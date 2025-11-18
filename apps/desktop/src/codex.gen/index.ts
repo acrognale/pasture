@@ -52,7 +52,6 @@ export type { HistoryEntry } from './HistoryEntry';
 export type { ImageContent } from './ImageContent';
 export type { InitializeConversationParams } from './InitializeConversationParams';
 export type { InitializeConversationResponse } from './InitializeConversationResponse';
-export type { InitializeResponse } from './InitializeResponse';
 export type { InputItem } from './InputItem';
 export type { InterruptConversationParams } from './InterruptConversationParams';
 export type { InterruptConversationResponse } from './InterruptConversationResponse';
