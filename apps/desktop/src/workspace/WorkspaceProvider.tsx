@@ -132,6 +132,7 @@ export const WorkspaceProvider = ({
             conversationId,
             eventId: `initial::${conversationId}::${index}`,
             event,
+            timestamp: new Date().toISOString(),
           });
         });
         store.getState().setReasoningSummaryPreference(reasoningSummary);

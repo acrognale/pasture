@@ -13,6 +13,7 @@ pub struct ConversationEventPayload {
     pub conversation_id: String,
     pub event_id: String,
     pub event: EventMsg,
+    pub timestamp: String,
 }
 
 /// Union of events emitted to the renderer.

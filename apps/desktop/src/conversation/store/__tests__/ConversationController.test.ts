@@ -94,21 +94,25 @@ describe('ConversationReducer fixtures', () => {
         rollout_path: '/tmp/session.jsonl',
         initial_messages: null,
       },
+      timestamp: new Date().toISOString(),
     });
     store.getState().ingestEvent({
       conversationId: 'conversation',
       eventId: 'delta-1',
       event: { type: 'agent_reasoning_delta', delta: 'Outlining approach' },
+      timestamp: new Date().toISOString(),
     });
     store.getState().ingestEvent({
       conversationId: 'conversation',
       eventId: 'delta-2',
       event: { type: 'agent_reasoning_delta', delta: ' and next steps' },
+      timestamp: new Date().toISOString(),
     });
     store.getState().ingestEvent({
       conversationId: 'conversation',
       eventId: 'final',
       event: { type: 'agent_reasoning', text: '' },
+      timestamp: new Date().toISOString(),
     });
 
     const reasoningCell = store

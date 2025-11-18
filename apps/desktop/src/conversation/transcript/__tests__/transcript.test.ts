@@ -126,6 +126,7 @@ const applyEvent = (
     conversationId: TEST_CONVERSATION_ID,
     eventId,
     event,
+    timestamp,
   });
 
   return controller.conversation.transcript;

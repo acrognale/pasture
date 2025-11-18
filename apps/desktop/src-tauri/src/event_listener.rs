@@ -8,6 +8,7 @@ use tokio::sync::Mutex;
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
+use chrono::Utc;
 use codex_core::CodexConversation;
 
 use crate::events::CodexEvent;
@@ -155,6 +156,7 @@ impl EventSubscriptionManager {
                                 conversation_id: conversation_id.to_string(),
                                 event_id: event.id.clone(),
                                 event: event.msg.clone(),
+                                timestamp: Utc::now().to_rfc3339(),
                             },
                         };
 

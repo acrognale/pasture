@@ -13,21 +13,20 @@ export const ensureTauriEnvironment = () => {
   }
 };
 
-export type ConversationEventEnvelope = {
-  eventId: string;
-  event: EventMsg;
-  timestamp: string;
-};
-
 export const createOptimisticUserEvent = (
+  conversationId: string,
   text: string,
   timestamp = new Date().toISOString()
-): ConversationEventEnvelope =>
-  eventMsgToEnvelope(`optimistic-${timestamp}`, {
+): ConversationEventPayload => ({
+  conversationId,
+  eventId: `optimistic-${timestamp}`,
+  event: {
     type: 'user_message',
     message: text,
     images: null,
-  });
+  },
+  timestamp,
+});
 
 export const derivePreviewFromEvent = (event: EventMsg): string | null => {
   switch (event.type) {
@@ -75,15 +74,6 @@ export const getAuthUpdatedPayload = (event: CodexBridgeEvent): AuthState => {
 
   return event.payload;
 };
-
-export const eventMsgToEnvelope = (
-  eventId: string,
-  event: EventMsg
-): ConversationEventEnvelope => ({
-  eventId,
-  event,
-  timestamp: new Date().toISOString(),
-});
 
 export const subscribeToCodexEvents = (
   listener: (event: CodexBridgeEvent) => void
