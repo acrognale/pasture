@@ -9,7 +9,6 @@ import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import type { EventMsg } from '~/codex.gen/EventMsg';
 import type { GetTurnDiffRangeResponse } from '~/codex.gen/GetTurnDiffRangeResponse';
 import type { InitializeConversationResponse } from '~/codex.gen/InitializeConversationResponse';
-import type { InitializeResponse } from '~/codex.gen/InitializeResponse';
 import type { InterruptConversationResponse } from '~/codex.gen/InterruptConversationResponse';
 import type { ListConversationsParams } from '~/codex.gen/ListConversationsParams';
 import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
@@ -93,17 +92,12 @@ const createDefaultComposerConfigPayload = (): ComposerTurnConfigPayload => ({
   approval: null,
 });
 
-const createDefaultInitializeResponse = (): InitializeResponse => ({
-  userAgent: 'codex-testing-agent',
-});
-
 const createDefaultAddConversationSubscriptionResponse =
   (): AddConversationSubscriptionResponse => ({
     subscriptionId: 'mock-subscription',
   });
 
 const mockCodexNamespace = {
-  initialize: defineStub(async () => createDefaultInitializeResponse()),
   listConversations: defineStub(
     async (
       _params?: ListConversationsParams
