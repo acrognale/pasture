@@ -33,17 +33,13 @@ vi.mock('~/codex/events', () => {
   return {
     isTauriEnvironment: () => true,
     ensureTauriEnvironment: () => undefined,
-    createOptimisticUserEvent: (text: string) => ({
+    createOptimisticUserEvent: (conversationId: string, text: string) => ({
+      conversationId,
       eventId: `optimistic-${Date.now()}`,
       event: { type: 'user_message', message: text, images: null } as EventMsg,
       timestamp: new Date().toISOString(),
     }),
     derivePreviewFromEvent,
-    eventMsgToEnvelope: (eventId: string, event: EventMsg) => ({
-      eventId,
-      event,
-      timestamp: new Date().toISOString(),
-    }),
     isConversationEvent: (
       event: CodexEvent
     ): event is CodexEvent & { kind: 'conversation-event' } =>
@@ -116,6 +112,7 @@ describe('ConversationProvider approvals', () => {
           risk: null,
           parsed_cmd: [],
         },
+        timestamp: new Date().toISOString(),
       },
     };
 
@@ -153,6 +150,7 @@ describe('ConversationProvider approvals', () => {
             risk: null,
             parsed_cmd: [],
           },
+          timestamp: new Date().toISOString(),
         },
       });
       emitCodexEvent({
@@ -171,6 +169,7 @@ describe('ConversationProvider approvals', () => {
             reason: null,
             grant_root: null,
           },
+          timestamp: new Date().toISOString(),
         },
       });
     });

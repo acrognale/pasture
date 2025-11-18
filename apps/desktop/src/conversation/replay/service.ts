@@ -10,7 +10,7 @@ import {
 export type ReplayEvent = {
   eventId: string;
   event: EventMsg;
-  timestamp: string;
+  timestamp?: string;
 };
 
 export type ReplayOptions = {
@@ -85,6 +85,7 @@ export function replayEvents(
         conversationId,
         eventId: replayEvent.eventId,
         event: replayEvent.event,
+        timestamp: replayEvent.timestamp ?? new Date().toISOString(),
       };
 
       const delay = getEventDelay(replayEvent.event.type, timing);

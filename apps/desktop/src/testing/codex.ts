@@ -224,6 +224,7 @@ export const mockEvents = {
       conversationId,
       eventId: options.eventId ?? generateEventId(event.type),
       event,
+      timestamp: new Date().toISOString(),
     };
 
     emitEvent({ kind: 'conversation-event', payload });

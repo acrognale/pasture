@@ -9,7 +9,6 @@ import type { EventMsg } from '~/codex.gen/EventMsg';
 import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
 import {
   derivePreviewFromEvent,
-  eventMsgToEnvelope,
   getAuthUpdatedPayload,
   isAuthUpdatedEvent,
   isConversationEvent,
@@ -134,14 +133,14 @@ export function ConversationProvider({
           return;
         }
 
-        const envelope = eventMsgToEnvelope(payload.eventId, payload.event);
+        const timestamp = payload.timestamp;
 
         if (payload.event.type === 'user_message') {
           updateConversationTimestamp(
             queryClient,
             conversationsKey,
             conversationId,
-            envelope.timestamp
+            timestamp
           );
         }
 
@@ -156,7 +155,7 @@ export function ConversationProvider({
               conversationsKey,
               conversationId,
               preview,
-              envelope.timestamp
+              timestamp
             );
           }
         }

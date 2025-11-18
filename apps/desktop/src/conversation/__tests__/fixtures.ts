@@ -15,7 +15,15 @@ export const loadFixtureEvents = (name: string): ConversationEventPayload[] => {
   return contents
     .split('\n')
     .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as ConversationEventPayload);
+    .map((line) => {
+      const parsed = JSON.parse(line) as ConversationEventPayload & {
+        timestamp?: string;
+      };
+      return {
+        ...parsed,
+        timestamp: parsed.timestamp ?? new Date().toISOString(),
+      } satisfies ConversationEventPayload;
+    });
 };
 
 export const buildControllerFromFixture = (

@@ -9,4 +9,5 @@ export type ConversationEventPayload = {
   conversationId: string;
   eventId: string;
   event: EventMsg;
+  timestamp: string;
 };

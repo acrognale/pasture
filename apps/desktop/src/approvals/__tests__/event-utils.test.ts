@@ -9,6 +9,7 @@ const basePayload = (
 ): ConversationEventPayload => ({
   conversationId: 'conversation',
   eventId: 'event-1',
+  timestamp: new Date().toISOString(),
   ...overrides,
   event,
 });
