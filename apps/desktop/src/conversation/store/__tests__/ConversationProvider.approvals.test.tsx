@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApprovalsStore } from '~/approvals/store';
 import type { CodexEvent } from '~/codex.gen/CodexEvent';
 import type { EventMsg } from '~/codex.gen/EventMsg';
+import type { ParsedCommand } from '~/codex.gen/ParsedCommand';
 import { useWorkspaceApprovalsStore } from '~/workspace';
 import { WorkspaceProvider } from '~/workspace/WorkspaceProvider';
 
@@ -110,7 +111,8 @@ describe('ConversationProvider approvals', () => {
           cwd: '/tmp',
           reason: 'Need to inspect files',
           risk: null,
-          parsed_cmd: [],
+          parsed_cmd: [] satisfies ParsedCommand[],
+          turn_id: 'turn-1',
         },
         timestamp: new Date().toISOString(),
       },
@@ -148,7 +150,8 @@ describe('ConversationProvider approvals', () => {
             cwd: '/tmp',
             reason: null,
             risk: null,
-            parsed_cmd: [],
+            parsed_cmd: [] satisfies ParsedCommand[],
+            turn_id: 'turn-1',
           },
           timestamp: new Date().toISOString(),
         },
@@ -163,7 +166,9 @@ describe('ConversationProvider approvals', () => {
             call_id: 'call-2',
             changes: {
               'file.ts': {
-                update: { unified_diff: '--- a\n+++ b', move_path: null },
+                type: 'update',
+                unified_diff: '--- a\n+++ b',
+                move_path: null,
               },
             },
             reason: null,

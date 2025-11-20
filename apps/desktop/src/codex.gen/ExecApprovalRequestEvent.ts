@@ -9,6 +9,11 @@ export type ExecApprovalRequestEvent = {
    */
   call_id: string;
   /**
+   * Turn ID that this command belongs to.
+   * Uses `#[serde(default)]` for backwards compatibility.
+   */
+  turn_id: string;
+  /**
    * The command to be executed.
    */
   command: Array<string>;

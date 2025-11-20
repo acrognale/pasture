@@ -91,21 +91,76 @@ const agentMessageEvent = (message: string): EventMsg => ({
 
 type ExecBeginEventInput = Omit<
   ExecBeginEvent,
-  'type' | 'is_user_shell_command'
+  'type' | 'source' | 'turn_id'
 > & {
-  is_user_shell_command?: boolean;
+  source?: ExecBeginEvent['source'];
+  turn_id?: ExecBeginEvent['turn_id'];
 };
 
-const execBeginEvent = (params: ExecBeginEventInput): ExecBeginEvent => ({
+const execBeginEvent = ({
+  source = 'agent',
+  turn_id = 'turn-1',
+  ...rest
+}: ExecBeginEventInput): ExecBeginEvent => ({
   type: 'exec_command_begin',
-  is_user_shell_command: false,
-  ...params,
+  source,
+  turn_id,
+  ...rest,
+});
+
+type ExecEndEventInput = Omit<
+  ExecEndEvent,
+  | 'type'
+  | 'source'
+  | 'turn_id'
+  | 'stdout'
+  | 'stderr'
+  | 'aggregated_output'
+  | 'formatted_output'
+  | 'exit_code'
+  | 'duration'
+> & {
+  source?: ExecEndEvent['source'];
+  turn_id?: ExecEndEvent['turn_id'];
+  stdout?: string;
+  stderr?: string;
+  aggregated_output?: string;
+  formatted_output?: string;
+  exit_code?: number;
+  duration?: string;
+};
+
+const execEndEvent = ({
+  source = 'agent',
+  turn_id = 'turn-1',
+  stdout = '',
+  stderr = '',
+  aggregated_output = '',
+  formatted_output = '',
+  exit_code = 0,
+  duration = '0s',
+  ...rest
+}: ExecEndEventInput): ExecEndEvent => ({
+  type: 'exec_command_end',
+  source,
+  turn_id,
+  stdout,
+  stderr,
+  aggregated_output,
+  formatted_output,
+  exit_code,
+  duration,
+  ...rest,
 });
 
 const sessionConfigured = (model: string): EventMsg => ({
   type: 'session_configured',
   session_id: 'session-1',
   model,
+  model_provider_id: 'openai',
+  approval_policy: 'on-request',
+  sandbox_policy: { type: 'danger-full-access' },
+  cwd: '/tmp/workspace',
   reasoning_effort: null,
   history_log_id: 0n,
   history_entry_count: 0,
@@ -374,16 +429,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, firstBegin, 'hidden-1', 1);
 
-    const firstEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const firstEnd = execEndEvent({
       call_id: 'c-hidden-1',
+      command: firstBegin.command,
+      cwd: firstBegin.cwd,
+      parsed_cmd: firstBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '5ms',
-    };
+    });
     state = applyEvent(controller, firstEnd, 'hidden-2', 2);
 
     const reasoningText = makeReasoningText(
@@ -405,16 +458,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondBegin, 'hidden-5', 5);
 
-    const secondEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const secondEnd = execEndEvent({
       call_id: 'c-hidden-2',
+      command: secondBegin.command,
+      cwd: secondBegin.cwd,
+      parsed_cmd: secondBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '6ms',
-    };
+    });
     state = applyEvent(controller, secondEnd, 'hidden-6', 6);
 
     const execCells = state.cells
@@ -441,16 +492,14 @@ describe('exploration exec grouping', () => {
     state = applyEvent(controller, searchBegin, 'e1', 1);
 
     // end #1
-    const searchEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const searchEnd = execEndEvent({
       call_id: 'c1',
+      command: searchBegin.command,
+      cwd: searchBegin.cwd,
+      parsed_cmd: searchBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '10ms',
-    };
+    });
     state = applyEvent(controller, searchEnd, 'e2', 2);
 
     // begin #2 (read)
@@ -463,16 +512,14 @@ describe('exploration exec grouping', () => {
     state = applyEvent(controller, readBegin, 'e3', 3);
 
     // end #2
-    const readEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const readEnd = execEndEvent({
       call_id: 'c2',
+      command: readBegin.command,
+      cwd: readBegin.cwd,
+      parsed_cmd: readBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '8ms',
-    };
+    });
     state = applyEvent(controller, readEnd, 'e4', 4);
 
     expect(state.cells).toHaveLength(1);
@@ -585,16 +632,17 @@ describe('exploration exec grouping', () => {
     state = applyEvent(controller, firstBegin, 'e1', 1);
 
     // end #1 - success
-    const firstEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const firstEnd = execEndEvent({
       call_id: 'c1',
+      command: firstBegin.command,
+      cwd: firstBegin.cwd,
+      parsed_cmd: firstBegin.parsed_cmd,
       exit_code: 0,
       stdout: 'results...',
-      stderr: '',
       aggregated_output: 'results...',
       formatted_output: 'results...',
       duration: '10ms',
-    };
+    });
     state = applyEvent(controller, firstEnd, 'e2', 2);
 
     // begin #2 (read) - will fail
@@ -607,16 +655,17 @@ describe('exploration exec grouping', () => {
     state = applyEvent(controller, secondBegin, 'e3', 3);
 
     // end #2 - failure
-    const secondEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const secondEnd = execEndEvent({
       call_id: 'c2',
+      command: secondBegin.command,
+      cwd: secondBegin.cwd,
+      parsed_cmd: secondBegin.parsed_cmd,
       exit_code: 1,
-      stdout: '',
       stderr: 'file not found',
       aggregated_output: 'file not found',
       formatted_output: 'file not found',
       duration: '5ms',
-    };
+    });
     state = applyEvent(controller, secondEnd, 'e4', 4);
 
     // begin #3 (list_files) - will succeed
@@ -629,16 +678,17 @@ describe('exploration exec grouping', () => {
     state = applyEvent(controller, thirdBegin, 'e5', 5);
 
     // end #3 - success
-    const thirdEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const thirdEnd = execEndEvent({
       call_id: 'c3',
+      command: thirdBegin.command,
+      cwd: thirdBegin.cwd,
+      parsed_cmd: thirdBegin.parsed_cmd,
       exit_code: 0,
       stdout: 'src/foo.ts',
-      stderr: '',
       aggregated_output: 'src/foo.ts',
       formatted_output: 'src/foo.ts',
       duration: '3ms',
-    };
+    });
     state = applyEvent(controller, thirdEnd, 'e6', 6);
 
     expect(state.cells).toHaveLength(1);
@@ -665,16 +715,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, firstBegin, 'g1', 1);
 
-    const firstEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const firstEnd = execEndEvent({
       call_id: 'c1',
+      command: firstBegin.command,
+      cwd: firstBegin.cwd,
+      parsed_cmd: firstBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '4ms',
-    };
+    });
     state = applyEvent(controller, firstEnd, 'g2', 2);
 
     const headerOnlyReasoning: EventMsg = {
@@ -691,16 +739,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondBegin, 'g4', 4);
 
-    const secondEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const secondEnd = execEndEvent({
       call_id: 'c2',
+      command: secondBegin.command,
+      cwd: secondBegin.cwd,
+      parsed_cmd: secondBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '6ms',
-    };
+    });
     state = applyEvent(controller, secondEnd, 'g5', 5);
 
     expect(state.cells).toHaveLength(1);
@@ -732,16 +778,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, firstBegin, 'gd1', 1);
 
-    const firstEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const firstEnd = execEndEvent({
       call_id: 'c1',
+      command: firstBegin.command,
+      cwd: firstBegin.cwd,
+      parsed_cmd: firstBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '4ms',
-    };
+    });
     state = applyEvent(controller, firstEnd, 'gd2', 2);
 
     const completedReasoning: EventMsg = {
@@ -758,16 +802,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondBegin, 'gd4', 4);
 
-    const secondEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const secondEnd = execEndEvent({
       call_id: 'c2',
+      command: secondBegin.command,
+      cwd: secondBegin.cwd,
+      parsed_cmd: secondBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '6ms',
-    };
+    });
     state = applyEvent(controller, secondEnd, 'gd5', 5);
 
     const execCells = state.cells.filter(
@@ -794,16 +836,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, firstBegin, 'h1', 1);
 
-    const firstEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const firstEnd = execEndEvent({
       call_id: 'c1',
+      command: firstBegin.command,
+      cwd: firstBegin.cwd,
+      parsed_cmd: firstBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '4ms',
-    };
+    });
     state = applyEvent(controller, firstEnd, 'h2', 2);
 
     const secondBegin = execBeginEvent({
@@ -814,16 +854,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondBegin, 'h3', 3);
 
-    const secondEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const secondEnd = execEndEvent({
       call_id: 'c2',
+      command: secondBegin.command,
+      cwd: secondBegin.cwd,
+      parsed_cmd: secondBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '5ms',
-    };
+    });
     state = applyEvent(controller, secondEnd, 'h4', 4);
 
     const headerOnlyReasoning: EventMsg = {
@@ -840,16 +878,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, thirdBegin, 'h6', 6);
 
-    const thirdEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const thirdEnd = execEndEvent({
       call_id: 'c3',
+      command: thirdBegin.command,
+      cwd: thirdBegin.cwd,
+      parsed_cmd: thirdBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '7ms',
-    };
+    });
     state = applyEvent(controller, thirdEnd, 'h7', 7);
 
     state = applyEvent(
@@ -867,16 +903,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, fourthBegin, 'h9', 10);
 
-    const fourthEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const fourthEnd = execEndEvent({
       call_id: 'c4',
+      command: fourthBegin.command,
+      cwd: fourthBegin.cwd,
+      parsed_cmd: fourthBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '6ms',
-    };
+    });
     state = applyEvent(controller, fourthEnd, 'h10', 11);
 
     expect(state.cells).toHaveLength(3);
@@ -904,16 +938,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, firstBegin, 'm1', 1);
 
-    const firstEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const firstEnd = execEndEvent({
       call_id: 'c1',
+      command: firstBegin.command,
+      cwd: firstBegin.cwd,
+      parsed_cmd: firstBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '5ms',
-    };
+    });
     state = applyEvent(controller, firstEnd, 'm2', 2);
 
     state = applyEvent(
@@ -931,16 +963,14 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondBegin, 'm4', 5);
 
-    const secondEnd: ExecEndEvent = {
-      type: 'exec_command_end',
+    const secondEnd = execEndEvent({
       call_id: 'c2',
+      command: secondBegin.command,
+      cwd: secondBegin.cwd,
+      parsed_cmd: secondBegin.parsed_cmd,
       exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
       duration: '6ms',
-    };
+    });
     state = applyEvent(controller, secondEnd, 'm5', 6);
 
     const execCells = state.cells
@@ -967,16 +997,15 @@ describe('exploration exec grouping', () => {
         parsed_cmd: [readCommand(path)],
       });
 
-    const makeEnd = (id: string): ExecEndEvent => ({
-      type: 'exec_command_end',
-      call_id: id,
-      exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
-      duration: '5ms',
-    });
+    const makeEnd = (id: string): ExecEndEvent =>
+      execEndEvent({
+        call_id: id,
+        command: ['read', 'placeholder'],
+        cwd: '/w',
+        parsed_cmd: [],
+        exit_code: 0,
+        duration: '5ms',
+      });
 
     state = applyEvent(controller, makeBegin('c1', 'package.json'), 'p1', 1);
     state = applyEvent(controller, makeEnd('c1'), 'p2', 2);
@@ -1034,16 +1063,15 @@ describe('exploration exec grouping', () => {
         parsed_cmd: [readCommand(path)],
       });
 
-    const end = (id: string): ExecEndEvent => ({
-      type: 'exec_command_end',
-      call_id: id,
-      exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
-      duration: '4ms',
-    });
+    const end = (id: string): ExecEndEvent =>
+      execEndEvent({
+        call_id: id,
+        command: ['read', 'placeholder'],
+        cwd: '/w',
+        parsed_cmd: [],
+        exit_code: 0,
+        duration: '4ms',
+      });
 
     // Seed an agent message cell so later deltas update in place.
     state = applyEvent(
@@ -1096,16 +1124,15 @@ describe('exploration exec grouping', () => {
         parsed_cmd: [readCommand(path)],
       });
 
-    const end = (id: string): ExecEndEvent => ({
-      type: 'exec_command_end',
-      call_id: id,
-      exit_code: 0,
-      stdout: '',
-      stderr: '',
-      aggregated_output: '',
-      formatted_output: '',
-      duration: '5ms',
-    });
+    const end = (id: string): ExecEndEvent =>
+      execEndEvent({
+        call_id: id,
+        command: ['read', 'placeholder'],
+        cwd: '/w',
+        parsed_cmd: [],
+        exit_code: 0,
+        duration: '5ms',
+      });
 
     // Seed an existing task cell that future task completions will update.
     state = applyEvent(

@@ -28,29 +28,34 @@ const describeFileChange = (path: string, change: FileChange | undefined) => {
     };
   }
 
-  if ('add' in change) {
-    return {
-      label: 'added',
-      description: 'New file',
-      diff: change.add.content,
-    };
+  switch (change.type) {
+    case 'add':
+      return {
+        label: 'added',
+        description: 'New file',
+        diff: change.content,
+      };
+    case 'delete':
+      return {
+        label: 'deleted',
+        description: 'File removed',
+        diff: change.content,
+      };
+    case 'update':
+      return {
+        label: 'updated',
+        description: change.move_path
+          ? `Moved to ${change.move_path}`
+          : 'File updated',
+        diff: change.unified_diff,
+      };
+    default:
+      return {
+        label: 'modified',
+        description: 'Unknown change',
+        diff: null,
+      };
   }
-
-  if ('delete' in change) {
-    return {
-      label: 'deleted',
-      description: 'File removed',
-      diff: change.delete.content,
-    };
-  }
-
-  return {
-    label: 'updated',
-    description: change.update.move_path
-      ? `Moved to ${change.update.move_path}`
-      : 'File updated',
-    diff: change.update.unified_diff,
-  };
 };
 
 const FileChangeItem = ({

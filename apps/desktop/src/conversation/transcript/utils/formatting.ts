@@ -39,7 +39,7 @@ export const formatAgentMessageContent = (
 ): string =>
   joinSegments(
     content
-      .map((entry) => ('Text' in entry ? entry.Text.text : ''))
+      .map((entry) => (entry.type === 'Text' ? entry.text : ''))
       .filter((segment) => segment.length > 0)
   );
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
+import type { ParsedCommand } from '~/codex.gen/ParsedCommand';
 
 import { mapConversationEventToApprovalRequest } from '../event-utils';
 
@@ -23,7 +24,8 @@ describe('mapConversationEventToApprovalRequest', () => {
       cwd: '/tmp',
       reason: 'Need to inspect files',
       risk: null,
-      parsed_cmd: [],
+      parsed_cmd: [] satisfies ParsedCommand[],
+      turn_id: 'turn-1',
     });
 
     expect(mapConversationEventToApprovalRequest(payload)).toEqual({
@@ -43,7 +45,9 @@ describe('mapConversationEventToApprovalRequest', () => {
       call_id: 'call-2',
       changes: {
         'file.ts': {
-          update: { unified_diff: '--- a\n+++ b', move_path: null },
+          type: 'update',
+          unified_diff: '--- a\n+++ b',
+          move_path: null,
         },
       },
       reason: null,
@@ -57,7 +61,9 @@ describe('mapConversationEventToApprovalRequest', () => {
       callId: 'call-2',
       fileChanges: {
         'file.ts': {
-          update: { unified_diff: '--- a\n+++ b', move_path: null },
+          type: 'update',
+          unified_diff: '--- a\n+++ b',
+          move_path: null,
         },
       },
       reason: null,
@@ -74,7 +80,8 @@ describe('mapConversationEventToApprovalRequest', () => {
         cwd: '.',
         reason: null,
         risk: null,
-        parsed_cmd: [],
+        parsed_cmd: [] satisfies ParsedCommand[],
+        turn_id: 'turn-1',
       },
       { eventId: 'initial::0' }
     );

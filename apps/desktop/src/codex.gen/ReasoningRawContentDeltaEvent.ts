@@ -6,4 +6,5 @@ export type ReasoningRawContentDeltaEvent = {
   turn_id: string;
   item_id: string;
   delta: string;
+  content_index: bigint;
 };

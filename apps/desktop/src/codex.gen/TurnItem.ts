@@ -6,7 +6,7 @@ import type { UserMessageItem } from './UserMessageItem';
 import type { WebSearchItem } from './WebSearchItem';
 
 export type TurnItem =
-  | { UserMessage: UserMessageItem }
-  | { AgentMessage: AgentMessageItem }
-  | { Reasoning: ReasoningItem }
-  | { WebSearch: WebSearchItem };
+  | ({ type: 'UserMessage' } & UserMessageItem)
+  | ({ type: 'AgentMessage' } & AgentMessageItem)
+  | ({ type: 'Reasoning' } & ReasoningItem)
+  | ({ type: 'WebSearch' } & WebSearchItem);

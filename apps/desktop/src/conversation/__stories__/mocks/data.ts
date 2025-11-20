@@ -157,12 +157,11 @@ const patchApprovalCell = (
   grantRoot: null,
   changes: {
     'src/review/TurnReviewContext.tsx': {
-      update: {
-        unified_diff:
-          "--- a/src/review/TurnReviewContext.tsx\n+++ b/src/review/TurnReviewContext.tsx\n@@ -45,6 +45,14 @@ export const TurnReviewProvider: ParentComponent<TurnReviewProviderProps> = (\n   const [snapshotMetadata, setSnapshotMetadata] =\n     createSignal<TurnSnapshotMetadata | null>(null);\n \n+  // Re-query snapshot metadata when history grows\n+  createEffect(() => {\n+    const h = props.history;\n+    if (h.length > 0) {\n+      void loadSnapshotMetadata();\n+    }\n+  });\n+\n   const loadSnapshotMetadata = async () => {\n     try {\n       const metadata = await getDiffSnapshotMetadata(\n@@ -89,7 +97,7 @@ export const TurnReviewProvider: ParentComponent<TurnReviewProviderProps> = (\n       const rangeKey = `${base}-${rightTurn()}`;\n \n       // Check if we already have this diff cached\n-      if (diffCache[rangeKey]) {\n+      if (diffCache[rangeKey] && base !== 'workspace start') {\n         return;\n       }\n \n",
-        move_path: null,
-      },
-    } as FileChange,
+      type: 'update',
+      unified_diff:
+        "--- a/src/review/TurnReviewContext.tsx\n+++ b/src/review/TurnReviewContext.tsx\n@@ -45,6 +45,14 @@ export const TurnReviewProvider: ParentComponent<TurnReviewProviderProps> = (\n   const [snapshotMetadata, setSnapshotMetadata] =\n     createSignal<TurnSnapshotMetadata | null>(null);\n \n+  // Re-query snapshot metadata when history grows\n+  createEffect(() => {\n+    const h = props.history;\n+    if (h.length > 0) {\n+      void loadSnapshotMetadata();\n+    }\n+  });\n+\n   const loadSnapshotMetadata = async () => {\n     try {\n       const metadata = await getDiffSnapshotMetadata(\n@@ -89,7 +97,7 @@ export const TurnReviewProvider: ParentComponent<TurnReviewProviderProps> = (\n       const rangeKey = `${base}-${rightTurn()}`;\n \n       // Check if we already have this diff cached\n-      if (diffCache[rangeKey]) {\n+      if (diffCache[rangeKey] && base !== 'workspace start') {\n         return;\n       }\n \n",
+      move_path: null,
+    } satisfies FileChange,
   },
   decision: 'pending',
   ...overrides,
@@ -394,11 +393,10 @@ export const samplePatchApprovalRequest: MockPatchApprovalRequest = {
   callId: 'call-fix-cumulative-diff',
   fileChanges: {
     'src/review/TurnReviewContext.tsx': {
-      update: {
-        unified_diff:
-          "--- a/src/review/TurnReviewContext.tsx\n+++ b/src/review/TurnReviewContext.tsx\n@@ -45,6 +45,14 @@ export const TurnReviewProvider: ParentComponent<TurnReviewProviderProps> = (\n   const [snapshotMetadata, setSnapshotMetadata] =\n     createSignal<TurnSnapshotMetadata | null>(null);\n \n+  // Re-query snapshot metadata when history grows\n+  createEffect(() => {\n+    const h = props.history;\n+    if (h.length > 0) {\n+      void loadSnapshotMetadata();\n+    }\n+  });\n+\n   const loadSnapshotMetadata = async () => {\n     try {\n       const metadata = await getDiffSnapshotMetadata(\n@@ -89,7 +97,7 @@ export const TurnReviewProvider: ParentComponent<TurnReviewProviderProps> = (\n       const rangeKey = `${base}-${rightTurn()}`;\n \n       // Check if we already have this diff cached\n-      if (diffCache[rangeKey]) {\n+      if (diffCache[rangeKey] && base !== 'workspace start') {\n         return;\n       }\n \n",
-        move_path: null,
-      },
+      type: 'update',
+      unified_diff:
+        "--- a/src/review/TurnReviewContext.tsx\n+++ b/src/review/TurnReviewContext.tsx\n@@ -45,6 +45,14 @@ export const TurnReviewProvider: ParentComponent<TurnReviewProviderProps> = (\n   const [snapshotMetadata, setSnapshotMetadata] =\n     createSignal<TurnSnapshotMetadata | null>(null);\n \n+  // Re-query snapshot metadata when history grows\n+  createEffect(() => {\n+    const h = props.history;\n+    if (h.length > 0) {\n+      void loadSnapshotMetadata();\n+    }\n+  });\n+\n   const loadSnapshotMetadata = async () => {\n     try {\n       const metadata = await getDiffSnapshotMetadata(\n@@ -89,7 +97,7 @@ export const TurnReviewProvider: ParentComponent<TurnReviewProviderProps> = (\n       const rangeKey = `${base}-${rightTurn()}`;\n \n       // Check if we already have this diff cached\n-      if (diffCache[rangeKey]) {\n+      if (diffCache[rangeKey] && base !== 'workspace start') {\n         return;\n       }\n \n",
+      move_path: null,
     },
   },
   reason: 'Update TurnReviewContext to fix cumulative diff calculation',
