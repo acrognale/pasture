@@ -29,6 +29,10 @@ export const setupConversationTest = (
     sessionConfigured: {
       session_id: conversationId,
       model: 'gpt-5-codex',
+      model_provider_id: 'openai',
+      approval_policy: 'on-request',
+      sandbox_policy: { type: 'danger-full-access' },
+      cwd: WORKSPACE,
       reasoning_effort: null,
       history_log_id: BigInt(0),
       history_entry_count: 0,

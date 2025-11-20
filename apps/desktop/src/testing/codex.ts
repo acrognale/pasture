@@ -71,6 +71,10 @@ const createDefaultInterruptResponse = (): InterruptConversationResponse => ({
 const createDefaultSessionConfiguredEvent = (): SessionConfiguredEvent => ({
   session_id: 'mock-conversation',
   model: 'gpt-5-codex',
+  model_provider_id: 'openai',
+  approval_policy: 'on-request',
+  sandbox_policy: { type: 'danger-full-access' },
+  cwd: '/tmp',
   reasoning_effort: null,
   history_log_id: BigInt(0),
   history_entry_count: 0,
