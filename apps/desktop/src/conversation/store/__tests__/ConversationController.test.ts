@@ -83,7 +83,7 @@ describe('ConversationReducer fixtures', () => {
     const store = createConversationStore();
     store.getState().ingestEvent({
       conversationId: 'conversation',
-      eventId: 'session',
+      turnId: 'session',
       event: {
         type: 'session_configured',
         session_id: 'conversation',
@@ -102,19 +102,19 @@ describe('ConversationReducer fixtures', () => {
     });
     store.getState().ingestEvent({
       conversationId: 'conversation',
-      eventId: 'delta-1',
+      turnId: 'turn-1',
       event: { type: 'agent_reasoning_delta', delta: 'Outlining approach' },
       timestamp: new Date().toISOString(),
     });
     store.getState().ingestEvent({
       conversationId: 'conversation',
-      eventId: 'delta-2',
+      turnId: 'turn-1',
       event: { type: 'agent_reasoning_delta', delta: ' and next steps' },
       timestamp: new Date().toISOString(),
     });
     store.getState().ingestEvent({
       conversationId: 'conversation',
-      eventId: 'final',
+      turnId: 'turn-1',
       event: { type: 'agent_reasoning', text: '' },
       timestamp: new Date().toISOString(),
     });

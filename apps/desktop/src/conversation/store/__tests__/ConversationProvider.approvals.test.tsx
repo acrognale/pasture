@@ -36,7 +36,7 @@ vi.mock('~/codex/events', () => {
     ensureTauriEnvironment: () => undefined,
     createOptimisticUserEvent: (conversationId: string, text: string) => ({
       conversationId,
-      eventId: `optimistic-${Date.now()}`,
+      turnId: `optimistic-${Date.now()}`,
       event: { type: 'user_message', message: text, images: null } as EventMsg,
       timestamp: new Date().toISOString(),
     }),
@@ -103,7 +103,7 @@ describe('ConversationProvider approvals', () => {
       kind: 'conversation-event',
       payload: {
         conversationId: 'conversation',
-        eventId: 'evt-1',
+        turnId: 'evt-1',
         event: {
           type: 'exec_approval_request',
           call_id: 'call-1',
@@ -125,7 +125,7 @@ describe('ConversationProvider approvals', () => {
     const approvals = approvalsProbe.store?.getState();
     expect(approvals?.activeRequest).toMatchObject({
       kind: 'exec',
-      eventId: 'evt-1',
+      turnId: 'evt-1',
       conversationId: 'conversation',
       callId: 'call-1',
       command: ['bash', '-lc', 'ls'],
@@ -142,7 +142,7 @@ describe('ConversationProvider approvals', () => {
         kind: 'conversation-event',
         payload: {
           conversationId: 'conversation',
-          eventId: 'evt-1',
+          turnId: 'evt-1',
           event: {
             type: 'exec_approval_request',
             call_id: 'call-1',
@@ -160,7 +160,7 @@ describe('ConversationProvider approvals', () => {
         kind: 'conversation-event',
         payload: {
           conversationId: 'conversation',
-          eventId: 'evt-2',
+          turnId: 'evt-2',
           event: {
             type: 'apply_patch_approval_request',
             call_id: 'call-2',
@@ -184,7 +184,7 @@ describe('ConversationProvider approvals', () => {
     expect(approvals?.queue).toHaveLength(1);
     expect(approvals?.queue[0]).toMatchObject({
       kind: 'patch',
-      eventId: 'evt-2',
+      turnId: 'evt-2',
       callId: 'call-2',
     });
   });

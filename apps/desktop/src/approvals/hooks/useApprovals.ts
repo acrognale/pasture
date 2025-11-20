@@ -17,11 +17,11 @@ export const useApprovals = () => {
   );
 
   useEffect(() => {
-    if (!activeRequest || activeRequest.eventId === lastNotifiedId) {
+    if (!activeRequest || activeRequest.turnId === lastNotifiedId) {
       return;
     }
 
-    approvalsStore.getState().markNotified(activeRequest.eventId);
+    approvalsStore.getState().markNotified(activeRequest.turnId);
 
     if (activeRequest.kind === 'exec') {
       const command =

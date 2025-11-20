@@ -8,7 +8,7 @@ import {
 } from './config';
 
 export type ReplayEvent = {
-  eventId: string;
+  turnId: string;
   event: EventMsg;
   timestamp?: string;
 };
@@ -35,9 +35,14 @@ export function parseJsonl(jsonl: string): ReplayEvent[] {
 
   for (const line of lines) {
     try {
-      const parsed = JSON.parse(line) as ReplayEvent;
-      if (parsed.event && parsed.eventId) {
-        events.push(parsed);
+      const parsed = JSON.parse(line) as ReplayEvent & { eventId?: string };
+      const turnId = parsed.turnId ?? parsed.eventId;
+      if (parsed.event && turnId) {
+        events.push({
+          turnId,
+          event: parsed.event,
+          timestamp: parsed.timestamp,
+        });
       }
     } catch (error) {
       console.warn('Failed to parse JSONL line:', line, error);
@@ -83,7 +88,7 @@ export function replayEvents(
     try {
       const payload: ConversationEventPayload = {
         conversationId,
-        eventId: replayEvent.eventId,
+        turnId: replayEvent.turnId,
         event: replayEvent.event,
         timestamp: replayEvent.timestamp ?? new Date().toISOString(),
       };

@@ -130,7 +130,7 @@ export const WorkspaceProvider = ({
         events.forEach((event, index) => {
           store.getState().ingestEvent({
             conversationId,
-            eventId: `initial::${conversationId}::${index}`,
+            turnId: `initial::${conversationId}::${index}`,
             event,
             timestamp: new Date().toISOString(),
           });

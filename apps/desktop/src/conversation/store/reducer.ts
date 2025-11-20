@@ -1198,7 +1198,8 @@ function applyConversationEvent(
   payload: ConversationEventPayload,
   context: EventApplicationContext
 ) {
-  const { event, eventId, conversationId } = payload;
+  const { event, conversationId, turnId } = payload;
+  const eventId = turnId;
   const timestamp = now();
   const ingestOnDraft = (nextPayload: ConversationEventPayload) => {
     if (import.meta.env.DEV) {

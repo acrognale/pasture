@@ -20,7 +20,9 @@ export const loadFixtureEvents = (name: string): ConversationEventPayload[] => {
         timestamp?: string;
       };
       return {
-        ...parsed,
+        conversationId: parsed.conversationId,
+        turnId: parsed.turnId,
+        event: parsed.event,
         timestamp: parsed.timestamp ?? new Date().toISOString(),
       } satisfies ConversationEventPayload;
     });

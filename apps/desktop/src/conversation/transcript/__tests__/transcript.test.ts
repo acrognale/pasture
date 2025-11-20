@@ -179,7 +179,7 @@ const applyEvent = (
 
   controller.ingest({
     conversationId: TEST_CONVERSATION_ID,
-    eventId,
+    turnId: eventId,
     event,
     timestamp,
   });

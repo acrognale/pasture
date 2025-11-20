@@ -19,7 +19,7 @@ export const createOptimisticUserEvent = (
   timestamp = new Date().toISOString()
 ): ConversationEventPayload => ({
   conversationId,
-  eventId: `optimistic-${timestamp}`,
+  turnId: `optimistic-${timestamp}`,
   event: {
     type: 'user_message',
     message: text,

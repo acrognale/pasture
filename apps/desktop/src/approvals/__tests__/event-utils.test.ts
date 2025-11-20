@@ -9,7 +9,7 @@ const basePayload = (
   overrides?: Partial<ConversationEventPayload>
 ): ConversationEventPayload => ({
   conversationId: 'conversation',
-  eventId: 'event-1',
+  turnId: 'turn-1',
   timestamp: new Date().toISOString(),
   ...overrides,
   event,
@@ -30,7 +30,7 @@ describe('mapConversationEventToApprovalRequest', () => {
 
     expect(mapConversationEventToApprovalRequest(payload)).toEqual({
       kind: 'exec',
-      eventId: 'event-1',
+      turnId: 'turn-1',
       conversationId: 'conversation',
       callId: 'call-1',
       command: ['bash', '-lc', 'ls'],
@@ -56,7 +56,7 @@ describe('mapConversationEventToApprovalRequest', () => {
 
     expect(mapConversationEventToApprovalRequest(payload)).toEqual({
       kind: 'patch',
-      eventId: 'event-1',
+      turnId: 'turn-1',
       conversationId: 'conversation',
       callId: 'call-2',
       fileChanges: {
@@ -83,7 +83,7 @@ describe('mapConversationEventToApprovalRequest', () => {
         parsed_cmd: [] satisfies ParsedCommand[],
         turn_id: 'turn-1',
       },
-      { eventId: 'initial::0' }
+      { turnId: 'initial::0' }
     );
 
     expect(mapConversationEventToApprovalRequest(payload)).toBeNull();

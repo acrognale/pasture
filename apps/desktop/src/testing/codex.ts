@@ -205,11 +205,11 @@ export const mockCodex = {
 
 type ConversationEmitOptions = {
   conversationId?: string;
-  eventId?: string;
+  turnId?: string;
 };
 
-const generateEventId = (eventType: string) =>
-  `mock-event::${eventType}::${Date.now()}`;
+const generateTurnId = (eventType: string) =>
+  `mock-turn::${eventType}::${Date.now()}`;
 
 export const mockEvents = {
   emit(event: CodexEvent) {
@@ -226,7 +226,7 @@ export const mockEvents = {
 
     const payload: ConversationEventPayload = {
       conversationId,
-      eventId: options.eventId ?? generateEventId(event.type),
+      turnId: options.turnId ?? generateTurnId(event.type),
       event,
       timestamp: new Date().toISOString(),
     };
