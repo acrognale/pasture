@@ -39,10 +39,10 @@ ts-rs = { version = "11", features = ["serde-json-impl"] }
 urlencoding = "2"
 
 # Codex dependencies
-codex-core = { git = "https://github.com/openai/codex.git", tag = "rust-v0.58.0" }
-codex-protocol = { git = "https://github.com/openai/codex.git", tag = "rust-v0.58.0" }
-codex-apply-patch = { git = "https://github.com/openai/codex.git", tag = "rust-v0.58.0" }
-codex-git = { git = "https://github.com/openai/codex.git", tag = "rust-v0.58.0" }
+codex-core = { git = "https://github.com/openai/codex.git", tag = "rust-v0.61.0" }
+codex-protocol = { git = "https://github.com/openai/codex.git", tag = "rust-v0.61.0" }
+codex-apply-patch = { git = "https://github.com/openai/codex.git", tag = "rust-v0.61.0" }
+codex-git = { git = "https://github.com/openai/codex.git", tag = "rust-v0.61.0" }
 
 [[bin]]
 name = "app"

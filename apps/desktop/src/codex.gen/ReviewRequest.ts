@@ -4,4 +4,8 @@
 /**
  * Review request sent to the review session.
  */
-export type ReviewRequest = { prompt: string; user_facing_hint: string };
+export type ReviewRequest = {
+  prompt: string;
+  user_facing_hint: string;
+  append_to_original_thread: boolean;
+};

@@ -21,11 +21,16 @@ import {
 import { type ComposerTurnConfig, createDefaultComposerConfig } from '../types';
 import { SettingsPopover } from './SettingsPopover';
 
-export type ModelName = 'gpt-5.1' | 'gpt-5.1-codex' | 'gpt-5.1-codex-mini';
+export type ModelName =
+  | 'gpt-5.1'
+  | 'gpt-5.1-codex'
+  | 'gpt-5.1-codex-max'
+  | 'gpt-5.1-codex-mini';
 
 const MODEL_DISPLAY_NAMES: Record<ModelName, string> = {
   'gpt-5.1': 'GPT-5.1',
   'gpt-5.1-codex': 'GPT-5.1 Codex',
+  'gpt-5.1-codex-max': 'GPT-5.1 Codex Max',
   'gpt-5.1-codex-mini': 'GPT-5.1 Codex Mini',
 };
 
@@ -35,6 +40,7 @@ export const REASONING_EFFORT_OPTIONS: readonly ReasoningEffort[] = [
   'low',
   'medium',
   'high',
+  'xhigh',
 ] as const;
 
 export const REASONING_EFFORT_DISPLAY: Record<ReasoningEffort, string> = {
@@ -43,9 +49,13 @@ export const REASONING_EFFORT_DISPLAY: Record<ReasoningEffort, string> = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
+  xhigh: 'Extra high',
 };
 
 const getAvailableReasoningEfforts = (model: ModelName): ReasoningEffort[] => {
+  if (model === 'gpt-5.1-codex-max') {
+    return ['low', 'medium', 'high', 'xhigh'];
+  }
   if (model === 'gpt-5.1-codex') {
     return ['low', 'medium', 'high'];
   }
@@ -121,6 +131,7 @@ export interface ModelConfigSelectorProps {
 const isModelName = (value: string | null | undefined): value is ModelName =>
   value === 'gpt-5.1' ||
   value === 'gpt-5.1-codex' ||
+  value === 'gpt-5.1-codex-max' ||
   value === 'gpt-5.1-codex-mini';
 
 const isSandboxMode = (
@@ -154,7 +165,7 @@ export function ModelConfigSelector({
     if (isModelName(current)) {
       return current;
     }
-    return 'gpt-5.1-codex';
+    return 'gpt-5.1-codex-max';
   }, [composerConfig.model]);
 
   const availableReasoningEfforts = useMemo(

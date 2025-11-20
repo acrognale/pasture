@@ -22,6 +22,8 @@ import type { ItemCompletedEvent } from './ItemCompletedEvent';
 import type { ItemStartedEvent } from './ItemStartedEvent';
 import type { ListCustomPromptsResponseEvent } from './ListCustomPromptsResponseEvent';
 import type { McpListToolsResponseEvent } from './McpListToolsResponseEvent';
+import type { McpStartupCompleteEvent } from './McpStartupCompleteEvent';
+import type { McpStartupUpdateEvent } from './McpStartupUpdateEvent';
 import type { McpToolCallBeginEvent } from './McpToolCallBeginEvent';
 import type { McpToolCallEndEvent } from './McpToolCallEndEvent';
 import type { PatchApplyBeginEvent } from './PatchApplyBeginEvent';
@@ -69,6 +71,8 @@ export type EventMsg =
       type: 'agent_reasoning_section_break';
     } & AgentReasoningSectionBreakEvent)
   | ({ type: 'session_configured' } & SessionConfiguredEvent)
+  | ({ type: 'mcp_startup_update' } & McpStartupUpdateEvent)
+  | ({ type: 'mcp_startup_complete' } & McpStartupCompleteEvent)
   | ({ type: 'mcp_tool_call_begin' } & McpToolCallBeginEvent)
   | ({ type: 'mcp_tool_call_end' } & McpToolCallEndEvent)
   | ({ type: 'web_search_begin' } & WebSearchBeginEvent)

@@ -42,4 +42,5 @@ export type ResponseItem =
   | { type: 'custom_tool_call_output'; call_id: string; output: string }
   | { type: 'web_search_call'; status?: string; action: WebSearchAction }
   | { type: 'ghost_snapshot'; ghost_commit: GhostCommit }
+  | { type: 'compaction_summary'; encrypted_content: string }
   | { type: 'other' };
