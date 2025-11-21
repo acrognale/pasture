@@ -10,6 +10,9 @@ import {
   sampleTranscript,
 } from './mocks/data';
 import { mockCodexControls, sampleConversationId } from './mocks/state';
+import { createInitialTranscriptState } from '~/conversation/transcript/state';
+import { flattenTranscript } from '~/conversation/transcript/view';
+import type { TranscriptCell } from '~/conversation/transcript/types';
 
 const viewportDecorator = (Story: () => JSX.Element) => (
   <div
@@ -91,10 +94,7 @@ export const EmptyTranscript: Story = {
   loaders: [
     () => {
       setupBaseState();
-      mockCodexControls.setTranscript({
-        ...sampleTranscript,
-        cells: [],
-      });
+      mockCodexControls.setTranscript(createInitialTranscriptState());
       return {};
     },
   ],
@@ -104,15 +104,18 @@ export const LongTranscript: Story = {
   loaders: [
     () => {
       setupBaseState();
+      const baseCells = flattenTranscript(sampleTranscript).map(
+        (entry) => entry.cell
+      );
       const longCells = Array.from({ length: 8 }).flatMap((_value, index) => [
         {
-          ...sampleTranscript.cells[0],
+          ...(baseCells[0] as TranscriptCell),
           id: `user-${index}`,
           message: `Question ${index + 1}: How does the renderer handle case ${index}?`,
           timestamp: new Date(Date.now() - (index + 1) * 60000).toISOString(),
         },
         {
-          ...sampleTranscript.cells[2],
+          ...(baseCells[2] as TranscriptCell),
           id: `reasoning-${index}`,
           text: `Analyzing case ${index + 1}.\n\n${'Details...\n'.repeat(
             (index % 3) + 1
@@ -122,7 +125,7 @@ export const LongTranscript: Story = {
           ).toISOString(),
         },
         {
-          ...sampleTranscript.cells[8],
+          ...(baseCells[8] as TranscriptCell),
           id: `agent-${index}`,
           message: `Summary for case ${index + 1} with actionable next steps.`,
           timestamp: new Date(
@@ -133,7 +136,14 @@ export const LongTranscript: Story = {
 
       mockCodexControls.setTranscript({
         ...sampleTranscript,
-        cells: longCells as typeof sampleTranscript.cells,
+        turns: {
+          'turn-1': {
+            ...sampleTranscript.turns['turn-1'],
+            cells: longCells as TranscriptCell[],
+          },
+        },
+        turnOrder: ['turn-1'],
+        turnCounter: 1,
       });
 
       return {};

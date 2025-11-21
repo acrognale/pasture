@@ -128,9 +128,13 @@ export const WorkspaceProvider = ({
         // initializeConversation is the sole source of historical events; the live stream starts
         // after the session is configured, so we must ingest the returned messages here.
         events.forEach((event, index) => {
+          const turnId =
+            'turn_id' in event && typeof event.turn_id === 'string'
+              ? event.turn_id
+              : `initial::${conversationId}::${index}`;
           store.getState().ingestEvent({
             conversationId,
-            turnId: `initial::${conversationId}::${index}`,
+            turnId,
             event,
             timestamp: new Date().toISOString(),
           });

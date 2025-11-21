@@ -10,13 +10,16 @@ import type {
   TranscriptExplorationCall,
   TranscriptUserMessageCell,
 } from '~/conversation/transcript/types';
-import { buildTranscriptView } from '~/conversation/transcript/view';
+import { flattenTranscript } from '~/conversation/transcript/view';
 
 import type { ConversationControllerState } from '../reducer';
 import { createConversationStore } from '../store';
 
+const getCells = (state: ConversationControllerState) =>
+  flattenTranscript(state.conversation.transcript).map((entry) => entry.cell);
+
 const getUserMessages = (state: ConversationControllerState) =>
-  state.conversation.transcript.cells.filter(
+  getCells(state).filter(
     (cell): cell is TranscriptUserMessageCell => cell.kind === 'user-message'
   );
 
@@ -47,7 +50,7 @@ describe('ConversationReducer fixtures', () => {
     expect(userMessages).toHaveLength(1);
     expect(userMessages[0]?.message).toBe('explore the code');
 
-    const { cells } = state.conversation.transcript;
+    const cells = getCells(state);
     expect(cells).toHaveLength(4);
 
     const execCell = cells.find(
@@ -68,15 +71,6 @@ describe('ConversationReducer fixtures', () => {
     expect(agentCell?.message).toContain('factorial3.py');
     expect(agentCell?.message).toContain('hello.py');
     expect(agentCell?.message).toContain('foobar.py');
-
-    const entries = buildTranscriptView(cells);
-    expect(entries[0]).toEqual({ type: 'cell', index: 0 });
-    expect(entries[1]).toMatchObject({
-      type: 'collapsed-turn',
-      userIndex: 0,
-      finalAgentIndex: 2,
-    });
-    expect(entries[2]).toEqual({ type: 'cell', index: 3 });
   });
 
   it('emits reasoning text when agent_reasoning arrives with empty body', () => {
@@ -119,11 +113,9 @@ describe('ConversationReducer fixtures', () => {
       timestamp: new Date().toISOString(),
     });
 
-    const reasoningCell = store
-      .getState()
-      .conversation.transcript.cells.find(
-        (cell) => cell.kind === 'agent-reasoning'
-      );
+    const reasoningCell = getCells(store.getState()).find(
+      (cell) => cell.kind === 'agent-reasoning'
+    );
     expect(reasoningCell).toBeDefined();
     expect(
       reasoningCell && 'text' in reasoningCell ? reasoningCell.text : ''
@@ -150,12 +142,10 @@ describe('ConversationReducer fixtures', () => {
     const events = loadFixtureEvents('reasoning-cells.jsonl');
     events.forEach((payload) => store.getState().ingestEvent(payload));
 
-    const reasoningCells = store
-      .getState()
-      .conversation.transcript.cells.filter(
-        (cell): cell is TranscriptAgentReasoningCell =>
-          cell.kind === 'agent-reasoning'
-      );
+    const reasoningCells = getCells(store.getState()).filter(
+      (cell): cell is TranscriptAgentReasoningCell =>
+        cell.kind === 'agent-reasoning'
+    );
     expect(reasoningCells.length).toBeGreaterThan(0);
     expect(reasoningCells.some((cell) => cell.visible)).toBe(true);
     expect(reasoningCells.some((cell) => cell.text.length > 0)).toBe(true);
@@ -163,13 +153,12 @@ describe('ConversationReducer fixtures', () => {
 
   it('replays resumed conversations without overwriting earlier user messages', () => {
     const state = buildControllerFromFixture('resume.jsonl');
-    const userMessages = state.conversation.transcript.cells.filter(
+    const flattened = getCells(state);
+    const userMessages = flattened.filter(
       (cell): cell is TranscriptUserMessageCell => cell.kind === 'user-message'
     );
     expect(userMessages.map((cell) => cell.message)).toEqual(['hello', 'test']);
-    const agentMessages = state.conversation.transcript.cells.filter(
-      (cell) => cell.kind === 'agent-message'
-    );
+    const agentMessages = flattened.filter((cell) => cell.kind === 'agent-message');
     expect(agentMessages.map((cell) => cell.message)).toEqual([
       'Hi! How can I help you today?',
       'What would you like me to help you test?',

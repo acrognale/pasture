@@ -1,11 +1,16 @@
-export type Indices = {
-  itemById: Record<string, number>;
-  execByCallId: Record<string, number>;
-  toolByTypeAndCallId: Record<string, number>;
-  patchByCallId: Record<string, number>;
+export type CellLocation = {
+  turnId: string;
+  cellIndex: number;
 };
 
-const createIndex = () => Object.create(null) as Record<string, number>;
+export type Indices = {
+  itemById: Record<string, CellLocation>;
+  execByCallId: Record<string, CellLocation>;
+  toolByTypeAndCallId: Record<string, CellLocation>;
+  patchByCallId: Record<string, CellLocation>;
+};
+
+const createIndex = () => Object.create(null) as Record<string, CellLocation>;
 
 export const emptyIndices = (): Indices => ({
   itemById: createIndex(),

@@ -1,114 +1,79 @@
 import { describe, expect, it } from 'vitest';
 
-import type {
-  TranscriptAgentMessageCell,
-  TranscriptAgentReasoningCell,
-  TranscriptPlanCell,
-  TranscriptStatusCell,
-  TranscriptUserMessageCell,
-} from '../types';
-import { buildTranscriptView } from '../view';
+import { createInitialTranscriptState } from '../state';
+import type { TranscriptState } from '../types';
+import { countTranscriptCells, flattenTranscript } from '../view';
 
 const baseTimestamp = '2024-07-01T12:00:00.000Z';
 
-const userCell = (): TranscriptUserMessageCell => ({
-  id: 'evt-user',
-  kind: 'user-message' as const,
-  timestamp: baseTimestamp,
-  eventIds: ['evt-user'],
-  message: 'Summarize the latest changes.',
-  messageKind: 'plain',
-  images: null,
-  itemId: null,
+const createTranscript = (): TranscriptState => ({
+  ...createInitialTranscriptState(),
+  turns: {
+    'turn-1': {
+      id: 'turn-1',
+      cells: [
+        {
+          id: 'evt-user',
+          kind: 'user-message',
+          timestamp: baseTimestamp,
+          eventIds: ['evt-user'],
+          message: 'Summarize the latest changes.',
+          messageKind: 'plain',
+          images: null,
+          itemId: null,
+        },
+        {
+          id: 'evt-agent-1',
+          kind: 'agent-message',
+          timestamp: baseTimestamp,
+          eventIds: ['evt-agent-1'],
+          message: 'Here is the summary.',
+          streaming: false,
+          itemId: null,
+        },
+      ],
+      startedAt: baseTimestamp,
+      completedAt: baseTimestamp,
+      status: 'completed',
+    },
+    'turn-2': {
+      id: 'turn-2',
+      cells: [
+        {
+          id: 'evt-plan',
+          kind: 'plan',
+          timestamp: baseTimestamp,
+          eventIds: ['evt-plan'],
+          explanation: 'Creating a plan',
+          steps: [{ step: 'Step 1', status: 'in_progress' }],
+        },
+      ],
+      startedAt: baseTimestamp,
+      completedAt: baseTimestamp,
+      status: 'completed',
+    },
+  },
+  turnOrder: ['turn-1', 'turn-2'],
 });
 
-const agentReasoningCell = (id: string): TranscriptAgentReasoningCell => ({
-  id,
-  kind: 'agent-reasoning' as const,
-  timestamp: baseTimestamp,
-  eventIds: [id],
-  text: 'Thinking...',
-  streaming: false,
-  visible: true,
-  itemId: null,
-});
-
-const agentMessageCell = (id: string): TranscriptAgentMessageCell => ({
-  id,
-  kind: 'agent-message' as const,
-  timestamp: baseTimestamp,
-  eventIds: [id],
-  message: 'Here is the summary.',
-  streaming: false,
-  itemId: null,
-});
-
-const planCell = (id: string): TranscriptPlanCell => ({
-  id,
-  kind: 'plan' as const,
-  timestamp: baseTimestamp,
-  eventIds: [id],
-  explanation: 'Creating a plan',
-  steps: [{ step: 'Step 1', status: 'in_progress' }],
-});
-
-const turnAbortedCell = (id: string): TranscriptStatusCell => ({
-  id,
-  kind: 'status' as const,
-  timestamp: baseTimestamp,
-  eventIds: [id],
-  statusType: 'turn-aborted',
-  summary: 'Turn was interrupted',
-  data: { reason: 'interrupted' },
-});
-
-describe('buildTranscriptView', () => {
-  it('collapses intermediate cells between user and agent message', () => {
-    const cells = [
-      userCell(),
-      agentReasoningCell('evt-reasoning-1'),
-      agentReasoningCell('evt-reasoning-2'),
-      agentMessageCell('evt-agent'),
-    ];
-
-    const view = buildTranscriptView(cells);
-    expect(view).toHaveLength(2);
-    expect(view[0]).toEqual({ type: 'cell', index: 0 });
-    expect(view[1]).toEqual({
-      type: 'collapsed-turn',
-      turnId: 'turn::0::3::evt-user::evt-agent',
-      userIndex: 0,
-      hiddenIndices: [1, 2],
-      finalAgentIndex: 3,
-    });
+describe('transcript view helpers', () => {
+  it('flattens transcript turns in order', () => {
+    const transcript = createTranscript();
+    const entries = flattenTranscript(transcript);
+    expect(entries.map((entry) => entry.turnId)).toEqual([
+      'turn-1',
+      'turn-1',
+      'turn-2',
+    ]);
+    expect(entries.map((entry) => entry.cell.id)).toEqual([
+      'evt-user',
+      'evt-agent-1',
+      'evt-plan',
+    ]);
   });
 
-  it('falls back to standalone cells when no agent message is present', () => {
-    const cells = [userCell(), agentReasoningCell('evt-reasoning-1')];
-
-    const view = buildTranscriptView(cells);
-    expect(view).toHaveLength(2);
-    expect(view[0]).toEqual({ type: 'cell', index: 0 });
-    expect(view[1]).toEqual({ type: 'cell', index: 1 });
-  });
-
-  it('collapses intermediate cells when turn is interrupted', () => {
-    const cells = [
-      userCell(),
-      agentReasoningCell('evt-reasoning-1'),
-      planCell('evt-plan'),
-      turnAbortedCell('evt-aborted'),
-    ];
-
-    const view = buildTranscriptView(cells);
-    expect(view).toHaveLength(2);
-    expect(view[0]).toEqual({ type: 'cell', index: 0 });
-    expect(view[1]).toEqual({
-      type: 'collapsed-turn',
-      turnId: 'turn::0::3::evt-user::evt-aborted',
-      userIndex: 0,
-      hiddenIndices: [1, 2],
-      finalAgentIndex: 3,
-    });
+  it('counts total transcript cells across turns', () => {
+    const transcript = createTranscript();
+    expect(countTranscriptCells(transcript)).toBe(3);
   });
 });

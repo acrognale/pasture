@@ -19,7 +19,7 @@ import type { UserInput } from '~/codex.gen/UserInput';
 import type { UserMessageItem } from '~/codex.gen/UserMessageItem';
 import type { WebSearchItem } from '~/codex.gen/WebSearchItem';
 
-import type { Indices } from './indices';
+import type { CellLocation, Indices } from './indices';
 
 export type TranscriptCellKind =
   | 'session-configured'
@@ -205,26 +205,31 @@ export type TranscriptCell =
 
 export type TranscriptReasoningSummaryFormat = 'none' | 'experimental';
 
-export type TranscriptState = {
-  /**
-   * Ordered list of transcript cells.
-   *
-   * This collection is append-only: cells are never removed or reordered.
-   * Indices are stable for the lifetime of the transcript and are used
-   * throughout the app (for example in `indices`) as durable references.
-   */
+export type TranscriptTurnStatus = 'active' | 'completed' | 'aborted';
+
+export type TranscriptTurn = {
+  id: string;
   cells: TranscriptCell[];
+  startedAt: string | null;
+  completedAt: string | null;
+  status: TranscriptTurnStatus;
+};
+
+export type TranscriptState = {
+  turns: Record<string, TranscriptTurn>;
+  turnOrder: string[];
   latestReasoningHeader: string | null;
   pendingReasoningText: string | null;
   pendingTaskStartedAt: string | null;
   shouldBreakExecGroup: boolean;
-  openUserMessageCellIndex: number | null;
-  openAgentMessageCellIndex: number | null;
+  openUserMessageCell: CellLocation | null;
+  openAgentMessageCell: CellLocation | null;
   reasoningSummaryFormat: TranscriptReasoningSummaryFormat;
   indices: Indices;
   latestTurnDiff: TranscriptTurnDiff | null;
   turnDiffHistory: TranscriptTurnDiff[];
   turnCounter: number;
+  activeTurnId: string | null;
   activeTurnNumber: number | null;
 };
 

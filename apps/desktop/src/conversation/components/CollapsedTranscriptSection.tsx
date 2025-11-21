@@ -8,19 +8,19 @@ import { TranscriptCells } from './TranscriptCells';
 
 type CollapsedTranscriptSectionProps = {
   turnId: string;
-  userIndex: number;
-  finalAgentIndex: number;
+  turnCells: ReadonlyArray<TranscriptCell>;
   hiddenIndices: number[];
-  cells: ReadonlyArray<TranscriptCell>;
+  finalCellIndex: number;
+  baseIndex: number;
   isExpanded: boolean;
   onToggle: () => void;
 };
 
 export function CollapsedTranscriptSection({
-  userIndex: _userIndex,
-  finalAgentIndex,
+  turnCells,
   hiddenIndices,
-  cells,
+  finalCellIndex,
+  baseIndex,
   isExpanded,
   onToggle,
 }: CollapsedTranscriptSectionProps) {
@@ -30,7 +30,7 @@ export function CollapsedTranscriptSection({
     : `${hiddenCount} ${hiddenCount === 1 ? 'message' : 'messages'} hidden`;
 
   const renderCell = (cellIndex: number) => {
-    const current = cells[cellIndex];
+    const current = turnCells[cellIndex];
     if (!current) {
       throw new Error(`Cell at index ${cellIndex} is undefined`);
     }
@@ -77,7 +77,7 @@ export function CollapsedTranscriptSection({
                 <TranscriptCells
                   key={`hidden-${hiddenIndex}`}
                   cell={hiddenCell}
-                  index={hiddenIndex + 1}
+                  index={baseIndex + hiddenIndex + 1}
                 />
               );
             })}
@@ -86,8 +86,13 @@ export function CollapsedTranscriptSection({
       </AnimatePresence>
 
       {(() => {
-        const finalCell = renderCell(finalAgentIndex);
-        return <TranscriptCells cell={finalCell} index={finalAgentIndex + 1} />;
+        const finalCell = renderCell(finalCellIndex);
+        return (
+          <TranscriptCells
+            cell={finalCell}
+            index={baseIndex + finalCellIndex + 1}
+          />
+        );
       })()}
     </>
   );

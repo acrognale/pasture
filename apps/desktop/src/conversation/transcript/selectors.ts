@@ -1,4 +1,5 @@
 import { makeKey } from './indices';
+import type { CellLocation } from './indices';
 import type {
   TranscriptCell,
   TranscriptExecCommandCell,
@@ -10,11 +11,26 @@ import type {
 
 type IndexedCell<K extends TranscriptCell['kind']> = {
   cell: Extract<TranscriptCell, { kind: K }>;
-  index: number;
+  location: CellLocation;
 };
 
-const isValidIndex = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isInteger(value) && value >= 0;
+const getCellAtLocation = (
+  state: TranscriptState,
+  location: CellLocation | undefined
+): { cell: TranscriptCell; location: CellLocation } | null => {
+  if (!location) {
+    return null;
+  }
+  const turn = state.turns[location.turnId];
+  if (!turn) {
+    return null;
+  }
+  const cell = turn.cells[location.cellIndex];
+  if (!cell) {
+    return null;
+  }
+  return { cell, location };
+};
 
 const fallbackFind = <K extends TranscriptCell['kind']>(
   state: TranscriptState,
@@ -22,10 +38,17 @@ const fallbackFind = <K extends TranscriptCell['kind']>(
     cell: TranscriptCell
   ) => cell is Extract<TranscriptCell, { kind: K }>
 ): IndexedCell<K> | null => {
-  for (let index = state.cells.length - 1; index >= 0; index -= 1) {
-    const candidate = state.cells[index];
-    if (predicate(candidate)) {
-      return { cell: candidate, index };
+  for (let t = state.turnOrder.length - 1; t >= 0; t -= 1) {
+    const turnId = state.turnOrder[t];
+    const turn = state.turns[turnId];
+    if (!turn) {
+      continue;
+    }
+    for (let index = turn.cells.length - 1; index >= 0; index -= 1) {
+      const candidate = turn.cells[index];
+      if (predicate(candidate)) {
+        return { cell: candidate, location: { turnId, cellIndex: index } };
+      }
     }
   }
   return null;
@@ -37,20 +60,18 @@ export const getItemCell = (
 ): IndexedCell<
   'user-message' | 'agent-message' | 'agent-reasoning' | 'tool'
 > | null => {
-  const index = state.indices.itemById[itemId];
-  if (isValidIndex(index)) {
-    const cell = state.cells[index];
-    if (cell) {
-      return {
-        cell: cell as Extract<
-          TranscriptCell,
-          {
-            kind: 'user-message' | 'agent-message' | 'agent-reasoning' | 'tool';
-          }
-        >,
-        index,
-      };
-    }
+  const location = state.indices.itemById[itemId];
+  const indexed = getCellAtLocation(state, location);
+  if (
+    indexed &&
+    (indexed.cell.kind === 'user-message' ||
+      indexed.cell.kind === 'agent-message' ||
+      indexed.cell.kind === 'agent-reasoning' ||
+      indexed.cell.kind === 'tool')
+  ) {
+    return indexed as IndexedCell<
+      'user-message' | 'agent-message' | 'agent-reasoning' | 'tool'
+    >;
   }
 
   return fallbackFind(
@@ -68,12 +89,12 @@ export const findExecCellByCallId = (
   state: TranscriptState,
   callId: string
 ): IndexedCell<'exec'> | null => {
-  const index = state.indices.execByCallId[callId];
-  if (isValidIndex(index)) {
-    const cell = state.cells[index];
-    if (cell && cell.kind === 'exec') {
-      return { cell, index };
-    }
+  const indexed = getCellAtLocation(
+    state,
+    state.indices.execByCallId[callId]
+  );
+  if (indexed && indexed.cell.kind === 'exec') {
+    return { cell: indexed.cell, location: indexed.location };
   }
 
   return fallbackFind(
@@ -88,12 +109,16 @@ export const findToolCellByCallId = (
   toolType: TranscriptToolCell['toolType'],
   callId: string
 ): IndexedCell<'tool'> | null => {
-  const index = state.indices.toolByTypeAndCallId[makeKey(toolType, callId)];
-  if (isValidIndex(index)) {
-    const cell = state.cells[index];
-    if (cell && cell.kind === 'tool' && cell.toolType === toolType) {
-      return { cell, index };
-    }
+  const indexed = getCellAtLocation(
+    state,
+    state.indices.toolByTypeAndCallId[makeKey(toolType, callId)]
+  );
+  if (
+    indexed &&
+    indexed.cell.kind === 'tool' &&
+    indexed.cell.toolType === toolType
+  ) {
+    return { cell: indexed.cell, location: indexed.location };
   }
 
   return fallbackFind(
@@ -109,12 +134,12 @@ export const findPatchCellByCallId = (
   state: TranscriptState,
   callId: string
 ): IndexedCell<'patch'> | null => {
-  const index = state.indices.patchByCallId[callId];
-  if (isValidIndex(index)) {
-    const cell = state.cells[index];
-    if (cell && cell.kind === 'patch') {
-      return { cell, index };
-    }
+  const indexed = getCellAtLocation(
+    state,
+    state.indices.patchByCallId[callId]
+  );
+  if (indexed && indexed.cell.kind === 'patch') {
+    return { cell: indexed.cell, location: indexed.location };
   }
 
   return fallbackFind(
@@ -124,11 +149,15 @@ export const findPatchCellByCallId = (
   );
 };
 
-export const lastCell = (
-  state: TranscriptState
-): TranscriptCell | undefined => {
-  const { cells } = state;
-  return cells.length ? cells[cells.length - 1] : undefined;
+export const lastCell = (state: TranscriptState): TranscriptCell | undefined => {
+  for (let t = state.turnOrder.length - 1; t >= 0; t -= 1) {
+    const turn = state.turns[state.turnOrder[t]];
+    if (!turn || !turn.cells.length) {
+      continue;
+    }
+    return turn.cells[turn.cells.length - 1];
+  }
+  return undefined;
 };
 
 export const findUnclaimedCell = <K extends TranscriptCell['kind']>(
@@ -144,25 +173,45 @@ export const findUnclaimedCell = <K extends TranscriptCell['kind']>(
   );
 
 export const findLatestTaskCell = (
-  state: TranscriptState
-): IndexedCell<'task'> | null =>
-  fallbackFind(
+  state: TranscriptState,
+  turnId?: string
+): IndexedCell<'task'> | null => {
+  if (turnId) {
+    const turn = state.turns[turnId];
+    if (turn) {
+      for (let index = turn.cells.length - 1; index >= 0; index -= 1) {
+        const candidate = turn.cells[index];
+        if (candidate.kind === 'task') {
+          return { cell: candidate, location: { turnId, cellIndex: index } };
+        }
+      }
+    }
+  }
+
+  return fallbackFind(
     state,
     (candidate): candidate is TranscriptTaskCell => candidate.kind === 'task'
   );
+};
 
 export const findExplorationAnchor = (
-  state: TranscriptState
+  state: TranscriptState,
+  turnId: string
 ): IndexedCell<'exec'> | null => {
-  for (let index = state.cells.length - 1; index >= 0; index -= 1) {
-    const cell = state.cells[index];
+  const turn = state.turns[turnId];
+  if (!turn) {
+    return null;
+  }
+
+  for (let index = turn.cells.length - 1; index >= 0; index -= 1) {
+    const cell = turn.cells[index];
 
     if (cell.kind === 'agent-reasoning' && cell.visible === false) {
       continue;
     }
 
     if (cell.kind === 'exec' && cell.exploration) {
-      return { cell, index };
+      return { cell, location: { turnId, cellIndex: index } };
     }
 
     break;

@@ -7,7 +7,12 @@ import {
   type ConversationState,
   createInitialConversationState,
 } from '~/conversation/store/reducer';
-import type { TranscriptState } from '~/conversation/transcript/types';
+import type {
+  TranscriptState,
+  TranscriptTurn,
+  TranscriptUserMessageCell,
+} from '~/conversation/transcript/types';
+import { countTranscriptCells } from '~/conversation/transcript/view';
 
 import {
   createSampleConversationState,
@@ -34,6 +39,18 @@ export type MockCodexState = {
   interruptPending: boolean;
 };
 
+const ensureMockTurn = (
+  transcript: TranscriptState,
+  turnId: string
+): TranscriptTurn =>
+  transcript.turns[turnId] ?? {
+    id: turnId,
+    cells: [],
+    startedAt: null,
+    completedAt: null,
+    status: 'active',
+  };
+
 const createConversationEntry = (
   overrides?: Partial<ConversationEntry>
 ): ConversationEntry => ({
@@ -59,7 +76,7 @@ const createInitialState = (): MockCodexState => {
             type: 'user_message',
             message: 'Explore the code and summarize the plan.',
           }) + '\n',
-        eventCount: sampleTranscript.cells.length,
+        eventCount: countTranscriptCells(sampleTranscript),
       }),
     },
     composerConfig: sampleComposerConfig,
@@ -130,7 +147,7 @@ const setTranscriptFor = (
         ...entry.state,
         transcript,
       },
-      eventCount: transcript.cells.length,
+      eventCount: countTranscriptCells(transcript),
     };
   });
 };
@@ -229,21 +246,29 @@ export const mockCodexControls = {
     }
     setTranscriptFor(conversationId, (current) => {
       const timestamp = new Date().toISOString();
+      const turnId = current.turnOrder[0] ?? 'mock-turn-1';
+      const turn = ensureMockTurn(current, turnId);
+      const newCell: TranscriptUserMessageCell = {
+        id: `mock-user-${timestamp}`,
+        timestamp,
+        eventIds: [`evt-user-${timestamp}`],
+        kind: 'user-message',
+        message: text.trim(),
+        messageKind: 'plain',
+        images: null,
+        itemId: null,
+      };
+      const nextTurn = {
+        ...turn,
+        cells: [...turn.cells, newCell],
+      };
+      const turnOrder = current.turnOrder.includes(turnId)
+        ? current.turnOrder
+        : [...current.turnOrder, turnId];
       return {
         ...current,
-        cells: [
-          ...current.cells,
-          {
-            id: `mock-user-${timestamp}`,
-            timestamp,
-            eventIds: [`evt-user-${timestamp}`],
-            kind: 'user-message',
-            message: text.trim(),
-            messageKind: 'plain',
-            images: null,
-            itemId: null,
-          },
-        ],
+        turns: { ...current.turns, [turnId]: nextTurn },
+        turnOrder,
       };
     });
   },

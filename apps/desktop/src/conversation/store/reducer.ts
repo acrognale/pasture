@@ -39,6 +39,7 @@ import { extractFirstBold } from '~/lib/markdown';
 import { safeStringify } from '~/lib/utils';
 
 import { makeKey } from '../transcript/indices';
+import type { CellLocation } from '../transcript/indices';
 import {
   findExecCellByCallId,
   findExplorationAnchor,
@@ -63,6 +64,7 @@ import {
   type TranscriptStatusCell,
   type TranscriptTaskCell,
   type TranscriptToolCell,
+  type TranscriptTurn,
   type TranscriptTurnDiff,
   type TranscriptUserMessageCell,
 } from '../transcript/types';
@@ -170,27 +172,60 @@ export function setReasoningSummaryPreference(
     preference === 'none' ? 'none' : 'experimental';
 }
 
-/**
- * Append a new transcript cell and return its index.
- *
- * Contract: `transcript.cells` is append-only and indices are stable for the
- * lifetime of a conversation. Callers may safely store indices in
- * `transcript.indices` or component state.
- */
-function appendCell<T extends TranscriptCell>(
-  state: Draft<ConversationControllerState>,
-  cell: T
-): number {
-  // @ts-expect-error Immer Draft typing widens `cells` to Draft<TranscriptCell>[].
-  // We intentionally treat it as a mutable TranscriptCell[]: cells are append-only
-  // and indices are never reused, so pushing a new cell preserves all existing
-  // references and index-based indices.
-  const index = state.conversation.transcript.cells.push(cell) - 1;
-  return index;
+function ensureTurn(
+  transcript: TranscriptState,
+  turnId: string
+): TranscriptTurn {
+  const existing = transcript.turns[turnId];
+  if (existing) {
+    return existing;
+  }
+  const created: TranscriptTurn = {
+    id: turnId,
+    cells: [],
+    startedAt: null,
+    completedAt: null,
+    status: 'active',
+  };
+  transcript.turns[turnId] = created;
+  transcript.turnOrder = [...transcript.turnOrder, turnId];
+  return created;
+}
+
+function appendCell(
+  state: ConversationControllerState | Draft<ConversationControllerState>,
+  turnId: string,
+  cell: TranscriptCell
+): CellLocation {
+  const transcript = (state as ConversationControllerState).conversation
+    .transcript;
+  const turn = ensureTurn(transcript, turnId);
+  const cells = turn.cells;
+  const cellIndex = cells.push(cell) - 1;
+  turn.cells = cells;
+  return { turnId, cellIndex };
+}
+
+function getCellAtLocation(
+  transcript: TranscriptState,
+  location: CellLocation | null | undefined
+): { cell: TranscriptCell; location: CellLocation } | null {
+  if (!location) {
+    return null;
+  }
+  const turn = transcript.turns[location.turnId];
+  if (!turn) {
+    return null;
+  }
+  const cell = turn.cells[location.cellIndex];
+  if (!cell) {
+    return null;
+  }
+  return { cell, location };
 }
 
 function appendEventId(
-  state: ConversationControllerState,
+  state: ConversationControllerState | Draft<ConversationControllerState>,
   cell: TranscriptCell,
   eventId: string
 ) {
@@ -256,31 +291,36 @@ function now(): string {
   return new Date().toISOString();
 }
 
-function getOpenAgentCell(state: ConversationControllerState): {
+function getOpenAgentCell(
+  state: ConversationControllerState | Draft<ConversationControllerState>
+): {
   cell: TranscriptAgentMessageCell;
-  index: number;
+  location: CellLocation;
 } | null {
-  const index = state.conversation.transcript.openAgentMessageCellIndex;
-  if (index == null) {
+  const transcript = state.conversation.transcript as TranscriptState;
+  const located = getCellAtLocation(
+    transcript,
+    transcript.openAgentMessageCell
+  );
+  if (!located || located.cell.kind !== 'agent-message') {
     return null;
   }
-  const cell = state.conversation.transcript.cells[index];
-  if (!cell || cell.kind !== 'agent-message') {
-    return null;
-  }
-  return { cell, index };
+  return { cell: located.cell, location: located.location };
 }
 
-function closeActiveAgentCell(state: ConversationControllerState) {
+function closeActiveAgentCell(
+  state: ConversationControllerState | Draft<ConversationControllerState>
+) {
   const open = getOpenAgentCell(state);
   if (open) {
     open.cell.streaming = false;
   }
-  state.conversation.transcript.openAgentMessageCellIndex = null;
+  state.conversation.transcript.openAgentMessageCell = null;
 }
 
 function appendAgentDelta(
-  state: ConversationControllerState,
+  state: ConversationControllerState | Draft<ConversationControllerState>,
+  turnId: string,
   delta: string,
   timestamp: string,
   eventId: string
@@ -289,7 +329,7 @@ function appendAgentDelta(
     return;
   }
   const open = getOpenAgentCell(state);
-  if (open) {
+  if (open && open.location.turnId === turnId) {
     open.cell.message += delta;
     open.cell.streaming = true;
     appendEventId(state, open.cell, eventId);
@@ -304,8 +344,8 @@ function appendAgentDelta(
     streaming: true,
     itemId: null,
   };
-  const index = appendCell(state, entry);
-  state.conversation.transcript.openAgentMessageCellIndex = index;
+  const location = appendCell(state, turnId, entry);
+  state.conversation.transcript.openAgentMessageCell = location;
 }
 
 // ---------------------------------------------------------------------------
@@ -317,6 +357,7 @@ function onSessionConfigured(
   event: SessionConfiguredEvent,
   conversationId: string,
   eventId: string,
+  turnId: string,
   timestamp: string,
   _ingest: (payload: ConversationEventPayload) => void
 ): void {
@@ -332,7 +373,7 @@ function onSessionConfigured(
     rolloutPath: event.rollout_path,
     historyEntryCount: event.history_entry_count,
   };
-  appendCell(draft, entry);
+  appendCell(draft, turnId, entry);
   draft.conversation.transcript.reasoningSummaryFormat =
     deriveReasoningSummaryFormat(event.model);
   const preference = draft.conversation.reasoningSummaryPreference;
@@ -350,15 +391,20 @@ function onUserMessage(
   draft: Draft<ConversationControllerState>,
   event: UserMessageEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
   const images = event.images && event.images.length > 0 ? event.images : null;
 
-  let index = transcript.openUserMessageCellIndex;
-  const existing = index != null ? transcript.cells[index] : undefined;
+  const openLocation =
+    transcript.openUserMessageCell?.turnId === turnId
+      ? transcript.openUserMessageCell
+      : null;
+  const existing = getCellAtLocation(transcript, openLocation);
+  let nextLocation = openLocation;
 
-  if (!existing || existing.kind !== 'user-message') {
+  if (!existing || existing.cell.kind !== 'user-message') {
     const entry: TranscriptUserMessageCell = {
       id: eventId,
       kind: 'user-message',
@@ -369,16 +415,17 @@ function onUserMessage(
       images,
       itemId: null,
     };
-    index = appendCell(draft, entry);
+    nextLocation = appendCell(draft, turnId, entry);
   } else {
-    existing.message = event.message;
-    existing.images = images;
-    existing.timestamp = timestamp;
-    appendEventId(draft, existing, eventId);
+    existing.cell.message = event.message;
+    existing.cell.images = images;
+    existing.cell.timestamp = timestamp;
+    appendEventId(draft, existing.cell, eventId);
   }
 
-  transcript.openUserMessageCellIndex = index;
+  transcript.openUserMessageCell = nextLocation ?? null;
   transcript.latestTurnDiff = null;
+  transcript.activeTurnId = turnId;
   closeActiveAgentCell(draft);
   transcript.shouldBreakExecGroup = true;
 }
@@ -387,23 +434,27 @@ function onAgentMessageDelta(
   draft: Draft<ConversationControllerState>,
   event: AgentMessageDeltaEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
-  appendAgentDelta(draft, event.delta, timestamp, eventId);
+  appendAgentDelta(draft, turnId, event.delta, timestamp, eventId);
+  draft.conversation.transcript.activeTurnId = turnId;
 }
 
 function onAgentMessage(
   draft: Draft<ConversationControllerState>,
   event: AgentMessageEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const open = getOpenAgentCell(draft);
-  if (open) {
+  if (open && open.location.turnId === turnId) {
     open.cell.message = event.message;
     appendEventId(draft, open.cell, eventId);
     closeActiveAgentCell(draft);
-    draft.conversation.transcript.openUserMessageCellIndex = null;
+    draft.conversation.transcript.openUserMessageCell = null;
+    draft.conversation.transcript.activeTurnId = turnId;
     return;
   }
   const entry: TranscriptAgentMessageCell = {
@@ -415,8 +466,10 @@ function onAgentMessage(
     streaming: false,
     itemId: null,
   };
-  appendCell(draft, entry);
-  draft.conversation.transcript.openUserMessageCellIndex = null;
+  appendCell(draft, turnId, entry);
+  draft.conversation.transcript.openUserMessageCell = null;
+  draft.conversation.transcript.openAgentMessageCell = null;
+  draft.conversation.transcript.activeTurnId = turnId;
 }
 
 function onAgentReasoningDelta(
@@ -427,6 +480,7 @@ function onAgentReasoningDelta(
     | ReasoningContentDeltaEvent
     | ReasoningRawContentDeltaEvent,
   _eventId: string,
+  turnId: string,
   _timestamp: string
 ): void {
   draft.reasoningBuffer += event.delta;
@@ -440,12 +494,14 @@ function onAgentReasoningDelta(
     draft.conversation.statusHeader = header;
   }
   draft.conversation.transcript.pendingReasoningText = draft.reasoningBuffer;
+  draft.conversation.transcript.activeTurnId = turnId;
 }
 
 function onAgentReasoning(
   draft: Draft<ConversationControllerState>,
   event: AgentReasoningEvent | AgentReasoningRawContentEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const providedText = 'text' in event ? event.text : null;
@@ -474,11 +530,12 @@ function onAgentReasoning(
     visible: showSummaries && hasBody,
     itemId: null,
   };
-  appendCell(draft, entry);
+  appendCell(draft, turnId, entry);
   draft.reasoningBuffer = '';
   draft.fullReasoningBuffer = '';
   draft.conversation.transcript.pendingReasoningText = null;
   draft.conversation.transcript.latestReasoningHeader = null;
+  draft.conversation.transcript.activeTurnId = turnId;
 }
 
 function onAgentReasoningSectionBreak(
@@ -493,14 +550,15 @@ function onExecCommandBegin(
   draft: Draft<ConversationControllerState>,
   event: ExecCommandBeginEvent,
   eventId: string,
+  turnId: string,
   timestamp: string,
   execDecoders: Record<string, ExecStreamDecoders>
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
   const isExploration = isExplorationParsed(event.parsed_cmd);
 
   if (!transcript.shouldBreakExecGroup && isExploration) {
-    const anchor = findExplorationAnchor(transcript);
+    const anchor = findExplorationAnchor(transcript, turnId);
     if (anchor?.cell.exploration) {
       anchor.cell.exploration.calls = [
         ...anchor.cell.exploration.calls,
@@ -510,7 +568,7 @@ function onExecCommandBegin(
       anchor.cell.status = 'running';
       anchor.cell.streaming = true;
       appendEventId(draft, anchor.cell, eventId);
-      transcript.indices.execByCallId[event.call_id] = anchor.index;
+      transcript.indices.execByCallId[event.call_id] = anchor.location;
       ensureExecDecoders(execDecoders, event.call_id);
       return;
     }
@@ -539,18 +597,20 @@ function onExecCommandBegin(
       ? { calls: [createExplorationCall(event)] }
       : null,
   };
-  const index = appendCell(draft, cell);
-  transcript.indices.execByCallId[event.call_id] = index;
+  const location = appendCell(draft, turnId, cell);
+  transcript.indices.execByCallId[event.call_id] = location;
   ensureExecDecoders(execDecoders, event.call_id);
+  transcript.activeTurnId = turnId;
 }
 
 function onExecCommandOutputDelta(
   draft: Draft<ConversationControllerState>,
   event: ExecCommandOutputDeltaEvent,
   eventId: string,
+  turnId: string,
   execDecoders: Record<string, ExecStreamDecoders>
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
   const target = findExecCellByCallId(transcript, event.call_id);
   if (!target) {
     return;
@@ -575,16 +635,18 @@ function onExecCommandOutputDelta(
   }
   cell.aggregatedOutput += decoded;
   appendEventId(draft, cell, eventId);
+  transcript.activeTurnId = turnId;
 }
 
 function onExecCommandEnd(
   draft: Draft<ConversationControllerState>,
   event: ExecCommandEndEvent,
   eventId: string,
+  turnId: string,
   timestamp: string,
   execDecoders: Record<string, ExecStreamDecoders>
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
   const target = findExecCellByCallId(transcript, event.call_id);
 
   if (target) {
@@ -617,7 +679,7 @@ function onExecCommandEnd(
       cell.streaming = false;
     }
     appendEventId(draft, cell, eventId);
-    transcript.indices.execByCallId[event.call_id] = target.index;
+    transcript.indices.execByCallId[event.call_id] = target.location;
   } else {
     const cell: TranscriptExecCommandCell = {
       id: eventId,
@@ -639,24 +701,30 @@ function onExecCommandEnd(
       outputChunks: [],
       exploration: null,
     };
-    const index = appendCell(draft, cell);
-    transcript.indices.execByCallId[event.call_id] = index;
+    const location = appendCell(draft, turnId, cell);
+    transcript.indices.execByCallId[event.call_id] = location;
   }
 
   removeExecDecoders(execDecoders, event.call_id);
+  transcript.activeTurnId = turnId;
 }
 
 function onTaskStarted(
   draft: Draft<ConversationControllerState>,
+  turnId: string,
   timestamp: string
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
+  const turn = ensureTurn(transcript, turnId);
+  turn.startedAt = turn.startedAt ?? timestamp;
+  turn.status = 'active';
   transcript.pendingTaskStartedAt = timestamp;
   transcript.pendingReasoningText = null;
   transcript.latestReasoningHeader = null;
   transcript.latestTurnDiff = null;
   transcript.turnCounter += 1;
   transcript.activeTurnNumber = transcript.turnCounter;
+  transcript.activeTurnId = turnId;
   draft.conversation.activeTurnStartedAt = timestamp;
   draft.conversation.statusHeader = 'Processing...';
   draft.conversation.latestTurnDiff = null;
@@ -666,11 +734,13 @@ function onTaskComplete(
   draft: Draft<ConversationControllerState>,
   event: TaskCompleteEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   closeActiveAgentCell(draft);
-  const transcript = draft.conversation.transcript;
-  const target = findLatestTaskCell(transcript);
+  const transcript = draft.conversation.transcript as TranscriptState;
+  const turn = ensureTurn(transcript, turnId);
+  const target = findLatestTaskCell(transcript, turnId);
   if (target && target.cell.status === 'started') {
     target.cell.status = 'complete';
     target.cell.lastAgentMessage = event.last_agent_message ?? null;
@@ -688,20 +758,24 @@ function onTaskComplete(
       lastAgentMessage: event.last_agent_message ?? null,
       startedAt: transcript.pendingTaskStartedAt ?? null,
     };
-    appendCell(draft, cell);
+    appendCell(draft, turnId, cell);
   }
   transcript.pendingTaskStartedAt = null;
   transcript.activeTurnNumber = null;
+  transcript.activeTurnId = null;
   transcript.shouldBreakExecGroup = true;
-  transcript.openUserMessageCellIndex = null;
+  transcript.openUserMessageCell = null;
   draft.conversation.activeTurnStartedAt = null;
   draft.conversation.statusHeader = DEFAULT_STATUS_HEADER;
+  turn.completedAt = turn.completedAt ?? timestamp;
+  turn.status = 'completed';
 }
 
 function onPlanUpdate(
   draft: Draft<ConversationControllerState>,
   event: UpdatePlanArgs,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const entry: TranscriptPlanCell = {
@@ -715,39 +789,46 @@ function onPlanUpdate(
       status: item.status,
     })),
   };
-  appendCell(draft, entry);
+  appendCell(draft, turnId, entry);
 }
 
 function onTurnAborted(
   draft: Draft<ConversationControllerState>,
   event: TurnAbortedEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
-  const transcript = draft.conversation.transcript;
-  transcript.cells.forEach((cell) => {
-    if (cell.kind !== 'exec') {
-      return;
-    }
-    const hadRunningExec = cell.status === 'running';
-    const hadRunningExploration =
-      cell.exploration?.calls.some((call) => call.status === 'running') ??
-      false;
-    if (hadRunningExec) {
-      cell.status = 'failed';
-      cell.streaming = false;
-      appendEventId(draft, cell, eventId);
-    }
-    if (cell.exploration && hadRunningExploration) {
-      cell.exploration = {
-        calls: cell.exploration.calls.map((call) =>
-          call.status === 'running' ? { ...call, status: 'failed' } : call
-        ),
-      };
-      cell.status = 'failed';
-      cell.streaming = false;
-      appendEventId(draft, cell, eventId);
-    }
+  const transcript = draft.conversation.transcript as TranscriptState;
+  const targetTurn = transcript.turns[turnId];
+  const turnsToInspect = targetTurn
+    ? [targetTurn]
+    : Object.values(transcript.turns);
+  turnsToInspect.forEach((turn) => {
+    turn.cells.forEach((cell) => {
+      if (cell.kind !== 'exec') {
+        return;
+      }
+      const hadRunningExec = cell.status === 'running';
+      const hadRunningExploration =
+        cell.exploration?.calls.some((call) => call.status === 'running') ??
+        false;
+      if (hadRunningExec) {
+        cell.status = 'failed';
+        cell.streaming = false;
+        appendEventId(draft, cell, eventId);
+      }
+      if (cell.exploration && hadRunningExploration) {
+        cell.exploration = {
+          calls: cell.exploration.calls.map((call) =>
+            call.status === 'running' ? { ...call, status: 'failed' } : call
+          ),
+        };
+        cell.status = 'failed';
+        cell.streaming = false;
+        appendEventId(draft, cell, eventId);
+      }
+    });
   });
 
   const entry: TranscriptStatusCell = {
@@ -759,22 +840,28 @@ function onTurnAborted(
     summary: `Turn aborted: ${event.reason}`,
     data: event,
   };
-  appendCell(draft, entry);
+  appendCell(draft, turnId, entry);
   transcript.pendingReasoningText = null;
   transcript.latestReasoningHeader = null;
   transcript.latestTurnDiff = null;
   transcript.activeTurnNumber = null;
-  transcript.openUserMessageCellIndex = null;
+  transcript.activeTurnId = null;
+  transcript.openUserMessageCell = null;
   transcript.shouldBreakExecGroup = true;
   draft.conversation.activeTurnStartedAt = null;
   draft.conversation.statusHeader = DEFAULT_STATUS_HEADER;
   closeActiveAgentCell(draft);
+  if (targetTurn) {
+    targetTurn.status = 'aborted';
+    targetTurn.completedAt = targetTurn.completedAt ?? timestamp;
+  }
 }
 
 function onBackgroundEvent(
   draft: Draft<ConversationControllerState>,
   event: BackgroundEventEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const entry: TranscriptStatusCell = {
@@ -786,7 +873,7 @@ function onBackgroundEvent(
     summary: event.message,
     data: event,
   };
-  appendCell(draft, entry);
+  appendCell(draft, turnId, entry);
 }
 
 function onTokenCount(
@@ -816,9 +903,10 @@ function onTurnDiff(
   draft: Draft<ConversationControllerState>,
   event: TurnDiffEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
   const history = transcript.turnDiffHistory;
   const turnNumber = (() => {
     if (transcript.activeTurnNumber != null) {
@@ -854,6 +942,7 @@ function onTurnDiff(
   transcript.latestTurnDiff = entry;
   transcript.turnCounter = Math.max(transcript.turnCounter, turnNumber);
   transcript.activeTurnNumber = turnNumber;
+  transcript.activeTurnId = turnId;
   draft.conversation.latestTurnDiff = entry;
 }
 
@@ -861,6 +950,7 @@ function onExecApprovalRequest(
   draft: Draft<ConversationControllerState>,
   event: ExecApprovalRequestEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const entry: TranscriptExecApprovalCell = {
@@ -874,13 +964,14 @@ function onExecApprovalRequest(
     reason: event.reason,
     decision: 'pending',
   };
-  appendCell(draft, entry);
+  appendCell(draft, turnId, entry);
 }
 
 function onPatchApplyBegin(
   draft: Draft<ConversationControllerState>,
   event: PatchApplyBeginEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const cell: TranscriptPatchCell = {
@@ -896,17 +987,18 @@ function onPatchApplyBegin(
     stderr: '',
     success: null,
   };
-  const index = appendCell(draft, cell);
-  draft.conversation.transcript.indices.patchByCallId[event.call_id] = index;
+  const location = appendCell(draft, turnId, cell);
+  draft.conversation.transcript.indices.patchByCallId[event.call_id] = location;
 }
 
 function onPatchApplyEnd(
   draft: Draft<ConversationControllerState>,
   event: PatchApplyEndEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
   const target = findPatchCellByCallId(transcript, event.call_id);
   if (target) {
     target.cell.status = event.success ? 'succeeded' : 'failed';
@@ -915,7 +1007,7 @@ function onPatchApplyEnd(
     target.cell.success = event.success;
     appendEventId(draft, target.cell, eventId);
     draft.conversation.transcript.indices.patchByCallId[event.call_id] =
-      target.index;
+      target.location;
     return;
   }
 
@@ -932,14 +1024,15 @@ function onPatchApplyEnd(
     stderr: event.stderr,
     success: event.success,
   };
-  const index = appendCell(draft, cell);
-  draft.conversation.transcript.indices.patchByCallId[event.call_id] = index;
+  const location = appendCell(draft, turnId, cell);
+  draft.conversation.transcript.indices.patchByCallId[event.call_id] = location;
 }
 
 function onPatchApprovalRequest(
   draft: Draft<ConversationControllerState>,
   event: ApplyPatchApprovalRequestEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const entry: TranscriptPatchApprovalCell = {
@@ -953,13 +1046,14 @@ function onPatchApprovalRequest(
     changes: event.changes,
     decision: 'pending',
   };
-  appendCell(draft, entry);
+  appendCell(draft, turnId, entry);
 }
 
 function onMcpToolCallBegin(
   draft: Draft<ConversationControllerState>,
   event: McpToolCallBeginEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const cell: TranscriptToolCell = {
@@ -977,19 +1071,20 @@ function onMcpToolCallBegin(
     query: null,
     itemId: null,
   };
-  const index = appendCell(draft, cell);
+  const location = appendCell(draft, turnId, cell);
   draft.conversation.transcript.indices.toolByTypeAndCallId[
     makeKey('mcp', event.call_id)
-  ] = index;
+  ] = location;
 }
 
 function onMcpToolCallEnd(
   draft: Draft<ConversationControllerState>,
   event: McpToolCallEndEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
   const target = findToolCellByCallId(transcript, 'mcp', event.call_id);
   const callResult = event.result;
   const isError = 'Err' in callResult;
@@ -1004,7 +1099,7 @@ function onMcpToolCallEnd(
     appendEventId(draft, target.cell, eventId);
     draft.conversation.transcript.indices.toolByTypeAndCallId[
       makeKey('mcp', event.call_id)
-    ] = target.index;
+    ] = target.location;
     return;
   }
 
@@ -1023,19 +1118,20 @@ function onMcpToolCallEnd(
     query: null,
     itemId: null,
   };
-  const index = appendCell(draft, cell);
+  const location = appendCell(draft, turnId, cell);
   draft.conversation.transcript.indices.toolByTypeAndCallId[
     makeKey('mcp', event.call_id)
-  ] = index;
+  ] = location;
 }
 
 function onWebSearchBegin(
   draft: Draft<ConversationControllerState>,
   event: WebSearchBeginEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
   const target = findToolCellByCallId(transcript, 'web-search', event.call_id);
   if (target) {
     target.cell.status = 'running';
@@ -1043,7 +1139,7 @@ function onWebSearchBegin(
     appendEventId(draft, target.cell, eventId);
     draft.conversation.transcript.indices.toolByTypeAndCallId[
       makeKey('web-search', event.call_id)
-    ] = target.index;
+    ] = target.location;
     return;
   }
   const cell: TranscriptToolCell = {
@@ -1061,19 +1157,20 @@ function onWebSearchBegin(
     query: null,
     itemId: null,
   };
-  const index = appendCell(draft, cell);
+  const location = appendCell(draft, turnId, cell);
   draft.conversation.transcript.indices.toolByTypeAndCallId[
     makeKey('web-search', event.call_id)
-  ] = index;
+  ] = location;
 }
 
 function onWebSearchEnd(
   draft: Draft<ConversationControllerState>,
   event: WebSearchEndEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
-  const transcript = draft.conversation.transcript;
+  const transcript = draft.conversation.transcript as TranscriptState;
   const target = findToolCellByCallId(transcript, 'web-search', event.call_id);
   if (target) {
     target.cell.status = 'succeeded';
@@ -1083,9 +1180,9 @@ function onWebSearchEnd(
     appendEventId(draft, target.cell, eventId);
     draft.conversation.transcript.indices.toolByTypeAndCallId[
       makeKey('web-search', event.call_id)
-    ] = target.index;
+    ] = target.location;
     draft.conversation.transcript.indices.itemById[event.call_id] =
-      target.index;
+      target.location;
     return;
   }
   const cell: TranscriptToolCell = {
@@ -1103,17 +1200,18 @@ function onWebSearchEnd(
     query: event.query,
     itemId: event.call_id,
   };
-  const index = appendCell(draft, cell);
+  const location = appendCell(draft, turnId, cell);
   draft.conversation.transcript.indices.toolByTypeAndCallId[
     makeKey('web-search', event.call_id)
-  ] = index;
-  draft.conversation.transcript.indices.itemById[event.call_id] = index;
+  ] = location;
+  draft.conversation.transcript.indices.itemById[event.call_id] = location;
 }
 
 function onViewImageToolCall(
   draft: Draft<ConversationControllerState>,
   event: ViewImageToolCallEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const cell: TranscriptToolCell = {
@@ -1131,10 +1229,10 @@ function onViewImageToolCall(
     query: null,
     itemId: null,
   };
-  const index = appendCell(draft, cell);
+  const location = appendCell(draft, turnId, cell);
   draft.conversation.transcript.indices.toolByTypeAndCallId[
     makeKey('view-image', event.call_id)
-  ] = index;
+  ] = location;
 }
 
 function onWarning(
@@ -1153,6 +1251,7 @@ function onError(
   draft: Draft<ConversationControllerState>,
   event: ErrorEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const entry: TranscriptErrorCell = {
@@ -1163,7 +1262,7 @@ function onError(
     severity: 'error',
     message: event.message,
   };
-  appendCell(draft, entry);
+  appendCell(draft, turnId, entry);
   draft.sideEffects.push({
     type: 'toast',
     variant: 'error',
@@ -1176,6 +1275,7 @@ function onStreamError(
   draft: Draft<ConversationControllerState>,
   event: StreamErrorEvent,
   eventId: string,
+  turnId: string,
   timestamp: string
 ): void {
   const entry: TranscriptErrorCell = {
@@ -1186,7 +1286,7 @@ function onStreamError(
     severity: 'stream',
     message: event.message,
   };
-  appendCell(draft, entry);
+  appendCell(draft, turnId, entry);
 }
 
 type EventApplicationContext = {
@@ -1198,12 +1298,15 @@ function applyConversationEvent(
   payload: ConversationEventPayload,
   context: EventApplicationContext
 ) {
-  const { event, conversationId, turnId } = payload;
-  const eventId = turnId;
+  const { event, conversationId } = payload;
+  const turnId = payload.turnId ?? 'unknown-turn';
+  const eventId =
+    (payload as ConversationEventPayload & { eventId?: string }).eventId ??
+    turnId;
   const timestamp = now();
   const ingestOnDraft = (nextPayload: ConversationEventPayload) => {
     if (import.meta.env.DEV) {
-      draft.ingestedEvents.push(nextPayload);
+      (draft as ConversationControllerState).ingestedEvents.push(nextPayload);
     }
     applyConversationEvent(draft, nextPayload, context);
   };
@@ -1215,101 +1318,116 @@ function applyConversationEvent(
         event,
         conversationId,
         eventId,
+        turnId,
         timestamp,
         ingestOnDraft
       );
       break;
     case 'user_message':
-      onUserMessage(draft, event, eventId, timestamp);
+      onUserMessage(draft, event, eventId, turnId, timestamp);
       break;
     case 'agent_message_delta':
-      onAgentMessageDelta(draft, event, eventId, timestamp);
+      onAgentMessageDelta(draft, event, eventId, turnId, timestamp);
       break;
     case 'agent_message':
-      onAgentMessage(draft, event, eventId, timestamp);
+      onAgentMessage(draft, event, eventId, turnId, timestamp);
       break;
     case 'agent_reasoning_delta':
     case 'agent_reasoning_raw_content_delta':
-      onAgentReasoningDelta(draft, event, eventId, timestamp);
+      onAgentReasoningDelta(draft, event, eventId, turnId, timestamp);
       break;
     case 'agent_reasoning':
     case 'agent_reasoning_raw_content':
-      onAgentReasoning(draft, event, eventId, timestamp);
+      onAgentReasoning(draft, event, eventId, turnId, timestamp);
       break;
     case 'agent_reasoning_section_break':
       onAgentReasoningSectionBreak(draft);
       break;
     case 'task_started':
-      onTaskStarted(draft, timestamp);
+      onTaskStarted(draft, turnId, timestamp);
       break;
     case 'task_complete':
-      onTaskComplete(draft, event, eventId, timestamp);
+      onTaskComplete(draft, event, eventId, turnId, timestamp);
       break;
     case 'turn_aborted':
-      onTurnAborted(draft, event, eventId, timestamp);
+      onTurnAborted(draft, event, eventId, turnId, timestamp);
       break;
     case 'background_event':
-      onBackgroundEvent(draft, event, eventId, timestamp);
+      onBackgroundEvent(draft, event, eventId, turnId, timestamp);
       break;
     case 'plan_update':
-      onPlanUpdate(draft, event, eventId, timestamp);
+      onPlanUpdate(draft, event, eventId, turnId, timestamp);
       break;
     case 'token_count':
       onTokenCount(draft, event, eventId, timestamp);
       break;
     case 'turn_diff':
-      onTurnDiff(draft, event, eventId, timestamp);
+      onTurnDiff(draft, event, eventId, turnId, timestamp);
       break;
     case 'exec_command_begin':
       onExecCommandBegin(
         draft,
         event,
         eventId,
+        turnId,
         timestamp,
         context.execDecoders
       );
       break;
     case 'exec_command_output_delta':
-      onExecCommandOutputDelta(draft, event, eventId, context.execDecoders);
+      onExecCommandOutputDelta(
+        draft,
+        event,
+        eventId,
+        turnId,
+        context.execDecoders
+      );
       break;
     case 'exec_command_end':
-      onExecCommandEnd(draft, event, eventId, timestamp, context.execDecoders);
+      onExecCommandEnd(
+        draft,
+        event,
+        eventId,
+        turnId,
+        timestamp,
+        context.execDecoders
+      );
       break;
     case 'exec_approval_request':
-      onExecApprovalRequest(draft, event, eventId, timestamp);
+      onExecApprovalRequest(draft, event, eventId, turnId, timestamp);
       break;
     case 'patch_apply_begin':
-      onPatchApplyBegin(draft, event, eventId, timestamp);
+      onPatchApplyBegin(draft, event, eventId, turnId, timestamp);
       break;
     case 'patch_apply_end':
-      onPatchApplyEnd(draft, event, eventId, timestamp);
+      onPatchApplyEnd(draft, event, eventId, turnId, timestamp);
       break;
     case 'apply_patch_approval_request':
-      onPatchApprovalRequest(draft, event, eventId, timestamp);
+      onPatchApprovalRequest(draft, event, eventId, turnId, timestamp);
       break;
     case 'mcp_tool_call_begin':
-      onMcpToolCallBegin(draft, event, eventId, timestamp);
+      onMcpToolCallBegin(draft, event, eventId, turnId, timestamp);
       break;
     case 'mcp_tool_call_end':
-      onMcpToolCallEnd(draft, event, eventId, timestamp);
+      onMcpToolCallEnd(draft, event, eventId, turnId, timestamp);
       break;
     case 'web_search_begin':
-      onWebSearchBegin(draft, event, eventId, timestamp);
+      onWebSearchBegin(draft, event, eventId, turnId, timestamp);
       break;
     case 'web_search_end':
-      onWebSearchEnd(draft, event, eventId, timestamp);
+      onWebSearchEnd(draft, event, eventId, turnId, timestamp);
       break;
     case 'view_image_tool_call':
-      onViewImageToolCall(draft, event, eventId, timestamp);
+      onViewImageToolCall(draft, event, eventId, turnId, timestamp);
       break;
     case 'warning':
       onWarning(draft, event);
       break;
     case 'error':
-      onError(draft, event, eventId, timestamp);
+      onError(draft, event, eventId, turnId, timestamp);
       break;
     case 'stream_error':
-      onStreamError(draft, event, eventId, timestamp);
+      onStreamError(draft, event, eventId, turnId, timestamp);
       break;
     default:
       break;
@@ -1325,7 +1443,7 @@ export const ingestConversationEvent = (
 ): ConversationControllerState =>
   produce(state, (draft) => {
     if (import.meta.env.DEV) {
-      draft.ingestedEvents.push(payload);
+      (draft as ConversationControllerState).ingestedEvents.push(payload);
     }
     applyConversationEvent(draft, payload, context);
   });

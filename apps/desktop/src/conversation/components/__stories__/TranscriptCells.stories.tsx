@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TranscriptCells } from '~/conversation/components/TranscriptCells';
+import { flattenTranscript } from '~/conversation/transcript/view';
 import type { TranscriptCell } from '~/conversation/transcript/types';
 
 import { sampleTranscript } from '../../__stories__/mocks/data';
@@ -17,10 +18,13 @@ export default meta;
 
 type Story = StoryObj<typeof TranscriptCells>;
 
+const flatTranscript = flattenTranscript(sampleTranscript);
+const flatCells = flatTranscript.map((entry) => entry.cell);
+
 export const Timeline: Story = {
   render: () => (
     <div className="flex flex-col gap-3 bg-background p-6">
-      {sampleTranscript.cells.map((cell, index) => (
+      {flatCells.map((cell, index) => (
         <TranscriptCells key={cell.id} cell={cell} index={index + 1} />
       ))}
     </div>
@@ -28,15 +32,13 @@ export const Timeline: Story = {
 };
 
 const findCell = (kind: string): TranscriptCell =>
-  sampleTranscript.cells.find((cell) => cell.kind === kind) ??
-  sampleTranscript.cells[0];
+  flatCells.find((cell) => cell.kind === kind) ?? flatCells[0];
 
 const buildSingleCellStory = (kind: string) =>
   ({
     render: () => {
       const cell = findCell(kind);
-      const index =
-        sampleTranscript.cells.findIndex((entry) => entry === cell) + 1;
+      const index = flatCells.findIndex((entry) => entry === cell) + 1;
       return (
         <div className="bg-background p-6">
           <TranscriptCells cell={cell} index={index} />
@@ -49,14 +51,13 @@ export const ExecApproval = buildSingleCellStory('exec-approval');
 export const PatchApproval = buildSingleCellStory('patch-approval');
 export const MarkdownShowcase: Story = {
   render: () => {
-    const markdownCells = sampleTranscript.cells.filter((cell) =>
+    const markdownCells = flatCells.filter((cell) =>
       ['agent-message', 'agent-reasoning'].includes(cell.kind)
     );
     return (
       <div className="flex flex-col gap-4 bg-background p-6">
         {markdownCells.map((cell) => {
-          const index =
-            sampleTranscript.cells.findIndex((entry) => entry === cell) + 1;
+          const index = flatCells.findIndex((entry) => entry === cell) + 1;
           return <TranscriptCells key={cell.id} cell={cell} index={index} />;
         })}
       </div>

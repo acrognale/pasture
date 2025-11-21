@@ -2,17 +2,15 @@ import {
   forwardRef,
   useDeferredValue,
   useImperativeHandle,
-  useMemo,
   useRef,
 } from 'react';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
-import { buildTranscriptView } from '~/conversation/transcript/view';
 
 import { useAutoscroll } from '../hooks/useAutoscroll';
 import {
   useConversationLoadState,
-  useConversationTranscriptCells,
+  useConversationTranscriptTurns,
   useConversationTurnCounter,
 } from '../store/hooks';
 import { TranscriptList } from './TranscriptList';
@@ -53,22 +51,29 @@ export const ConversationTranscriptSection = forwardRef<
     const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
     const transcriptContentRef = useRef<HTMLDivElement | null>(null);
     const { isLoading, error } = useConversationLoadState(conversationId);
-    const cells = useConversationTranscriptCells(conversationId);
+    const { turns, turnOrder } = useConversationTranscriptTurns(conversationId);
     const turnCounter = useConversationTurnCounter(conversationId);
-    const deferredCells = useDeferredValue(cells);
-    const entries = useMemo(() => {
-      return buildTranscriptView(deferredCells);
-    }, [deferredCells]);
-    const hasTranscript = cells.length > 0;
-    const lastVisibleCellEventKey = useMemo(() => {
-      if (!deferredCells.length) {
-        return 'none';
+    const deferredTurnOrder = useDeferredValue(turnOrder);
+    const deferredTurns = useDeferredValue(turns);
+    const countCells = (order: string[], lookup: typeof turns) =>
+      order.reduce((sum, turnId) => {
+        const turn = lookup[turnId];
+        return sum + (turn?.cells.length ?? 0);
+      }, 0);
+
+    const hasTranscript = countCells(turnOrder, turns) > 0;
+    const lastVisibleCellEventKey = (() => {
+      for (let idx = deferredTurnOrder.length - 1; idx >= 0; idx -= 1) {
+        const turn = deferredTurns[deferredTurnOrder[idx]];
+        if (turn && turn.cells.length > 0) {
+          const lastCell = turn.cells[turn.cells.length - 1];
+          const lastEventId =
+            lastCell.eventIds[lastCell.eventIds.length - 1] ?? lastCell.id;
+          return `${lastCell.id}:${lastEventId}`;
+        }
       }
-      const lastCell = deferredCells[deferredCells.length - 1];
-      const lastEventId =
-        lastCell.eventIds[lastCell.eventIds.length - 1] ?? lastCell.id;
-      return `${lastCell.id}:${lastEventId}`;
-    }, [deferredCells]);
+      return 'none';
+    })();
 
     const { scrollToBottom, scrollToBottomAndMark, isPinnedToBottom } =
       useAutoscroll({
@@ -79,7 +84,7 @@ export const ConversationTranscriptSection = forwardRef<
         hasTranscript,
         lastVisibleCellEventKey,
         turnCounter,
-        deferredCellsLength: deferredCells.length,
+        deferredCellsLength: countCells(deferredTurnOrder, deferredTurns),
         onAtBottomChange,
         resetKey: conversationId,
       });
@@ -123,8 +128,8 @@ export const ConversationTranscriptSection = forwardRef<
       if (hasTranscript) {
         return (
           <TranscriptList
-            cells={deferredCells}
-            entries={entries}
+            turns={deferredTurns}
+            turnOrder={deferredTurnOrder}
             expandedTurns={expandedTurns}
             onToggleTurn={onToggleTurn}
             bottomAnchorRef={bottomAnchorRef}

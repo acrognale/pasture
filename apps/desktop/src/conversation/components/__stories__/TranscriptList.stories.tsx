@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { buildTranscriptView } from '~/conversation/transcript/view';
 
 import { sampleTranscript } from '../../__stories__/mocks/data';
 import { TranscriptList } from '../TranscriptList';
@@ -16,12 +15,10 @@ export default meta;
 
 type Story = StoryObj<typeof TranscriptList>;
 
-const entries = buildTranscriptView(sampleTranscript.cells);
-
 export const Default: Story = {
   args: {
-    cells: sampleTranscript.cells,
-    entries: entries,
+    turns: sampleTranscript.turns,
+    turnOrder: sampleTranscript.turnOrder,
     expandedTurns: {},
     onToggleTurn: () => {},
   },
@@ -29,11 +26,10 @@ export const Default: Story = {
 
 export const WithExpandedTurns: Story = {
   args: {
-    cells: sampleTranscript.cells,
-    entries: entries,
+    turns: sampleTranscript.turns,
+    turnOrder: sampleTranscript.turnOrder,
     expandedTurns: {
       'turn-1': true,
-      'turn-2': true,
     },
     onToggleTurn: () => {},
   },
@@ -41,8 +37,8 @@ export const WithExpandedTurns: Story = {
 
 export const EmptyTranscript: Story = {
   args: {
-    cells: [],
-    entries: [],
+    turns: {},
+    turnOrder: [],
     expandedTurns: {},
     onToggleTurn: () => {},
   },
@@ -55,8 +51,8 @@ export const InScrollableContainer: Story = {
     </div>
   ),
   args: {
-    cells: sampleTranscript.cells,
-    entries: entries,
+    turns: sampleTranscript.turns,
+    turnOrder: sampleTranscript.turnOrder,
     expandedTurns: {},
     onToggleTurn: () => {},
   },

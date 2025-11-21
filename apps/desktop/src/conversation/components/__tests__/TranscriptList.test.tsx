@@ -1,27 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { buildControllerFromFixture } from '~/conversation/__tests__/fixtures';
-import { buildTranscriptView } from '~/conversation/transcript/view';
 
 import { TranscriptList } from '../TranscriptList';
 
 describe('TranscriptList', () => {
   it('renders the exploration collapse with expected entries and agent output', () => {
     const state = buildControllerFromFixture('explore-the-code.jsonl');
-    const cells = state.conversation.transcript.cells;
-    const entries = buildTranscriptView(cells);
-    const collapsedEntry = entries.find(
-      (entry): entry is Extract<typeof entry, { type: 'collapsed-turn' }> =>
-        entry.type === 'collapsed-turn'
-    );
-    const expandedTurns = collapsedEntry
-      ? { [collapsedEntry.turnId]: true }
+    const { turns, turnOrder } = state.conversation.transcript;
+    const expandedTurns = turnOrder[0]
+      ? { [turnOrder[0]]: true }
       : {};
 
     render(
       <TranscriptList
-        cells={cells}
-        entries={entries}
+        turns={turns}
+        turnOrder={turnOrder}
         expandedTurns={expandedTurns}
         onToggleTurn={vi.fn()}
       />

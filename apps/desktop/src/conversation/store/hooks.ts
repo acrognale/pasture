@@ -61,10 +61,15 @@ export const useConversationLoadState = (conversationId: string | null) =>
     shallow
   );
 
-export const useConversationTranscriptCells = (conversationId: string | null) =>
+export const useConversationTranscriptTurns = (
+  conversationId: string | null
+) =>
   useConversationSelector(
     conversationId,
-    (state) => state.conversation.transcript.cells,
+    (state) => ({
+      turns: state.conversation.transcript.turns,
+      turnOrder: state.conversation.transcript.turnOrder,
+    }),
     shallow
   );
 
