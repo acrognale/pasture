@@ -81,7 +81,6 @@ export const ConversationTranscriptSection = forwardRef<
         isLoading,
         hasTranscript,
         lastVisibleCellEventKey,
-        turnOrderLength: turnOrder.length,
         deferredCellsLength: countCells(deferredTurnOrder, deferredTurns),
         onAtBottomChange,
         resetKey: conversationId,
