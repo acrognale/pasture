@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_STATUS_HEADER } from '~/conversation/store/constants';
 import { formatElapsedCompact } from '~/lib/time';
 
-import { useConversationActiveTurn } from '../store/hooks';
+import {
+  useConversationActiveTurn,
+  useConversationIsRunning,
+} from '../store/hooks';
 
 export type StatusIndicatorProps = {
   conversationId?: string | null;
@@ -63,9 +66,12 @@ export function StatusIndicator({
   interruptControlId,
 }: StatusIndicatorProps) {
   const conversationState = useConversationActiveTurn(conversationId ?? null);
+  const conversationIsRunning = useConversationIsRunning(
+    conversationId ?? null
+  );
   const isConversationBound = conversationId !== undefined;
   const running = isConversationBound
-    ? Boolean(conversationState.activeTurnStartedAt)
+    ? conversationIsRunning
     : runningProp;
   const startedAt = isConversationBound
     ? conversationState.activeTurnStartedAt

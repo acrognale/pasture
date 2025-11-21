@@ -85,7 +85,6 @@ export type ConversationState = {
   transcript: TranscriptState;
 
   /** Runtime metadata fields */
-  activeTurnStartedAt: string | null;
   contextTokensInWindow: number | null;
   maxContextWindow: number | null;
   statusHeader: string;
@@ -129,7 +128,6 @@ export type ConversationControllerOptions = {
 export function createInitialConversationState(): ConversationState {
   return {
     transcript: createInitialTranscriptState(),
-    activeTurnStartedAt: null,
     contextTokensInWindow: null,
     maxContextWindow: null,
     statusHeader: DEFAULT_STATUS_HEADER,
@@ -720,7 +718,6 @@ function onTaskStarted(
   transcript.turnCounter += 1;
   transcript.activeTurnNumber = transcript.turnCounter;
   transcript.activeTurnId = turnId;
-  draft.conversation.activeTurnStartedAt = timestamp;
   draft.conversation.statusHeader = 'Processing...';
   draft.conversation.latestTurnDiff = null;
 }
@@ -760,7 +757,6 @@ function onTaskComplete(
   transcript.activeTurnId = null;
   transcript.shouldBreakExecGroup = true;
   transcript.openUserMessageCell = null;
-  draft.conversation.activeTurnStartedAt = null;
   draft.conversation.statusHeader = DEFAULT_STATUS_HEADER;
   turn.completedAt = turn.completedAt ?? timestamp;
   turn.status = 'completed';
@@ -843,7 +839,6 @@ function onTurnAborted(
   transcript.activeTurnId = null;
   transcript.openUserMessageCell = null;
   transcript.shouldBreakExecGroup = true;
-  draft.conversation.activeTurnStartedAt = null;
   draft.conversation.statusHeader = DEFAULT_STATUS_HEADER;
   closeActiveAgentCell(draft);
   if (targetTurn) {

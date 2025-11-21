@@ -365,7 +365,6 @@ export const sampleComposerConfig: ComposerTurnConfig = {
 
 type ConversationRuntimeSnapshot = Pick<
   ConversationState,
-  | 'activeTurnStartedAt'
   | 'contextTokensInWindow'
   | 'maxContextWindow'
   | 'statusHeader'
@@ -374,7 +373,6 @@ type ConversationRuntimeSnapshot = Pick<
 >;
 
 export const sampleConversationRuntime: ConversationRuntimeSnapshot = {
-  activeTurnStartedAt: iso('2025-11-02T20:55:20Z'),
   contextTokensInWindow: 8457,
   maxContextWindow: 200000,
   statusHeader: 'Analyzing turn review context',

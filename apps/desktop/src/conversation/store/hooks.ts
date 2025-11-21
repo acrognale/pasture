@@ -23,17 +23,26 @@ export const useConversationState = (conversationId: string | null) =>
 export const useConversationActiveTurn = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,
-    (state) => ({
-      activeTurnStartedAt: state.conversation.activeTurnStartedAt,
-      statusHeader: state.conversation.statusHeader,
-    }),
+    (state) => {
+      const transcript = state.conversation.transcript;
+      const activeId = transcript.activeTurnId;
+      const activeTurn = activeId ? transcript.turns[activeId] : null;
+
+      return {
+        activeTurnStartedAt: activeTurn?.startedAt ?? null,
+        statusHeader: state.conversation.statusHeader,
+      };
+    },
     shallow
   );
 
 export const useConversationIsRunning = (conversationId: string | null) =>
-  useConversationSelector(conversationId, (state) =>
-    Boolean(state.conversation.activeTurnStartedAt)
-  );
+  useConversationSelector(conversationId, (state) => {
+    const transcript = state.conversation.transcript;
+    const activeId = transcript.activeTurnId;
+    const activeTurn = activeId ? transcript.turns[activeId] : null;
+    return activeTurn?.status === 'active' && !!activeTurn.startedAt;
+  });
 
 export const useConversationTranscript = (conversationId: string | null) =>
   useConversationSelector(

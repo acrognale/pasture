@@ -69,8 +69,29 @@ export const ActiveTurn: Story = {
   loaders: [
     () => {
       setupBaseState();
+      mockCodexControls.setTranscript((current) => {
+        const turnId = 'turn-1';
+        const turn = current.turns[turnId] ?? sampleTranscript.turns[turnId];
+        const startedAt =
+          turn?.startedAt ??
+          turn?.cells[0]?.timestamp ??
+          new Date().toISOString();
+        return {
+          ...current,
+          turns: {
+            ...current.turns,
+            [turnId]: {
+              ...turn,
+              startedAt,
+              completedAt: null,
+              status: 'active',
+            },
+          },
+          activeTurnId: turnId,
+          activeTurnNumber: 1,
+        };
+      });
       mockCodexControls.setRuntime({
-        activeTurnStartedAt: new Date().toISOString(),
         statusHeader: 'Synthesizing response',
       });
       mockCodexControls.setMutationPending(true);
