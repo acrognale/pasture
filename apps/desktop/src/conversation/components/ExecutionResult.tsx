@@ -7,7 +7,6 @@ import { CellIcon } from './CellIcon';
 
 type ExecutionResultProps = {
   cell: TranscriptExecCommandCell;
-  index: number;
   timestamp?: string;
 };
 

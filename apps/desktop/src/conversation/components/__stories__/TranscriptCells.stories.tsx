@@ -9,7 +9,6 @@ const meta: Meta<typeof TranscriptCells> = {
   component: TranscriptCells,
   argTypes: {
     cell: { control: false },
-    index: { control: { type: 'number' } },
   },
 };
 
@@ -25,7 +24,7 @@ export const Timeline: Story = {
   render: () => (
     <div className="flex flex-col gap-3 bg-background p-6">
       {flatCells.map((cell, index) => (
-        <TranscriptCells key={cell.id} cell={cell} index={index + 1} />
+        <TranscriptCells key={cell.id} cell={cell} />
       ))}
     </div>
   ),
@@ -38,10 +37,9 @@ const buildSingleCellStory = (kind: string) =>
   ({
     render: () => {
       const cell = findCell(kind);
-      const index = flatCells.findIndex((entry) => entry === cell) + 1;
       return (
         <div className="bg-background p-6">
-          <TranscriptCells cell={cell} index={index} />
+          <TranscriptCells cell={cell} />
         </div>
       );
     },
@@ -57,8 +55,7 @@ export const MarkdownShowcase: Story = {
     return (
       <div className="flex flex-col gap-4 bg-background p-6">
         {markdownCells.map((cell) => {
-          const index = flatCells.findIndex((entry) => entry === cell) + 1;
-          return <TranscriptCells key={cell.id} cell={cell} index={index} />;
+          return <TranscriptCells key={cell.id} cell={cell} />;
         })}
       </div>
     );

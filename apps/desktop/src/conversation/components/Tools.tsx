@@ -5,7 +5,6 @@ import { CellIcon } from './CellIcon';
 
 type ToolsProps = {
   cell: TranscriptToolCell;
-  index: number;
   timestamp: string;
 };
 

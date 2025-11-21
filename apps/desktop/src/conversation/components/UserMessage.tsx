@@ -6,7 +6,6 @@ import { copyToClipboard } from '~/lib/utils';
 
 type UserMessageProps = {
   cell: TranscriptUserMessageCell;
-  index: number;
   timestamp: string;
 };
 

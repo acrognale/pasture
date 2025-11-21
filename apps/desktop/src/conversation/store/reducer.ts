@@ -38,8 +38,6 @@ import type { WebSearchEndEvent } from '~/codex.gen/WebSearchEndEvent';
 import { extractFirstBold } from '~/lib/markdown';
 import { safeStringify } from '~/lib/utils';
 
-import { makeKey } from '../transcript/indices';
-import type { CellLocation } from '../transcript/indices';
 import {
   findExecCellByCallId,
   findExplorationAnchor,
@@ -52,6 +50,7 @@ import {
   type ExecStreamDecoders,
   type TranscriptAgentMessageCell,
   type TranscriptAgentReasoningCell,
+  type CellLocation,
   type TranscriptCell,
   type TranscriptErrorCell,
   type TranscriptExecApprovalCell,
@@ -568,7 +567,6 @@ function onExecCommandBegin(
       anchor.cell.status = 'running';
       anchor.cell.streaming = true;
       appendEventId(draft, anchor.cell, eventId);
-      transcript.indices.execByCallId[event.call_id] = anchor.location;
       ensureExecDecoders(execDecoders, event.call_id);
       return;
     }
@@ -598,7 +596,6 @@ function onExecCommandBegin(
       : null,
   };
   const location = appendCell(draft, turnId, cell);
-  transcript.indices.execByCallId[event.call_id] = location;
   ensureExecDecoders(execDecoders, event.call_id);
   transcript.activeTurnId = turnId;
 }
@@ -611,7 +608,7 @@ function onExecCommandOutputDelta(
   execDecoders: Record<string, ExecStreamDecoders>
 ): void {
   const transcript = draft.conversation.transcript as TranscriptState;
-  const target = findExecCellByCallId(transcript, event.call_id);
+  const target = findExecCellByCallId(transcript, turnId, event.call_id);
   if (!target) {
     return;
   }
@@ -647,7 +644,7 @@ function onExecCommandEnd(
   execDecoders: Record<string, ExecStreamDecoders>
 ): void {
   const transcript = draft.conversation.transcript as TranscriptState;
-  const target = findExecCellByCallId(transcript, event.call_id);
+  const target = findExecCellByCallId(transcript, turnId, event.call_id);
 
   if (target) {
     const { cell } = target;
@@ -679,7 +676,6 @@ function onExecCommandEnd(
       cell.streaming = false;
     }
     appendEventId(draft, cell, eventId);
-    transcript.indices.execByCallId[event.call_id] = target.location;
   } else {
     const cell: TranscriptExecCommandCell = {
       id: eventId,
@@ -701,8 +697,7 @@ function onExecCommandEnd(
       outputChunks: [],
       exploration: null,
     };
-    const location = appendCell(draft, turnId, cell);
-    transcript.indices.execByCallId[event.call_id] = location;
+    appendCell(draft, turnId, cell);
   }
 
   removeExecDecoders(execDecoders, event.call_id);
@@ -987,8 +982,7 @@ function onPatchApplyBegin(
     stderr: '',
     success: null,
   };
-  const location = appendCell(draft, turnId, cell);
-  draft.conversation.transcript.indices.patchByCallId[event.call_id] = location;
+  appendCell(draft, turnId, cell);
 }
 
 function onPatchApplyEnd(
@@ -999,15 +993,13 @@ function onPatchApplyEnd(
   timestamp: string
 ): void {
   const transcript = draft.conversation.transcript as TranscriptState;
-  const target = findPatchCellByCallId(transcript, event.call_id);
+  const target = findPatchCellByCallId(transcript, turnId, event.call_id);
   if (target) {
     target.cell.status = event.success ? 'succeeded' : 'failed';
     target.cell.stdout = event.stdout;
     target.cell.stderr = event.stderr;
     target.cell.success = event.success;
     appendEventId(draft, target.cell, eventId);
-    draft.conversation.transcript.indices.patchByCallId[event.call_id] =
-      target.location;
     return;
   }
 
@@ -1024,8 +1016,7 @@ function onPatchApplyEnd(
     stderr: event.stderr,
     success: event.success,
   };
-  const location = appendCell(draft, turnId, cell);
-  draft.conversation.transcript.indices.patchByCallId[event.call_id] = location;
+  appendCell(draft, turnId, cell);
 }
 
 function onPatchApprovalRequest(
@@ -1071,10 +1062,7 @@ function onMcpToolCallBegin(
     query: null,
     itemId: null,
   };
-  const location = appendCell(draft, turnId, cell);
-  draft.conversation.transcript.indices.toolByTypeAndCallId[
-    makeKey('mcp', event.call_id)
-  ] = location;
+  appendCell(draft, turnId, cell);
 }
 
 function onMcpToolCallEnd(
@@ -1085,7 +1073,12 @@ function onMcpToolCallEnd(
   timestamp: string
 ): void {
   const transcript = draft.conversation.transcript as TranscriptState;
-  const target = findToolCellByCallId(transcript, 'mcp', event.call_id);
+  const target = findToolCellByCallId(
+    transcript,
+    turnId,
+    'mcp',
+    event.call_id
+  );
   const callResult = event.result;
   const isError = 'Err' in callResult;
   const status = isError ? 'failed' : 'succeeded';
@@ -1097,9 +1090,6 @@ function onMcpToolCallEnd(
     target.cell.duration = event.duration;
     target.cell.invocation = event.invocation;
     appendEventId(draft, target.cell, eventId);
-    draft.conversation.transcript.indices.toolByTypeAndCallId[
-      makeKey('mcp', event.call_id)
-    ] = target.location;
     return;
   }
 
@@ -1118,10 +1108,7 @@ function onMcpToolCallEnd(
     query: null,
     itemId: null,
   };
-  const location = appendCell(draft, turnId, cell);
-  draft.conversation.transcript.indices.toolByTypeAndCallId[
-    makeKey('mcp', event.call_id)
-  ] = location;
+  appendCell(draft, turnId, cell);
 }
 
 function onWebSearchBegin(
@@ -1132,14 +1119,16 @@ function onWebSearchBegin(
   timestamp: string
 ): void {
   const transcript = draft.conversation.transcript as TranscriptState;
-  const target = findToolCellByCallId(transcript, 'web-search', event.call_id);
+  const target = findToolCellByCallId(
+    transcript,
+    turnId,
+    'web-search',
+    event.call_id
+  );
   if (target) {
     target.cell.status = 'running';
     target.cell.callId = event.call_id;
     appendEventId(draft, target.cell, eventId);
-    draft.conversation.transcript.indices.toolByTypeAndCallId[
-      makeKey('web-search', event.call_id)
-    ] = target.location;
     return;
   }
   const cell: TranscriptToolCell = {
@@ -1157,10 +1146,7 @@ function onWebSearchBegin(
     query: null,
     itemId: null,
   };
-  const location = appendCell(draft, turnId, cell);
-  draft.conversation.transcript.indices.toolByTypeAndCallId[
-    makeKey('web-search', event.call_id)
-  ] = location;
+  appendCell(draft, turnId, cell);
 }
 
 function onWebSearchEnd(
@@ -1171,18 +1157,18 @@ function onWebSearchEnd(
   timestamp: string
 ): void {
   const transcript = draft.conversation.transcript as TranscriptState;
-  const target = findToolCellByCallId(transcript, 'web-search', event.call_id);
+  const target = findToolCellByCallId(
+    transcript,
+    turnId,
+    'web-search',
+    event.call_id
+  );
   if (target) {
     target.cell.status = 'succeeded';
     target.cell.callId = event.call_id;
     target.cell.itemId = event.call_id;
     target.cell.query = event.query;
     appendEventId(draft, target.cell, eventId);
-    draft.conversation.transcript.indices.toolByTypeAndCallId[
-      makeKey('web-search', event.call_id)
-    ] = target.location;
-    draft.conversation.transcript.indices.itemById[event.call_id] =
-      target.location;
     return;
   }
   const cell: TranscriptToolCell = {
@@ -1200,11 +1186,7 @@ function onWebSearchEnd(
     query: event.query,
     itemId: event.call_id,
   };
-  const location = appendCell(draft, turnId, cell);
-  draft.conversation.transcript.indices.toolByTypeAndCallId[
-    makeKey('web-search', event.call_id)
-  ] = location;
-  draft.conversation.transcript.indices.itemById[event.call_id] = location;
+  appendCell(draft, turnId, cell);
 }
 
 function onViewImageToolCall(
@@ -1229,10 +1211,7 @@ function onViewImageToolCall(
     query: null,
     itemId: null,
   };
-  const location = appendCell(draft, turnId, cell);
-  draft.conversation.transcript.indices.toolByTypeAndCallId[
-    makeKey('view-image', event.call_id)
-  ] = location;
+  appendCell(draft, turnId, cell);
 }
 
 function onWarning(

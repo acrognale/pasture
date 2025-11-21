@@ -7,7 +7,6 @@ import {
   type ConversationState,
   createInitialConversationState,
 } from '~/conversation/store/reducer';
-import { emptyIndices } from '~/conversation/transcript/indices';
 import type {
   TranscriptAgentMessageCell,
   TranscriptAgentReasoningCell,
@@ -438,7 +437,6 @@ export const sampleTranscript: TranscriptState = {
   pendingReasoningText: null,
   pendingTaskStartedAt: iso('2025-11-02T20:55:20Z'),
   shouldBreakExecGroup: false,
-  indices: emptyIndices(),
   openUserMessageCell: null,
   openAgentMessageCell: null,
   reasoningSummaryFormat: 'none',
@@ -503,7 +501,6 @@ export const sampleCollapsedTranscript: TranscriptState = {
   pendingReasoningText: null,
   pendingTaskStartedAt: null,
   shouldBreakExecGroup: false,
-  indices: emptyIndices(),
   openUserMessageCell: null,
   openAgentMessageCell: null,
   reasoningSummaryFormat: 'none',

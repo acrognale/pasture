@@ -20,44 +20,43 @@ import { UserMessage } from './UserMessage';
 
 type TranscriptCellsProps = {
   cell: TranscriptCell;
-  index: number;
 };
 
-const TranscriptCellsComponent = ({ cell, index }: TranscriptCellsProps) => {
+const TranscriptCellsComponent = ({ cell }: TranscriptCellsProps) => {
   const timestamp = formatTimestampClock(cell.timestamp);
 
   switch (cell.kind) {
     case 'session-configured':
       return <div />;
     case 'user-message':
-      return <UserMessage cell={cell} index={index} timestamp={timestamp} />;
+      return <UserMessage cell={cell} timestamp={timestamp} />;
     case 'agent-message':
-      return <AgentMessage cell={cell} index={index} timestamp={timestamp} />;
+      return <AgentMessage cell={cell} timestamp={timestamp} />;
     case 'agent-reasoning':
       return cell.visible ? (
-        <AgentReasoning cell={cell} index={index} timestamp={timestamp} />
+        <AgentReasoning cell={cell} timestamp={timestamp} />
       ) : null;
     case 'task':
-      return <TaskLifecycle cell={cell} index={index} timestamp={timestamp} />;
+      return <TaskLifecycle cell={cell} timestamp={timestamp} />;
     case 'exec-approval':
       return <ExecutionApproval cell={cell} />;
     case 'exec':
       return cell.exploration ? (
-        <ExplorationCell cell={cell} index={index} timestamp={timestamp} />
+        <ExplorationCell cell={cell} timestamp={timestamp} />
       ) : (
-        <ExecutionResult cell={cell} index={index} timestamp={timestamp} />
+        <ExecutionResult cell={cell} timestamp={timestamp} />
       );
     case 'tool':
-      return <Tools cell={cell} index={index} timestamp={timestamp} />;
+      return <Tools cell={cell} timestamp={timestamp} />;
     case 'patch':
     case 'patch-approval':
       return <Patches cell={cell} />;
     case 'plan':
-      return <PlanUpdate cell={cell} index={index} timestamp={timestamp} />;
+      return <PlanUpdate cell={cell} timestamp={timestamp} />;
     case 'status':
-      return <StatusEvents cell={cell} index={index} timestamp={timestamp} />;
+      return <StatusEvents cell={cell} timestamp={timestamp} />;
     case 'error':
-      return <Errors cell={cell} index={index} timestamp={timestamp} />;
+      return <Errors cell={cell} timestamp={timestamp} />;
     case 'generic':
       return (
         <Cell icon={<CellIcon status="info" />}>
@@ -82,6 +81,6 @@ const TranscriptCellsComponent = ({ cell, index }: TranscriptCellsProps) => {
 const areCellsEqual = (
   prev: TranscriptCellsProps,
   next: TranscriptCellsProps
-) => prev.index === next.index && prev.cell === next.cell;
+) => prev.cell === next.cell;
 
 export const TranscriptCells = memo(TranscriptCellsComponent, areCellsEqual);

@@ -1,6 +1,5 @@
-import { makeKey } from './indices';
-import type { CellLocation } from './indices';
 import type {
+  CellLocation,
   TranscriptCell,
   TranscriptState,
   TranscriptToolCell,
@@ -11,22 +10,24 @@ type IndexedCell<K extends TranscriptCell['kind']> = {
   location: CellLocation;
 };
 
-const getCellAtLocation = (
+const findCellInTurn = (
   state: TranscriptState,
-  location: CellLocation | undefined
+  turnId: string,
+  predicate: (cell: TranscriptCell) => boolean
 ): { cell: TranscriptCell; location: CellLocation } | null => {
-  if (!location) {
-    return null;
-  }
-  const turn = state.turns[location.turnId];
+  const turn = state.turns[turnId];
   if (!turn) {
     return null;
   }
-  const cell = turn.cells[location.cellIndex];
-  if (!cell) {
-    return null;
+
+  for (let i = turn.cells.length - 1; i >= 0; i -= 1) {
+    const cell = turn.cells[i];
+    if (predicate(cell)) {
+      return { cell, location: { turnId, cellIndex: i } };
+    }
   }
-  return { cell, location };
+
+  return null;
 };
 
 export const getItemCell = (
@@ -35,97 +36,13 @@ export const getItemCell = (
 ): IndexedCell<
   'user-message' | 'agent-message' | 'agent-reasoning' | 'tool'
 > | null => {
-  const location = state.indices.itemById[itemId];
-  if (!location) {
-    return null;
-  }
-  const indexed = getCellAtLocation(state, location);
-  if (!indexed) {
-    return null;
-  }
-  if (
-    indexed.cell.kind === 'user-message' ||
-    indexed.cell.kind === 'agent-message' ||
-    indexed.cell.kind === 'agent-reasoning' ||
-    indexed.cell.kind === 'tool'
-  ) {
-    return {
-      cell: indexed.cell,
-      location: indexed.location,
-    } as IndexedCell<
-      'user-message' | 'agent-message' | 'agent-reasoning' | 'tool'
-    >;
-  }
+  const kinds: TranscriptCell['kind'][] = [
+    'user-message',
+    'agent-message',
+    'agent-reasoning',
+    'tool',
+  ];
 
-  return null;
-};
-
-export const findExecCellByCallId = (
-  state: TranscriptState,
-  callId: string
-): IndexedCell<'exec'> | null => {
-  const location = state.indices.execByCallId[callId];
-  if (!location) {
-    return null;
-  }
-  const indexed = getCellAtLocation(state, location);
-  if (indexed && indexed.cell.kind === 'exec') {
-    return { cell: indexed.cell, location: indexed.location };
-  }
-
-  return null;
-};
-
-export const findToolCellByCallId = (
-  state: TranscriptState,
-  toolType: TranscriptToolCell['toolType'],
-  callId: string
-): IndexedCell<'tool'> | null => {
-  const location = state.indices.toolByTypeAndCallId[makeKey(toolType, callId)];
-  if (!location) {
-    return null;
-  }
-  const indexed = getCellAtLocation(state, location);
-  if (
-    indexed &&
-    indexed.cell.kind === 'tool' &&
-    indexed.cell.toolType === toolType
-  ) {
-    return { cell: indexed.cell, location: indexed.location };
-  }
-
-  return null;
-};
-
-export const findPatchCellByCallId = (
-  state: TranscriptState,
-  callId: string
-): IndexedCell<'patch'> | null => {
-  const location = state.indices.patchByCallId[callId];
-  if (!location) {
-    return null;
-  }
-  const indexed = getCellAtLocation(state, location);
-  if (indexed && indexed.cell.kind === 'patch') {
-    return { cell: indexed.cell, location: indexed.location };
-  }
-
-  return null;
-};
-
-export const lastCell = (state: TranscriptState): TranscriptCell | undefined => {
-  const turnId = state.turnOrder[state.turnOrder.length - 1];
-  const turn = turnId ? state.turns[turnId] : undefined;
-  if (!turn || !turn.cells.length) {
-    return undefined;
-  }
-  return turn.cells[turn.cells.length - 1];
-};
-
-export const findUnclaimedCell = <K extends TranscriptCell['kind']>(
-  state: TranscriptState,
-  kind: K
-): IndexedCell<K> | null => {
   for (let t = state.turnOrder.length - 1; t >= 0; t -= 1) {
     const turnId = state.turnOrder[t];
     const turn = state.turns[turnId];
@@ -135,12 +52,15 @@ export const findUnclaimedCell = <K extends TranscriptCell['kind']>(
     for (let index = turn.cells.length - 1; index >= 0; index -= 1) {
       const candidate = turn.cells[index];
       if (
-        candidate.kind === kind &&
+        kinds.includes(candidate.kind) &&
         'itemId' in candidate &&
-        (candidate.itemId === null || candidate.itemId === undefined)
+        candidate.itemId === itemId
       ) {
         return {
-          cell: candidate as Extract<TranscriptCell, { kind: K }>,
+          cell: candidate as Extract<
+            TranscriptCell,
+            { kind: 'user-message' | 'agent-message' | 'agent-reasoning' | 'tool' }
+          >,
           location: { turnId, cellIndex: index },
         };
       }
@@ -148,6 +68,55 @@ export const findUnclaimedCell = <K extends TranscriptCell['kind']>(
   }
 
   return null;
+};
+
+export const findExecCellByCallId = (
+  state: TranscriptState,
+  turnId: string,
+  callId: string
+): IndexedCell<'exec'> | null => {
+  const result = findCellInTurn(
+    state,
+    turnId,
+    (cell) => cell.kind === 'exec' && cell.callId === callId
+  );
+  return result
+    ? (result as { cell: Extract<TranscriptCell, { kind: 'exec' }>; location: CellLocation })
+    : null;
+};
+
+export const findToolCellByCallId = (
+  state: TranscriptState,
+  turnId: string,
+  toolType: TranscriptToolCell['toolType'],
+  callId: string
+): IndexedCell<'tool'> | null => {
+  const result = findCellInTurn(
+    state,
+    turnId,
+    (cell) =>
+      cell.kind === 'tool' &&
+      cell.toolType === toolType &&
+      cell.callId === callId
+  );
+  return result
+    ? (result as { cell: Extract<TranscriptCell, { kind: 'tool' }>; location: CellLocation })
+    : null;
+};
+
+export const findPatchCellByCallId = (
+  state: TranscriptState,
+  turnId: string,
+  callId: string
+): IndexedCell<'patch'> | null => {
+  const result = findCellInTurn(
+    state,
+    turnId,
+    (cell) => cell.kind === 'patch' && cell.callId === callId
+  );
+  return result
+    ? (result as { cell: Extract<TranscriptCell, { kind: 'patch' }>; location: CellLocation })
+    : null;
 };
 
 export const findLatestTaskCell = (

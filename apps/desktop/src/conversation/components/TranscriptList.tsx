@@ -60,7 +60,7 @@ const TranscriptTurnGroup = ({
     return (
       <>
         <motion.div key={`${turnId}-cell-0`} {...motionProps}>
-          <TranscriptCells cell={firstCell} index={1} />
+          <TranscriptCells cell={firstCell} />
         </motion.div>
         <motion.div key={`${turnId}-collapsed`} {...motionProps}>
           <CollapsedTranscriptSection
@@ -68,7 +68,6 @@ const TranscriptTurnGroup = ({
             hiddenIndices={hiddenIndices}
             finalCellIndex={cells.length - 1}
             turnCells={cells}
-            baseIndex={0}
             isExpanded={isExpanded}
             onToggle={onToggle}
           />
@@ -84,7 +83,7 @@ const TranscriptTurnGroup = ({
         const key = `${turnId}-cell-${cell.id ?? cellIndex}`;
         return (
           <motion.div key={key} {...motionProps}>
-            <TranscriptCells cell={cell} index={cellIndex + 1} />
+            <TranscriptCells cell={cell} />
           </motion.div>
         );
       })}

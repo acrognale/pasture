@@ -5,7 +5,6 @@ import { CellIcon } from './CellIcon';
 
 type ErrorsProps = {
   cell: TranscriptErrorCell;
-  index: number;
   timestamp: string;
 };
 

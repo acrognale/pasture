@@ -5,7 +5,6 @@ import { CellIcon } from './CellIcon';
 
 type PlanUpdateProps = {
   cell: TranscriptPlanCell;
-  index: number;
   timestamp: string;
 };
 

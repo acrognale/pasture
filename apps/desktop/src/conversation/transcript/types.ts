@@ -19,7 +19,10 @@ import type { UserInput } from '~/codex.gen/UserInput';
 import type { UserMessageItem } from '~/codex.gen/UserMessageItem';
 import type { WebSearchItem } from '~/codex.gen/WebSearchItem';
 
-import type { CellLocation, Indices } from './indices';
+export type CellLocation = {
+  turnId: string;
+  cellIndex: number;
+};
 
 export type TranscriptCellKind =
   | 'session-configured'
@@ -225,7 +228,6 @@ export type TranscriptState = {
   openUserMessageCell: CellLocation | null;
   openAgentMessageCell: CellLocation | null;
   reasoningSummaryFormat: TranscriptReasoningSummaryFormat;
-  indices: Indices;
   latestTurnDiff: TranscriptTurnDiff | null;
   turnDiffHistory: TranscriptTurnDiff[];
   turnCounter: number;

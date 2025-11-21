@@ -1,4 +1,3 @@
-import { emptyIndices } from './indices';
 import type { TranscriptState } from './types';
 
 /**
@@ -14,7 +13,6 @@ export const createInitialTranscriptState = (): TranscriptState => ({
   openUserMessageCell: null,
   openAgentMessageCell: null,
   reasoningSummaryFormat: 'none',
-  indices: emptyIndices(),
   latestTurnDiff: null,
   turnDiffHistory: [],
   turnCounter: 0,

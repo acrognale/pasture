@@ -11,7 +11,6 @@ type CollapsedTranscriptSectionProps = {
   turnCells: ReadonlyArray<TranscriptCell>;
   hiddenIndices: number[];
   finalCellIndex: number;
-  baseIndex: number;
   isExpanded: boolean;
   onToggle: () => void;
 };
@@ -20,7 +19,6 @@ export function CollapsedTranscriptSection({
   turnCells,
   hiddenIndices,
   finalCellIndex,
-  baseIndex,
   isExpanded,
   onToggle,
 }: CollapsedTranscriptSectionProps) {
@@ -74,11 +72,7 @@ export function CollapsedTranscriptSection({
             {hiddenIndices.map((hiddenIndex) => {
               const hiddenCell = renderCell(hiddenIndex);
               return (
-                <TranscriptCells
-                  key={`hidden-${hiddenIndex}`}
-                  cell={hiddenCell}
-                  index={baseIndex + hiddenIndex + 1}
-                />
+                <TranscriptCells key={`hidden-${hiddenIndex}`} cell={hiddenCell} />
               );
             })}
           </motion.div>
@@ -87,12 +81,7 @@ export function CollapsedTranscriptSection({
 
       {(() => {
         const finalCell = renderCell(finalCellIndex);
-        return (
-          <TranscriptCells
-            cell={finalCell}
-            index={baseIndex + finalCellIndex + 1}
-          />
-        );
+        return <TranscriptCells cell={finalCell} />;
       })()}
     </>
   );
