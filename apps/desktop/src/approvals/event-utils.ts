@@ -8,6 +8,11 @@ import type {
   PatchApprovalRequest,
 } from './types';
 
+// Codex core never persists ExecApprovalRequest / ApplyPatchApprovalRequest
+// events into rollouts (see codex-rs core/src/rollout/policy.rs), so
+// initializeConversation history cannot surface historical approvals. The
+// replay turn-id checks below are defensive in case that upstream behavior
+// ever changes.
 const isReplayTurnId = (turnId: string): boolean =>
   turnId.startsWith('initial::') || turnId.startsWith('replay::');
 

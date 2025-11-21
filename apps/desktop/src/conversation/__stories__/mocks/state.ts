@@ -12,7 +12,6 @@ import type {
   TranscriptTurn,
   TranscriptUserMessageCell,
 } from '~/conversation/transcript/types';
-import { countTranscriptCells } from '~/conversation/transcript/view';
 
 import {
   createSampleConversationState,
@@ -59,6 +58,12 @@ const createConversationEntry = (
   eventCount: 0,
   ...overrides,
 });
+
+const countTranscriptCells = (transcript: TranscriptState): number =>
+  transcript.turnOrder.reduce((total, turnId) => {
+    const turn = transcript.turns[turnId];
+    return total + (turn?.cells.length ?? 0);
+  }, 0);
 
 const createInitialState = (): MockCodexState => {
   const conversationId =

@@ -10,13 +10,15 @@ import type {
   TranscriptExplorationCall,
   TranscriptUserMessageCell,
 } from '~/conversation/transcript/types';
-import { flattenTranscript } from '~/conversation/transcript/view';
 
 import type { ConversationControllerState } from '../reducer';
 import { createConversationStore } from '../store';
 
 const getCells = (state: ConversationControllerState) =>
-  flattenTranscript(state.conversation.transcript).map((entry) => entry.cell);
+  state.conversation.transcript.turnOrder.flatMap((turnId) => {
+    const turn = state.conversation.transcript.turns[turnId];
+    return turn ? turn.cells : [];
+  });
 
 const getUserMessages = (state: ConversationControllerState) =>
   getCells(state).filter(

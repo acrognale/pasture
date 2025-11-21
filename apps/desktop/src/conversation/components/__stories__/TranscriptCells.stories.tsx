@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TranscriptCells } from '~/conversation/components/TranscriptCells';
-import { flattenTranscript } from '~/conversation/transcript/view';
 import type { TranscriptCell } from '~/conversation/transcript/types';
 
 import { sampleTranscript } from '../../__stories__/mocks/data';
@@ -18,8 +17,9 @@ export default meta;
 
 type Story = StoryObj<typeof TranscriptCells>;
 
-const flatTranscript = flattenTranscript(sampleTranscript);
-const flatCells = flatTranscript.map((entry) => entry.cell);
+const firstTurnId = sampleTranscript.turnOrder[0];
+const flatCells =
+  (firstTurnId && sampleTranscript.turns[firstTurnId]?.cells) ?? [];
 
 export const Timeline: Story = {
   render: () => (

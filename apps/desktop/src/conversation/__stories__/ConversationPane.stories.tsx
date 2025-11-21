@@ -11,7 +11,6 @@ import {
 } from './mocks/data';
 import { mockCodexControls, sampleConversationId } from './mocks/state';
 import { createInitialTranscriptState } from '~/conversation/transcript/state';
-import { flattenTranscript } from '~/conversation/transcript/view';
 import type { TranscriptCell } from '~/conversation/transcript/types';
 
 const viewportDecorator = (Story: () => JSX.Element) => (
@@ -104,9 +103,9 @@ export const LongTranscript: Story = {
   loaders: [
     () => {
       setupBaseState();
-      const baseCells = flattenTranscript(sampleTranscript).map(
-        (entry) => entry.cell
-      );
+      const firstTurnId = sampleTranscript.turnOrder[0];
+      const baseCells =
+        (firstTurnId && sampleTranscript.turns[firstTurnId]?.cells) ?? [];
       const longCells = Array.from({ length: 8 }).flatMap((_value, index) => [
         {
           ...(baseCells[0] as TranscriptCell),
