@@ -1,7 +1,6 @@
 import { type UnlistenFn, listen } from '@tauri-apps/api/event';
 import type { AuthState } from '~/codex.gen/AuthState';
 import type { CodexEvent } from '~/codex.gen/CodexEvent';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 import type { EventMsg } from '~/codex.gen/EventMsg';
 
 export const isTauriEnvironment = (): boolean =>
@@ -12,21 +11,6 @@ export const ensureTauriEnvironment = () => {
     throw new Error('Codex event stream is unavailable in this environment.');
   }
 };
-
-export const createOptimisticUserEvent = (
-  conversationId: string,
-  text: string,
-  timestamp = new Date().toISOString()
-): ConversationEventPayload => ({
-  conversationId,
-  turnId: `optimistic-${timestamp}`,
-  event: {
-    type: 'user_message',
-    message: text,
-    images: null,
-  },
-  timestamp,
-});
 
 export const derivePreviewFromEvent = (event: EventMsg): string | null => {
   switch (event.type) {

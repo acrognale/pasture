@@ -34,12 +34,6 @@ vi.mock('~/codex/events', () => {
   return {
     isTauriEnvironment: () => true,
     ensureTauriEnvironment: () => undefined,
-    createOptimisticUserEvent: (conversationId: string, text: string) => ({
-      conversationId,
-      turnId: `optimistic-${Date.now()}`,
-      event: { type: 'user_message', message: text, images: null } as EventMsg,
-      timestamp: new Date().toISOString(),
-    }),
     derivePreviewFromEvent,
     isConversationEvent: (
       event: CodexEvent

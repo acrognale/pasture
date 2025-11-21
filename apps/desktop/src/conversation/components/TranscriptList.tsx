@@ -1,10 +1,17 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { MotionProps } from 'framer-motion';
 import type { MutableRefObject } from 'react';
-import type { TranscriptTurn } from '~/conversation/transcript/types';
+import type {
+  TranscriptCell,
+  TranscriptTurn,
+} from '~/conversation/transcript/types';
 
 import { CollapsedTranscriptSection } from './CollapsedTranscriptSection';
 import { TranscriptCells } from './TranscriptCells';
+
+const isAgentOrStatus = (cell: TranscriptCell) =>
+  cell.kind === 'agent-message' ||
+  (cell.kind === 'status' && cell.statusType === 'turn-aborted');
 
 const createRowMotionProps = (): Pick<
   MotionProps,
@@ -46,10 +53,46 @@ const TranscriptTurnGroup = ({
     return null;
   }
 
-  const hiddenIndices =
-    cells.length > 2
-      ? Array.from({ length: cells.length - 2 }, (_v, i) => i + 1)
-      : [];
+  const renderAllCells = () => (
+    <>
+      {cells.map((cell, cellIndex) => {
+        const motionProps = createRowMotionProps();
+        const key = `${turnId}-cell-${cell.id ?? cellIndex}`;
+        return (
+          <motion.div key={key} {...motionProps}>
+            <TranscriptCells cell={cell} />
+          </motion.div>
+        );
+      })}
+    </>
+  );
+
+  const canCollapse = turn.status !== 'active';
+  if (!canCollapse) {
+    return renderAllCells();
+  }
+
+  // Find the "Anchor" cell (Agent message or Abort) which ends the collapsed section.
+  // Everything between User Message (0) and Anchor is collapsible.
+  let anchorIndex = -1;
+  for (let i = 1; i < cells.length; i++) {
+    if (isAgentOrStatus(cells[i])) {
+      anchorIndex = i;
+      break;
+    }
+  }
+
+  // Fallback: if no agent message found, use the last cell as anchor if we have enough cells
+  if (anchorIndex === -1 && cells.length > 2) {
+    anchorIndex = cells.length - 1;
+  }
+
+  const hiddenIndices: number[] = [];
+  if (anchorIndex > 1) {
+    for (let i = 1; i < anchorIndex; i++) {
+      hiddenIndices.push(i);
+    }
+  }
 
   if (hiddenIndices.length > 0) {
     const firstCell = cells[0];
@@ -66,29 +109,26 @@ const TranscriptTurnGroup = ({
           <CollapsedTranscriptSection
             turnId={turnId}
             hiddenIndices={hiddenIndices}
-            finalCellIndex={cells.length - 1}
+            finalCellIndex={anchorIndex}
             turnCells={cells}
             isExpanded={isExpanded}
             onToggle={onToggle}
           />
         </motion.div>
+        {/* Render any cells that come after the anchor (e.g. Status events) */}
+        {cells.slice(anchorIndex + 1).map((cell, i) => (
+          <motion.div
+            key={`${turnId}-cell-${cell.id ?? anchorIndex + 1 + i}`}
+            {...motionProps}
+          >
+            <TranscriptCells cell={cell} />
+          </motion.div>
+        ))}
       </>
     );
   }
 
-  return (
-    <>
-      {cells.map((cell, cellIndex) => {
-        const motionProps = createRowMotionProps();
-        const key = `${turnId}-cell-${cell.id ?? cellIndex}`;
-        return (
-          <motion.div key={key} {...motionProps}>
-            <TranscriptCells cell={cell} />
-          </motion.div>
-        );
-      })}
-    </>
-  );
+  return renderAllCells();
 };
 
 export const TranscriptList = ({
