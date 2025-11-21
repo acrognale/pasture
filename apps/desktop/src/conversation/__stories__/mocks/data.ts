@@ -431,7 +431,6 @@ export const sampleTranscript: TranscriptState = {
   turnOrder: ['turn-1'],
   latestReasoningHeader: 'Analyzing turn review cumulative diff bug',
   pendingReasoningText: null,
-  pendingTaskStartedAt: iso('2025-11-02T20:55:20Z'),
   shouldBreakExecGroup: false,
   openUserMessageCell: null,
   openAgentMessageCell: null,
@@ -493,7 +492,6 @@ export const sampleCollapsedTranscript: TranscriptState = {
   latestReasoningHeader:
     'Evaluating release readiness and pruning outstanding migrations.',
   pendingReasoningText: null,
-  pendingTaskStartedAt: null,
   shouldBreakExecGroup: false,
   openUserMessageCell: null,
   openAgentMessageCell: null,

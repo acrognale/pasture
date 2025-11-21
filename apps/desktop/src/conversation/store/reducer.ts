@@ -709,7 +709,6 @@ function onTaskStarted(
   const turn = ensureTurn(transcript, turnId);
   turn.startedAt = turn.startedAt ?? timestamp;
   turn.status = 'active';
-  transcript.pendingTaskStartedAt = timestamp;
   transcript.pendingReasoningText = null;
   transcript.latestReasoningHeader = null;
   transcript.latestTurnDiff = null;
@@ -727,12 +726,12 @@ function onTaskComplete(
   closeActiveAgentCell(draft);
   const transcript = draft.conversation.transcript as TranscriptState;
   const turn = ensureTurn(transcript, turnId);
+  const startedAt = turn.startedAt;
   const target = findLatestTaskCell(transcript, turnId);
   if (target && target.cell.status === 'started') {
     target.cell.status = 'complete';
     target.cell.lastAgentMessage = event.last_agent_message ?? null;
-    target.cell.startedAt =
-      target.cell.startedAt ?? transcript.pendingTaskStartedAt ?? null;
+    target.cell.startedAt = target.cell.startedAt ?? startedAt ?? null;
     appendEventId(draft, target.cell, eventId);
   } else {
     const cell: TranscriptTaskCell = {
@@ -743,11 +742,10 @@ function onTaskComplete(
       status: 'complete',
       modelContextWindow: null,
       lastAgentMessage: event.last_agent_message ?? null,
-      startedAt: transcript.pendingTaskStartedAt ?? null,
+      startedAt: startedAt ?? null,
     };
     appendCell(draft, turnId, cell);
   }
-  transcript.pendingTaskStartedAt = null;
   transcript.activeTurnId = null;
   transcript.shouldBreakExecGroup = true;
   transcript.openUserMessageCell = null;

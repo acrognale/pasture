@@ -8,7 +8,6 @@ export const createInitialTranscriptState = (): TranscriptState => ({
   turnOrder: [],
   latestReasoningHeader: null,
   pendingReasoningText: null,
-  pendingTaskStartedAt: null,
   shouldBreakExecGroup: false,
   openUserMessageCell: null,
   openAgentMessageCell: null,

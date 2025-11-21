@@ -223,7 +223,6 @@ export type TranscriptState = {
   turnOrder: string[];
   latestReasoningHeader: string | null;
   pendingReasoningText: string | null;
-  pendingTaskStartedAt: string | null;
   shouldBreakExecGroup: boolean;
   openUserMessageCell: CellLocation | null;
   openAgentMessageCell: CellLocation | null;
