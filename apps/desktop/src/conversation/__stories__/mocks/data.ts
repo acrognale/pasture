@@ -369,7 +369,6 @@ type ConversationRuntimeSnapshot = Pick<
   | 'maxContextWindow'
   | 'statusHeader'
   | 'statusOverride'
-  | 'latestTurnDiff'
 >;
 
 export const sampleConversationRuntime: ConversationRuntimeSnapshot = {
@@ -377,7 +376,6 @@ export const sampleConversationRuntime: ConversationRuntimeSnapshot = {
   maxContextWindow: 200000,
   statusHeader: 'Analyzing turn review context',
   statusOverride: null,
-  latestTurnDiff: null,
 };
 
 export const sampleExecApprovalRequest: MockExecApprovalRequest = {
@@ -440,9 +438,7 @@ export const sampleTranscript: TranscriptState = {
   reasoningSummaryFormat: 'none',
   latestTurnDiff: null,
   turnDiffHistory: [],
-  turnCounter: 1,
   activeTurnId: null,
-  activeTurnNumber: null,
 };
 
 export const sampleCollapsedTranscript: TranscriptState = {
@@ -504,9 +500,7 @@ export const sampleCollapsedTranscript: TranscriptState = {
   reasoningSummaryFormat: 'none',
   latestTurnDiff: null,
   turnDiffHistory: [],
-  turnCounter: 2,
   activeTurnId: null,
-  activeTurnNumber: null,
 };
 
 export const createSampleConversationState = (): ConversationState => ({

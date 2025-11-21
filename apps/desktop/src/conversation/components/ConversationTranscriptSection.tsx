@@ -11,7 +11,6 @@ import { useAutoscroll } from '../hooks/useAutoscroll';
 import {
   useConversationLoadState,
   useConversationTranscriptTurns,
-  useConversationTurnCounter,
 } from '../store/hooks';
 import { TranscriptList } from './TranscriptList';
 
@@ -52,7 +51,6 @@ export const ConversationTranscriptSection = forwardRef<
     const transcriptContentRef = useRef<HTMLDivElement | null>(null);
     const { isLoading, error } = useConversationLoadState(conversationId);
     const { turns, turnOrder } = useConversationTranscriptTurns(conversationId);
-    const turnCounter = useConversationTurnCounter(conversationId);
     const deferredTurnOrder = useDeferredValue(turnOrder);
     const deferredTurns = useDeferredValue(turns);
     const countCells = (order: string[], lookup: typeof turns) =>
@@ -83,7 +81,7 @@ export const ConversationTranscriptSection = forwardRef<
         isLoading,
         hasTranscript,
         lastVisibleCellEventKey,
-        turnCounter,
+        turnOrderLength: turnOrder.length,
         deferredCellsLength: countCells(deferredTurnOrder, deferredTurns),
         onAtBottomChange,
         resetKey: conversationId,

@@ -15,7 +15,5 @@ export const createInitialTranscriptState = (): TranscriptState => ({
   reasoningSummaryFormat: 'none',
   latestTurnDiff: null,
   turnDiffHistory: [],
-  turnCounter: 0,
   activeTurnId: null,
-  activeTurnNumber: null,
 });

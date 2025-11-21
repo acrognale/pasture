@@ -88,7 +88,6 @@ export const ActiveTurn: Story = {
             },
           },
           activeTurnId: turnId,
-          activeTurnNumber: 1,
         };
       });
       mockCodexControls.setRuntime({
@@ -163,7 +162,6 @@ export const LongTranscript: Story = {
           },
         },
         turnOrder: ['turn-1'],
-        turnCounter: 1,
       });
 
       return {};

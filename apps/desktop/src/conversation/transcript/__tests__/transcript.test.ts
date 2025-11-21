@@ -338,8 +338,15 @@ describe('turn diff handling', () => {
       type: 'turn_diff',
       unified_diff:
         'diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-Hello\n+Hello world\n',
+      turn_id: 'turn-1',
     };
 
+    state = applyEvent(
+      controller,
+      { type: 'task_started', model_context_window: null, turn_id: 'turn-1' },
+      'task-1',
+      0
+    );
     state = applyEvent(controller, firstDiff, 'diff-1', 1);
 
     expect(state.latestTurnDiff).toEqual({
@@ -352,6 +359,7 @@ describe('turn diff handling', () => {
     const nextTurnStarted: EventMsg = {
       type: 'task_started',
       model_context_window: null,
+      turn_id: 'turn-2',
     };
 
     state = applyEvent(controller, nextTurnStarted, 'task-2', 2);
@@ -360,12 +368,13 @@ describe('turn diff handling', () => {
       type: 'turn_diff',
       unified_diff:
         'diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-Hello world\n+Hello world!!!\n',
+      turn_id: 'turn-2',
     };
 
     state = applyEvent(controller, secondDiff, 'diff-2', 3);
 
     expect(state.latestTurnDiff).toEqual({
-      eventId: 'turn-1',
+      eventId: 'turn-2',
       timestamp: ts(3),
       unifiedDiff: secondDiff.unified_diff,
       turnNumber: 2,

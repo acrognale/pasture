@@ -89,7 +89,6 @@ export type ConversationState = {
   maxContextWindow: number | null;
   statusHeader: string;
   statusOverride: string | null;
-  latestTurnDiff: TranscriptTurnDiff | null;
   reasoningSummaryPreference: ReasoningSummary | null;
 
   /** Lifecycle state */
@@ -132,7 +131,6 @@ export function createInitialConversationState(): ConversationState {
     maxContextWindow: null,
     statusHeader: DEFAULT_STATUS_HEADER,
     statusOverride: null,
-    latestTurnDiff: null,
     reasoningSummaryPreference: null,
     isLoading: false,
     error: null,
@@ -715,11 +713,8 @@ function onTaskStarted(
   transcript.pendingReasoningText = null;
   transcript.latestReasoningHeader = null;
   transcript.latestTurnDiff = null;
-  transcript.turnCounter += 1;
-  transcript.activeTurnNumber = transcript.turnCounter;
   transcript.activeTurnId = turnId;
   draft.conversation.statusHeader = 'Processing...';
-  draft.conversation.latestTurnDiff = null;
 }
 
 function onTaskComplete(
@@ -753,7 +748,6 @@ function onTaskComplete(
     appendCell(draft, turnId, cell);
   }
   transcript.pendingTaskStartedAt = null;
-  transcript.activeTurnNumber = null;
   transcript.activeTurnId = null;
   transcript.shouldBreakExecGroup = true;
   transcript.openUserMessageCell = null;
@@ -835,7 +829,6 @@ function onTurnAborted(
   transcript.pendingReasoningText = null;
   transcript.latestReasoningHeader = null;
   transcript.latestTurnDiff = null;
-  transcript.activeTurnNumber = null;
   transcript.activeTurnId = null;
   transcript.openUserMessageCell = null;
   transcript.shouldBreakExecGroup = true;
@@ -898,18 +891,9 @@ function onTurnDiff(
 ): void {
   const transcript = draft.conversation.transcript as TranscriptState;
   const history = transcript.turnDiffHistory;
-  const turnNumber = (() => {
-    if (transcript.activeTurnNumber != null) {
-      return transcript.activeTurnNumber;
-    }
-    if (history.length > 0) {
-      return history[history.length - 1].turnNumber + 1;
-    }
-    if (transcript.turnCounter > 0) {
-      return transcript.turnCounter + 1;
-    }
-    return 1;
-  })();
+  const turnIndex = transcript.turnOrder.indexOf(turnId);
+  const turnNumber =
+    turnIndex >= 0 ? turnIndex + 1 : transcript.turnOrder.length + 1;
 
   const entry: TranscriptTurnDiff = {
     eventId,
@@ -930,10 +914,7 @@ function onTurnDiff(
   }
 
   transcript.latestTurnDiff = entry;
-  transcript.turnCounter = Math.max(transcript.turnCounter, turnNumber);
-  transcript.activeTurnNumber = turnNumber;
   transcript.activeTurnId = turnId;
-  draft.conversation.latestTurnDiff = entry;
 }
 
 function onExecApprovalRequest(

@@ -82,12 +82,6 @@ export const useConversationTranscriptTurns = (
     shallow
   );
 
-export const useConversationTurnCounter = (conversationId: string | null) =>
-  useConversationSelector(
-    conversationId,
-    (state) => state.conversation.transcript.turnCounter
-  );
-
 export const useConversationTurnDiffHistory = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,
@@ -97,7 +91,7 @@ export const useConversationTurnDiffHistory = (conversationId: string | null) =>
 export const useConversationLatestTurnDiff = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,
-    (state) => state.conversation.latestTurnDiff
+    (state) => state.conversation.transcript.latestTurnDiff
   );
 
 export const useConversationHasTurnDiffHistory = (

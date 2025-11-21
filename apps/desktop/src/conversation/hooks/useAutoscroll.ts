@@ -14,7 +14,7 @@ type UseAutoscrollOptions = {
   isLoading: boolean;
   hasTranscript: boolean;
   lastVisibleCellEventKey: string;
-  turnCounter: number;
+  turnOrderLength: number;
   deferredCellsLength: number;
   onAtBottomChange?: (atBottom: boolean) => void;
   resetKey?: string | number | null;
@@ -35,7 +35,7 @@ export const useAutoscroll = ({
   isLoading,
   hasTranscript,
   lastVisibleCellEventKey,
-  turnCounter,
+  turnOrderLength,
   deferredCellsLength,
   onAtBottomChange,
   resetKey,
@@ -180,7 +180,7 @@ export const useAutoscroll = ({
     hasTranscript,
     isLoading,
     lastVisibleCellEventKey,
-    turnCounter,
+    turnOrderLength,
     deferredCellsLength,
     resetKey,
   ]);

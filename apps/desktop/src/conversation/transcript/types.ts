@@ -230,9 +230,7 @@ export type TranscriptState = {
   reasoningSummaryFormat: TranscriptReasoningSummaryFormat;
   latestTurnDiff: TranscriptTurnDiff | null;
   turnDiffHistory: TranscriptTurnDiff[];
-  turnCounter: number;
   activeTurnId: string | null;
-  activeTurnNumber: number | null;
 };
 
 export type TranscriptEventContext = {
