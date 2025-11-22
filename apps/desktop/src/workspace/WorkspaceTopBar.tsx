@@ -29,16 +29,11 @@ export function WorkspaceTopBar({
     <div
       className="flex h-[var(--workspace-topbar-height)] shrink-0 items-center gap-3 border-b border-border/60 bg-card px-4"
       style={{ paddingLeft: TRAFFIC_LIGHT_OFFSET }}
-      data-tauri-drag-region="true"
     >
-      <div
-        className="flex w-full items-center gap-3 -translate-y-[1px]"
-        data-tauri-drag-region="true"
-      >
+      <div className="flex w-full items-center gap-3 -translate-y-[1px]">
         <div className="flex items-center gap-3">
           <SidebarTrigger
             className="text-muted-foreground hover:text-foreground"
-            data-tauri-drag-region="false"
             aria-label="Toggle sidebar"
           >
             <span
@@ -55,15 +50,12 @@ export function WorkspaceTopBar({
               )}
             </span>
           </SidebarTrigger>
-          <div
-            className="min-w-0 text-sm font-semibold text-foreground truncate"
-            data-tauri-drag-region="true"
-          >
+          <div className="min-w-0 text-sm font-semibold text-foreground truncate">
             {workspaceName}
           </div>
         </div>
 
-        <div className="flex flex-1 justify-end">
+        <div className="flex flex-1 justify-end" data-tauri-drag-region="true">
           {activeConversationId ? (
             <button
               type="button"
@@ -78,7 +70,6 @@ export function WorkspaceTopBar({
                 }
               }}
               disabled={!hasReviewHistory}
-              data-tauri-drag-region="false"
             >
               Review changes
             </button>

@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRouterState } from '@tanstack/react-router';
-import { Loader2Icon, PlusIcon, SearchIcon } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { Loader2Icon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import type { FocusEvent } from 'react';
 import { toast } from 'sonner';
 import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import type { NewConversationResponse } from '~/codex.gen/NewConversationResponse';
@@ -304,6 +305,15 @@ function SidebarConversationMenuItem({
   onClose,
 }: SidebarConversationMenuItemProps) {
   const isRunning = useConversationIsRunning(session.conversationId);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const showCloseButton = !isRunning && isHovered;
+
+  const handleBlur = useCallback((event: FocusEvent<HTMLButtonElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setIsHovered(false);
+    }
+  }, []);
 
   return (
     <SidebarMenuItem>
@@ -311,47 +321,41 @@ function SidebarConversationMenuItem({
         type="button"
         onClick={() => onSelect(session.conversationId)}
         isActive={isActive}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onFocus={() => setIsHovered(true)}
+        onBlur={handleBlur}
       >
         <div className="flex flex-1 items-center justify-between gap-2">
           <span className="flex items-center gap-2 min-w-0">
             {isRunning ? (
-              <Loader2Icon className="size-3 text-muted-foreground animate-spin shrink-0" />
+              <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" />
             ) : null}
             <span className="truncate text-sm font-medium">
               {formatSessionPreview(session.preview ?? session.conversationId)}
             </span>
           </span>
-          <span className="flex items-center gap-2">
+          <span className="flex items-center">
             {session.timestamp ? (
               <span className="text-transcript-micro text-muted-foreground">
                 {formatSessionPreviewTimestamp(session.timestamp)}
               </span>
             ) : null}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 opacity-60 hover:opacity-100"
-              onClick={(event) => {
-                event.stopPropagation();
-                onClose(session.conversationId);
-              }}
-              aria-label="Close session"
-            >
-              <span className="sr-only">Close session</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
+            {showCloseButton ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-2 h-6 w-6 shrink-0"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onClose(session.conversationId);
+                }}
+                aria-label="Close session"
               >
-                <line x1="18" x2="6" y1="6" y2="18" />
-                <line x1="6" x2="18" y1="6" y2="18" />
-              </svg>
-            </Button>
+                <span className="sr-only">Close session</span>
+                <XIcon className="h-4 w-4" />
+              </Button>
+            ) : null}
           </span>
         </div>
       </SidebarMenuButton>
