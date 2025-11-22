@@ -1,13 +1,5 @@
-import {
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Button } from '~/components/ui/button';
 import {
   ComposerBar,
   type ComposerBarControls,
@@ -24,6 +16,10 @@ import {
   ConversationTranscriptSection,
 } from './components/ConversationTranscriptSection';
 import { StatusIndicator } from './components/StatusIndicator';
+import {
+  OPEN_REVIEW_OVERLAY_EVENT,
+  type OpenReviewOverlayDetail,
+} from './events';
 import { useInterruptConversation } from './hooks/useInterruptConversation';
 import { useReplay } from './replay';
 import {
@@ -54,7 +50,6 @@ export function ConversationPane({
   const expandedTurns = expandedTurnsByConversation[conversationId] ?? {};
   const isTurnActive = useConversationIsRunning(conversationId);
   const hasReviewHistory = useConversationHasTurnDiffHistory(conversationId);
-  const reviewButtonDisabled = !hasReviewHistory;
   const { isReplaying, startReplay, stopReplay } = useReplay({
     conversationId,
   });
@@ -196,30 +191,35 @@ export function ConversationPane({
     handleToggleCommandMenuShortcut
   );
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleOpenReview = (event: CustomEvent<OpenReviewOverlayDetail>) => {
+      if (event.detail.conversationId !== conversationId) {
+        return;
+      }
+      setIsReviewOpen(true);
+    };
+
+    window.addEventListener(
+      OPEN_REVIEW_OVERLAY_EVENT,
+      handleOpenReview as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        OPEN_REVIEW_OVERLAY_EVENT,
+        handleOpenReview as EventListener
+      );
+    };
+  }, [conversationId]);
+
   return (
     <>
       <div className="flex flex-1 flex-col h-full overflow-hidden relative">
-        <ConversationPaneHeader
-          workspacePath={workspacePath}
-          actions={
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              data-tauri-drag-region="false"
-              disabled={reviewButtonDisabled}
-              onClick={() => {
-                if (!reviewButtonDisabled) {
-                  startTransition(() => {
-                    setIsReviewOpen(true);
-                  });
-                }
-              }}
-            >
-              Review changes
-            </Button>
-          }
-        />
+        <ConversationPaneHeader />
 
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
           <ConversationTranscriptSection

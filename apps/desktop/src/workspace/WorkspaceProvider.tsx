@@ -5,6 +5,7 @@ import {
   useContext,
   useMemo,
   useRef,
+  useState,
 } from 'react';
 import { type ApprovalsStore, createApprovalsStore } from '~/approvals/store';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
@@ -32,6 +33,8 @@ type WorkspaceContextValue = {
     options?: { force?: boolean }
   ) => Promise<void>;
   clearConversationStore: (conversationId: string) => void;
+  openConversationIds: string[];
+  closeConversation: (conversationId: string) => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -65,6 +68,40 @@ export const WorkspaceProvider = ({
     Map<string, 'idle' | 'loading' | 'loaded' | 'error'>
   >(new Map());
   const fallbackConversationStoreRef = useRef(createConversationStore());
+  const openConversationIdsRef = useRef<Set<string>>(new Set());
+  const [openConversationIds, setOpenConversationIds] = useState<string[]>([]);
+
+  const syncOpenConversationIds = useCallback(() => {
+    setOpenConversationIds(Array.from(openConversationIdsRef.current));
+  }, []);
+
+  const markConversationOpen = useCallback(
+    (conversationId: string) => {
+      if (!conversationId) {
+        return;
+      }
+      if (openConversationIdsRef.current.has(conversationId)) {
+        return;
+      }
+      openConversationIdsRef.current.add(conversationId);
+      syncOpenConversationIds();
+    },
+    [syncOpenConversationIds]
+  );
+
+  const closeConversation = useCallback(
+    (conversationId: string) => {
+      if (!conversationId) {
+        return;
+      }
+      if (!openConversationIdsRef.current.has(conversationId)) {
+        return;
+      }
+      openConversationIdsRef.current.delete(conversationId);
+      syncOpenConversationIds();
+    },
+    [syncOpenConversationIds]
+  );
 
   const ensureConversationStore = useCallback((conversationId: string) => {
     if (!conversationId) {
@@ -105,6 +142,8 @@ export const WorkspaceProvider = ({
       if (!conversationId) {
         return;
       }
+
+      markConversationOpen(conversationId);
 
       const loadingStates = loadingStatesRef.current;
       const status = loadingStates.get(conversationId);
@@ -156,13 +195,17 @@ export const WorkspaceProvider = ({
         loadingStates.set(conversationId, 'error');
       }
     },
-    [ensureConversationStore]
+    [ensureConversationStore, markConversationOpen]
   );
 
-  const clearConversationStore = useCallback((conversationId: string) => {
-    conversationStoresRef.current.delete(conversationId);
-    loadingStatesRef.current.delete(conversationId);
-  }, []);
+  const clearConversationStore = useCallback(
+    (conversationId: string) => {
+      conversationStoresRef.current.delete(conversationId);
+      loadingStatesRef.current.delete(conversationId);
+      closeConversation(conversationId);
+    },
+    [closeConversation]
+  );
 
   const value = useMemo<WorkspaceContextValue>(
     () => ({
@@ -174,15 +217,19 @@ export const WorkspaceProvider = ({
       applyConversationEvent,
       loadConversation,
       clearConversationStore,
+      openConversationIds,
+      closeConversation,
     }),
     [
       applyConversationEvent,
       approvalsStore,
+      closeConversation,
       clearConversationStore,
       getConversationStore,
       keys,
       loadConversation,
       metadata,
+      openConversationIds,
     ]
   );
 
@@ -217,6 +264,7 @@ export const useWorkspaceConversationStores = () => {
     applyConversationEvent,
     loadConversation,
     clearConversationStore,
+    closeConversation,
   } = useWorkspaceContext();
 
   return {
@@ -224,5 +272,9 @@ export const useWorkspaceConversationStores = () => {
     applyConversationEvent,
     loadConversation,
     clearConversationStore,
+    closeConversation,
   };
 };
+
+export const useWorkspaceOpenConversations = () =>
+  useWorkspaceContext().openConversationIds;

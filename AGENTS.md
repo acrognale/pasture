@@ -23,6 +23,10 @@ If the user instructs you to take a look at the Codex code, such as the TUI, ins
 - Typechecking & tests: `npm run typecheck`, `npm run test`, `npm run test:watch`, `npm run test:coverage`.
 - The Tauri backend embeds the Codex runtime directly via `codex_core` crates rather than spawning a separate process.
 
+## Workflow
+
+Important: always run `npm run lint` and `npm run typecheck` when you finish making changes to verify there are no errors.
+
 ## Architecture Overview
 
 - **Rust backend (`apps/desktop/src-tauri/src/`)** owns Tauri lifecycle, native window management, menu bar, logging, and embeds the Codex runtime.

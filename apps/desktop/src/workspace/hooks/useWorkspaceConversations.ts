@@ -1,9 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import { Codex } from '~/codex/client';
 
-import { useWorkspace, useWorkspaceKeys } from '../WorkspaceProvider';
+import {
+  useWorkspace,
+  useWorkspaceKeys,
+  useWorkspaceOpenConversations,
+} from '../WorkspaceProvider';
 import {
   filterSummariesForWorkspace,
   sortConversationsByTimestamp,
@@ -14,6 +18,11 @@ const PAGE_SIZE = 25;
 export type WorkspaceConversationsState = {
   items: ConversationSummary[];
   nextCursor: string | null;
+};
+
+export type WorkspaceOpenConversationsState = {
+  items: ConversationSummary[];
+  nextCursor: null;
 };
 
 export const useWorkspaceConversations = () => {
@@ -101,5 +110,23 @@ export const useWorkspaceConversations = () => {
     hasMore: Boolean(query.data?.nextCursor),
     loadMore,
     isLoadingMore,
+  };
+};
+
+export const useOpenWorkspaceConversations = () => {
+  const base = useWorkspaceConversations();
+  const openConversationIds = useWorkspaceOpenConversations();
+
+  const openItems = useMemo(() => {
+    const openSet = new Set(openConversationIds);
+    return base.items.filter((item) => openSet.has(item.conversationId));
+  }, [base.items, openConversationIds]);
+
+  return {
+    items: openItems,
+    query: base.query,
+    hasMore: false,
+    loadMore: undefined,
+    isLoadingMore: false,
   };
 };

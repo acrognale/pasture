@@ -15,6 +15,14 @@ export const SHORTCUTS = {
     description: 'Start a new conversation',
     allowInInput: true,
   },
+  'workspace.openConversationSwitcher': {
+    id: 'workspace.openConversationSwitcher',
+    chord: 'CmdOrCtrl+P',
+    scope: 'workspace',
+    description: 'Open conversation switcher',
+    allowInInput: true,
+    when: (event) => !event.altKey && !event.shiftKey,
+  },
   'overlay.conversationReview.close': {
     id: 'overlay.conversationReview.close',
     chord: 'Escape',

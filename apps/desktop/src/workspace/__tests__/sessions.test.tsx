@@ -10,7 +10,11 @@ import {
   resetActiveConversationId,
   setActiveConversationId,
 } from './routerTestUtils';
-import { WORKSPACE, renderSidebarPanel } from './setup';
+import {
+  WORKSPACE,
+  markConversationOpenInTest,
+  renderSidebarPanel,
+} from './setup';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual =
@@ -74,12 +78,14 @@ describe('SidebarPanel sessions', () => {
 
     setActiveConversationId(ACTIVE_SESSION_ID);
 
-    renderSidebarPanel();
+    renderSidebarPanel({ openConversationIds: [ACTIVE_SESSION_ID] });
 
     await screen.findByRole('button', { name: /Existing session/i });
 
     const createButton = screen.getByRole('button', { name: /^New$/i });
     fireEvent.click(createButton);
+
+    await markConversationOpenInTest(NEW_SESSION_ID);
 
     const newSessionButton = await screen.findByRole('button', {
       name: /New session/i,
@@ -126,10 +132,12 @@ describe('SidebarPanel sessions', () => {
 
     setActiveConversationId(ACTIVE_SESSION_ID);
 
-    renderSidebarPanel();
+    renderSidebarPanel({ openConversationIds: [ACTIVE_SESSION_ID] });
 
     const createButton = screen.getByRole('button', { name: /^New$/i });
     fireEvent.click(createButton);
+
+    await markConversationOpenInTest(NEW_SESSION_ID);
 
     const newSessionButton = await screen.findByRole('button', {
       name: /New session/i,
@@ -157,7 +165,7 @@ describe('SidebarPanel sessions', () => {
     expect(updatedButton).toHaveAttribute('data-active', 'true');
   });
 
-  test('loads additional sessions when clicking Load more', async () => {
+  test('only displays sessions that are currently open', async () => {
     const now = new Date().toISOString();
 
     const initialSessions = Array.from({ length: 25 }, (_, index) => {
@@ -174,17 +182,6 @@ describe('SidebarPanel sessions', () => {
       };
     });
 
-    const nextPage = Array.from({ length: 5 }, (_, index) => {
-      const conversationId = `new-session-${index}`;
-      return {
-        conversationId,
-        path: `${WORKSPACE}/sessions/${conversationId}.json`,
-        cwd: WORKSPACE,
-        preview: `Next ${index}`,
-        timestamp: now,
-      };
-    });
-
     mockCodex.stub.listConversations.mockImplementation(
       (params: ListConversationsParams) => {
         if (!params.cursor) {
@@ -194,28 +191,23 @@ describe('SidebarPanel sessions', () => {
           });
         }
 
-        return Promise.resolve({ items: nextPage, nextCursor: null });
+        return Promise.resolve({ items: [], nextCursor: null });
       }
     );
 
     setActiveConversationId(ACTIVE_SESSION_ID);
 
-    renderSidebarPanel();
+    renderSidebarPanel({
+      openConversationIds: [ACTIVE_SESSION_ID, 'session-01'],
+    });
 
     await screen.findByRole('button', { name: /Session 0/i });
+    await screen.findByRole('button', { name: /Session 1/i });
 
-    const loadMoreButton = await screen.findByRole('button', {
-      name: /Load more/i,
-    });
+    expect(screen.queryByRole('button', { name: /Session 2/i })).toBeNull();
 
-    fireEvent.click(loadMoreButton);
+    await markConversationOpenInTest('session-02');
 
-    await waitFor(() => {
-      nextPage.forEach((session) => {
-        expect(
-          screen.getByRole('button', { name: new RegExp(session.preview, 'i') })
-        ).toBeInTheDocument();
-      });
-    });
+    await screen.findByRole('button', { name: /Session 2/i });
   });
 });
