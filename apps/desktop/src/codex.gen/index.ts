@@ -20,6 +20,7 @@ export type { AuthState } from './AuthState';
 export type { BackgroundEventEvent } from './BackgroundEventEvent';
 export type { BlobResourceContents } from './BlobResourceContents';
 export type { CallToolResult } from './CallToolResult';
+export type { CodexErrorInfo } from './CodexErrorInfo';
 export type { CodexEvent } from './CodexEvent';
 export type { CompactConversationParams } from './CompactConversationParams';
 export type { ComposerTurnConfigPayload } from './ComposerTurnConfigPayload';

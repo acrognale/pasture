@@ -8,6 +8,11 @@ export type PatchApplyBeginEvent = {
    */
   call_id: string;
   /**
+   * Turn ID that this patch belongs to.
+   * Uses `#[serde(default)]` for backwards compatibility.
+   */
+  turn_id: string;
+  /**
    * If true, there was no ApplyPatchApprovalRequest for this patch.
    */
   auto_approved: boolean;

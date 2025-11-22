@@ -47,6 +47,7 @@ describe('mapConversationEventToApprovalRequest', () => {
     const payload = basePayload({
       type: 'apply_patch_approval_request',
       call_id: 'call-2',
+      turn_id: 'turn-1',
       changes: {
         'file.ts': {
           type: 'update',
