@@ -12,5 +12,11 @@ export {
   updateConversationPreview,
   updateConversationTimestamp,
 } from './conversations';
-export { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
-export type { WorkspaceConversationsState } from './hooks/useWorkspaceConversations';
+export {
+  useWorkspaceConversations,
+  useOpenWorkspaceConversations,
+} from './hooks/useWorkspaceConversations';
+export type {
+  WorkspaceConversationsState,
+  WorkspaceOpenConversationsState,
+} from './hooks/useWorkspaceConversations';

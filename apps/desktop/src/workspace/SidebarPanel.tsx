@@ -25,10 +25,14 @@ import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { formatSessionPreview, formatWorkspaceLabel } from '~/lib/workspaces';
 import { sortConversationsByTimestamp } from '~/workspace/conversations';
 
-import { useWorkspace, useWorkspaceKeys } from './WorkspaceProvider';
+import {
+  useWorkspace,
+  useWorkspaceConversationStores,
+  useWorkspaceKeys,
+} from './WorkspaceProvider';
 import {
   type WorkspaceConversationsState,
-  useWorkspaceConversations,
+  useOpenWorkspaceConversations,
 } from './hooks/useWorkspaceConversations';
 
 export function SidebarPanel() {
@@ -36,7 +40,9 @@ export function SidebarPanel() {
   const queryClient = useQueryClient();
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
   const keys = useWorkspaceKeys();
-  const conversations = useWorkspaceConversations();
+  const conversations = useOpenWorkspaceConversations();
+  const { closeConversation, clearConversationStore } =
+    useWorkspaceConversationStores();
   const conversationMatch = useRouterState({
     select: (state) =>
       state.matches.find(
@@ -55,9 +61,7 @@ export function SidebarPanel() {
     [workspacePath]
   );
 
-  const sessions = conversations.items ?? [];
-  const hasMoreSessions = conversations.hasMore ?? false;
-  const isLoadingMore = conversations.isLoadingMore ?? false;
+  const sessions: ConversationSummary[] = conversations.items ?? [];
   const conversationsError =
     conversations.query.error instanceof Error
       ? conversations.query.error
@@ -74,6 +78,52 @@ export function SidebarPanel() {
       });
     },
     [router, workspacePath]
+  );
+
+  const navigateToConversation = useCallback(
+    (conversationId: string) => {
+      void router.navigate({
+        to: '/workspaces/$workspaceId/conversations/$conversationId',
+        params: {
+          workspaceId: encodeWorkspaceId(workspacePath),
+          conversationId,
+        },
+      });
+    },
+    [router, workspacePath]
+  );
+
+  const handleCloseConversation = useCallback(
+    (conversationId: string) => {
+      closeConversation(conversationId);
+      clearConversationStore(conversationId);
+
+      if (activeConversationId === conversationId) {
+        const nextConversation = sessions.find(
+          (session: ConversationSummary) =>
+            session.conversationId !== conversationId
+        );
+        if (nextConversation) {
+          navigateToConversation(nextConversation.conversationId);
+        } else {
+          void router.navigate({
+            to: '/workspaces/$workspaceId',
+            params: {
+              workspaceId: encodeWorkspaceId(workspacePath),
+            },
+          });
+        }
+      }
+    },
+    [
+      activeConversationId,
+      clearConversationStore,
+      closeConversation,
+      navigateToConversation,
+      router,
+      sessions,
+      workspacePath,
+    ]
   );
 
   const newConversationMutation = useMutation({
@@ -151,10 +201,6 @@ export function SidebarPanel() {
     handleNewConversationShortcut
   );
 
-  const handleLoadMoreSessions = () => {
-    void conversations.loadMore?.();
-  };
-
   return (
     <div className="flex h-full flex-col">
       <SidebarHeader
@@ -230,27 +276,17 @@ export function SidebarPanel() {
                       session={session}
                       isActive={session.conversationId === activeConversationId}
                       onSelect={handleConversationClick}
+                      onClose={handleCloseConversation}
                     />
                   ))}
                 </SidebarMenu>
-                {hasMoreSessions && (
-                  <div className="px-2 pt-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="w-full"
-                      onClick={handleLoadMoreSessions}
-                      disabled={isLoadingMore}
-                    >
-                      {isLoadingMore ? 'Loading…' : 'Load more'}
-                    </Button>
-                  </div>
-                )}
               </>
             ) : (
               <div className="px-2 space-y-1 text-xs text-muted-foreground">
-                <span>No sessions in this workspace yet.</span>
-                <span>Start a new session to begin chatting with Codex.</span>
+                <span>
+                  No open sessions in this workspace. Start a new session or
+                  open one with CmdOrCtrl+P to begin.
+                </span>
               </div>
             )}
           </SidebarGroupContent>
@@ -264,12 +300,14 @@ type SidebarConversationMenuItemProps = {
   session: ConversationSummary;
   isActive: boolean;
   onSelect: (conversationId: string) => void;
+  onClose: (conversationId: string) => void;
 };
 
 function SidebarConversationMenuItem({
   session,
   isActive,
   onSelect,
+  onClose,
 }: SidebarConversationMenuItemProps) {
   const isRunning = useConversationIsRunning(session.conversationId);
 
@@ -289,11 +327,38 @@ function SidebarConversationMenuItem({
               {formatSessionPreview(session.preview ?? session.conversationId)}
             </span>
           </span>
-          {session.timestamp ? (
-            <span className="text-transcript-micro text-muted-foreground">
-              {formatSessionPreviewTimestamp(session.timestamp)}
-            </span>
-          ) : null}
+          <span className="flex items-center gap-2">
+            {session.timestamp ? (
+              <span className="text-transcript-micro text-muted-foreground">
+                {formatSessionPreviewTimestamp(session.timestamp)}
+              </span>
+            ) : null}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 opacity-60 hover:opacity-100"
+              onClick={(event) => {
+                event.stopPropagation();
+                onClose(session.conversationId);
+              }}
+              aria-label="Close session"
+            >
+              <span className="sr-only">Close session</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <line x1="18" x2="6" y1="6" y2="18" />
+                <line x1="6" x2="18" y1="6" y2="18" />
+              </svg>
+            </Button>
+          </span>
         </div>
       </SidebarMenuButton>
     </SidebarMenuItem>
