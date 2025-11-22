@@ -33,6 +33,7 @@ const toExecApprovalRequest = (
   const event = payload.event;
   return {
     kind: 'exec',
+    eventId: payload.eventId,
     turnId: payload.turnId,
     conversationId: payload.conversationId,
     callId: event.call_id,
@@ -50,6 +51,7 @@ const toPatchApprovalRequest = (
   const event = payload.event;
   return {
     kind: 'patch',
+    eventId: payload.eventId,
     turnId: payload.turnId,
     conversationId: payload.conversationId,
     callId: event.call_id,

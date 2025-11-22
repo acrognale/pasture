@@ -130,7 +130,7 @@ export function Patches({ cell }: PatchesProps) {
     isApproval &&
     approvals.activeRequest !== null &&
     approvals.activeRequest.kind === 'patch' &&
-    approvals.activeRequest.turnId === cell.id;
+    approvals.activeRequest.eventId === cell.id;
 
   const iconStatus = (() => {
     if (cell.kind === 'patch-approval') {

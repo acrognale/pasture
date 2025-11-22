@@ -11,17 +11,17 @@ export const useApprovals = () => {
     (state) => state.activeRequest
   );
   const queueLength = useStore(approvalsStore, (state) => state.queue.length);
-  const lastNotifiedId = useStore(
+  const lastNotifiedEventId = useStore(
     approvalsStore,
-    (state) => state.lastNotifiedId
+    (state) => state.lastNotifiedEventId
   );
 
   useEffect(() => {
-    if (!activeRequest || activeRequest.turnId === lastNotifiedId) {
+    if (!activeRequest || activeRequest.eventId === lastNotifiedEventId) {
       return;
     }
 
-    approvalsStore.getState().markNotified(activeRequest.turnId);
+    approvalsStore.getState().markNotified(activeRequest.eventId);
 
     if (activeRequest.kind === 'exec') {
       const command =
@@ -41,7 +41,7 @@ export const useApprovals = () => {
         description,
       });
     }
-  }, [activeRequest, approvalsStore, lastNotifiedId]);
+  }, [activeRequest, approvalsStore, lastNotifiedEventId]);
 
   return useMemo(
     () => ({

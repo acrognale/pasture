@@ -120,6 +120,7 @@ describe('ConversationProvider approvals', () => {
     const approvals = approvalsProbe.store?.getState();
     expect(approvals?.activeRequest).toMatchObject({
       kind: 'exec',
+      eventId: 'evt-1',
       turnId: 'turn-1',
       conversationId: 'conversation',
       callId: 'call-1',
@@ -182,6 +183,7 @@ describe('ConversationProvider approvals', () => {
     expect(approvals?.queue).toHaveLength(1);
     expect(approvals?.queue[0]).toMatchObject({
       kind: 'patch',
+      eventId: 'evt-2',
       turnId: 'turn-2',
       callId: 'call-2',
     });
