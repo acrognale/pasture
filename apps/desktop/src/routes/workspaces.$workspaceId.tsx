@@ -11,6 +11,7 @@ import { ConversationProvider } from '~/conversation/store';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { WorkspaceProvider } from '~/workspace';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
+import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';
 
 export const Route = createFileRoute('/workspaces/$workspaceId')({
   component: RouteComponent,
@@ -53,6 +54,7 @@ function RouteComponent() {
               <Outlet />
             </div>
           </SidebarInset>
+          <WorkspaceConversationSwitcher />
         </SidebarProvider>
       </ConversationProvider>
     </WorkspaceProvider>
