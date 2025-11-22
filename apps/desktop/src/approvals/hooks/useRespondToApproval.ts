@@ -39,17 +39,6 @@ export const useRespondToApproval = () => {
   const markApprovalInTranscript = useCallback(
     (request: ApprovalRequest, decision: ApprovalDecision) => {
       const store = getConversationStore(request.conversationId);
-      const normalizedDecision =
-        request.kind === 'patch'
-          ? decision === 'approve'
-            ? 'approved'
-            : 'rejected'
-          : decision === 'approve'
-            ? 'approved'
-            : decision === 'approve_for_session'
-              ? 'approved_for_session'
-              : 'rejected';
-
       store.setState((state) =>
         produce(state, (draft) => {
           const transcript = draft.conversation.transcript;
@@ -62,12 +51,17 @@ export const useRespondToApproval = () => {
           }
 
           if (cell.kind === 'exec-approval' && request.kind === 'exec') {
-            cell.decision = normalizedDecision;
+            cell.decision =
+              decision === 'approve'
+                ? 'approved'
+                : decision === 'approve_for_session'
+                  ? 'approved_for_session'
+                  : 'rejected';
           } else if (
             cell.kind === 'patch-approval' &&
             request.kind === 'patch'
           ) {
-            cell.decision = normalizedDecision;
+            cell.decision = decision === 'approve' ? 'approved' : 'rejected';
           }
         })
       );
