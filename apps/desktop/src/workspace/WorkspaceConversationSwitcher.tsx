@@ -1,5 +1,5 @@
 import { useRouter } from '@tanstack/react-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -15,6 +15,9 @@ import { formatSessionPreview } from '~/lib/workspaces';
 
 import { useWorkspace } from './WorkspaceProvider';
 import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
+
+export const OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT =
+  'workspace-conversation-switcher-open';
 
 export function WorkspaceConversationSwitcher() {
   const [open, setOpen] = useState(false);
@@ -32,6 +35,24 @@ export function WorkspaceConversationSwitcher() {
   const handleOpen = useCallback(() => {
     setOpen(true);
     return true;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleEvent = () => setOpen(true);
+    window.addEventListener(
+      OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT,
+      handleEvent
+    );
+    return () => {
+      window.removeEventListener(
+        OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT,
+        handleEvent
+      );
+    };
   }, []);
 
   useNamedShortcut('workspace.openConversationSwitcher', undefined, handleOpen);

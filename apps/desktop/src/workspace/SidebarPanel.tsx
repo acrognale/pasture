@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRouterState } from '@tanstack/react-router';
-import { Loader2Icon, PlusIcon } from 'lucide-react';
+import { Loader2Icon, PlusIcon, SearchIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
@@ -12,7 +12,6 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -22,9 +21,10 @@ import { useConversationIsRunning } from '~/conversation/store/hooks';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
-import { formatSessionPreview, formatWorkspaceLabel } from '~/lib/workspaces';
+import { formatSessionPreview } from '~/lib/workspaces';
 import { sortConversationsByTimestamp } from '~/workspace/conversations';
 
+import { OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT } from './WorkspaceConversationSwitcher';
 import {
   useWorkspace,
   useWorkspaceConversationStores,
@@ -56,12 +56,10 @@ export function SidebarPanel() {
       ? conversationMatch.params.conversationId
       : null;
 
-  const workspaceName = useMemo(
-    () => formatWorkspaceLabel(workspacePath),
-    [workspacePath]
+  const sessions: ConversationSummary[] = useMemo(
+    () => conversations.items ?? [],
+    [conversations.items]
   );
-
-  const sessions: ConversationSummary[] = conversations.items ?? [];
   const conversationsError =
     conversations.query.error instanceof Error
       ? conversations.query.error
@@ -201,50 +199,46 @@ export function SidebarPanel() {
     handleNewConversationShortcut
   );
 
+  const handleOpenConversationSelector = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.dispatchEvent(new Event(OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT));
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
-      <SidebarHeader
-        className="border-b border-border/60 pb-3 pl-4"
-        data-tauri-drag-region="true"
-      >
-        <div
-          className="space-y-3"
-          style={{ paddingTop: '8px' }}
-          data-tauri-drag-region="true"
-        >
-          <div
-            className="flex justify-end gap-3"
-            style={{ paddingLeft: '68px' }}
-            data-tauri-drag-region="true"
-          >
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 text-xs h-7 px-2.5"
-              onClick={handleStartNewSession}
-              disabled={newConversationMutation.isPending}
-              data-tauri-drag-region="false"
-            >
-              {newConversationMutation.isPending ? (
-                <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <PlusIcon className="mr-2 h-4 w-4" />
-              )}
-              New
-            </Button>
-          </div>
-        </div>
-      </SidebarHeader>
-
       <ScrollArea className="flex min-h-0 flex-1 flex-col bg-card/60">
         <SidebarGroup className="px-2 py-2">
-          <SidebarGroupLabel>
-            Sessions
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
-              {workspaceName}
-            </span>
+          <SidebarGroupLabel className="flex items-center justify-between gap-2">
+            <span>Sessions</span>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0 h-7 px-2 text-xs"
+                onClick={handleStartNewSession}
+                disabled={newConversationMutation.isPending}
+              >
+                {newConversationMutation.isPending ? (
+                  <Loader2Icon className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <PlusIcon className="mr-1 h-4 w-4" />
+                )}
+                New
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0 h-7 px-2 text-xs"
+                onClick={handleOpenConversationSelector}
+              >
+                <SearchIcon className="mr-1 h-4 w-4" />
+                Open
+              </Button>
+            </div>
           </SidebarGroupLabel>
-          <SidebarGroupContent>
+          <SidebarGroupContent className="mt-2">
             {conversations.query.isPending ? (
               <SidebarMenu>
                 {[1, 2, 3].map((item) => (

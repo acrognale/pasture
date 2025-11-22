@@ -45,7 +45,7 @@ export function ConversationReviewOverlay({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-[95vw]! w-[95vw]! h-[95vh]! max-h-[95vh]! p-0! gap-0! overflow-hidden flex! flex-col! antialiased"
+        className="max-w-[98vw]! w-[98vw]! h-[90vh]! max-h-[90vh]! p-0! gap-0! overflow-hidden flex! flex-col! antialiased"
         showCloseButton={false}
       >
         <Suspense
