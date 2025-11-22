@@ -60,8 +60,9 @@ describe('TranscriptList', () => {
       throw new Error('Missing turn data in fixture');
     }
     const finalAgentCell = originalTurn.cells.find(
-      (cell) => cell.kind === 'agent-message'
-    ) as TranscriptAgentMessageCell | undefined;
+      (cell): cell is TranscriptAgentMessageCell =>
+        cell.kind === 'agent-message'
+    );
     expect(finalAgentCell).toBeDefined();
     if (!finalAgentCell) {
       throw new Error('Fixture missing agent message');

@@ -7,13 +7,17 @@ import { mapConversationEventToApprovalRequest } from '../event-utils';
 const basePayload = (
   event: ConversationEventPayload['event'],
   overrides?: Partial<ConversationEventPayload>
-): ConversationEventPayload => ({
-  conversationId: 'conversation',
-  turnId: 'turn-1',
-  timestamp: new Date().toISOString(),
-  ...overrides,
-  event,
-});
+): ConversationEventPayload => {
+  const { eventId, ...rest } = overrides ?? {};
+  return {
+    conversationId: 'conversation',
+    turnId: 'turn-1',
+    timestamp: new Date().toISOString(),
+    eventId: eventId ?? 'evt-test',
+    ...rest,
+    event,
+  };
+};
 
 describe('mapConversationEventToApprovalRequest', () => {
   it('creates exec approval requests', () => {

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 import {
   buildControllerFromFixture,
   loadFixtureEvents,
@@ -13,6 +14,16 @@ import type {
 
 import type { ConversationControllerState } from '../reducer';
 import { createConversationStore } from '../store';
+
+let eventCounter = 0;
+const nextEventId = (prefix = 'evt'): string =>
+  `${prefix}-${(eventCounter += 1).toString()}`;
+const withEventId = (
+  payload: Omit<ConversationEventPayload, 'eventId'> & { eventId?: string }
+): ConversationEventPayload => ({
+  ...payload,
+  eventId: payload.eventId ?? nextEventId(),
+});
 
 const getCells = (state: ConversationControllerState) =>
   state.conversation.transcript.turnOrder.flatMap((turnId) => {
@@ -77,43 +88,51 @@ describe('ConversationReducer fixtures', () => {
 
   it('emits reasoning text when agent_reasoning arrives with empty body', () => {
     const store = createConversationStore();
-    store.getState().ingestEvent({
-      conversationId: 'conversation',
-      turnId: 'session',
-      event: {
-        type: 'session_configured',
-        session_id: 'conversation',
-        model: 'gpt-5-codex-latest',
-        model_provider_id: 'openai',
-        approval_policy: 'on-request',
-        sandbox_policy: { type: 'danger-full-access' },
-        cwd: '/tmp/workspace',
-        reasoning_effort: 'medium',
-        history_log_id: BigInt(0),
-        history_entry_count: 0,
-        rollout_path: '/tmp/session.jsonl',
-        initial_messages: null,
-      },
-      timestamp: new Date().toISOString(),
-    });
-    store.getState().ingestEvent({
-      conversationId: 'conversation',
-      turnId: 'turn-1',
-      event: { type: 'agent_reasoning_delta', delta: 'Outlining approach' },
-      timestamp: new Date().toISOString(),
-    });
-    store.getState().ingestEvent({
-      conversationId: 'conversation',
-      turnId: 'turn-1',
-      event: { type: 'agent_reasoning_delta', delta: ' and next steps' },
-      timestamp: new Date().toISOString(),
-    });
-    store.getState().ingestEvent({
-      conversationId: 'conversation',
-      turnId: 'turn-1',
-      event: { type: 'agent_reasoning', text: '' },
-      timestamp: new Date().toISOString(),
-    });
+    store.getState().ingestEvent(
+      withEventId({
+        conversationId: 'conversation',
+        turnId: 'session',
+        event: {
+          type: 'session_configured',
+          session_id: 'conversation',
+          model: 'gpt-5-codex-latest',
+          model_provider_id: 'openai',
+          approval_policy: 'on-request',
+          sandbox_policy: { type: 'danger-full-access' },
+          cwd: '/tmp/workspace',
+          reasoning_effort: 'medium',
+          history_log_id: BigInt(0),
+          history_entry_count: 0,
+          rollout_path: '/tmp/session.jsonl',
+          initial_messages: null,
+        },
+        timestamp: new Date().toISOString(),
+      })
+    );
+    store.getState().ingestEvent(
+      withEventId({
+        conversationId: 'conversation',
+        turnId: 'turn-1',
+        event: { type: 'agent_reasoning_delta', delta: 'Outlining approach' },
+        timestamp: new Date().toISOString(),
+      })
+    );
+    store.getState().ingestEvent(
+      withEventId({
+        conversationId: 'conversation',
+        turnId: 'turn-1',
+        event: { type: 'agent_reasoning_delta', delta: ' and next steps' },
+        timestamp: new Date().toISOString(),
+      })
+    );
+    store.getState().ingestEvent(
+      withEventId({
+        conversationId: 'conversation',
+        turnId: 'turn-1',
+        event: { type: 'agent_reasoning', text: '' },
+        timestamp: new Date().toISOString(),
+      })
+    );
 
     const reasoningCell = getCells(store.getState()).find(
       (cell) => cell.kind === 'agent-reasoning'

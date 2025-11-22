@@ -97,7 +97,8 @@ describe('ConversationProvider approvals', () => {
       kind: 'conversation-event',
       payload: {
         conversationId: 'conversation',
-        turnId: 'evt-1',
+        turnId: 'turn-1',
+        eventId: 'evt-1',
         event: {
           type: 'exec_approval_request',
           call_id: 'call-1',
@@ -119,7 +120,7 @@ describe('ConversationProvider approvals', () => {
     const approvals = approvalsProbe.store?.getState();
     expect(approvals?.activeRequest).toMatchObject({
       kind: 'exec',
-      turnId: 'evt-1',
+      turnId: 'turn-1',
       conversationId: 'conversation',
       callId: 'call-1',
       command: ['bash', '-lc', 'ls'],
@@ -136,7 +137,8 @@ describe('ConversationProvider approvals', () => {
         kind: 'conversation-event',
         payload: {
           conversationId: 'conversation',
-          turnId: 'evt-1',
+          turnId: 'turn-1',
+          eventId: 'evt-1',
           event: {
             type: 'exec_approval_request',
             call_id: 'call-1',
@@ -154,7 +156,8 @@ describe('ConversationProvider approvals', () => {
         kind: 'conversation-event',
         payload: {
           conversationId: 'conversation',
-          turnId: 'evt-2',
+          turnId: 'turn-2',
+          eventId: 'evt-2',
           event: {
             type: 'apply_patch_approval_request',
             call_id: 'call-2',
@@ -178,7 +181,7 @@ describe('ConversationProvider approvals', () => {
     expect(approvals?.queue).toHaveLength(1);
     expect(approvals?.queue[0]).toMatchObject({
       kind: 'patch',
-      turnId: 'evt-2',
+      turnId: 'turn-2',
       callId: 'call-2',
     });
   });

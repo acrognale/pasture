@@ -178,15 +178,21 @@ const applyEvent = (
   controller: TestController,
   event: EventMsg,
   eventId: string,
-  index: number
+  index: number,
+  turnIdOverride?: string
 ) => {
   const timestamp = ts(index);
   vi.setSystemTime(new Date(timestamp));
-  const turnId = 'turn_id' in event && event.turn_id ? event.turn_id : 'turn-1';
+  const turnId =
+    turnIdOverride ??
+    ('turn_id' in event && typeof event.turn_id === 'string'
+      ? event.turn_id
+      : 'turn-1');
 
   controller.ingest({
     conversationId: TEST_CONVERSATION_ID,
     turnId,
+    eventId,
     event,
     timestamp,
   });
@@ -338,19 +344,19 @@ describe('turn diff handling', () => {
       type: 'turn_diff',
       unified_diff:
         'diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-Hello\n+Hello world\n',
-      turn_id: 'turn-1',
     };
 
     state = applyEvent(
       controller,
-      { type: 'task_started', model_context_window: null, turn_id: 'turn-1' },
+      { type: 'task_started', model_context_window: null },
       'task-1',
-      0
+      0,
+      'turn-1'
     );
-    state = applyEvent(controller, firstDiff, 'diff-1', 1);
+    state = applyEvent(controller, firstDiff, 'diff-1', 1, 'turn-1');
 
     expect(state.latestTurnDiff).toEqual({
-      eventId: 'turn-1',
+      eventId: 'diff-1',
       timestamp: ts(1),
       unifiedDiff: firstDiff.unified_diff,
       turnNumber: 1,
@@ -359,22 +365,20 @@ describe('turn diff handling', () => {
     const nextTurnStarted: EventMsg = {
       type: 'task_started',
       model_context_window: null,
-      turn_id: 'turn-2',
     };
 
-    state = applyEvent(controller, nextTurnStarted, 'task-2', 2);
+    state = applyEvent(controller, nextTurnStarted, 'task-2', 2, 'turn-2');
 
     const secondDiff: TurnDiffEvent = {
       type: 'turn_diff',
       unified_diff:
         'diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-Hello world\n+Hello world!!!\n',
-      turn_id: 'turn-2',
     };
 
-    state = applyEvent(controller, secondDiff, 'diff-2', 3);
+    state = applyEvent(controller, secondDiff, 'diff-2', 3, 'turn-2');
 
     expect(state.latestTurnDiff).toEqual({
-      eventId: 'turn-2',
+      eventId: 'diff-2',
       timestamp: ts(3),
       unifiedDiff: secondDiff.unified_diff,
       turnNumber: 2,
@@ -1248,7 +1252,9 @@ describe('user message handling', () => {
       .map(expectUserCell);
 
     expect(userCells).toHaveLength(1);
-    expect(userCells[0]?.eventIds).toEqual(expect.arrayContaining(['turn-1']));
+    expect(userCells[0]?.eventIds).toEqual(
+      expect.arrayContaining(['user-legacy-1', 'user-legacy-2'])
+    );
   });
 
   it('creates a new user cell after the previous turn completes', () => {
@@ -1366,13 +1372,15 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_started', model_context_window: null },
       'task-started-2',
-      4
+      4,
+      'turn-2'
     );
     state = applyEvent(
       controller,
       { type: 'task_complete', last_agent_message: 'Second turn complete' },
       'task-complete-2',
-      6
+      6,
+      'turn-2'
     );
 
     // Third turn: task_started followed by task_complete
@@ -1380,13 +1388,15 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_started', model_context_window: null },
       'task-started-3',
-      7
+      7,
+      'turn-3'
     );
     state = applyEvent(
       controller,
       { type: 'task_complete', last_agent_message: 'Third turn complete' },
       'task-complete-3',
-      9
+      9,
+      'turn-3'
     );
 
     const taskCells = cellsOf(state)
@@ -1425,7 +1435,8 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_complete', last_agent_message: 'First turn' },
       'task-complete-1',
-      2
+      2,
+      'turn-1'
     );
 
     // Second turn: task_started followed by task_complete
@@ -1433,13 +1444,15 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_started', model_context_window: null },
       'task-started-2',
-      3
+      3,
+      'turn-2'
     );
     state = applyEvent(
       controller,
       { type: 'task_complete', last_agent_message: 'Second turn' },
       'task-complete-2',
-      5
+      5,
+      'turn-2'
     );
 
     const taskCells = cellsOf(state)
@@ -1469,13 +1482,15 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_started', model_context_window: null },
       'task-started-1',
-      1
+      1,
+      'turn-1'
     );
     state = applyEvent(
       controller,
       { type: 'task_complete', last_agent_message: 'First message' },
       'task-complete-1',
-      3
+      3,
+      'turn-1'
     );
 
     // Second task_complete arrives without a corresponding task_started
@@ -1484,7 +1499,8 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_complete', last_agent_message: 'Second message' },
       'task-complete-2',
-      5
+      5,
+      'turn-2'
     );
 
     const taskCells = cellsOf(state)

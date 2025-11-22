@@ -132,9 +132,13 @@ export const WorkspaceProvider = ({
             'turn_id' in event && typeof event.turn_id === 'string'
               ? event.turn_id
               : `initial::${conversationId}::${index}`;
+          const eventId =
+            (event as { event_id?: string }).event_id ??
+            `${turnId}::${index.toString()}`;
           store.getState().ingestEvent({
             conversationId,
             turnId,
+            eventId,
             event,
             timestamp: new Date().toISOString(),
           });

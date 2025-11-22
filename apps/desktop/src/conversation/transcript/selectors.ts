@@ -42,6 +42,14 @@ export const getItemCell = (
     'agent-reasoning',
     'tool',
   ];
+  const isItemCell = (
+    cell: TranscriptCell
+  ): cell is Extract<
+    TranscriptCell,
+    {
+      kind: 'user-message' | 'agent-message' | 'agent-reasoning' | 'tool';
+    }
+  > => kinds.includes(cell.kind);
 
   for (let t = state.turnOrder.length - 1; t >= 0; t -= 1) {
     const turnId = state.turnOrder[t];
@@ -51,22 +59,9 @@ export const getItemCell = (
     }
     for (let index = turn.cells.length - 1; index >= 0; index -= 1) {
       const candidate = turn.cells[index];
-      if (
-        kinds.includes(candidate.kind) &&
-        'itemId' in candidate &&
-        candidate.itemId === itemId
-      ) {
+      if (isItemCell(candidate) && candidate.itemId === itemId) {
         return {
-          cell: candidate as Extract<
-            TranscriptCell,
-            {
-              kind:
-                | 'user-message'
-                | 'agent-message'
-                | 'agent-reasoning'
-                | 'tool';
-            }
-          >,
+          cell: candidate,
           location: { turnId, cellIndex: index },
         };
       }

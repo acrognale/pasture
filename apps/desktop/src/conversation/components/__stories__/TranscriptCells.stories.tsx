@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TranscriptCells } from '~/conversation/components/TranscriptCells';
-import type { TranscriptCell } from '~/conversation/transcript/types';
+import type {
+  TranscriptCell,
+  TranscriptCellKind,
+} from '~/conversation/transcript/types';
 
 import { sampleTranscript } from '../../__stories__/mocks/data';
 
@@ -17,23 +20,32 @@ export default meta;
 type Story = StoryObj<typeof TranscriptCells>;
 
 const firstTurnId = sampleTranscript.turnOrder[0];
-const flatCells =
-  (firstTurnId && sampleTranscript.turns[firstTurnId]?.cells) ?? [];
+const flatCells: TranscriptCell[] = firstTurnId
+  ? (sampleTranscript.turns[firstTurnId]?.cells ?? [])
+  : [];
+
+const getFallbackCell = (): TranscriptCell => {
+  const defaultCell = flatCells[0];
+  if (!defaultCell) {
+    throw new Error('Sample transcript is missing cells for stories.');
+  }
+  return defaultCell;
+};
 
 export const Timeline: Story = {
   render: () => (
     <div className="flex flex-col gap-3 bg-background p-6">
-      {flatCells.map((cell, index) => (
+      {flatCells.map((cell) => (
         <TranscriptCells key={cell.id} cell={cell} />
       ))}
     </div>
   ),
 };
 
-const findCell = (kind: string): TranscriptCell =>
-  flatCells.find((cell) => cell.kind === kind) ?? flatCells[0];
+const findCell = (kind: TranscriptCellKind): TranscriptCell =>
+  flatCells.find((cell) => cell.kind === kind) ?? getFallbackCell();
 
-const buildSingleCellStory = (kind: string) =>
+const buildSingleCellStory = (kind: TranscriptCellKind) =>
   ({
     render: () => {
       const cell = findCell(kind);

@@ -9,6 +9,7 @@ import {
 
 export type ReplayEvent = {
   turnId: string;
+  eventId: string;
   event: EventMsg;
   timestamp?: string;
 };
@@ -35,11 +36,19 @@ export function parseJsonl(jsonl: string): ReplayEvent[] {
 
   for (const line of lines) {
     try {
-      const parsed = JSON.parse(line) as ReplayEvent & { eventId?: string };
-      const turnId = parsed.turnId ?? parsed.eventId;
+      const parsed = JSON.parse(line) as ReplayEvent & {
+        eventId?: string;
+        event_id?: string;
+      };
+      const turnId = parsed.turnId ?? parsed.eventId ?? parsed.event_id;
       if (parsed.event && turnId) {
+        const eventId =
+          parsed.eventId ??
+          parsed.event_id ??
+          `${turnId}::${events.length.toString()}`;
         events.push({
           turnId,
+          eventId,
           event: parsed.event,
           timestamp: parsed.timestamp,
         });
@@ -89,6 +98,7 @@ export function replayEvents(
       const payload: ConversationEventPayload = {
         conversationId,
         turnId: replayEvent.turnId,
+        eventId: replayEvent.eventId,
         event: replayEvent.event,
         timestamp: replayEvent.timestamp ?? new Date().toISOString(),
       };

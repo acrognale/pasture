@@ -591,7 +591,7 @@ function onExecCommandBegin(
       ? { calls: [createExplorationCall(event)] }
       : null,
   };
-  const location = appendCell(draft, turnId, cell);
+  appendCell(draft, turnId, cell);
   ensureExecDecoders(execDecoders, event.call_id);
   transcript.activeTurnId = turnId;
 }

@@ -1,6 +1,7 @@
 import { type UnlistenFn, listen } from '@tauri-apps/api/event';
 import type { AuthState } from '~/codex.gen/AuthState';
 import type { CodexEvent } from '~/codex.gen/CodexEvent';
+import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 import type { EventMsg } from '~/codex.gen/EventMsg';
 
 export const isTauriEnvironment = (): boolean =>

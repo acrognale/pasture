@@ -23,6 +23,7 @@ type AsyncFn<TArgs extends unknown[], TResult> = (
 ) => Promise<TResult>;
 
 const codexResetters: Array<() => void> = [];
+let mockEventIdCounter = 0;
 
 const defineStub = <TArgs extends unknown[], TResult>(
   impl: AsyncFn<TArgs, TResult>
@@ -224,9 +225,11 @@ export const mockEvents = {
       );
     }
 
+    const turnId = options.turnId ?? generateTurnId(event.type);
     const payload: ConversationEventPayload = {
       conversationId,
-      turnId: options.turnId ?? generateTurnId(event.type),
+      turnId,
+      eventId: `evt-${(mockEventIdCounter += 1)}`,
       event,
       timestamp: new Date().toISOString(),
     };
@@ -241,6 +244,7 @@ export const mockEvents = {
   },
   reset() {
     resetEventBuses();
+    mockEventIdCounter = 0;
   },
 };
 
