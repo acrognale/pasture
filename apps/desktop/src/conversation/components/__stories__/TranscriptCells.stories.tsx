@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TranscriptCells } from '~/conversation/components/TranscriptCells';
-import type { TranscriptCell } from '~/conversation/transcript/types';
+import type {
+  TranscriptCell,
+  TranscriptCellKind,
+} from '~/conversation/transcript/types';
 
 import { sampleTranscript } from '../../__stories__/mocks/data';
 
@@ -9,7 +12,6 @@ const meta: Meta<typeof TranscriptCells> = {
   component: TranscriptCells,
   argTypes: {
     cell: { control: false },
-    index: { control: { type: 'number' } },
   },
 };
 
@@ -17,29 +19,39 @@ export default meta;
 
 type Story = StoryObj<typeof TranscriptCells>;
 
+const firstTurnId = sampleTranscript.turnOrder[0];
+const flatCells: TranscriptCell[] = firstTurnId
+  ? (sampleTranscript.turns[firstTurnId]?.cells ?? [])
+  : [];
+
+const getFallbackCell = (): TranscriptCell => {
+  const defaultCell = flatCells[0];
+  if (!defaultCell) {
+    throw new Error('Sample transcript is missing cells for stories.');
+  }
+  return defaultCell;
+};
+
 export const Timeline: Story = {
   render: () => (
     <div className="flex flex-col gap-3 bg-background p-6">
-      {sampleTranscript.cells.map((cell, index) => (
-        <TranscriptCells key={cell.id} cell={cell} index={index + 1} />
+      {flatCells.map((cell) => (
+        <TranscriptCells key={cell.id} cell={cell} />
       ))}
     </div>
   ),
 };
 
-const findCell = (kind: string): TranscriptCell =>
-  sampleTranscript.cells.find((cell) => cell.kind === kind) ??
-  sampleTranscript.cells[0];
+const findCell = (kind: TranscriptCellKind): TranscriptCell =>
+  flatCells.find((cell) => cell.kind === kind) ?? getFallbackCell();
 
-const buildSingleCellStory = (kind: string) =>
+const buildSingleCellStory = (kind: TranscriptCellKind) =>
   ({
     render: () => {
       const cell = findCell(kind);
-      const index =
-        sampleTranscript.cells.findIndex((entry) => entry === cell) + 1;
       return (
         <div className="bg-background p-6">
-          <TranscriptCells cell={cell} index={index} />
+          <TranscriptCells cell={cell} />
         </div>
       );
     },
@@ -49,15 +61,13 @@ export const ExecApproval = buildSingleCellStory('exec-approval');
 export const PatchApproval = buildSingleCellStory('patch-approval');
 export const MarkdownShowcase: Story = {
   render: () => {
-    const markdownCells = sampleTranscript.cells.filter((cell) =>
+    const markdownCells = flatCells.filter((cell) =>
       ['agent-message', 'agent-reasoning'].includes(cell.kind)
     );
     return (
       <div className="flex flex-col gap-4 bg-background p-6">
         {markdownCells.map((cell) => {
-          const index =
-            sampleTranscript.cells.findIndex((entry) => entry === cell) + 1;
-          return <TranscriptCells key={cell.id} cell={cell} index={index} />;
+          return <TranscriptCells key={cell.id} cell={cell} />;
         })}
       </div>
     );

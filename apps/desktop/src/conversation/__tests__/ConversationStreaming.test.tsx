@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { mockCodex, mockEvents } from '~/testing/codex';
 
 import {
@@ -145,6 +145,10 @@ describe('Conversation streaming flow', () => {
 
     window.IntersectionObserver =
       NonIntersectingObserver as typeof window.IntersectionObserver;
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
 
     mockCodex.stub.initializeConversation.mockResolvedValueOnce({
       sessionConfigured: {
@@ -193,8 +197,7 @@ describe('Conversation streaming flow', () => {
         configurable: true,
         value: 600,
       });
-      let scrollTopValue = 0;
-      let scrollMutations = 0;
+      let scrollTopValue = transcript.scrollTop;
       Object.defineProperty(transcript, 'scrollTop', {
         configurable: true,
         get() {
@@ -202,15 +205,16 @@ describe('Conversation streaming flow', () => {
         },
         set(next: number) {
           scrollTopValue = next;
-          scrollMutations += 1;
         },
       });
 
       await screen.findByText('Earlier answer', { exact: false });
+      await flushAnimationFrame(2);
 
-      await waitFor(() => expect(scrollMutations).toBeGreaterThan(0));
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
     } finally {
       window.IntersectionObserver = originalObserver;
+      Element.prototype.scrollIntoView = originalScrollIntoView;
     }
   });
 

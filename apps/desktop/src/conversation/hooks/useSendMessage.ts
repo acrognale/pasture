@@ -1,6 +1,5 @@
 /**
  * Hook for sending messages to conversations.
- * Handles optimistic updates via the conversation store.
  */
 import { useState } from 'react';
 import { toast } from 'sonner';

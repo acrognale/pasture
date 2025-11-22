@@ -13,21 +13,6 @@ export const ensureTauriEnvironment = () => {
   }
 };
 
-export const createOptimisticUserEvent = (
-  conversationId: string,
-  text: string,
-  timestamp = new Date().toISOString()
-): ConversationEventPayload => ({
-  conversationId,
-  eventId: `optimistic-${timestamp}`,
-  event: {
-    type: 'user_message',
-    message: text,
-    images: null,
-  },
-  timestamp,
-});
-
 export const derivePreviewFromEvent = (event: EventMsg): string | null => {
   switch (event.type) {
     case 'user_message':

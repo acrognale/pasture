@@ -57,7 +57,6 @@ export const MCPToolSuccess: Story = {
         total_count: 2,
       },
     }),
-    index: 1,
     timestamp: new Date().toISOString(),
   },
 };
@@ -75,7 +74,6 @@ export const MCPToolRunning: Story = {
         },
       },
     }),
-    index: 2,
     timestamp: new Date().toISOString(),
   },
 };
@@ -98,7 +96,6 @@ export const MCPToolFailed: Story = {
         status: 404,
       },
     }),
-    index: 3,
     timestamp: new Date().toISOString(),
   },
 };
@@ -110,7 +107,6 @@ export const ViewImageTool: Story = {
       status: 'succeeded',
       path: '/Users/john/screenshots/error-screenshot.png',
     }),
-    index: 4,
     timestamp: new Date().toISOString(),
   },
 };
@@ -127,7 +123,6 @@ export const SearchTool: Story = {
 - src/utils/validateAuth.ts
 - tests/auth.test.ts`,
     }),
-    index: 5,
     timestamp: new Date().toISOString(),
   },
 };
@@ -166,7 +161,6 @@ export const ToolWithComplexResult: Story = {
         },
       },
     }),
-    index: 6,
     timestamp: new Date().toISOString(),
   },
 };
@@ -189,7 +183,6 @@ export const AllToolTypes: Story = {
           },
           result: { matches: 42 },
         })}
-        index={1}
         timestamp={new Date().toISOString()}
       />
 
@@ -206,7 +199,6 @@ export const AllToolTypes: Story = {
             arguments: { table: 'users' },
           },
         })}
-        index={2}
         timestamp={new Date().toISOString()}
       />
 
@@ -225,7 +217,6 @@ export const AllToolTypes: Story = {
           },
           result: { error: 'Not found' },
         })}
-        index={3}
         timestamp={new Date().toISOString()}
       />
 
@@ -238,7 +229,6 @@ export const AllToolTypes: Story = {
           status: 'succeeded',
           path: '/path/to/screenshot.png',
         })}
-        index={4}
         timestamp={new Date().toISOString()}
       />
 
@@ -252,7 +242,6 @@ export const AllToolTypes: Story = {
           query: 'TODO comments',
           result: 'Found 15 TODO comments across 8 files',
         })}
-        index={5}
         timestamp={new Date().toISOString()}
       />
     </div>

@@ -8,7 +8,6 @@ import { CellIcon } from './CellIcon';
 
 type StatusEventsProps = {
   cell: TranscriptStatusCell;
-  index: number;
   timestamp: string;
 };
 

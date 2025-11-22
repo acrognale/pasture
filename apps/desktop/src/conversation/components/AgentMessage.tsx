@@ -7,7 +7,6 @@ import { Markdown } from './Markdown';
 
 type AgentMessageProps = {
   cell: TranscriptAgentMessageCell;
-  index: number;
   timestamp: string;
 };
 

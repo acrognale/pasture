@@ -34,7 +34,6 @@ export const Fatal: Story = {
       message:
         'Fatal error: Unable to connect to the server. Please check your network connection and try again.',
     }),
-    index: 1,
     timestamp: new Date().toISOString(),
   },
 };
@@ -46,7 +45,6 @@ export const Stream: Story = {
       message:
         'Warning: The API returned a partial response. Some data may be incomplete.',
     }),
-    index: 2,
     timestamp: new Date().toISOString(),
   },
 };
@@ -58,7 +56,6 @@ export const AuthenticationError: Story = {
       message:
         'Authentication failed: Invalid API key. Please check your credentials in settings.',
     }),
-    index: 3,
     timestamp: new Date().toISOString(),
   },
 };
@@ -70,7 +67,6 @@ export const RateLimitError: Story = {
       message:
         'Rate limit exceeded: Too many requests. Please wait 60 seconds before trying again.',
     }),
-    index: 4,
     timestamp: new Date().toISOString(),
   },
 };
@@ -82,7 +78,6 @@ export const FileNotFoundError: Story = {
       message:
         'File not found: src/components/NonExistent.tsx\n\nThe requested file does not exist in the workspace.',
     }),
-    index: 5,
     timestamp: new Date().toISOString(),
   },
 };
@@ -94,7 +89,6 @@ export const ParseError: Story = {
       message:
         'Warning: Failed to parse response from AI model. Retrying with simplified prompt.',
     }),
-    index: 6,
     timestamp: new Date().toISOString(),
   },
 };
@@ -106,7 +100,6 @@ export const TimeoutError: Story = {
       message:
         'Request timeout: The operation took too long to complete and was cancelled after 30 seconds.',
     }),
-    index: 7,
     timestamp: new Date().toISOString(),
   },
 };
@@ -123,7 +116,6 @@ Line 44: Expected 2 arguments, but got 1
 
 Please fix these errors before continuing.`,
     }),
-    index: 8,
     timestamp: new Date().toISOString(),
   },
 };
@@ -134,7 +126,6 @@ export const ShortError: Story = {
       severity: 'error',
       message: 'Connection refused',
     }),
-    index: 9,
     timestamp: new Date().toISOString(),
   },
 };
@@ -148,7 +139,6 @@ export const AllSeverities: Story = {
           severity: 'error',
           message: 'Fatal error: System crashed unexpectedly',
         })}
-        index={1}
         timestamp={new Date().toISOString()}
       />
       <div className="text-xs text-muted-foreground mb-1 mt-4">
@@ -160,7 +150,6 @@ export const AllSeverities: Story = {
           message:
             'Warning: Partial data received, continuing with available information',
         })}
-        index={2}
         timestamp={new Date().toISOString()}
       />
     </div>

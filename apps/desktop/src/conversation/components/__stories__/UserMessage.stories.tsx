@@ -34,7 +34,6 @@ export const Simple: Story = {
     cell: createCell({
       message: 'Can you help me fix this bug?',
     }),
-    index: 1,
     timestamp: new Date().toISOString(),
   },
 };
@@ -48,7 +47,6 @@ The error message says "Invalid credentials" but I'm sure the password is correc
 
 Can you help me debug this?`,
     }),
-    index: 2,
     timestamp: new Date().toISOString(),
   },
 };
@@ -59,7 +57,6 @@ export const WithSlashCommand: Story = {
       message: 'Search for authentication-related files',
       messageKind: 'search',
     }),
-    index: 3,
     timestamp: new Date().toISOString(),
   },
 };
@@ -70,7 +67,6 @@ export const WithImages: Story = {
       message: "Here's a screenshot of the error I'm getting",
       images: ['screenshot1.png', 'screenshot2.png'],
     }),
-    index: 4,
     timestamp: new Date().toISOString(),
   },
 };
@@ -82,7 +78,6 @@ export const WithImagesAndCommand: Story = {
       messageKind: 'analyze',
       images: ['error-screenshot.png'],
     }),
-    index: 5,
     timestamp: new Date().toISOString(),
   },
 };
@@ -92,7 +87,6 @@ export const Empty: Story = {
     cell: createCell({
       message: '',
     }),
-    index: 6,
     timestamp: new Date().toISOString(),
   },
 };
@@ -113,7 +107,6 @@ Can you help me investigate this issue? I need to figure out:
 
 The relevant code is in src/components/RegistrationForm.tsx and src/hooks/useFormValidation.ts.`,
     }),
-    index: 7,
     timestamp: new Date().toISOString(),
   },
 };
@@ -129,7 +122,6 @@ function greet(name) {
 
 console.log(greet());`,
     }),
-    index: 8,
     timestamp: new Date().toISOString(),
   },
 };
@@ -139,7 +131,6 @@ export const Question: Story = {
     cell: createCell({
       message: 'What files are in the src directory?',
     }),
-    index: 9,
     timestamp: new Date().toISOString(),
   },
 };
@@ -150,7 +141,6 @@ export const Task: Story = {
       message:
         'Please update the authentication system to use JWT tokens with expiration',
     }),
-    index: 10,
     timestamp: new Date().toISOString(),
   },
 };
@@ -163,7 +153,6 @@ export const Conversation: Story = {
           message: 'Search for all TypeScript files in src/',
           messageKind: 'search',
         })}
-        index={1}
         timestamp={new Date().toISOString()}
       />
       <UserMessage
@@ -171,7 +160,6 @@ export const Conversation: Story = {
           message:
             'Now find all files that import React and show me their structure',
         })}
-        index={2}
         timestamp={new Date().toISOString()}
       />
       <UserMessage
@@ -179,7 +167,6 @@ export const Conversation: Story = {
           message: "Here are some screenshots of the errors I'm seeing",
           images: ['error1.png', 'error2.png', 'error3.png'],
         })}
-        index={3}
         timestamp={new Date().toISOString()}
       />
       <UserMessage
@@ -189,7 +176,6 @@ export const Conversation: Story = {
 2. Add proper error handling
 3. Update the tests`,
         })}
-        index={4}
         timestamp={new Date().toISOString()}
       />
     </div>
@@ -205,7 +191,6 @@ export const AllVariations: Story = {
         </div>
         <UserMessage
           cell={createCell({ message: 'Can you help me?' })}
-          index={1}
           timestamp={new Date().toISOString()}
         />
       </div>
@@ -218,7 +203,6 @@ export const AllVariations: Story = {
             message: 'Find all React components',
             messageKind: 'search',
           })}
-          index={2}
           timestamp={new Date().toISOString()}
         />
       </div>
@@ -229,7 +213,6 @@ export const AllVariations: Story = {
             message: 'Look at these screenshots',
             images: ['img1.png', 'img2.png'],
           })}
-          index={3}
           timestamp={new Date().toISOString()}
         />
       </div>
@@ -243,7 +226,6 @@ export const AllVariations: Story = {
             messageKind: 'analyze',
             images: ['error.png'],
           })}
-          index={4}
           timestamp={new Date().toISOString()}
         />
       </div>

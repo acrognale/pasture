@@ -21,7 +21,7 @@ describe('PlanUpdate', () => {
   test('renders explanation and plan steps', () => {
     const cell = createPlanCell();
 
-    render(<PlanUpdate cell={cell} index={0} timestamp="12:00" />);
+    render(<PlanUpdate cell={cell} timestamp="12:00" />);
 
     expect(
       screen.getByText('Review outstanding bug reports')

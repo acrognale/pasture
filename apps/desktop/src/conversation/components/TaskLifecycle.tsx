@@ -5,7 +5,6 @@ import { Cell } from './Cell';
 
 type TaskLifecycleProps = {
   cell: TranscriptTaskCell;
-  index: number;
   timestamp: string;
 };
 

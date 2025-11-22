@@ -23,17 +23,26 @@ export const useConversationState = (conversationId: string | null) =>
 export const useConversationActiveTurn = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,
-    (state) => ({
-      activeTurnStartedAt: state.conversation.activeTurnStartedAt,
-      statusHeader: state.conversation.statusHeader,
-    }),
+    (state) => {
+      const transcript = state.conversation.transcript;
+      const activeId = transcript.activeTurnId;
+      const activeTurn = activeId ? transcript.turns[activeId] : null;
+
+      return {
+        activeTurnStartedAt: activeTurn?.startedAt ?? null,
+        statusHeader: state.conversation.statusHeader,
+      };
+    },
     shallow
   );
 
 export const useConversationIsRunning = (conversationId: string | null) =>
-  useConversationSelector(conversationId, (state) =>
-    Boolean(state.conversation.activeTurnStartedAt)
-  );
+  useConversationSelector(conversationId, (state) => {
+    const transcript = state.conversation.transcript;
+    const activeId = transcript.activeTurnId;
+    const activeTurn = activeId ? transcript.turns[activeId] : null;
+    return activeTurn?.status === 'active' && !!activeTurn.startedAt;
+  });
 
 export const useConversationTranscript = (conversationId: string | null) =>
   useConversationSelector(
@@ -61,17 +70,14 @@ export const useConversationLoadState = (conversationId: string | null) =>
     shallow
   );
 
-export const useConversationTranscriptCells = (conversationId: string | null) =>
+export const useConversationTranscriptTurns = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,
-    (state) => state.conversation.transcript.cells,
+    (state) => ({
+      turns: state.conversation.transcript.turns,
+      turnOrder: state.conversation.transcript.turnOrder,
+    }),
     shallow
-  );
-
-export const useConversationTurnCounter = (conversationId: string | null) =>
-  useConversationSelector(
-    conversationId,
-    (state) => state.conversation.transcript.turnCounter
   );
 
 export const useConversationTurnDiffHistory = (conversationId: string | null) =>
@@ -83,7 +89,7 @@ export const useConversationTurnDiffHistory = (conversationId: string | null) =>
 export const useConversationLatestTurnDiff = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,
-    (state) => state.conversation.latestTurnDiff
+    (state) => state.conversation.transcript.latestTurnDiff
   );
 
 export const useConversationHasTurnDiffHistory = (

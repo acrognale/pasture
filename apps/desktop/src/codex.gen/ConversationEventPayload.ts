@@ -7,6 +7,7 @@ import type { EventMsg } from './EventMsg';
  */
 export type ConversationEventPayload = {
   conversationId: string;
+  turnId: string;
   eventId: string;
   event: EventMsg;
   timestamp: string;

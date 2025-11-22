@@ -6,7 +6,6 @@ import { Markdown } from './Markdown';
 
 type AgentReasoningProps = {
   cell: TranscriptAgentReasoningCell;
-  index: number;
   timestamp: string;
 };
 

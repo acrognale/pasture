@@ -5,7 +5,6 @@ import { CellIcon } from './CellIcon';
 
 type PlanUpdateProps = {
   cell: TranscriptPlanCell;
-  index: number;
   timestamp: string;
 };
 
@@ -28,20 +27,16 @@ export function PlanUpdate({ cell }: PlanUpdateProps) {
         {cell.steps.length > 0 ? (
           <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1.5 pl-2 items-center">
             {cell.steps.map((step, index) => (
-              <>
-                <div
-                  key={`${step.step}-${index}-icon`}
-                  className="flex items-center justify-center"
-                >
+              <div key={`${step.step}-${index}`} className="contents">
+                <div className="flex items-center justify-center">
                   <CellIcon status={getStepIcon(step.status)} />
                 </div>
                 <div
-                  key={`${step.step}-${index}-text`}
                   className={`whitespace-pre-wrap leading-transcript ${getStepClass(step.status)}`}
                 >
                   {step.step}
                 </div>
-              </>
+              </div>
             ))}
           </div>
         ) : (

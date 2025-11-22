@@ -33,7 +33,6 @@ export const Simple: Story = {
     cell: createCell({
       message: 'I can help you with that. Let me analyze the code first.',
     }),
-    index: 1,
     timestamp: new Date().toISOString(),
   },
 };
@@ -58,7 +57,6 @@ function handleSubmit(data: FormData) {
 
 This should resolve the validation error.`,
     }),
-    index: 2,
     timestamp: new Date().toISOString(),
   },
 };
@@ -70,7 +68,6 @@ export const Streaming: Story = {
         'I am currently analyzing your request and will provide a response shortly',
       streaming: true,
     }),
-    index: 3,
     timestamp: new Date().toISOString(),
   },
 };
@@ -80,7 +77,6 @@ export const Empty: Story = {
     cell: createCell({
       message: '',
     }),
-    index: 4,
     timestamp: new Date().toISOString(),
   },
 };
@@ -161,7 +157,6 @@ function generateToken(userId: number): string {
 
 Would you like me to implement these changes?`,
     }),
-    index: 5,
     timestamp: new Date().toISOString(),
   },
 };
@@ -203,7 +198,6 @@ function UserProfile({ userId }: { userId: number }) {
 }
 \`\`\``,
     }),
-    index: 6,
     timestamp: new Date().toISOString(),
   },
 };
@@ -223,7 +217,6 @@ Next steps:
 - Run the test suite
 - Deploy to staging environment`,
     }),
-    index: 7,
     timestamp: new Date().toISOString(),
   },
 };
@@ -235,7 +228,6 @@ export const Conversation: Story = {
         cell={createCell({
           message: 'Let me search for authentication-related files.',
         })}
-        index={1}
         timestamp={new Date().toISOString()}
       />
       <AgentMessage
@@ -244,7 +236,6 @@ export const Conversation: Story = {
             'I found 3 files. Let me analyze the authentication implementation.',
           streaming: true,
         })}
-        index={2}
         timestamp={new Date().toISOString()}
       />
       <AgentMessage
@@ -261,7 +252,6 @@ function verifyToken(token: string) {
 
 I'll fix this now.`,
         })}
-        index={3}
         timestamp={new Date().toISOString()}
       />
     </div>

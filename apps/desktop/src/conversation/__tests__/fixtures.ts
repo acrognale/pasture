@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
@@ -17,10 +18,18 @@ export const loadFixtureEvents = (name: string): ConversationEventPayload[] => {
     .filter((line) => line.trim().length > 0)
     .map((line) => {
       const parsed = JSON.parse(line) as ConversationEventPayload & {
+        eventId?: string;
+        event_id?: string;
         timestamp?: string;
       };
       return {
-        ...parsed,
+        conversationId: parsed.conversationId,
+        turnId: parsed.turnId,
+        eventId:
+          parsed.eventId ??
+          parsed.event_id ??
+          `evt-${parsed.turnId ?? 'unknown'}-${randomUUID()}`,
+        event: parsed.event,
         timestamp: parsed.timestamp ?? new Date().toISOString(),
       } satisfies ConversationEventPayload;
     });

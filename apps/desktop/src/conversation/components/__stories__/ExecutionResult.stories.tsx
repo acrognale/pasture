@@ -48,7 +48,6 @@ export const Success: Story = {
       status: 'succeeded',
       exitCode: 0,
     }),
-    index: 1,
   },
 };
 
@@ -61,7 +60,6 @@ export const Failed: Story = {
       status: 'failed',
       exitCode: 1,
     }),
-    index: 2,
   },
 };
 
@@ -75,7 +73,6 @@ export const Running: Story = {
       streaming: true,
       exitCode: null,
     }),
-    index: 3,
   },
 };
 
@@ -96,7 +93,6 @@ drwxr-xr-x 500 user  staff 16000 Nov 14 10:30 node_modules`,
       status: 'succeeded',
       exitCode: 0,
     }),
-    index: 4,
   },
 };
 
@@ -111,7 +107,6 @@ export const MixedOutput: Story = {
       status: 'succeeded',
       exitCode: 0,
     }),
-    index: 5,
   },
 };
 
@@ -124,7 +119,6 @@ export const EmptyOutput: Story = {
       status: 'succeeded',
       exitCode: 0,
     }),
-    index: 6,
   },
 };
 
@@ -143,7 +137,6 @@ no changes added to commit`,
       status: 'succeeded',
       exitCode: 0,
     }),
-    index: 7,
   },
 };
 
@@ -156,7 +149,6 @@ export const SearchCommand: Story = {
       status: 'succeeded',
       exitCode: 0,
     }),
-    index: 8,
   },
 };
 
@@ -168,7 +160,6 @@ export const ErrorWithExitCode: Story = {
       status: 'failed',
       exitCode: 6,
     }),
-    index: 9,
   },
 };
 
@@ -182,7 +173,6 @@ export const AllStates: Story = {
           status: 'succeeded',
           exitCode: 0,
         })}
-        index={1}
       />
       <ExecutionResult
         cell={createCell({
@@ -191,7 +181,6 @@ export const AllStates: Story = {
           status: 'failed',
           exitCode: 1,
         })}
-        index={2}
       />
       <ExecutionResult
         cell={createCell({
@@ -200,7 +189,6 @@ export const AllStates: Story = {
           status: 'running',
           streaming: true,
         })}
-        index={3}
       />
     </div>
   ),

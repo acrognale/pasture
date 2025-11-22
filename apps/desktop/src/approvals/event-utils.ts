@@ -8,8 +8,13 @@ import type {
   PatchApprovalRequest,
 } from './types';
 
-const isReplayEventId = (eventId: string): boolean =>
-  eventId.startsWith('initial::') || eventId.startsWith('replay::');
+// Codex core never persists ExecApprovalRequest / ApplyPatchApprovalRequest
+// events into rollouts (see codex-rs core/src/rollout/policy.rs), so
+// initializeConversation history cannot surface historical approvals. The
+// replay turn-id checks below are defensive in case that upstream behavior
+// ever changes.
+const isReplayTurnId = (turnId: string): boolean =>
+  turnId.startsWith('initial::') || turnId.startsWith('replay::');
 
 const isExecApprovalPayload = (
   payload: ConversationEventPayload
@@ -28,7 +33,7 @@ const toExecApprovalRequest = (
   const event = payload.event;
   return {
     kind: 'exec',
-    eventId: payload.eventId,
+    turnId: payload.turnId,
     conversationId: payload.conversationId,
     callId: event.call_id,
     command: event.command,
@@ -45,7 +50,7 @@ const toPatchApprovalRequest = (
   const event = payload.event;
   return {
     kind: 'patch',
-    eventId: payload.eventId,
+    turnId: payload.turnId,
     conversationId: payload.conversationId,
     callId: event.call_id,
     fileChanges: event.changes,
@@ -57,7 +62,7 @@ const toPatchApprovalRequest = (
 export const mapConversationEventToApprovalRequest = (
   payload: ConversationEventPayload
 ): ApprovalRequest | null => {
-  if (!payload.conversationId || isReplayEventId(payload.eventId)) {
+  if (!payload.conversationId || isReplayTurnId(payload.turnId)) {
     return null;
   }
 

@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { JSX } from 'react';
+import { createInitialTranscriptState } from '~/conversation/transcript/state';
+import type { TranscriptCell } from '~/conversation/transcript/types';
 
 import { ConversationPane } from '../ConversationPane';
 import {
@@ -67,8 +69,28 @@ export const ActiveTurn: Story = {
   loaders: [
     () => {
       setupBaseState();
+      mockCodexControls.setTranscript((current) => {
+        const turnId = 'turn-1';
+        const turn = current.turns[turnId] ?? sampleTranscript.turns[turnId];
+        const startedAt =
+          turn?.startedAt ??
+          turn?.cells[0]?.timestamp ??
+          new Date().toISOString();
+        return {
+          ...current,
+          turns: {
+            ...current.turns,
+            [turnId]: {
+              ...turn,
+              startedAt,
+              completedAt: null,
+              status: 'active',
+            },
+          },
+          activeTurnId: turnId,
+        };
+      });
       mockCodexControls.setRuntime({
-        activeTurnStartedAt: new Date().toISOString(),
         statusHeader: 'Synthesizing response',
       });
       mockCodexControls.setMutationPending(true);
@@ -91,10 +113,7 @@ export const EmptyTranscript: Story = {
   loaders: [
     () => {
       setupBaseState();
-      mockCodexControls.setTranscript({
-        ...sampleTranscript,
-        cells: [],
-      });
+      mockCodexControls.setTranscript(createInitialTranscriptState());
       return {};
     },
   ],
@@ -104,15 +123,18 @@ export const LongTranscript: Story = {
   loaders: [
     () => {
       setupBaseState();
+      const firstTurnId = sampleTranscript.turnOrder[0];
+      const baseCells =
+        (firstTurnId && sampleTranscript.turns[firstTurnId]?.cells) ?? [];
       const longCells = Array.from({ length: 8 }).flatMap((_value, index) => [
         {
-          ...sampleTranscript.cells[0],
+          ...(baseCells[0] as TranscriptCell),
           id: `user-${index}`,
           message: `Question ${index + 1}: How does the renderer handle case ${index}?`,
           timestamp: new Date(Date.now() - (index + 1) * 60000).toISOString(),
         },
         {
-          ...sampleTranscript.cells[2],
+          ...(baseCells[2] as TranscriptCell),
           id: `reasoning-${index}`,
           text: `Analyzing case ${index + 1}.\n\n${'Details...\n'.repeat(
             (index % 3) + 1
@@ -122,7 +144,7 @@ export const LongTranscript: Story = {
           ).toISOString(),
         },
         {
-          ...sampleTranscript.cells[8],
+          ...(baseCells[8] as TranscriptCell),
           id: `agent-${index}`,
           message: `Summary for case ${index + 1} with actionable next steps.`,
           timestamp: new Date(
@@ -133,7 +155,13 @@ export const LongTranscript: Story = {
 
       mockCodexControls.setTranscript({
         ...sampleTranscript,
-        cells: longCells as typeof sampleTranscript.cells,
+        turns: {
+          'turn-1': {
+            ...sampleTranscript.turns['turn-1'],
+            cells: longCells as TranscriptCell[],
+          },
+        },
+        turnOrder: ['turn-1'],
       });
 
       return {};

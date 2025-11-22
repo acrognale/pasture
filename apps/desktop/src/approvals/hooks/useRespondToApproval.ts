@@ -52,7 +52,7 @@ export const useRespondToApproval = () => {
 
       await Codex.respondApproval({
         conversationId: request.conversationId,
-        eventId: request.eventId,
+        eventId: request.turnId,
         decision: decisionParam,
         approvalType: request.kind,
       });

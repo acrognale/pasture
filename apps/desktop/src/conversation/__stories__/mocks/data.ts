@@ -7,7 +7,6 @@ import {
   type ConversationState,
   createInitialConversationState,
 } from '~/conversation/store/reducer';
-import { emptyIndices } from '~/conversation/transcript/indices';
 import type {
   TranscriptAgentMessageCell,
   TranscriptAgentReasoningCell,
@@ -22,6 +21,7 @@ import type {
   TranscriptStatusCell,
   TranscriptTaskCell,
   TranscriptToolCell,
+  TranscriptTurn,
   TranscriptUserMessageCell,
 } from '~/conversation/transcript/types';
 
@@ -306,6 +306,18 @@ const planCell = (
   ...overrides,
 });
 
+const createTurn = (
+  id: string,
+  cells: TranscriptCell[],
+  status: TranscriptTurn['status'] = 'completed'
+): TranscriptTurn => ({
+  id,
+  cells,
+  startedAt: cells[0]?.timestamp ?? null,
+  completedAt: cells[cells.length - 1]?.timestamp ?? null,
+  status,
+});
+
 export type MockExecApprovalRequest = {
   kind: 'exec';
   eventId: string;
@@ -353,21 +365,17 @@ export const sampleComposerConfig: ComposerTurnConfig = {
 
 type ConversationRuntimeSnapshot = Pick<
   ConversationState,
-  | 'activeTurnStartedAt'
   | 'contextTokensInWindow'
   | 'maxContextWindow'
   | 'statusHeader'
   | 'statusOverride'
-  | 'latestTurnDiff'
 >;
 
 export const sampleConversationRuntime: ConversationRuntimeSnapshot = {
-  activeTurnStartedAt: iso('2025-11-02T20:55:20Z'),
   contextTokensInWindow: 8457,
   maxContextWindow: 200000,
   statusHeader: 'Analyzing turn review context',
   statusOverride: null,
-  latestTurnDiff: null,
 };
 
 export const sampleExecApprovalRequest: MockExecApprovalRequest = {
@@ -404,91 +412,93 @@ export const samplePatchApprovalRequest: MockPatchApprovalRequest = {
 };
 
 export const sampleTranscript: TranscriptState = {
-  cells: [
-    userMessage({ id: 'cell-user-1' }),
-    taskCell({ id: 'cell-task-1' }),
-    agentReasoning({ id: 'cell-reasoning-1' }),
-    explorationCell({ id: 'cell-exploration-1' }),
-    planCell({ id: 'cell-plan-1' }),
-    execCommandCell({ id: 'cell-exec-1' }),
-    toolCell({ id: 'cell-tool-1' }),
-    patchApprovalCell({ id: 'cell-patch-approval-1' }),
-    agentMessage({ id: 'cell-agent-1' }),
-    execApprovalCell({ id: 'cell-exec-approval-1' }),
-    statusCell({ id: 'cell-status-1' }),
-    errorCell({ id: 'cell-error-1' }),
-  ] satisfies TranscriptCell[],
+  turns: {
+    'turn-1': createTurn('turn-1', [
+      userMessage({ id: 'cell-user-1' }),
+      taskCell({ id: 'cell-task-1' }),
+      agentReasoning({ id: 'cell-reasoning-1' }),
+      explorationCell({ id: 'cell-exploration-1' }),
+      planCell({ id: 'cell-plan-1' }),
+      execCommandCell({ id: 'cell-exec-1' }),
+      toolCell({ id: 'cell-tool-1' }),
+      patchApprovalCell({ id: 'cell-patch-approval-1' }),
+      agentMessage({ id: 'cell-agent-1' }),
+      execApprovalCell({ id: 'cell-exec-approval-1' }),
+      statusCell({ id: 'cell-status-1' }),
+      errorCell({ id: 'cell-error-1' }),
+    ]),
+  },
+  turnOrder: ['turn-1'],
   latestReasoningHeader: 'Analyzing turn review cumulative diff bug',
   pendingReasoningText: null,
-  pendingTaskStartedAt: iso('2025-11-02T20:55:20Z'),
   shouldBreakExecGroup: false,
-  indices: emptyIndices(),
-  openUserMessageCellIndex: null,
-  openAgentMessageCellIndex: null,
+  openUserMessageCell: null,
+  openAgentMessageCell: null,
   reasoningSummaryFormat: 'none',
   latestTurnDiff: null,
   turnDiffHistory: [],
-  turnCounter: 0,
-  activeTurnNumber: null,
+  activeTurnId: null,
 };
 
 export const sampleCollapsedTranscript: TranscriptState = {
-  cells: [
-    userMessage({
-      id: 'cell-user-collapsed-1',
-      message:
-        'Can you summarize the refactor steps we need before GA and highlight any risky migrations?',
-    }),
-    planCell({
-      id: 'cell-plan-collapsed-1',
-      steps: [
-        { step: 'Audit feature flags', status: 'in_progress' },
-        { step: 'Verify telemetry coverage', status: 'pending' },
-      ],
-    }),
-    agentReasoning({
-      id: 'cell-reasoning-collapsed-1',
-      text: 'Evaluating release readiness and pruning outstanding migrations.',
-    }),
-    toolCell({
-      id: 'cell-tool-collapsed-1',
-      result: {
-        summary: 'Located migration checklist in docs/release-plan.md',
-      },
-    }),
-    agentMessage({
-      id: 'cell-agent-collapsed-1',
-      message:
-        'Summary: finish cleaning up the auth adapter, backfill the analytics events, and verify the desktop installer pipeline before launch.',
-    }),
-    statusCell({
-      id: 'cell-status-collapsed-1',
-      summary: 'Using 18,421 of 200,000 context tokens',
-    }),
-    userMessage({
-      id: 'cell-user-collapsed-2',
-      message:
-        'Great—queue a turn to backfill analytics once the adapter ships.',
-    }),
-    agentMessage({
-      id: 'cell-agent-collapsed-2',
-      message:
-        'Will do. I will prepare the analytics backfill runbook for the follow-up turn.',
-    }),
-  ] satisfies TranscriptCell[],
+  turns: {
+    'turn-1': createTurn('turn-1', [
+      userMessage({
+        id: 'cell-user-collapsed-1',
+        message:
+          'Can you summarize the refactor steps we need before GA and highlight any risky migrations?',
+      }),
+      planCell({
+        id: 'cell-plan-collapsed-1',
+        steps: [
+          { step: 'Audit feature flags', status: 'in_progress' },
+          { step: 'Verify telemetry coverage', status: 'pending' },
+        ],
+      }),
+      agentReasoning({
+        id: 'cell-reasoning-collapsed-1',
+        text: 'Evaluating release readiness and pruning outstanding migrations.',
+      }),
+      toolCell({
+        id: 'cell-tool-collapsed-1',
+        result: {
+          summary: 'Located migration checklist in docs/release-plan.md',
+        },
+      }),
+      agentMessage({
+        id: 'cell-agent-collapsed-1',
+        message:
+          'Summary: finish cleaning up the auth adapter, backfill the analytics events, and verify the desktop installer pipeline before launch.',
+      }),
+      statusCell({
+        id: 'cell-status-collapsed-1',
+        summary: 'Using 18,421 of 200,000 context tokens',
+      }),
+    ]),
+    'turn-2': createTurn('turn-2', [
+      userMessage({
+        id: 'cell-user-collapsed-2',
+        message:
+          'Great—queue a turn to backfill analytics once the adapter ships.',
+      }),
+      agentMessage({
+        id: 'cell-agent-collapsed-2',
+        message:
+          'Will do. I will prepare the analytics backfill runbook for the follow-up turn.',
+      }),
+    ]),
+  },
+  turnOrder: ['turn-1', 'turn-2'],
   latestReasoningHeader:
     'Evaluating release readiness and pruning outstanding migrations.',
   pendingReasoningText: null,
-  pendingTaskStartedAt: null,
   shouldBreakExecGroup: false,
-  indices: emptyIndices(),
-  openUserMessageCellIndex: null,
-  openAgentMessageCellIndex: null,
+  openUserMessageCell: null,
+  openAgentMessageCell: null,
   reasoningSummaryFormat: 'none',
   latestTurnDiff: null,
   turnDiffHistory: [],
-  turnCounter: 0,
-  activeTurnNumber: null,
+  activeTurnId: null,
 };
 
 export const createSampleConversationState = (): ConversationState => ({

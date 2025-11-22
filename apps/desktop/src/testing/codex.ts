@@ -23,6 +23,7 @@ type AsyncFn<TArgs extends unknown[], TResult> = (
 ) => Promise<TResult>;
 
 const codexResetters: Array<() => void> = [];
+let mockEventIdCounter = 0;
 
 const defineStub = <TArgs extends unknown[], TResult>(
   impl: AsyncFn<TArgs, TResult>
@@ -205,11 +206,11 @@ export const mockCodex = {
 
 type ConversationEmitOptions = {
   conversationId?: string;
-  eventId?: string;
+  turnId?: string;
 };
 
-const generateEventId = (eventType: string) =>
-  `mock-event::${eventType}::${Date.now()}`;
+const generateTurnId = (eventType: string) =>
+  `mock-turn::${eventType}::${Date.now()}`;
 
 export const mockEvents = {
   emit(event: CodexEvent) {
@@ -224,9 +225,11 @@ export const mockEvents = {
       );
     }
 
+    const turnId = options.turnId ?? generateTurnId(event.type);
     const payload: ConversationEventPayload = {
       conversationId,
-      eventId: options.eventId ?? generateEventId(event.type),
+      turnId,
+      eventId: `evt-${(mockEventIdCounter += 1)}`,
       event,
       timestamp: new Date().toISOString(),
     };
@@ -241,6 +244,7 @@ export const mockEvents = {
   },
   reset() {
     resetEventBuses();
+    mockEventIdCounter = 0;
   },
 };
 

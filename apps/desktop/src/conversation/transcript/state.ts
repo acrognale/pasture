@@ -1,21 +1,18 @@
-import { emptyIndices } from './indices';
 import type { TranscriptState } from './types';
 
 /**
  * Create initial transcript state.
  */
 export const createInitialTranscriptState = (): TranscriptState => ({
-  cells: [],
+  turns: {},
+  turnOrder: [],
   latestReasoningHeader: null,
   pendingReasoningText: null,
-  pendingTaskStartedAt: null,
   shouldBreakExecGroup: false,
-  openUserMessageCellIndex: null,
-  openAgentMessageCellIndex: null,
+  openUserMessageCell: null,
+  openAgentMessageCell: null,
   reasoningSummaryFormat: 'none',
-  indices: emptyIndices(),
   latestTurnDiff: null,
   turnDiffHistory: [],
-  turnCounter: 0,
-  activeTurnNumber: null,
+  activeTurnId: null,
 });

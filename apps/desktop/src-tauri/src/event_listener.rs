@@ -154,7 +154,8 @@ impl EventSubscriptionManager {
                         let bridge_event = CodexEvent::ConversationEvent {
                             payload: ConversationEventPayload {
                                 conversation_id: conversation_id.to_string(),
-                                event_id: event.id.clone(),
+                                turn_id: event.id.clone(),
+                                event_id: Uuid::new_v4().to_string(),
                                 event: event.msg.clone(),
                                 timestamp: Utc::now().to_rfc3339(),
                             },

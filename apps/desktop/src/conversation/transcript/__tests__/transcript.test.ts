@@ -9,6 +9,7 @@ import type {
   TranscriptAgentReasoningCell,
   TranscriptExecCommandCell,
   TranscriptPlanCell,
+  TranscriptState,
   TranscriptTaskCell,
   TranscriptToolCell,
   TranscriptUserMessageCell,
@@ -73,6 +74,11 @@ const listFilesCommand = (path: string): ParsedCommand => ({
   cmd: `ls ${path}`,
   path,
 });
+
+const cellsOf = (transcript: TranscriptState) =>
+  transcript.turnOrder.flatMap(
+    (turnId) => transcript.turns[turnId]?.cells ?? []
+  );
 
 const makeReasoningText = (
   summaryText: string[],
@@ -172,13 +178,20 @@ const applyEvent = (
   controller: TestController,
   event: EventMsg,
   eventId: string,
-  index: number
+  index: number,
+  turnIdOverride?: string
 ) => {
   const timestamp = ts(index);
   vi.setSystemTime(new Date(timestamp));
+  const turnId =
+    turnIdOverride ??
+    ('turn_id' in event && typeof event.turn_id === 'string'
+      ? event.turn_id
+      : 'turn-1');
 
   controller.ingest({
     conversationId: TEST_CONVERSATION_ID,
+    turnId,
     eventId,
     event,
     timestamp,
@@ -281,7 +294,7 @@ describe('reasoning summary format', () => {
       2
     );
 
-    const reasoningCells = state.cells.filter(
+    const reasoningCells = cellsOf(state).filter(
       (cell): cell is TranscriptAgentReasoningCell =>
         (cell as { kind?: unknown }).kind === 'agent-reasoning'
     );
@@ -312,7 +325,7 @@ describe('reasoning summary format', () => {
       2
     );
 
-    const reasoningCells = state.cells.filter(
+    const reasoningCells = cellsOf(state).filter(
       (cell): cell is TranscriptAgentReasoningCell =>
         (cell as { kind?: unknown }).kind === 'agent-reasoning'
     );
@@ -333,7 +346,14 @@ describe('turn diff handling', () => {
         'diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-Hello\n+Hello world\n',
     };
 
-    state = applyEvent(controller, firstDiff, 'diff-1', 1);
+    state = applyEvent(
+      controller,
+      { type: 'task_started', model_context_window: null },
+      'task-1',
+      0,
+      'turn-1'
+    );
+    state = applyEvent(controller, firstDiff, 'diff-1', 1, 'turn-1');
 
     expect(state.latestTurnDiff).toEqual({
       eventId: 'diff-1',
@@ -347,7 +367,7 @@ describe('turn diff handling', () => {
       model_context_window: null,
     };
 
-    state = applyEvent(controller, nextTurnStarted, 'task-2', 2);
+    state = applyEvent(controller, nextTurnStarted, 'task-2', 2, 'turn-2');
 
     const secondDiff: TurnDiffEvent = {
       type: 'turn_diff',
@@ -355,7 +375,7 @@ describe('turn diff handling', () => {
         'diff --git a/file.txt b/file.txt\n--- a/file.txt\n+++ b/file.txt\n@@ -1 +1 @@\n-Hello world\n+Hello world!!!\n',
     };
 
-    state = applyEvent(controller, secondDiff, 'diff-2', 3);
+    state = applyEvent(controller, secondDiff, 'diff-2', 3, 'turn-2');
 
     expect(state.latestTurnDiff).toEqual({
       eventId: 'diff-2',
@@ -399,7 +419,7 @@ describe('web search integration', () => {
       4
     );
 
-    const webSearchCells = state.cells.filter(
+    const webSearchCells = cellsOf(state).filter(
       (cell): cell is TranscriptToolCell =>
         (cell as { kind?: unknown }).kind === 'tool' &&
         (cell as { toolType?: unknown }).toolType === 'web-search'
@@ -468,7 +488,7 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondEnd, 'hidden-6', 6);
 
-    const execCells = state.cells
+    const execCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'exec')
       .map(expectExecCell);
 
@@ -522,8 +542,9 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, readEnd, 'e4', 4);
 
-    expect(state.cells).toHaveLength(1);
-    const cell = expectExecCell(state.cells[0]);
+    const cells = cellsOf(state);
+    expect(cells).toHaveLength(1);
+    const cell = expectExecCell(cells[0]);
     const exploration = cell.exploration;
     expect(exploration).not.toBeNull();
     if (!exploration) {
@@ -553,7 +574,7 @@ describe('exploration exec grouping', () => {
     };
     state = applyEvent(controller, outputDelta, 'e2', 2);
 
-    const before = expectExecCell(state.cells[0]);
+    const before = expectExecCell(cellsOf(state)[0]);
     expect(before.outputChunks).toHaveLength(1);
     expect(before.stdout).toBe('results...');
     expect(before.aggregatedOutput).toBe('results...');
@@ -567,7 +588,7 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondBegin, 'e3', 3);
 
-    const after = expectExecCell(state.cells[0]);
+    const after = expectExecCell(cellsOf(state)[0]);
     expect(after.outputChunks).toHaveLength(1);
   });
 
@@ -607,7 +628,7 @@ describe('exploration exec grouping', () => {
     };
     state = applyEvent(controller, stderr, 'e4', 4);
 
-    const cell = expectExecCell(state.cells[0]);
+    const cell = expectExecCell(cellsOf(state)[0]);
     expect(cell.stdout).toBe('hello world');
     expect(cell.stderr).toBe('error');
     expect(cell.aggregatedOutput).toBe('hello worlderror');
@@ -691,8 +712,9 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, thirdEnd, 'e6', 6);
 
-    expect(state.cells).toHaveLength(1);
-    const cell = expectExecCell(state.cells[0]);
+    const cells = cellsOf(state);
+    expect(cells).toHaveLength(1);
+    const cell = expectExecCell(cells[0]);
     const exploration = cell.exploration;
     expect(exploration).not.toBeNull();
     if (!exploration) {
@@ -749,8 +771,9 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondEnd, 'g5', 5);
 
-    expect(state.cells).toHaveLength(1);
-    const cell = expectExecCell(state.cells[0]);
+    const cellsAgain = cellsOf(state);
+    expect(cellsAgain).toHaveLength(1);
+    const cell = expectExecCell(cellsAgain[0]);
     const exploration = cell.exploration;
     expect(exploration).not.toBeNull();
     if (!exploration) {
@@ -812,7 +835,7 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondEnd, 'gd5', 5);
 
-    const execCells = state.cells.filter(
+    const execCells = cellsOf(state).filter(
       (cell) => (cell as { kind?: unknown }).kind === 'exec'
     ) as TranscriptExecCommandCell[];
     expect(execCells).toHaveLength(2);
@@ -913,9 +936,10 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, fourthEnd, 'h10', 11);
 
-    expect(state.cells).toHaveLength(3);
-    const first = expectExecCell(state.cells[0]);
-    const third = expectExecCell(state.cells[2]);
+    const cells = cellsOf(state);
+    expect(cells).toHaveLength(3);
+    const first = expectExecCell(cells[0]);
+    const third = expectExecCell(cells[2]);
 
     const firstCalls =
       first.exploration?.calls.map((call) => call.callId) ?? [];
@@ -973,7 +997,7 @@ describe('exploration exec grouping', () => {
     });
     state = applyEvent(controller, secondEnd, 'm5', 6);
 
-    const execCells = state.cells
+    const execCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'exec')
       .map(expectExecCell);
     expect(execCells).toHaveLength(2);
@@ -1035,7 +1059,7 @@ describe('exploration exec grouping', () => {
     );
     state = applyEvent(controller, makeEnd('c3'), 'p8', 10);
 
-    const execCells = state.cells
+    const execCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'exec')
       .map(expectExecCell);
 
@@ -1102,7 +1126,7 @@ describe('exploration exec grouping', () => {
     );
     state = applyEvent(controller, end('c2'), 'e5', 5);
 
-    const execCells = state.cells
+    const execCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'exec')
       .map(expectExecCell);
 
@@ -1158,7 +1182,7 @@ describe('exploration exec grouping', () => {
     state = applyEvent(controller, begin('c2', 'src/index.ts'), 't4', 4);
     state = applyEvent(controller, end('c2'), 't5', 5);
 
-    const execCells = state.cells
+    const execCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'exec')
       .map(expectExecCell);
 
@@ -1187,8 +1211,9 @@ describe('exploration exec grouping', () => {
 
     state = applyEvent(controller, planEvent, 'plan-1', 1);
 
-    expect(state.cells).toHaveLength(1);
-    const planCell = expectPlanCell(state.cells[0]);
+    const cells = cellsOf(state);
+    expect(cells).toHaveLength(1);
+    const planCell = expectPlanCell(cells[0]);
     expect(planCell.explanation).toBe('Prioritize release readiness tasks.');
     expect(planCell.steps.map((item) => item.status)).toEqual([
       'completed',
@@ -1222,7 +1247,7 @@ describe('user message handling', () => {
       3
     );
 
-    const userCells = state.cells
+    const userCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'user-message')
       .map(expectUserCell);
 
@@ -1255,7 +1280,7 @@ describe('user message handling', () => {
       3
     );
 
-    const userCells = state.cells
+    const userCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'user-message')
       .map(expectUserCell);
 
@@ -1314,7 +1339,7 @@ describe('reasoning cells', () => {
       3
     );
 
-    const reasoningCells = state.cells
+    const reasoningCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'agent-reasoning')
       .map(expectReasoningCell);
     expect(reasoningCells).toHaveLength(2);
@@ -1347,13 +1372,15 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_started', model_context_window: null },
       'task-started-2',
-      4
+      4,
+      'turn-2'
     );
     state = applyEvent(
       controller,
       { type: 'task_complete', last_agent_message: 'Second turn complete' },
       'task-complete-2',
-      6
+      6,
+      'turn-2'
     );
 
     // Third turn: task_started followed by task_complete
@@ -1361,16 +1388,18 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_started', model_context_window: null },
       'task-started-3',
-      7
+      7,
+      'turn-3'
     );
     state = applyEvent(
       controller,
       { type: 'task_complete', last_agent_message: 'Third turn complete' },
       'task-complete-3',
-      9
+      9,
+      'turn-3'
     );
 
-    const taskCells = state.cells
+    const taskCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'task')
       .map(expectTaskCell);
 
@@ -1406,7 +1435,8 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_complete', last_agent_message: 'First turn' },
       'task-complete-1',
-      2
+      2,
+      'turn-1'
     );
 
     // Second turn: task_started followed by task_complete
@@ -1414,16 +1444,18 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_started', model_context_window: null },
       'task-started-2',
-      3
+      3,
+      'turn-2'
     );
     state = applyEvent(
       controller,
       { type: 'task_complete', last_agent_message: 'Second turn' },
       'task-complete-2',
-      5
+      5,
+      'turn-2'
     );
 
-    const taskCells = state.cells
+    const taskCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'task')
       .map(expectTaskCell);
 
@@ -1450,13 +1482,15 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_started', model_context_window: null },
       'task-started-1',
-      1
+      1,
+      'turn-1'
     );
     state = applyEvent(
       controller,
       { type: 'task_complete', last_agent_message: 'First message' },
       'task-complete-1',
-      3
+      3,
+      'turn-1'
     );
 
     // Second task_complete arrives without a corresponding task_started
@@ -1465,10 +1499,11 @@ describe('task cell duration tracking', () => {
       controller,
       { type: 'task_complete', last_agent_message: 'Second message' },
       'task-complete-2',
-      5
+      5,
+      'turn-2'
     );
 
-    const taskCells = state.cells
+    const taskCells = cellsOf(state)
       .filter((cell) => (cell as { kind?: unknown }).kind === 'task')
       .map(expectTaskCell);
 

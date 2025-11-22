@@ -6,7 +6,7 @@ import type { ApprovalRequest } from './types';
 type ApprovalsState = {
   activeRequest: ApprovalRequest | null;
   queue: ApprovalRequest[];
-  seenEventIds: Set<string>;
+  seenTurnIds: Set<string>;
   lastNotifiedId: string | null;
 };
 
@@ -14,7 +14,7 @@ type ApprovalsActions = {
   enqueue: (request: ApprovalRequest) => void;
   advance: () => void;
   reset: () => void;
-  markNotified: (eventId: string) => void;
+  markNotified: (turnId: string) => void;
 };
 
 export type ApprovalsStore = StoreApi<ApprovalsState & ApprovalsActions>;
@@ -22,7 +22,7 @@ export type ApprovalsStore = StoreApi<ApprovalsState & ApprovalsActions>;
 const createInitialState = (): ApprovalsState => ({
   activeRequest: null,
   queue: [],
-  seenEventIds: new Set(),
+  seenTurnIds: new Set(),
   lastNotifiedId: null,
 });
 
@@ -31,25 +31,25 @@ export const createApprovalsStore = (): ApprovalsStore =>
     ...createInitialState(),
     enqueue: (request) =>
       set((state) => {
-        if (state.seenEventIds.has(request.eventId)) {
+        if (state.seenTurnIds.has(request.turnId)) {
           return state;
         }
 
-        const nextSeen = new Set(state.seenEventIds);
-        nextSeen.add(request.eventId);
+        const nextSeen = new Set(state.seenTurnIds);
+        nextSeen.add(request.turnId);
 
         if (!state.activeRequest) {
           return {
             ...state,
             activeRequest: request,
-            seenEventIds: nextSeen,
+            seenTurnIds: nextSeen,
           };
         }
 
         return {
           ...state,
           queue: [...state.queue, request],
-          seenEventIds: nextSeen,
+          seenTurnIds: nextSeen,
         };
       }),
     advance: () =>
@@ -62,9 +62,9 @@ export const createApprovalsStore = (): ApprovalsStore =>
         };
       }),
     reset: () => set(() => createInitialState()),
-    markNotified: (eventId) =>
+    markNotified: (turnId) =>
       set((state) => ({
         ...state,
-        lastNotifiedId: eventId,
+        lastNotifiedId: turnId,
       })),
   }));

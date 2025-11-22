@@ -52,6 +52,15 @@
                   "codex:window:contextUpdated"
                 ]
               }
+            },
+            {
+              "identifier": "core:event:allow-unlisten",
+              "options": {
+                "events": [
+                  "codex-event",
+                  "codex:window:contextUpdated"
+                ]
+              }
             }
           ]
         },

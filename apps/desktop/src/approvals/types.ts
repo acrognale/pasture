@@ -2,7 +2,7 @@ import type { FileChange } from '~/codex.gen/FileChange';
 
 export type ExecApprovalRequest = {
   kind: 'exec';
-  eventId: string;
+  turnId: string;
   conversationId: string;
   callId: string;
   command: string[];
@@ -12,7 +12,7 @@ export type ExecApprovalRequest = {
 
 export type PatchApprovalRequest = {
   kind: 'patch';
-  eventId: string;
+  turnId: string;
   conversationId: string;
   callId: string;
   fileChanges: Record<string, FileChange | undefined>;
