@@ -34,6 +34,7 @@ describe('mapConversationEventToApprovalRequest', () => {
 
     expect(mapConversationEventToApprovalRequest(payload)).toEqual({
       kind: 'exec',
+      eventId: 'evt-test',
       turnId: 'turn-1',
       conversationId: 'conversation',
       callId: 'call-1',
@@ -61,6 +62,7 @@ describe('mapConversationEventToApprovalRequest', () => {
 
     expect(mapConversationEventToApprovalRequest(payload)).toEqual({
       kind: 'patch',
+      eventId: 'evt-test',
       turnId: 'turn-1',
       conversationId: 'conversation',
       callId: 'call-2',

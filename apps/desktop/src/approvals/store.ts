@@ -6,15 +6,15 @@ import type { ApprovalRequest } from './types';
 type ApprovalsState = {
   activeRequest: ApprovalRequest | null;
   queue: ApprovalRequest[];
-  seenTurnIds: Set<string>;
-  lastNotifiedId: string | null;
+  seenEventIds: Set<string>;
+  lastNotifiedEventId: string | null;
 };
 
 type ApprovalsActions = {
   enqueue: (request: ApprovalRequest) => void;
   advance: () => void;
   reset: () => void;
-  markNotified: (turnId: string) => void;
+  markNotified: (eventId: string) => void;
 };
 
 export type ApprovalsStore = StoreApi<ApprovalsState & ApprovalsActions>;
@@ -22,8 +22,8 @@ export type ApprovalsStore = StoreApi<ApprovalsState & ApprovalsActions>;
 const createInitialState = (): ApprovalsState => ({
   activeRequest: null,
   queue: [],
-  seenTurnIds: new Set(),
-  lastNotifiedId: null,
+  seenEventIds: new Set(),
+  lastNotifiedEventId: null,
 });
 
 export const createApprovalsStore = (): ApprovalsStore =>
@@ -31,25 +31,25 @@ export const createApprovalsStore = (): ApprovalsStore =>
     ...createInitialState(),
     enqueue: (request) =>
       set((state) => {
-        if (state.seenTurnIds.has(request.turnId)) {
+        if (state.seenEventIds.has(request.eventId)) {
           return state;
         }
 
-        const nextSeen = new Set(state.seenTurnIds);
-        nextSeen.add(request.turnId);
+        const nextSeen = new Set(state.seenEventIds);
+        nextSeen.add(request.eventId);
 
         if (!state.activeRequest) {
           return {
             ...state,
             activeRequest: request,
-            seenTurnIds: nextSeen,
+            seenEventIds: nextSeen,
           };
         }
 
         return {
           ...state,
           queue: [...state.queue, request],
-          seenTurnIds: nextSeen,
+          seenEventIds: nextSeen,
         };
       }),
     advance: () =>
@@ -62,9 +62,9 @@ export const createApprovalsStore = (): ApprovalsStore =>
         };
       }),
     reset: () => set(() => createInitialState()),
-    markNotified: (turnId) =>
+    markNotified: (eventId) =>
       set((state) => ({
         ...state,
-        lastNotifiedId: turnId,
+        lastNotifiedEventId: eventId,
       })),
   }));

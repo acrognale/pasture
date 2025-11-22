@@ -17,7 +17,7 @@ export function ExecutionApproval({ cell }: ExecutionApprovalProps) {
   const isCurrentApprovalActive =
     approvals.activeRequest !== null &&
     approvals.activeRequest.kind === 'exec' &&
-    approvals.activeRequest.turnId === cell.id;
+    approvals.activeRequest.eventId === cell.id;
 
   const commandText = cell.command.length
     ? cell.command.join(' ')
