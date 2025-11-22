@@ -1,9 +1,4 @@
-import {
-  forwardRef,
-  useDeferredValue,
-  useImperativeHandle,
-  useRef,
-} from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 
@@ -51,8 +46,6 @@ export const ConversationTranscriptSection = forwardRef<
     const transcriptContentRef = useRef<HTMLDivElement | null>(null);
     const { isLoading, error } = useConversationLoadState(conversationId);
     const { turns, turnOrder } = useConversationTranscriptTurns(conversationId);
-    const deferredTurnOrder = useDeferredValue(turnOrder);
-    const deferredTurns = useDeferredValue(turns);
     const countCells = (order: string[], lookup: typeof turns) =>
       order.reduce((sum, turnId) => {
         const turn = lookup[turnId];
@@ -61,8 +54,8 @@ export const ConversationTranscriptSection = forwardRef<
 
     const hasTranscript = countCells(turnOrder, turns) > 0;
     const lastVisibleCellEventKey = (() => {
-      for (let idx = deferredTurnOrder.length - 1; idx >= 0; idx -= 1) {
-        const turn = deferredTurns[deferredTurnOrder[idx]];
+      for (let idx = turnOrder.length - 1; idx >= 0; idx -= 1) {
+        const turn = turns[turnOrder[idx]];
         if (turn && turn.cells.length > 0) {
           const lastCell = turn.cells[turn.cells.length - 1];
           const lastEventId =
@@ -81,7 +74,7 @@ export const ConversationTranscriptSection = forwardRef<
         isLoading,
         hasTranscript,
         lastVisibleCellEventKey,
-        deferredCellsLength: countCells(deferredTurnOrder, deferredTurns),
+        deferredCellsLength: countCells(turnOrder, turns),
         onAtBottomChange,
         resetKey: conversationId,
       });
@@ -125,8 +118,8 @@ export const ConversationTranscriptSection = forwardRef<
       if (hasTranscript) {
         return (
           <TranscriptList
-            turns={deferredTurns}
-            turnOrder={deferredTurnOrder}
+            turns={turns}
+            turnOrder={turnOrder}
             expandedTurns={expandedTurns}
             onToggleTurn={onToggleTurn}
             bottomAnchorRef={bottomAnchorRef}
@@ -171,6 +164,7 @@ export const ConversationTranscriptSection = forwardRef<
     );
   }
 );
+
 ConversationTranscriptSection.displayName = 'ConversationTranscriptSection';
 
 const LoadingState = () => (

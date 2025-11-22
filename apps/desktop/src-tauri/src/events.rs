@@ -12,6 +12,7 @@ use crate::commands::auth::AuthState;
 pub struct ConversationEventPayload {
     pub conversation_id: String,
     pub turn_id: String,
+    pub event_id: String,
     pub event: EventMsg,
     pub timestamp: String,
 }

@@ -70,9 +70,7 @@ export function StatusIndicator({
     conversationId ?? null
   );
   const isConversationBound = conversationId !== undefined;
-  const running = isConversationBound
-    ? conversationIsRunning
-    : runningProp;
+  const running = isConversationBound ? conversationIsRunning : runningProp;
   const startedAt = isConversationBound
     ? conversationState.activeTurnStartedAt
     : startedAtProp;

@@ -155,6 +155,7 @@ impl EventSubscriptionManager {
                             payload: ConversationEventPayload {
                                 conversation_id: conversation_id.to_string(),
                                 turn_id: event.id.clone(),
+                                event_id: Uuid::new_v4().to_string(),
                                 event: event.msg.clone(),
                                 timestamp: Utc::now().to_rfc3339(),
                             },

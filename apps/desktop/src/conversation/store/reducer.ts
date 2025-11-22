@@ -47,10 +47,10 @@ import {
 } from '../transcript/selectors';
 import { createInitialTranscriptState } from '../transcript/state';
 import {
+  type CellLocation,
   type ExecStreamDecoders,
   type TranscriptAgentMessageCell,
   type TranscriptAgentReasoningCell,
-  type CellLocation,
   type TranscriptCell,
   type TranscriptErrorCell,
   type TranscriptExecApprovalCell,
@@ -1047,12 +1047,7 @@ function onMcpToolCallEnd(
   timestamp: string
 ): void {
   const transcript = draft.conversation.transcript as TranscriptState;
-  const target = findToolCellByCallId(
-    transcript,
-    turnId,
-    'mcp',
-    event.call_id
-  );
+  const target = findToolCellByCallId(transcript, turnId, 'mcp', event.call_id);
   const callResult = event.result;
   const isError = 'Err' in callResult;
   const status = isError ? 'failed' : 'succeeded';
@@ -1253,9 +1248,7 @@ function applyConversationEvent(
 ) {
   const { event, conversationId } = payload;
   const turnId = payload.turnId ?? 'unknown-turn';
-  const eventId =
-    (payload as ConversationEventPayload & { eventId?: string }).eventId ??
-    turnId;
+  const eventId = payload.eventId;
   const timestamp = now();
   const ingestOnDraft = (nextPayload: ConversationEventPayload) => {
     if (import.meta.env.DEV) {

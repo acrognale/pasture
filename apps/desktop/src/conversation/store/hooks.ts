@@ -70,9 +70,7 @@ export const useConversationLoadState = (conversationId: string | null) =>
     shallow
   );
 
-export const useConversationTranscriptTurns = (
-  conversationId: string | null
-) =>
+export const useConversationTranscriptTurns = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,
     (state) => ({

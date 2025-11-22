@@ -160,7 +160,9 @@ describe('ConversationReducer fixtures', () => {
       (cell): cell is TranscriptUserMessageCell => cell.kind === 'user-message'
     );
     expect(userMessages.map((cell) => cell.message)).toEqual(['hello', 'test']);
-    const agentMessages = flattened.filter((cell) => cell.kind === 'agent-message');
+    const agentMessages = flattened.filter(
+      (cell) => cell.kind === 'agent-message'
+    );
     expect(agentMessages.map((cell) => cell.message)).toEqual([
       'Hi! How can I help you today?',
       'What would you like me to help you test?',

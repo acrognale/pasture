@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { JSX } from 'react';
+import { createInitialTranscriptState } from '~/conversation/transcript/state';
+import type { TranscriptCell } from '~/conversation/transcript/types';
 
 import { ConversationPane } from '../ConversationPane';
 import {
@@ -10,8 +12,6 @@ import {
   sampleTranscript,
 } from './mocks/data';
 import { mockCodexControls, sampleConversationId } from './mocks/state';
-import { createInitialTranscriptState } from '~/conversation/transcript/state';
-import type { TranscriptCell } from '~/conversation/transcript/types';
 
 const viewportDecorator = (Story: () => JSX.Element) => (
   <div

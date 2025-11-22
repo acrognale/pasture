@@ -53,19 +53,16 @@ const TranscriptTurnGroup = ({
     return null;
   }
 
-  const renderAllCells = () => (
-    <>
-      {cells.map((cell, cellIndex) => {
-        const motionProps = createRowMotionProps();
-        const key = `${turnId}-cell-${cell.id ?? cellIndex}`;
-        return (
-          <motion.div key={key} {...motionProps}>
-            <TranscriptCells cell={cell} />
-          </motion.div>
-        );
-      })}
-    </>
-  );
+  const renderAllCells = () => {
+    const motionProps = createRowMotionProps();
+    return cells.map((cell) => {
+      return (
+        <motion.div key={cell.id} {...motionProps}>
+          <TranscriptCells cell={cell} />
+        </motion.div>
+      );
+    });
+  };
 
   const canCollapse = turn.status !== 'active';
   if (!canCollapse) {
@@ -73,9 +70,10 @@ const TranscriptTurnGroup = ({
   }
 
   // Find the "Anchor" cell (Agent message or Abort) which ends the collapsed section.
-  // Everything between User Message (0) and Anchor is collapsible.
+  // Everything between User Message (0) and Anchor is collapsible. We intentionally walk
+  // backwards so that we anchor on the final agent message instead of any earlier replies.
   let anchorIndex = -1;
-  for (let i = 1; i < cells.length; i++) {
+  for (let i = cells.length - 1; i >= 1; i -= 1) {
     if (isAgentOrStatus(cells[i])) {
       anchorIndex = i;
       break;
@@ -87,40 +85,34 @@ const TranscriptTurnGroup = ({
     anchorIndex = cells.length - 1;
   }
 
-  const hiddenIndices: number[] = [];
-  if (anchorIndex > 1) {
-    for (let i = 1; i < anchorIndex; i++) {
-      hiddenIndices.push(i);
-    }
-  }
+  const hiddenCells = anchorIndex > 1 ? cells.slice(1, anchorIndex) : [];
 
-  if (hiddenIndices.length > 0) {
+  if (hiddenCells.length > 0) {
     const firstCell = cells[0];
     if (!firstCell) {
       return null;
     }
+    const anchorCell = cells[anchorIndex];
     const motionProps = createRowMotionProps();
     return (
       <>
-        <motion.div key={`${turnId}-cell-0`} {...motionProps}>
+        <motion.div key={firstCell.id} {...motionProps}>
           <TranscriptCells cell={firstCell} />
         </motion.div>
         <motion.div key={`${turnId}-collapsed`} {...motionProps}>
           <CollapsedTranscriptSection
-            turnId={turnId}
-            hiddenIndices={hiddenIndices}
-            finalCellIndex={anchorIndex}
-            turnCells={cells}
+            hiddenCells={hiddenCells}
             isExpanded={isExpanded}
             onToggle={onToggle}
           />
         </motion.div>
-        {/* Render any cells that come after the anchor (e.g. Status events) */}
-        {cells.slice(anchorIndex + 1).map((cell, i) => (
-          <motion.div
-            key={`${turnId}-cell-${cell.id ?? anchorIndex + 1 + i}`}
-            {...motionProps}
-          >
+        {anchorCell && (
+          <motion.div key={anchorCell.id} {...motionProps}>
+            <TranscriptCells cell={anchorCell} />
+          </motion.div>
+        )}
+        {cells.slice(anchorIndex + 1).map((cell) => (
+          <motion.div key={cell.id} {...motionProps}>
             <TranscriptCells cell={cell} />
           </motion.div>
         ))}
@@ -147,8 +139,8 @@ export const TranscriptList = ({
       }
       return { turnId, turn };
     })
-    .filter(
-      (entry): entry is { turnId: string; turn: TranscriptTurn } => Boolean(entry)
+    .filter((entry): entry is { turnId: string; turn: TranscriptTurn } =>
+      Boolean(entry)
     );
 
   return (

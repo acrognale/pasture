@@ -20,8 +20,8 @@ import type {
   TranscriptState,
   TranscriptStatusCell,
   TranscriptTaskCell,
-  TranscriptTurn,
   TranscriptToolCell,
+  TranscriptTurn,
   TranscriptUserMessageCell,
 } from '~/conversation/transcript/types';
 

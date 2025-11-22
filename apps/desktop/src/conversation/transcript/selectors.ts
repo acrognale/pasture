@@ -59,7 +59,13 @@ export const getItemCell = (
         return {
           cell: candidate as Extract<
             TranscriptCell,
-            { kind: 'user-message' | 'agent-message' | 'agent-reasoning' | 'tool' }
+            {
+              kind:
+                | 'user-message'
+                | 'agent-message'
+                | 'agent-reasoning'
+                | 'tool';
+            }
           >,
           location: { turnId, cellIndex: index },
         };
@@ -81,7 +87,10 @@ export const findExecCellByCallId = (
     (cell) => cell.kind === 'exec' && cell.callId === callId
   );
   return result
-    ? (result as { cell: Extract<TranscriptCell, { kind: 'exec' }>; location: CellLocation })
+    ? (result as {
+        cell: Extract<TranscriptCell, { kind: 'exec' }>;
+        location: CellLocation;
+      })
     : null;
 };
 
@@ -100,7 +109,10 @@ export const findToolCellByCallId = (
       cell.callId === callId
   );
   return result
-    ? (result as { cell: Extract<TranscriptCell, { kind: 'tool' }>; location: CellLocation })
+    ? (result as {
+        cell: Extract<TranscriptCell, { kind: 'tool' }>;
+        location: CellLocation;
+      })
     : null;
 };
 
@@ -115,7 +127,10 @@ export const findPatchCellByCallId = (
     (cell) => cell.kind === 'patch' && cell.callId === callId
   );
   return result
-    ? (result as { cell: Extract<TranscriptCell, { kind: 'patch' }>; location: CellLocation })
+    ? (result as {
+        cell: Extract<TranscriptCell, { kind: 'patch' }>;
+        location: CellLocation;
+      })
     : null;
 };
 
