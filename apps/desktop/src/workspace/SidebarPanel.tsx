@@ -4,8 +4,8 @@ import { Loader2Icon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { FocusEvent } from 'react';
 import { toast } from 'sonner';
-import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
-import type { NewConversationResponse } from '~/codex.gen/NewConversationResponse';
+import type { NewThreadResponse } from '~/codex.gen/NewThreadResponse';
+import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
 import { ScrollArea } from '~/components/ui/scroll-area';
@@ -23,87 +23,81 @@ import { useNamedShortcut } from '~/keyboard/hooks';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { formatSessionPreview } from '~/lib/workspaces';
-import { sortConversationsByTimestamp } from '~/workspace/conversations';
+import { sortThreadsByTimestamp } from '~/workspace/conversations';
 
-import { OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT } from './WorkspaceConversationSwitcher';
+import { OPEN_WORKSPACE_THREAD_SWITCHER_EVENT } from './WorkspaceConversationSwitcher';
 import {
   useWorkspace,
-  useWorkspaceConversationStores,
   useWorkspaceKeys,
+  useWorkspaceThreadsContext,
 } from './WorkspaceProvider';
 import {
-  type WorkspaceConversationsState,
-  useOpenWorkspaceConversations,
-} from './hooks/useWorkspaceConversations';
+  type WorkspaceThreadsState,
+  useOpenWorkspaceThreads,
+} from './hooks/useWorkspaceThreads';
 
 export function SidebarPanel() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
   const keys = useWorkspaceKeys();
-  const conversations = useOpenWorkspaceConversations();
-  const { closeConversation, clearConversationStore } =
-    useWorkspaceConversationStores();
-  const conversationMatch = useRouterState({
+  const threads = useOpenWorkspaceThreads();
+  const { closeThread } = useWorkspaceThreadsContext();
+  const threadMatch = useRouterState({
     select: (state) =>
       state.matches.find(
         (match) =>
-          match.routeId ===
-          '/workspaces/$workspaceId/conversations/$conversationId'
+          match.routeId === '/workspaces/$workspaceId/threads/$threadId'
       ),
   });
-  const activeConversationId =
-    typeof conversationMatch?.params?.conversationId === 'string'
-      ? conversationMatch.params.conversationId
+  const activeThreadId =
+    typeof threadMatch?.params?.threadId === 'string'
+      ? threadMatch.params.threadId
       : null;
 
-  const sessions: ConversationSummary[] = useMemo(
-    () => conversations.items ?? [],
-    [conversations.items]
+  const sessions: ThreadSummary[] = useMemo(
+    () => threads.items ?? [],
+    [threads.items]
   );
-  const conversationsError =
-    conversations.query.error instanceof Error
-      ? conversations.query.error
-      : null;
+  const threadsError =
+    threads.query.error instanceof Error ? threads.query.error : null;
 
-  const handleConversationClick = useCallback(
-    (conversationId: string) => {
+  const handleThreadClick = useCallback(
+    (threadId: string) => {
       void router.navigate({
-        to: '/workspaces/$workspaceId/conversations/$conversationId',
+        to: '/workspaces/$workspaceId/threads/$threadId',
         params: {
           workspaceId: encodeWorkspaceId(workspacePath),
-          conversationId,
+          threadId,
         },
       });
     },
     [router, workspacePath]
   );
 
-  const navigateToConversation = useCallback(
-    (conversationId: string) => {
+  const navigateToThread = useCallback(
+    (threadId: string) => {
       void router.navigate({
-        to: '/workspaces/$workspaceId/conversations/$conversationId',
+        to: '/workspaces/$workspaceId/threads/$threadId',
         params: {
           workspaceId: encodeWorkspaceId(workspacePath),
-          conversationId,
+          threadId,
         },
       });
     },
     [router, workspacePath]
   );
 
-  const handleCloseConversation = useCallback(
-    (conversationId: string) => {
-      closeConversation(conversationId);
-      clearConversationStore(conversationId);
+  const handleCloseThread = useCallback(
+    (threadId: string) => {
+      closeThread(threadId);
 
-      if (activeConversationId === conversationId) {
-        const nextConversation = sessions.find(
-          (session: ConversationSummary) =>
-            session.conversationId !== conversationId
+      if (activeThreadId === threadId) {
+        const nextThread = sessions.find(
+          (session: ThreadSummary) => session.threadId !== threadId
         );
-        if (nextConversation) {
-          navigateToConversation(nextConversation.conversationId);
+        if (nextThread) {
+          navigateToThread(nextThread.threadId);
         } else {
           void router.navigate({
             to: '/workspaces/$workspaceId',
@@ -115,84 +109,83 @@ export function SidebarPanel() {
       }
     },
     [
-      activeConversationId,
-      clearConversationStore,
-      closeConversation,
-      navigateToConversation,
+      activeThreadId,
+      closeThread,
+      navigateToThread,
       router,
       sessions,
       workspacePath,
     ]
   );
 
-  const newConversationMutation = useMutation({
-    mutationFn: async (): Promise<NewConversationResponse> => {
-      return await Codex.newConversation({
+  const newThreadMutation = useMutation({
+    mutationFn: async (): Promise<NewThreadResponse> => {
+      return await Codex.newThread({
         workspacePath,
         options: null,
       });
     },
     onSuccess: (data) => {
-      const optimisticSummary: ConversationSummary = {
-        conversationId: data.conversationId,
-        path: data.rolloutPath ?? '',
-        cwd: normalizedWorkspacePath || workspacePath,
-        preview: 'New session',
+      const optimisticSummary: ThreadSummary = {
+        threadId: data.threadId,
+        workspacePath: normalizedWorkspacePath || workspacePath,
+        currentConversationId: data.conversationId,
+        preview: 'Untitled session',
         timestamp: new Date().toISOString(),
+        rolloutCount: 1,
       };
 
-      queryClient.setQueryData<WorkspaceConversationsState | undefined>(
-        keys.conversations(),
+      queryClient.setQueryData<WorkspaceThreadsState | undefined>(
+        keys.threads(),
         (state) => {
           const existingItems =
             state?.items.filter(
-              (item) => item.conversationId !== optimisticSummary.conversationId
+              (item) => item.threadId !== optimisticSummary.threadId
             ) ?? [];
 
           return {
-            items: sortConversationsByTimestamp([
+            items: sortThreadsByTimestamp([
               optimisticSummary,
               ...existingItems,
             ]),
-            nextCursor: state?.nextCursor ?? null,
           };
         }
       );
 
       void router.navigate({
-        to: '/workspaces/$workspaceId/conversations/$conversationId',
+        to: '/workspaces/$workspaceId/threads/$threadId',
         params: {
           workspaceId: encodeWorkspaceId(workspacePath),
-          conversationId: data.conversationId,
+          threadId: data.threadId,
         },
       });
     },
     onError: (error: Error) => {
       const description =
         error instanceof Error ? error.message : 'Please try again.';
-      toast.error('Failed to create new session.', { description });
+      toast.error('Failed to create new thread.', { description });
     },
   });
 
   const handleStartNewSession = useCallback(() => {
-    newConversationMutation.mutate();
-  }, [newConversationMutation]);
+    newThreadMutation.mutate();
+  }, [newThreadMutation]);
 
   const newConversationShortcutOverrides = useMemo(
     () => ({
-      enabled: () => !newConversationMutation.isPending,
+      enabled: () => !newThreadMutation.isPending,
       when: (event: KeyboardEvent) => !event.altKey && !event.shiftKey,
     }),
-    [newConversationMutation.isPending]
+    [newThreadMutation.isPending]
   );
 
   const handleNewConversationShortcut = useCallback(() => {
-    if (newConversationMutation.isPending) {
+    if (newThreadMutation.isPending) {
       return false;
     }
     handleStartNewSession();
     return true;
-  }, [handleStartNewSession, newConversationMutation.isPending]);
+  }, [handleStartNewSession, newThreadMutation.isPending]);
 
   useNamedShortcut(
     'workspace.newConversation',
@@ -204,7 +197,7 @@ export function SidebarPanel() {
     if (typeof window === 'undefined') {
       return;
     }
-    window.dispatchEvent(new Event(OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT));
+    window.dispatchEvent(new Event(OPEN_WORKSPACE_THREAD_SWITCHER_EVENT));
   }, []);
 
   return (
@@ -219,9 +212,9 @@ export function SidebarPanel() {
                 variant="ghost"
                 className="shrink-0 h-7 px-2 text-xs"
                 onClick={handleStartNewSession}
-                disabled={newConversationMutation.isPending}
+                disabled={newThreadMutation.isPending}
               >
-                {newConversationMutation.isPending ? (
+                {newThreadMutation.isPending ? (
                   <Loader2Icon className="mr-1 h-4 w-4 animate-spin" />
                 ) : (
                   <PlusIcon className="mr-1 h-4 w-4" />
@@ -240,7 +233,7 @@ export function SidebarPanel() {
             </div>
           </SidebarGroupLabel>
           <SidebarGroupContent className="mt-2">
-            {conversations.query.isPending ? (
+            {threads.query.isPending ? (
               <SidebarMenu>
                 {[1, 2, 3].map((item) => (
                   <SidebarMenuItem key={item}>
@@ -248,15 +241,15 @@ export function SidebarPanel() {
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
-            ) : conversationsError ? (
+            ) : threadsError ? (
               <div className="px-2 space-y-2 text-xs text-destructive">
-                <p>Failed to load sessions: {conversationsError.message}</p>
+                <p>Failed to load sessions: {threadsError.message}</p>
                 <Button
                   size="sm"
                   variant="outline"
                   className="w-fit"
                   onClick={() => {
-                    void conversations.query.refetch();
+                    void threads.query.refetch();
                   }}
                 >
                   Try again
@@ -267,11 +260,11 @@ export function SidebarPanel() {
                 <SidebarMenu>
                   {sessions.map((session) => (
                     <SidebarConversationMenuItem
-                      key={session.conversationId}
+                      key={session.threadId}
                       session={session}
-                      isActive={session.conversationId === activeConversationId}
-                      onSelect={handleConversationClick}
-                      onClose={handleCloseConversation}
+                      isActive={session.threadId === activeThreadId}
+                      onSelect={handleThreadClick}
+                      onClose={handleCloseThread}
                     />
                   ))}
                 </SidebarMenu>
@@ -292,10 +285,10 @@ export function SidebarPanel() {
 }
 
 type SidebarConversationMenuItemProps = {
-  session: ConversationSummary;
+  session: ThreadSummary;
   isActive: boolean;
-  onSelect: (conversationId: string) => void;
-  onClose: (conversationId: string) => void;
+  onSelect: (threadId: string) => void;
+  onClose: (threadId: string) => void;
 };
 
 function SidebarConversationMenuItem({
@@ -304,7 +297,7 @@ function SidebarConversationMenuItem({
   onSelect,
   onClose,
 }: SidebarConversationMenuItemProps) {
-  const isRunning = useConversationIsRunning(session.conversationId);
+  const isRunning = useConversationIsRunning(session.currentConversationId);
   const [isHovered, setIsHovered] = useState(false);
 
   const showCloseButton = !isRunning && isHovered;
@@ -319,7 +312,7 @@ function SidebarConversationMenuItem({
     <SidebarMenuItem>
       <SidebarMenuButton
         type="button"
-        onClick={() => onSelect(session.conversationId)}
+        onClick={() => onSelect(session.threadId)}
         isActive={isActive}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -332,7 +325,7 @@ function SidebarConversationMenuItem({
               <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" />
             ) : null}
             <span className="truncate text-sm font-medium">
-              {formatSessionPreview(session.preview ?? session.conversationId)}
+              {formatSessionPreview(session.preview ?? session.threadId)}
             </span>
           </span>
           <span className="flex items-center">
@@ -348,7 +341,7 @@ function SidebarConversationMenuItem({
                 className="ml-2 h-6 w-6 shrink-0"
                 onClick={(event) => {
                   event.stopPropagation();
-                  onClose(session.conversationId);
+                  onClose(session.threadId);
                 }}
                 aria-label="Close session"
               >

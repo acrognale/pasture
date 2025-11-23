@@ -11,14 +11,20 @@ import type {
   GetTurnDiffRangeResponse,
   InitializeConversationParams,
   InitializeConversationResponse,
+  InitializeThreadParams,
+  InitializeThreadResponse,
   InterruptConversationParams,
   InterruptConversationResponse,
   ListConversationsParams,
   ListConversationsResponse,
+  ListThreadsParams,
+  ListThreadsResponse,
   ListTurnSnapshotsParams,
   ListTurnSnapshotsResponse,
   NewConversationCommandParams,
   NewConversationResponse,
+  NewThreadCommandParams,
+  NewThreadResponse,
   RemoveConversationListenerParams,
   RespondApprovalParams,
   SendUserMessageParams,
@@ -29,6 +35,26 @@ import type {
 } from '~/codex.gen';
 
 export namespace Codex {
+  export async function listThreads(
+    params: ListThreadsParams
+  ): Promise<ListThreadsResponse> {
+    return await invoke<ListThreadsResponse>('list_threads', { params });
+  }
+
+  export async function newThread(
+    params: NewThreadCommandParams
+  ): Promise<NewThreadResponse> {
+    return await invoke<NewThreadResponse>('new_thread', { params });
+  }
+
+  export async function initializeThread(
+    params: InitializeThreadParams
+  ): Promise<InitializeThreadResponse> {
+    return await invoke<InitializeThreadResponse>('initialize_thread', {
+      params,
+    });
+  }
+
   export async function listConversations(
     params: ListConversationsParams
   ): Promise<ListConversationsResponse> {

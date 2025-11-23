@@ -150,7 +150,7 @@ describe('Conversation streaming flow', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
 
-    mockCodex.stub.initializeConversation.mockResolvedValueOnce({
+    mockCodex.stub.initializeThread.mockResolvedValueOnce({
       sessionConfigured: {
         session_id: CONVERSATION_ID,
         model: 'gpt-5-codex-latest',

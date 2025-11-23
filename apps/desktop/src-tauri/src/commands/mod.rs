@@ -13,6 +13,18 @@ pub use registry::CommandDescriptor;
 use registry::codex_command_descriptors;
 
 codex_command_descriptors! {
+    conversations::list_threads {
+        params: conversations::ListThreadsParams,
+        result: conversations::ListThreadsResponse,
+    },
+    conversations::new_thread {
+        params: conversations::NewThreadCommandParams,
+        result: conversations::NewThreadResponse,
+    },
+    conversations::initialize_thread {
+        params: conversations::InitializeThreadParams,
+        result: conversations::InitializeThreadResponse,
+    },
     conversations::list_conversations {
         params: conversations::ListConversationsParams,
         result: conversations::ListConversationsResponse,

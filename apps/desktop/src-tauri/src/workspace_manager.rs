@@ -11,6 +11,7 @@ use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use ts_rs::TS;
 
+use chrono::Utc;
 use codex_protocol::config_types::ReasoningEffort;
 use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
@@ -76,9 +77,12 @@ impl ActiveConversation {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorkspacePersistenceState {
+    #[serde(default)]
     pub recent: Vec<String>,
     #[serde(default)]
     pub workspace_defaults: HashMap<String, WorkspaceComposerDefaults>,
+    #[serde(default)]
+    pub threads: HashMap<String, Vec<ThreadRecord>>,
 }
 
 /// Remembered per-workspace defaults applied to new conversations.
@@ -105,6 +109,30 @@ impl WorkspaceComposerDefaults {
             && self.sandbox.is_none()
             && self.approval.is_none()
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadRollout {
+    pub conversation_id: String,
+    pub rollout_path: String,
+    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadRecord {
+    pub thread_id: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub current_conversation_id: String,
+    pub rollouts: Vec<ThreadRollout>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
 }
 
 #[derive(Clone)]
@@ -231,6 +259,105 @@ impl WorkspaceManager {
         self.save_state().await?;
 
         Ok(())
+    }
+
+    pub async fn get_threads_for_workspace(&self, normalized_path: &str) -> Vec<ThreadRecord> {
+        let state = self.state.read().await;
+        state
+            .threads
+            .get(normalized_path)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    pub async fn get_thread(&self, normalized_path: &str, thread_id: &str) -> Option<ThreadRecord> {
+        let state = self.state.read().await;
+        state
+            .threads
+            .get(normalized_path)
+            .and_then(|threads| threads.iter().find(|t| t.thread_id == thread_id).cloned())
+    }
+
+    pub async fn upsert_thread(&self, normalized_path: &str, thread: ThreadRecord) -> Result<()> {
+        let mut state = self.state.write().await;
+        let threads = state
+            .threads
+            .entry(normalized_path.to_string())
+            .or_default();
+
+        if let Some(existing) = threads
+            .iter_mut()
+            .find(|existing| existing.thread_id == thread.thread_id)
+        {
+            *existing = thread;
+        } else {
+            threads.push(thread);
+        }
+
+        drop(state);
+        self.save_state().await?;
+
+        Ok(())
+    }
+
+    pub async fn find_thread_by_conversation(
+        &self,
+        conversation_id: &str,
+    ) -> Option<(String, ThreadRecord)> {
+        let state = self.state.read().await;
+        for (workspace, threads) in state.threads.iter() {
+            if let Some(thread) = threads.iter().find(|thread| {
+                thread.current_conversation_id == conversation_id
+                    || thread
+                        .rollouts
+                        .iter()
+                        .any(|rollout| rollout.conversation_id == conversation_id)
+            }) {
+                return Some((workspace.clone(), thread.clone()));
+            }
+        }
+        None
+    }
+
+    pub async fn update_thread_preview_for_conversation(
+        &self,
+        conversation_id: &str,
+        preview: &str,
+    ) -> Result<bool> {
+        let mut state = self.state.write().await;
+        let timestamp = Utc::now().to_rfc3339();
+        let mut changed = false;
+
+        for threads in state.threads.values_mut() {
+            for thread in threads.iter_mut() {
+                let matches_conversation = thread.current_conversation_id == conversation_id
+                    || thread
+                        .rollouts
+                        .iter()
+                        .any(|rollout| rollout.conversation_id == conversation_id);
+                if !matches_conversation {
+                    continue;
+                }
+
+                let existing = thread.preview.as_deref().unwrap_or("");
+                if !existing.is_empty() && existing != "Untitled session" {
+                    continue;
+                }
+
+                thread.preview = Some(preview.to_string());
+                thread.title = Some(preview.to_string());
+                thread.updated_at = timestamp.clone();
+                changed = true;
+            }
+        }
+
+        drop(state);
+
+        if changed {
+            self.save_state().await?;
+        }
+
+        Ok(changed)
     }
 
     pub async fn store_active_conversation(

@@ -32,9 +32,17 @@ type WorkspaceContextValue = {
     conversationId: string,
     options?: { force?: boolean }
   ) => Promise<void>;
+  loadThread: (
+    threadId: string,
+    options?: { force?: boolean }
+  ) => Promise<string | null>;
+  getThreadConversationId: (threadId: string) => string | null;
+  getThreadIdForConversation: (conversationId: string) => string | null;
   clearConversationStore: (conversationId: string) => void;
   openConversationIds: string[];
   closeConversation: (conversationId: string) => void;
+  openThreadIds: string[];
+  closeThread: (threadId: string) => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -70,6 +78,13 @@ export const WorkspaceProvider = ({
   const fallbackConversationStoreRef = useRef(createConversationStore());
   const openConversationIdsRef = useRef<Set<string>>(new Set());
   const [openConversationIds, setOpenConversationIds] = useState<string[]>([]);
+  const openThreadIdsRef = useRef<Set<string>>(new Set());
+  const [openThreadIds, setOpenThreadIds] = useState<string[]>([]);
+  const threadConversationMapRef = useRef<Map<string, string>>(new Map());
+  const conversationToThreadMapRef = useRef<Map<string, string>>(new Map());
+  const threadLoadingStatesRef = useRef<
+    Map<string, 'idle' | 'loading' | 'loaded' | 'error'>
+  >(new Map());
 
   const syncOpenConversationIds = useCallback(() => {
     setOpenConversationIds(Array.from(openConversationIdsRef.current));
@@ -101,6 +116,56 @@ export const WorkspaceProvider = ({
       syncOpenConversationIds();
     },
     [syncOpenConversationIds]
+  );
+
+  const syncOpenThreadIds = useCallback(() => {
+    setOpenThreadIds(Array.from(openThreadIdsRef.current));
+  }, []);
+
+  const clearConversationStore = useCallback(
+    (conversationId: string) => {
+      conversationStoresRef.current.delete(conversationId);
+      loadingStatesRef.current.delete(conversationId);
+      conversationToThreadMapRef.current.delete(conversationId);
+      closeConversation(conversationId);
+    },
+    [closeConversation]
+  );
+
+  const markThreadOpen = useCallback(
+    (threadId: string) => {
+      if (!threadId) {
+        return;
+      }
+      if (openThreadIdsRef.current.has(threadId)) {
+        return;
+      }
+      openThreadIdsRef.current.add(threadId);
+      syncOpenThreadIds();
+    },
+    [syncOpenThreadIds]
+  );
+
+  const closeThread = useCallback(
+    (threadId: string) => {
+      if (!threadId) {
+        return;
+      }
+      const conversationId = threadConversationMapRef.current.get(threadId);
+      threadConversationMapRef.current.delete(threadId);
+      if (conversationId) {
+        conversationToThreadMapRef.current.delete(conversationId);
+      }
+      if (openThreadIdsRef.current.has(threadId)) {
+        openThreadIdsRef.current.delete(threadId);
+        syncOpenThreadIds();
+      }
+      if (conversationId) {
+        closeConversation(conversationId);
+        clearConversationStore(conversationId);
+      }
+    },
+    [clearConversationStore, closeConversation, syncOpenThreadIds]
   );
 
   const ensureConversationStore = useCallback((conversationId: string) => {
@@ -137,6 +202,101 @@ export const WorkspaceProvider = ({
     [ensureConversationStore]
   );
 
+  const hydrateConversationStore = useCallback(
+    (
+      conversationId: string,
+      sessionConfigured: NonNullable<
+        Awaited<ReturnType<typeof Codex.initializeThread>>
+      >['sessionConfigured'],
+      reasoningSummary: Awaited<
+        ReturnType<typeof Codex.initializeThread>
+      >['reasoningSummary']
+    ) => {
+      const store = ensureConversationStore(conversationId);
+      store.getState().reset();
+      store.getState().setLoading(true);
+      store.getState().setError(null);
+
+      const events = sessionConfigured.initial_messages
+        ? [...sessionConfigured.initial_messages]
+        : [];
+      events.forEach((event, index) => {
+        const turnId =
+          'turn_id' in event && typeof event.turn_id === 'string'
+            ? event.turn_id
+            : `initial::${conversationId}::${index}`;
+        const eventId =
+          (event as { event_id?: string }).event_id ??
+          `${turnId}::${index.toString()}`;
+        store.getState().ingestEvent({
+          conversationId,
+          turnId,
+          eventId,
+          event,
+          timestamp: new Date().toISOString(),
+        });
+      });
+      store.getState().setReasoningSummaryPreference(reasoningSummary);
+      store.getState().setLoading(false);
+      return store;
+    },
+    [ensureConversationStore]
+  );
+
+  const loadThread = useCallback(
+    async (threadId: string, options?: { force?: boolean }) => {
+      if (!threadId) {
+        return null;
+      }
+
+      markThreadOpen(threadId);
+
+      const loadingStates = threadLoadingStatesRef.current;
+      const status = loadingStates.get(threadId);
+      const mappedConversation = threadConversationMapRef.current.get(threadId);
+      if (!options?.force && status === 'loading') {
+        return mappedConversation ?? null;
+      }
+      if (!options?.force && status === 'loaded' && mappedConversation) {
+        return mappedConversation;
+      }
+
+      loadingStates.set(threadId, 'loading');
+
+      try {
+        const { sessionConfigured, reasoningSummary } =
+          await Codex.initializeThread({
+            threadId,
+            workspacePath,
+          });
+
+        const conversationId = sessionConfigured.session_id;
+        threadConversationMapRef.current.set(threadId, conversationId);
+        conversationToThreadMapRef.current.set(conversationId, threadId);
+        markConversationOpen(conversationId);
+        loadingStatesRef.current.set(conversationId, 'loaded');
+
+        const store = hydrateConversationStore(
+          conversationId,
+          sessionConfigured,
+          reasoningSummary
+        );
+        store.getState().setLoading(false);
+        loadingStates.set(threadId, 'loaded');
+        return conversationId;
+      } catch (error) {
+        loadingStates.set(threadId, 'error');
+        throw error;
+      }
+    },
+    [
+      hydrateConversationStore,
+      markConversationOpen,
+      markThreadOpen,
+      workspacePath,
+    ]
+  );
+
   const loadConversation = useCallback(
     async (conversationId: string, options?: { force?: boolean }) => {
       if (!conversationId) {
@@ -158,34 +318,18 @@ export const WorkspaceProvider = ({
       store.getState().setError(null);
 
       try {
-        const { sessionConfigured, reasoningSummary } =
-          await Codex.initializeConversation({ conversationId });
+        const threadId = conversationToThreadMapRef.current.get(conversationId);
+        if (!threadId) {
+          throw new Error('Conversation is not associated with a thread');
+        }
 
-        const events = sessionConfigured.initial_messages
-          ? [...sessionConfigured.initial_messages]
-          : [];
-        // initializeConversation is the sole source of historical events; the live stream starts
-        // after the session is configured, so we must ingest the returned messages here.
-        events.forEach((event, index) => {
-          const turnId =
-            'turn_id' in event && typeof event.turn_id === 'string'
-              ? event.turn_id
-              : `initial::${conversationId}::${index}`;
-          const eventId =
-            (event as { event_id?: string }).event_id ??
-            `${turnId}::${index.toString()}`;
-          store.getState().ingestEvent({
-            conversationId,
-            turnId,
-            eventId,
-            event,
-            timestamp: new Date().toISOString(),
-          });
+        const resolvedConversationId = await loadThread(threadId, {
+          force: options?.force,
         });
-        store.getState().setReasoningSummaryPreference(reasoningSummary);
 
-        store.getState().setLoading(false);
-        loadingStates.set(conversationId, 'loaded');
+        if (resolvedConversationId) {
+          loadingStates.set(resolvedConversationId, 'loaded');
+        }
       } catch (error) {
         store.getState().reset();
         store.getState().setLoading(false);
@@ -195,16 +339,7 @@ export const WorkspaceProvider = ({
         loadingStates.set(conversationId, 'error');
       }
     },
-    [ensureConversationStore, markConversationOpen]
-  );
-
-  const clearConversationStore = useCallback(
-    (conversationId: string) => {
-      conversationStoresRef.current.delete(conversationId);
-      loadingStatesRef.current.delete(conversationId);
-      closeConversation(conversationId);
-    },
-    [closeConversation]
+    [ensureConversationStore, loadThread, markConversationOpen]
   );
 
   const value = useMemo<WorkspaceContextValue>(
@@ -216,20 +351,30 @@ export const WorkspaceProvider = ({
       getConversationStore,
       applyConversationEvent,
       loadConversation,
+      loadThread,
+      getThreadConversationId: (threadId: string) =>
+        threadConversationMapRef.current.get(threadId) ?? null,
+      getThreadIdForConversation: (conversationId: string) =>
+        conversationToThreadMapRef.current.get(conversationId) ?? null,
       clearConversationStore,
       openConversationIds,
+      openThreadIds,
       closeConversation,
+      closeThread,
     }),
     [
       applyConversationEvent,
       approvalsStore,
+      closeThread,
       closeConversation,
       clearConversationStore,
       getConversationStore,
       keys,
       loadConversation,
+      loadThread,
       metadata,
       openConversationIds,
+      openThreadIds,
     ]
   );
 
@@ -263,18 +408,34 @@ export const useWorkspaceConversationStores = () => {
     getConversationStore,
     applyConversationEvent,
     loadConversation,
+    loadThread,
+    getThreadIdForConversation,
     clearConversationStore,
     closeConversation,
+    getThreadConversationId,
   } = useWorkspaceContext();
 
   return {
     getConversationStore,
     applyConversationEvent,
     loadConversation,
+    loadThread,
+    getThreadIdForConversation,
     clearConversationStore,
     closeConversation,
+    getThreadConversationId,
   };
 };
 
 export const useWorkspaceOpenConversations = () =>
   useWorkspaceContext().openConversationIds;
+
+export const useWorkspaceThreadsContext = () => {
+  const { loadThread, getThreadConversationId, openThreadIds, closeThread } =
+    useWorkspaceContext();
+
+  return { loadThread, getThreadConversationId, openThreadIds, closeThread };
+};
+
+export const useWorkspaceOpenThreads = () =>
+  useWorkspaceContext().openThreadIds;

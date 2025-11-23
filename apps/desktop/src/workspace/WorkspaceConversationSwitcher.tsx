@@ -14,18 +14,18 @@ import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { formatSessionPreview } from '~/lib/workspaces';
 
 import { useWorkspace } from './WorkspaceProvider';
-import { useWorkspaceConversations } from './hooks/useWorkspaceConversations';
+import { useWorkspaceThreads } from './hooks/useWorkspaceThreads';
 
-export const OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT =
-  'workspace-conversation-switcher-open';
+export const OPEN_WORKSPACE_THREAD_SWITCHER_EVENT =
+  'workspace-thread-switcher-open';
 
 export function WorkspaceConversationSwitcher() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const { workspacePath } = useWorkspace();
-  const conversations = useWorkspaceConversations();
+  const threads = useWorkspaceThreads();
 
-  const items = useMemo(() => conversations.items ?? [], [conversations.items]);
+  const items = useMemo(() => threads.items ?? [], [threads.items]);
 
   const workspaceId = useMemo(
     () => encodeWorkspaceId(workspacePath),
@@ -43,13 +43,10 @@ export function WorkspaceConversationSwitcher() {
     }
 
     const handleEvent = () => setOpen(true);
-    window.addEventListener(
-      OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT,
-      handleEvent
-    );
+    window.addEventListener(OPEN_WORKSPACE_THREAD_SWITCHER_EVENT, handleEvent);
     return () => {
       window.removeEventListener(
-        OPEN_WORKSPACE_CONVERSATION_SWITCHER_EVENT,
+        OPEN_WORKSPACE_THREAD_SWITCHER_EVENT,
         handleEvent
       );
     };
@@ -58,13 +55,13 @@ export function WorkspaceConversationSwitcher() {
   useNamedShortcut('workspace.openConversationSwitcher', undefined, handleOpen);
 
   const handleSelectConversation = useCallback(
-    (conversationId: string) => {
+    (threadId: string) => {
       setOpen(false);
       void router.navigate({
-        to: '/workspaces/$workspaceId/conversations/$conversationId',
+        to: '/workspaces/$workspaceId/threads/$threadId',
         params: {
           workspaceId,
-          conversationId,
+          threadId,
         },
       });
     },
@@ -75,33 +72,30 @@ export function WorkspaceConversationSwitcher() {
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
-      title="Open conversation"
-      description="Search for a conversation"
+      title="Open thread"
+      description="Search for a thread"
     >
-      <CommandInput placeholder="Open session…" />
+      <CommandInput placeholder="Open thread…" />
       <CommandList>
         <CommandEmpty>No sessions found.</CommandEmpty>
         <CommandGroup heading="Sessions">
           {items.map((session) => (
             <CommandItem
-              key={session.conversationId}
+              key={session.threadId}
               value={[
                 session.preview ?? '',
-                session.conversationId,
-                session.cwd,
-                session.path,
+                session.threadId,
+                session.workspacePath,
               ]
                 .filter(Boolean)
                 .join(' ')}
               onSelect={() => {
-                handleSelectConversation(session.conversationId);
+                handleSelectConversation(session.threadId);
               }}
             >
               <div className="flex w-full items-center justify-between gap-3">
                 <span className="truncate">
-                  {formatSessionPreview(
-                    session.preview ?? session.conversationId
-                  )}
+                  {formatSessionPreview(session.preview ?? session.threadId)}
                 </span>
                 {session.timestamp ? (
                   <span className="text-transcript-micro text-muted-foreground">

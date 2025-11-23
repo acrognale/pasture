@@ -9,11 +9,14 @@ import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import type { EventMsg } from '~/codex.gen/EventMsg';
 import type { GetTurnDiffRangeResponse } from '~/codex.gen/GetTurnDiffRangeResponse';
 import type { InitializeConversationResponse } from '~/codex.gen/InitializeConversationResponse';
+import type { InitializeThreadResponse } from '~/codex.gen/InitializeThreadResponse';
 import type { InterruptConversationResponse } from '~/codex.gen/InterruptConversationResponse';
 import type { ListConversationsParams } from '~/codex.gen/ListConversationsParams';
 import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
+import type { ListThreadsResponse } from '~/codex.gen/ListThreadsResponse';
 import type { ListTurnSnapshotsResponse } from '~/codex.gen/ListTurnSnapshotsResponse';
 import type { NewConversationResponse } from '~/codex.gen/NewConversationResponse';
+import type { NewThreadResponse } from '~/codex.gen/NewThreadResponse';
 import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
 import type { SessionConfiguredEvent } from '~/codex.gen/SessionConfiguredEvent';
 import type { WorkspaceComposerDefaults } from '~/codex.gen/WorkspaceComposerDefaults';
@@ -65,6 +68,14 @@ const createDefaultNewConversationResponse = (): NewConversationResponse => ({
   rolloutPath: '',
 });
 
+const createDefaultNewThreadResponse = (): NewThreadResponse => ({
+  threadId: 'mock-thread',
+  conversationId: 'mock-conversation',
+  model: 'gpt-5-codex',
+  reasoningEffort: 'medium',
+  rolloutPath: '',
+});
+
 const createDefaultInterruptResponse = (): InterruptConversationResponse => ({
   abortReason: 'interrupted',
 });
@@ -88,6 +99,11 @@ const createDefaultInitializeConversationResponse =
     sessionConfigured: createDefaultSessionConfiguredEvent(),
     reasoningSummary: 'auto' satisfies ReasoningSummary,
   });
+
+const createDefaultInitializeThreadResponse = (): InitializeThreadResponse => ({
+  sessionConfigured: createDefaultSessionConfiguredEvent(),
+  reasoningSummary: 'auto' satisfies ReasoningSummary,
+});
 
 const createDefaultComposerConfigPayload = (): ComposerTurnConfigPayload => ({
   model: null,
@@ -115,6 +131,14 @@ const mockCodexNamespace = {
   ),
   newConversation: defineStub(async () =>
     createDefaultNewConversationResponse()
+  ),
+  listThreads: defineStub<[], ListThreadsResponse>(async () => ({
+    items: [],
+  })),
+  newThread: defineStub(async () => createDefaultNewThreadResponse()),
+  initializeThread: defineStub(
+    async (): Promise<InitializeThreadResponse> =>
+      createDefaultInitializeThreadResponse()
   ),
   compactConversation: defineStub(async () => undefined),
   sendUserMessage: defineStub(async () => undefined),

@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspacesWorkspaceIdRouteImport } from './routes/workspaces.$workspaceId'
 import { Route as WorkspacesWorkspaceIdIndexRouteImport } from './routes/workspaces.$workspaceId.index'
-import { Route as WorkspacesWorkspaceIdConversationsConversationIdRouteImport } from './routes/workspaces.$workspaceId.conversations.$conversationId'
+import { Route as WorkspacesWorkspaceIdThreadsThreadIdRouteImport } from './routes/workspaces.$workspaceId.threads.$threadId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -30,10 +30,10 @@ const WorkspacesWorkspaceIdIndexRoute =
     path: '/',
     getParentRoute: () => WorkspacesWorkspaceIdRoute,
   } as any)
-const WorkspacesWorkspaceIdConversationsConversationIdRoute =
-  WorkspacesWorkspaceIdConversationsConversationIdRouteImport.update({
-    id: '/conversations/$conversationId',
-    path: '/conversations/$conversationId',
+const WorkspacesWorkspaceIdThreadsThreadIdRoute =
+  WorkspacesWorkspaceIdThreadsThreadIdRouteImport.update({
+    id: '/threads/$threadId',
+    path: '/threads/$threadId',
     getParentRoute: () => WorkspacesWorkspaceIdRoute,
   } as any)
 
@@ -41,19 +41,19 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/workspaces/$workspaceId': typeof WorkspacesWorkspaceIdRouteWithChildren
   '/workspaces/$workspaceId/': typeof WorkspacesWorkspaceIdIndexRoute
-  '/workspaces/$workspaceId/conversations/$conversationId': typeof WorkspacesWorkspaceIdConversationsConversationIdRoute
+  '/workspaces/$workspaceId/threads/$threadId': typeof WorkspacesWorkspaceIdThreadsThreadIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/workspaces/$workspaceId': typeof WorkspacesWorkspaceIdIndexRoute
-  '/workspaces/$workspaceId/conversations/$conversationId': typeof WorkspacesWorkspaceIdConversationsConversationIdRoute
+  '/workspaces/$workspaceId/threads/$threadId': typeof WorkspacesWorkspaceIdThreadsThreadIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/workspaces/$workspaceId': typeof WorkspacesWorkspaceIdRouteWithChildren
   '/workspaces/$workspaceId/': typeof WorkspacesWorkspaceIdIndexRoute
-  '/workspaces/$workspaceId/conversations/$conversationId': typeof WorkspacesWorkspaceIdConversationsConversationIdRoute
+  '/workspaces/$workspaceId/threads/$threadId': typeof WorkspacesWorkspaceIdThreadsThreadIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -61,18 +61,18 @@ export interface FileRouteTypes {
     | '/'
     | '/workspaces/$workspaceId'
     | '/workspaces/$workspaceId/'
-    | '/workspaces/$workspaceId/conversations/$conversationId'
+    | '/workspaces/$workspaceId/threads/$threadId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/workspaces/$workspaceId'
-    | '/workspaces/$workspaceId/conversations/$conversationId'
+    | '/workspaces/$workspaceId/threads/$threadId'
   id:
     | '__root__'
     | '/'
     | '/workspaces/$workspaceId'
     | '/workspaces/$workspaceId/'
-    | '/workspaces/$workspaceId/conversations/$conversationId'
+    | '/workspaces/$workspaceId/threads/$threadId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -103,11 +103,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspacesWorkspaceIdIndexRouteImport
       parentRoute: typeof WorkspacesWorkspaceIdRoute
     }
-    '/workspaces/$workspaceId/conversations/$conversationId': {
-      id: '/workspaces/$workspaceId/conversations/$conversationId'
-      path: '/conversations/$conversationId'
-      fullPath: '/workspaces/$workspaceId/conversations/$conversationId'
-      preLoaderRoute: typeof WorkspacesWorkspaceIdConversationsConversationIdRouteImport
+    '/workspaces/$workspaceId/threads/$threadId': {
+      id: '/workspaces/$workspaceId/threads/$threadId'
+      path: '/threads/$threadId'
+      fullPath: '/workspaces/$workspaceId/threads/$threadId'
+      preLoaderRoute: typeof WorkspacesWorkspaceIdThreadsThreadIdRouteImport
       parentRoute: typeof WorkspacesWorkspaceIdRoute
     }
   }
@@ -115,13 +115,13 @@ declare module '@tanstack/react-router' {
 
 interface WorkspacesWorkspaceIdRouteChildren {
   WorkspacesWorkspaceIdIndexRoute: typeof WorkspacesWorkspaceIdIndexRoute
-  WorkspacesWorkspaceIdConversationsConversationIdRoute: typeof WorkspacesWorkspaceIdConversationsConversationIdRoute
+  WorkspacesWorkspaceIdThreadsThreadIdRoute: typeof WorkspacesWorkspaceIdThreadsThreadIdRoute
 }
 
 const WorkspacesWorkspaceIdRouteChildren: WorkspacesWorkspaceIdRouteChildren = {
   WorkspacesWorkspaceIdIndexRoute: WorkspacesWorkspaceIdIndexRoute,
-  WorkspacesWorkspaceIdConversationsConversationIdRoute:
-    WorkspacesWorkspaceIdConversationsConversationIdRoute,
+  WorkspacesWorkspaceIdThreadsThreadIdRoute:
+    WorkspacesWorkspaceIdThreadsThreadIdRoute,
 }
 
 const WorkspacesWorkspaceIdRouteWithChildren =

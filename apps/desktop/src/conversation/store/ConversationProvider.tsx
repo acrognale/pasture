@@ -7,6 +7,7 @@ import type { CodexEvent } from '~/codex.gen';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 import type { EventMsg } from '~/codex.gen/EventMsg';
 import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
+import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import {
   derivePreviewFromEvent,
   getAuthUpdatedPayload,
@@ -19,6 +20,8 @@ import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 import {
   updateConversationPreview,
   updateConversationTimestamp,
+  updateThreadPreview,
+  updateThreadTimestamp,
   useWorkspaceApprovalsStore,
   useWorkspaceConversationStores,
 } from '~/workspace';
@@ -68,7 +71,8 @@ export function ConversationProvider({
   workspacePath,
   children,
 }: ConversationProviderProps) {
-  const { applyConversationEvent } = useWorkspaceConversationStores();
+  const { applyConversationEvent, getThreadIdForConversation } =
+    useWorkspaceConversationStores();
   const queryClient = useQueryClient();
   const approvalsStore = useWorkspaceApprovalsStore();
   const keys = useMemo(
@@ -88,27 +92,31 @@ export function ConversationProvider({
     }
 
     const conversationsKey = keys.conversations();
+    const threadsKey = keys.threads();
 
     const shouldApplyPreviewUpdate = (
       conversationId: string,
       event: EventMsg
     ) => {
       if (event.type === 'user_message' || event.type === 'task_complete') {
+        const threadId = getThreadIdForConversation(conversationId);
+        if (threadId) {
+          const threads = queryClient.getQueryData<
+            { items: ThreadSummary[] } | undefined
+          >(threadsKey);
+          const preview =
+            threads?.items.find((item) => item.threadId === threadId)
+              ?.preview ?? '';
+          return preview.trim() === '' || preview === 'Untitled session';
+        }
+
         const summaries =
           queryClient.getQueryData<ListConversationsResponse>(conversationsKey);
-        if (!summaries) {
-          return true;
-        }
-
-        const summary = summaries.items.find(
-          (item) => item.conversationId === conversationId
-        );
-        if (!summary) {
-          return true;
-        }
-
-        const preview = summary.preview ?? '';
-        return preview === 'New session' || preview.trim() === '';
+        const preview =
+          summaries?.items.find(
+            (item) => item.conversationId === conversationId
+          )?.preview ?? '';
+        return preview.trim() === '' || preview === 'Untitled session';
       }
 
       return true;
@@ -134,6 +142,7 @@ export function ConversationProvider({
         }
 
         const timestamp = payload.timestamp;
+        const threadId = getThreadIdForConversation(conversationId);
 
         if (payload.event.type === 'user_message') {
           updateConversationTimestamp(
@@ -142,6 +151,9 @@ export function ConversationProvider({
             conversationId,
             timestamp
           );
+          if (threadId) {
+            updateThreadTimestamp(queryClient, threadsKey, threadId, timestamp);
+          }
         }
 
         if (shouldUpdatePreview(payload.event)) {
@@ -157,6 +169,15 @@ export function ConversationProvider({
               preview,
               timestamp
             );
+            if (threadId) {
+              updateThreadPreview(
+                queryClient,
+                threadsKey,
+                threadId,
+                preview,
+                timestamp
+              );
+            }
           }
         }
 
@@ -271,6 +292,7 @@ export function ConversationProvider({
     applyConversationEvent,
     approvalsStore,
     keys,
+    getThreadIdForConversation,
     queryClient,
     workspacePath,
   ]);

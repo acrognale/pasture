@@ -54,12 +54,6 @@ export function ConversationPane({
     conversationId,
   });
 
-  useEffect(() => {
-    if (conversationId) {
-      void loadConversation(conversationId);
-    }
-  }, [conversationId, loadConversation]);
-
   const handleScrollToBottom = useCallback(() => {
     transcriptHandleRef.current?.scrollToBottomAndMark();
   }, []);

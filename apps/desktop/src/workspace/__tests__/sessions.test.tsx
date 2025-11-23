@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { ListConversationsParams } from '~/codex.gen/ListConversationsParams';
+import type { ListThreadsResponse } from '~/codex.gen/ListThreadsResponse';
+import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { mockCodex, mockEvents } from '~/testing/codex';
 
@@ -10,11 +11,7 @@ import {
   resetActiveConversationId,
   setActiveConversationId,
 } from './routerTestUtils';
-import {
-  WORKSPACE,
-  markConversationOpenInTest,
-  renderSidebarPanel,
-} from './setup';
+import { WORKSPACE, markThreadOpenInTest, renderSidebarPanel } from './setup';
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual =
@@ -26,8 +23,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       const state = {
         matches: [
           {
-            routeId: '/workspaces/$workspaceId/conversations/$conversationId',
-            params: { conversationId: getActiveConversationId() },
+            routeId: '/workspaces/$workspaceId/threads/$threadId',
+            params: { threadId: getActiveConversationId() },
           },
         ],
       };
@@ -40,55 +37,77 @@ beforeEach(() => {
   resetActiveConversationId();
   mockNavigate.mockReset();
   mockNavigate.mockImplementation(
-    ({ params }: { params?: { conversationId?: string | null } }) => {
-      if (params && typeof params.conversationId !== 'undefined') {
-        setActiveConversationId(params.conversationId ?? null);
+    ({ params }: { params?: { threadId?: string | null } }) => {
+      if (params && typeof params.threadId !== 'undefined') {
+        setActiveConversationId(params.threadId ?? null);
       }
       return Promise.resolve();
     }
   );
 });
 
-const ACTIVE_SESSION_ID = 'session-active';
-const NEW_SESSION_ID = 'session-new';
+const ACTIVE_THREAD_ID = 'thread-active';
+const NEW_THREAD_ID = 'thread-new';
+const ACTIVE_CONVERSATION_ID = 'conversation-active';
+const NEW_CONVERSATION_ID = 'conversation-new';
 
 describe('SidebarPanel sessions', () => {
   test('activates a newly created session immediately', async () => {
     const now = new Date().toISOString();
 
-    mockCodex.stub.listConversations.mockResolvedValue({
+    const threads: ListThreadsResponse = {
       items: [
         {
-          conversationId: ACTIVE_SESSION_ID,
-          path: `${WORKSPACE}/sessions/${ACTIVE_SESSION_ID}.json`,
-          cwd: WORKSPACE,
+          threadId: ACTIVE_THREAD_ID,
+          workspacePath: WORKSPACE,
+          currentConversationId: ACTIVE_CONVERSATION_ID,
           preview: 'Existing session',
           timestamp: now,
+          rolloutCount: 1,
         },
       ],
-      nextCursor: null,
-    });
+    };
 
-    mockCodex.stub.newConversation.mockResolvedValue({
-      conversationId: NEW_SESSION_ID,
+    mockCodex.stub.listThreads.mockResolvedValue(threads);
+
+    mockCodex.stub.newThread.mockResolvedValue({
+      threadId: NEW_THREAD_ID,
+      conversationId: NEW_CONVERSATION_ID,
       model: 'gpt-5-codex',
       reasoningEffort: 'medium',
-      rolloutPath: `${WORKSPACE}/sessions/${NEW_SESSION_ID}.json`,
+      rolloutPath: `${WORKSPACE}/sessions/${NEW_THREAD_ID}.json`,
     });
 
-    setActiveConversationId(ACTIVE_SESSION_ID);
+    mockCodex.stub.initializeThread.mockResolvedValue({
+      sessionConfigured: {
+        session_id: NEW_CONVERSATION_ID,
+        model: 'gpt-5-codex',
+        model_provider_id: 'openai',
+        approval_policy: 'on-request',
+        sandbox_policy: { type: 'danger-full-access' },
+        cwd: WORKSPACE,
+        reasoning_effort: null,
+        history_log_id: BigInt(0),
+        history_entry_count: 0,
+        initial_messages: [],
+        rollout_path: `${WORKSPACE}/sessions/${NEW_THREAD_ID}.json`,
+      },
+      reasoningSummary: 'auto',
+    });
 
-    renderSidebarPanel({ openConversationIds: [ACTIVE_SESSION_ID] });
+    setActiveConversationId(ACTIVE_THREAD_ID);
+
+    renderSidebarPanel({ openThreadIds: [ACTIVE_THREAD_ID] });
 
     await screen.findByRole('button', { name: /Existing session/i });
 
     const createButton = screen.getByRole('button', { name: /^New$/i });
     fireEvent.click(createButton);
 
-    await markConversationOpenInTest(NEW_SESSION_ID);
+    await markThreadOpenInTest(NEW_THREAD_ID);
 
     const newSessionButton = await screen.findByRole('button', {
-      name: /New session/i,
+      name: /Untitled session/i,
     });
 
     expect(newSessionButton).toBeInTheDocument();
@@ -97,12 +116,10 @@ describe('SidebarPanel sessions', () => {
 
     await waitFor(() => {
       const [payload] = mockNavigate.mock.calls.at(-1) ?? [];
-      expect(payload?.to).toBe(
-        '/workspaces/$workspaceId/conversations/$conversationId'
-      );
+      expect(payload?.to).toBe('/workspaces/$workspaceId/threads/$threadId');
       expect(payload?.params).toMatchObject({
         workspaceId: expectedWorkspaceId,
-        conversationId: NEW_SESSION_ID,
+        threadId: NEW_THREAD_ID,
       });
     });
   });
@@ -110,37 +127,57 @@ describe('SidebarPanel sessions', () => {
   test('updates session preview after the first user message', async () => {
     const now = new Date().toISOString();
 
-    mockCodex.stub.listConversations.mockResolvedValue({
+    const threads: ListThreadsResponse = {
       items: [
         {
-          conversationId: ACTIVE_SESSION_ID,
-          path: `${WORKSPACE}/sessions/${ACTIVE_SESSION_ID}.json`,
-          cwd: WORKSPACE,
+          threadId: ACTIVE_THREAD_ID,
+          workspacePath: WORKSPACE,
+          currentConversationId: ACTIVE_CONVERSATION_ID,
           preview: 'Existing session',
           timestamp: now,
+          rolloutCount: 1,
         },
       ],
-      nextCursor: null,
-    });
+    };
 
-    mockCodex.stub.newConversation.mockResolvedValue({
-      conversationId: NEW_SESSION_ID,
+    mockCodex.stub.listThreads.mockResolvedValue(threads);
+
+    mockCodex.stub.newThread.mockResolvedValue({
+      threadId: NEW_THREAD_ID,
+      conversationId: NEW_CONVERSATION_ID,
       model: 'gpt-5-codex',
       reasoningEffort: 'medium',
-      rolloutPath: `${WORKSPACE}/sessions/${NEW_SESSION_ID}.json`,
+      rolloutPath: `${WORKSPACE}/sessions/${NEW_THREAD_ID}.json`,
     });
 
-    setActiveConversationId(ACTIVE_SESSION_ID);
+    mockCodex.stub.initializeThread.mockResolvedValue({
+      sessionConfigured: {
+        session_id: NEW_CONVERSATION_ID,
+        model: 'gpt-5-codex',
+        model_provider_id: 'openai',
+        approval_policy: 'on-request',
+        sandbox_policy: { type: 'danger-full-access' },
+        cwd: WORKSPACE,
+        reasoning_effort: null,
+        history_log_id: BigInt(0),
+        history_entry_count: 0,
+        initial_messages: [],
+        rollout_path: `${WORKSPACE}/sessions/${NEW_THREAD_ID}.json`,
+      },
+      reasoningSummary: 'auto',
+    });
 
-    renderSidebarPanel({ openConversationIds: [ACTIVE_SESSION_ID] });
+    setActiveConversationId(ACTIVE_THREAD_ID);
+
+    renderSidebarPanel({ openThreadIds: [ACTIVE_THREAD_ID] });
 
     const createButton = screen.getByRole('button', { name: /^New$/i });
     fireEvent.click(createButton);
 
-    await markConversationOpenInTest(NEW_SESSION_ID);
+    await markThreadOpenInTest(NEW_THREAD_ID);
 
     const newSessionButton = await screen.findByRole('button', {
-      name: /New session/i,
+      name: /Untitled session/i,
     });
 
     await waitFor(() => {
@@ -154,7 +191,7 @@ describe('SidebarPanel sessions', () => {
           message: 'Hello Codex',
           images: null,
         },
-        { conversationId: NEW_SESSION_ID }
+        { conversationId: NEW_CONVERSATION_ID }
       );
     });
 
@@ -168,37 +205,34 @@ describe('SidebarPanel sessions', () => {
   test('only displays sessions that are currently open', async () => {
     const now = new Date().toISOString();
 
-    const initialSessions = Array.from({ length: 25 }, (_, index) => {
-      const conversationId =
-        index === 0
-          ? ACTIVE_SESSION_ID
-          : `session-${index.toString().padStart(2, '0')}`;
-      return {
-        conversationId,
-        path: `${WORKSPACE}/sessions/${conversationId}.json`,
-        cwd: WORKSPACE,
-        preview: `Session ${index}`,
-        timestamp: now,
-      };
-    });
-
-    mockCodex.stub.listConversations.mockImplementation(
-      (params: ListConversationsParams) => {
-        if (!params.cursor) {
-          return Promise.resolve({
-            items: initialSessions,
-            nextCursor: 'cursor-1',
-          });
-        }
-
-        return Promise.resolve({ items: [], nextCursor: null });
+    const initialSessions: ThreadSummary[] = Array.from(
+      { length: 25 },
+      (_, index) => {
+        const threadId =
+          index === 0
+            ? ACTIVE_THREAD_ID
+            : `thread-${index.toString().padStart(2, '0')}`;
+        const conversationId =
+          index === 0
+            ? ACTIVE_CONVERSATION_ID
+            : `conversation-${index.toString().padStart(2, '0')}`;
+        return {
+          threadId,
+          workspacePath: WORKSPACE,
+          currentConversationId: conversationId,
+          preview: `Session ${index}`,
+          timestamp: now,
+          rolloutCount: 1,
+        };
       }
     );
 
-    setActiveConversationId(ACTIVE_SESSION_ID);
+    mockCodex.stub.listThreads.mockResolvedValue({ items: initialSessions });
+
+    setActiveConversationId(ACTIVE_THREAD_ID);
 
     renderSidebarPanel({
-      openConversationIds: [ACTIVE_SESSION_ID, 'session-01'],
+      openThreadIds: [ACTIVE_THREAD_ID, 'thread-01'],
     });
 
     await screen.findByRole('button', { name: /Session 0/i });
@@ -206,7 +240,24 @@ describe('SidebarPanel sessions', () => {
 
     expect(screen.queryByRole('button', { name: /Session 2/i })).toBeNull();
 
-    await markConversationOpenInTest('session-02');
+    mockCodex.stub.initializeThread.mockResolvedValue({
+      sessionConfigured: {
+        session_id: 'conversation-02',
+        model: 'gpt-5-codex',
+        model_provider_id: 'openai',
+        approval_policy: 'on-request',
+        sandbox_policy: { type: 'danger-full-access' },
+        cwd: WORKSPACE,
+        reasoning_effort: null,
+        history_log_id: BigInt(0),
+        history_entry_count: 0,
+        initial_messages: [],
+        rollout_path: `${WORKSPACE}/sessions/thread-02.json`,
+      },
+      reasoningSummary: 'auto',
+    });
+
+    await markThreadOpenInTest('thread-02');
 
     await screen.findByRole('button', { name: /Session 2/i });
   });
