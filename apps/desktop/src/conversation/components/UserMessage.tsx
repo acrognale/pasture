@@ -36,7 +36,7 @@ export function UserMessage({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(message);
   const [isSaving, setIsSaving] = useState(false);
-  const { forkThread, getThreadIdForConversation, loadConversation } =
+  const { forkThread, getThreadIdForConversation } =
     useWorkspaceConversationStores();
   const {
     versions,
@@ -85,7 +85,6 @@ export function UserMessage({
         console.log('[UserMessage] retry forked conversation', {
           forkedConversationId,
         });
-        await loadConversation(forkedConversationId, { force: true });
         onConversationForked?.(forkedConversationId);
         await Codex.sendUserMessage({
           conversationId: forkedConversationId,
@@ -143,7 +142,6 @@ export function UserMessage({
         console.log('[UserMessage] edit forked conversation', {
           forkedConversationId,
         });
-        await loadConversation(forkedConversationId, { force: true });
         onConversationForked?.(forkedConversationId);
         await Codex.sendUserMessage({
           conversationId: forkedConversationId,
