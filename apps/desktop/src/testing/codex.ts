@@ -5,15 +5,14 @@ import type { AuthState } from '~/codex.gen/AuthState';
 import type { CodexEvent } from '~/codex.gen/CodexEvent';
 import type { ComposerTurnConfigPayload } from '~/codex.gen/ComposerTurnConfigPayload';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import type { EventMsg } from '~/codex.gen/EventMsg';
 import type { GetTurnDiffRangeResponse } from '~/codex.gen/GetTurnDiffRangeResponse';
-import type { InitializeConversationResponse } from '~/codex.gen/InitializeConversationResponse';
+import type { InitializeThreadResponse } from '~/codex.gen/InitializeThreadResponse';
 import type { InterruptConversationResponse } from '~/codex.gen/InterruptConversationResponse';
-import type { ListConversationsParams } from '~/codex.gen/ListConversationsParams';
-import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
+import type { ListThreadRolloutsResponse } from '~/codex.gen/ListThreadRolloutsResponse';
+import type { ListThreadsResponse } from '~/codex.gen/ListThreadsResponse';
 import type { ListTurnSnapshotsResponse } from '~/codex.gen/ListTurnSnapshotsResponse';
-import type { NewConversationResponse } from '~/codex.gen/NewConversationResponse';
+import type { NewThreadResponse } from '~/codex.gen/NewThreadResponse';
 import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
 import type { SessionConfiguredEvent } from '~/codex.gen/SessionConfiguredEvent';
 import type { WorkspaceComposerDefaults } from '~/codex.gen/WorkspaceComposerDefaults';
@@ -45,20 +44,8 @@ const createDefaultAuthState = (): AuthState => ({
   lastError: null,
 });
 
-const createDefaultConversationSummary = (): ConversationSummary => ({
-  conversationId: 'mock-conversation',
-  path: '/tmp/mock-conversation.json',
-  cwd: '/tmp',
-  preview: '',
-  timestamp: new Date().toISOString(),
-});
-
-const createDefaultConversationListResponse = () => ({
-  items: [createDefaultConversationSummary()],
-  nextCursor: null,
-});
-
-const createDefaultNewConversationResponse = (): NewConversationResponse => ({
+const createDefaultNewThreadResponse = (): NewThreadResponse => ({
+  threadId: 'mock-thread',
   conversationId: 'mock-conversation',
   model: 'gpt-5-codex',
   reasoningEffort: 'medium',
@@ -83,11 +70,10 @@ const createDefaultSessionConfiguredEvent = (): SessionConfiguredEvent => ({
   rollout_path: '/tmp/mock-rollout.jsonl',
 });
 
-const createDefaultInitializeConversationResponse =
-  (): InitializeConversationResponse => ({
-    sessionConfigured: createDefaultSessionConfiguredEvent(),
-    reasoningSummary: 'auto' satisfies ReasoningSummary,
-  });
+const createDefaultInitializeThreadResponse = (): InitializeThreadResponse => ({
+  sessionConfigured: createDefaultSessionConfiguredEvent(),
+  reasoningSummary: 'auto' satisfies ReasoningSummary,
+});
 
 const createDefaultComposerConfigPayload = (): ComposerTurnConfigPayload => ({
   model: null,
@@ -103,19 +89,26 @@ const createDefaultAddConversationSubscriptionResponse =
   });
 
 const mockCodexNamespace = {
-  listConversations: defineStub(
-    async (
-      _params?: ListConversationsParams
-    ): Promise<ListConversationsResponse> =>
-      createDefaultConversationListResponse()
+  listThreads: defineStub<[], ListThreadsResponse>(async () => ({
+    items: [],
+  })),
+  newThread: defineStub(async () => createDefaultNewThreadResponse()),
+  initializeThread: defineStub(
+    async (): Promise<InitializeThreadResponse> =>
+      createDefaultInitializeThreadResponse()
   ),
-  initializeConversation: defineStub(
-    async (): Promise<InitializeConversationResponse> =>
-      createDefaultInitializeConversationResponse()
+  listThreadRollouts: defineStub<[], ListThreadRolloutsResponse>(
+    async (): Promise<ListThreadRolloutsResponse> => ({
+      threadId: 'mock-thread',
+      currentConversationId: 'mock-conversation',
+      rollouts: [],
+    })
   ),
-  newConversation: defineStub(async () =>
-    createDefaultNewConversationResponse()
-  ),
+  switchThreadRollout: defineStub(async () => ({
+    conversationId: 'mock-conversation',
+    sessionConfigured: createDefaultSessionConfiguredEvent(),
+    reasoningSummary: 'auto' satisfies ReasoningSummary,
+  })),
   compactConversation: defineStub(async () => undefined),
   sendUserMessage: defineStub(async () => undefined),
   interruptConversation: defineStub(async () =>

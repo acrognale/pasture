@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { buildControllerFromFixture } from '~/conversation/__tests__/fixtures';
 import type { TranscriptAgentMessageCell } from '~/conversation/transcript/types';
+import { renderWithProviders } from '~/testing/harness';
+import { WorkspaceProvider } from '~/workspace';
 
 import { TranscriptList } from '../TranscriptList';
 
@@ -11,13 +13,16 @@ describe('TranscriptList', () => {
     const { turns, turnOrder } = state.conversation.transcript;
     const expandedTurns = turnOrder[0] ? { [turnOrder[0]]: true } : {};
 
-    render(
-      <TranscriptList
-        turns={turns}
-        turnOrder={turnOrder}
-        expandedTurns={expandedTurns}
-        onToggleTurn={vi.fn()}
-      />
+    renderWithProviders(
+      <WorkspaceProvider workspacePath="/tmp/workspace">
+        <TranscriptList
+          conversationId="test-conversation"
+          turns={turns}
+          turnOrder={turnOrder}
+          expandedTurns={expandedTurns}
+          onToggleTurn={vi.fn()}
+        />
+      </WorkspaceProvider>
     );
 
     expect(screen.getAllByText('explore the code')).toHaveLength(1);
@@ -35,13 +40,16 @@ describe('TranscriptList', () => {
     const state = buildControllerFromFixture('explore-the-code.jsonl');
     const { turns, turnOrder } = state.conversation.transcript;
 
-    render(
-      <TranscriptList
-        turns={turns}
-        turnOrder={turnOrder}
-        expandedTurns={{}}
-        onToggleTurn={vi.fn()}
-      />
+    renderWithProviders(
+      <WorkspaceProvider workspacePath="/tmp/workspace">
+        <TranscriptList
+          conversationId="test-conversation"
+          turns={turns}
+          turnOrder={turnOrder}
+          expandedTurns={{}}
+          onToggleTurn={vi.fn()}
+        />
+      </WorkspaceProvider>
     );
 
     expect(screen.getAllByText('explore the code')).toHaveLength(1);
@@ -89,13 +97,16 @@ describe('TranscriptList', () => {
       },
     };
 
-    render(
-      <TranscriptList
-        turns={mutatedTurns}
-        turnOrder={turnOrder}
-        expandedTurns={{}}
-        onToggleTurn={vi.fn()}
-      />
+    renderWithProviders(
+      <WorkspaceProvider workspacePath="/tmp/workspace">
+        <TranscriptList
+          conversationId="test-conversation"
+          turns={mutatedTurns}
+          turnOrder={turnOrder}
+          expandedTurns={{}}
+          onToggleTurn={vi.fn()}
+        />
+      </WorkspaceProvider>
     );
 
     expect(screen.getAllByText('explore the code')).toHaveLength(1);

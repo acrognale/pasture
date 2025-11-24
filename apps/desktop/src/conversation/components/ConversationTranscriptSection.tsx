@@ -22,6 +22,7 @@ export type ConversationTranscriptSectionProps = {
   ) => Promise<void>;
   expandedTurns: Record<string, boolean>;
   onToggleTurn: (turnId: string) => void;
+  onConversationForked?: (conversationId: string) => void;
   onAtBottomChange?: (atBottom: boolean) => void;
   onScrollToBottom: () => void;
 };
@@ -36,6 +37,7 @@ export const ConversationTranscriptSection = forwardRef<
       loadConversation,
       expandedTurns,
       onToggleTurn,
+      onConversationForked,
       onAtBottomChange,
       onScrollToBottom,
     },
@@ -118,10 +120,12 @@ export const ConversationTranscriptSection = forwardRef<
       if (hasTranscript) {
         return (
           <TranscriptList
+            conversationId={conversationId}
             turns={turns}
             turnOrder={turnOrder}
             expandedTurns={expandedTurns}
             onToggleTurn={onToggleTurn}
+            onConversationForked={onConversationForked}
             bottomAnchorRef={bottomAnchorRef}
             contentRef={transcriptContentRef}
           />

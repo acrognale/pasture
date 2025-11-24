@@ -1,10 +1,26 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
-import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
+import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import {
   normalizeWorkspaceSlashes,
   trimWorkspaceTrailingSeparators,
 } from '~/lib/workspaces';
+
+export type ConversationSummary = {
+  conversationId: string;
+  path: string;
+  cwd: string;
+  preview: string;
+  timestamp?: string | null;
+};
+
+export type WorkspaceConversationsState = {
+  items: ConversationSummary[];
+  nextCursor: string | null;
+};
+
+type WorkspaceThreadsState = {
+  items: ThreadSummary[];
+};
 
 export const normalizeWorkspacePath = (
   value: string | null | undefined
@@ -32,6 +48,38 @@ export const sortConversationsByTimestamp = (
   });
 };
 
+export const sortThreadsByTimestamp = (
+  items: ThreadSummary[]
+): ThreadSummary[] => {
+  return [...items].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+};
+
+export const filterThreadsForWorkspace = (
+  items: ThreadSummary[],
+  normalizedWorkspace: string | null
+): ThreadSummary[] => {
+  if (!normalizedWorkspace) {
+    return [];
+  }
+
+  return items.filter(
+    (item) => normalizeWorkspacePath(item.workspacePath) === normalizedWorkspace
+  );
+};
+
+export const mapThreadToConversationSummary = (
+  thread: ThreadSummary,
+  normalizedWorkspace: string | null
+): ConversationSummary => {
+  return {
+    conversationId: thread.currentConversationId,
+    path: '',
+    cwd: normalizedWorkspace ?? thread.workspacePath,
+    preview: thread.preview || 'Untitled session',
+    timestamp: thread.timestamp,
+  };
+};
+
 export const filterSummariesForWorkspace = (
   items: ConversationSummary[],
   normalizedWorkspace: string | null
@@ -51,7 +99,7 @@ export const updateConversationTimestamp = (
   conversationId: string,
   timestamp: string
 ) => {
-  queryClient.setQueryData<ListConversationsResponse>(
+  queryClient.setQueryData<WorkspaceConversationsState>(
     conversationsKey,
     (state) => {
       if (!state) {
@@ -92,7 +140,7 @@ export const updateConversationPreview = (
   preview: string,
   timestamp: string
 ) => {
-  queryClient.setQueryData<ListConversationsResponse>(
+  queryClient.setQueryData<WorkspaceConversationsState>(
     conversationsKey,
     (state) => {
       if (!state) {
@@ -123,6 +171,74 @@ export const updateConversationPreview = (
         ...state,
         items: sortConversationsByTimestamp(updatedItems),
       };
+    }
+  );
+};
+
+export const updateThreadPreview = (
+  queryClient: QueryClient,
+  threadsKey: readonly unknown[],
+  threadId: string,
+  preview: string,
+  timestamp: string
+) => {
+  queryClient.setQueryData<WorkspaceThreadsState | undefined>(
+    threadsKey,
+    (state) => {
+      if (!state) {
+        return state;
+      }
+
+      const index = state.items.findIndex(
+        (thread) => thread.threadId === threadId
+      );
+      if (index === -1) {
+        return state;
+      }
+
+      const updated = {
+        ...state.items[index],
+        preview,
+        timestamp,
+      };
+
+      const items = [...state.items];
+      items[index] = updated;
+
+      return { ...state, items };
+    }
+  );
+};
+
+export const updateThreadTimestamp = (
+  queryClient: QueryClient,
+  threadsKey: readonly unknown[],
+  threadId: string,
+  timestamp: string
+) => {
+  queryClient.setQueryData<WorkspaceThreadsState | undefined>(
+    threadsKey,
+    (state) => {
+      if (!state) {
+        return state;
+      }
+
+      const index = state.items.findIndex(
+        (thread) => thread.threadId === threadId
+      );
+      if (index === -1) {
+        return state;
+      }
+
+      const updated = {
+        ...state.items[index],
+        timestamp,
+      };
+
+      const items = [...state.items];
+      items[index] = updated;
+
+      return { ...state, items };
     }
   );
 };

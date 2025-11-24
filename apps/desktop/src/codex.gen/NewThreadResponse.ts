@@ -3,10 +3,8 @@
 import type { ConversationId } from './ConversationId';
 import type { ReasoningEffort } from './ReasoningEffort';
 
-/**
- * Response returned after creating a new conversation.
- */
-export type NewConversationResponse = {
+export type NewThreadResponse = {
+  threadId: string;
   conversationId: ConversationId;
   model: string;
   reasoningEffort: ReasoningEffort | null;

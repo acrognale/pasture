@@ -7,51 +7,51 @@ import {
 } from '~/components/ui/sidebar';
 import { ConversationProvider } from '~/conversation/store';
 import { renderWithProviders } from '~/testing/harness';
-import { WorkspaceProvider, useWorkspaceConversationStores } from '~/workspace';
+import { WorkspaceProvider, useWorkspaceActions } from '~/workspace';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 
 export const WORKSPACE = '/Users/tester/workspace';
 
 type RenderSidebarOptions = {
   workspacePath?: string;
-  openConversationIds?: string[];
+  openThreadIds?: string[];
 };
 
-type OpenConversationsController = {
-  open: (conversationId: string) => Promise<void>;
+type OpenThreadsController = {
+  open: (threadId: string) => Promise<void>;
 } | null;
 
-let openConversationsController: OpenConversationsController = null;
+let openConversationsController: OpenThreadsController = null;
 
 const OpenConversationsInitializer = ({
-  conversationIds,
+  threadIds,
 }: {
-  conversationIds: string[];
+  threadIds: string[];
 }) => {
-  const { loadConversation } = useWorkspaceConversationStores();
+  const { loadThread } = useWorkspaceActions();
 
   useEffect(() => {
-    conversationIds.forEach((conversationId) => {
-      void loadConversation(conversationId, { force: true });
+    threadIds.forEach((threadId) => {
+      void loadThread(threadId, { force: true });
     });
-  }, [conversationIds, loadConversation]);
+  }, [threadIds, loadThread]);
 
   useEffect(() => {
     openConversationsController = {
-      open: async (conversationId: string) => {
-        await loadConversation(conversationId, { force: true });
+      open: async (threadId: string) => {
+        await loadThread(threadId, { force: true });
       },
     };
 
     return () => {
       openConversationsController = null;
     };
-  }, [loadConversation]);
+  }, [loadThread]);
 
   return null;
 };
 
-export const markConversationOpenInTest = async (conversationId: string) => {
+export const markThreadOpenInTest = async (threadId: string) => {
   if (!openConversationsController) {
     throw new Error(
       'renderSidebarPanel must be called before marking sessions open'
@@ -59,12 +59,12 @@ export const markConversationOpenInTest = async (conversationId: string) => {
   }
 
   await act(async () => {
-    await openConversationsController?.open(conversationId);
+    await openConversationsController?.open(threadId);
   });
 };
 
 export const renderSidebarPanel = (options: RenderSidebarOptions = {}) => {
-  const { workspacePath = WORKSPACE, openConversationIds = [] } = options;
+  const { workspacePath = WORKSPACE, openThreadIds = [] } = options;
 
   return renderWithProviders(
     <WorkspaceProvider workspacePath={workspacePath}>
@@ -72,9 +72,7 @@ export const renderSidebarPanel = (options: RenderSidebarOptions = {}) => {
         <SidebarProvider>
           <Sidebar collapsible="none">
             <SidebarContent>
-              <OpenConversationsInitializer
-                conversationIds={openConversationIds}
-              />
+              <OpenConversationsInitializer threadIds={openThreadIds} />
               <SidebarPanel />
             </SidebarContent>
           </Sidebar>

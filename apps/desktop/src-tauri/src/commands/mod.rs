@@ -13,17 +13,29 @@ pub use registry::CommandDescriptor;
 use registry::codex_command_descriptors;
 
 codex_command_descriptors! {
-    conversations::list_conversations {
-        params: conversations::ListConversationsParams,
-        result: conversations::ListConversationsResponse,
+    conversations::list_threads {
+        params: conversations::ListThreadsParams,
+        result: conversations::ListThreadsResponse,
     },
-    conversations::initialize_conversation {
-        params: conversations::InitializeConversationParams,
-        result: conversations::InitializeConversationResponse,
+    conversations::list_thread_rollouts {
+        params: conversations::ListThreadRolloutsParams,
+        result: conversations::ListThreadRolloutsResponse,
     },
-    conversations::new_conversation {
-        params: conversations::NewConversationCommandParams,
-        result: conversations::NewConversationResponse,
+    conversations::switch_thread_rollout {
+        params: conversations::SwitchThreadRolloutParams,
+        result: conversations::SwitchThreadRolloutResponse,
+    },
+    conversations::new_thread {
+        params: conversations::NewThreadCommandParams,
+        result: conversations::NewThreadResponse,
+    },
+    conversations::initialize_thread {
+        params: conversations::InitializeThreadParams,
+        result: conversations::InitializeThreadResponse,
+    },
+    conversations::fork_thread {
+        params: conversations::ForkThreadParams,
+        result: conversations::ForkThreadResponse,
     },
     conversations::send_user_message {
         params: conversations::SendUserMessageParams,

@@ -6,9 +6,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::fs;
 use tokio::sync::Mutex;
-use tokio::sync::RwLock;
 use ts_rs::TS;
 
 use codex_protocol::config_types::ReasoningEffort;
@@ -74,13 +72,6 @@ impl ActiveConversation {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct WorkspacePersistenceState {
-    pub recent: Vec<String>,
-    #[serde(default)]
-    pub workspace_defaults: HashMap<String, WorkspaceComposerDefaults>,
-}
-
 /// Remembered per-workspace defaults applied to new conversations.
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
@@ -98,7 +89,7 @@ pub struct WorkspaceComposerDefaults {
 }
 
 impl WorkspaceComposerDefaults {
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.model.is_none()
             && self.reasoning_effort.is_none()
             && self.reasoning_summary.is_none()
@@ -107,75 +98,44 @@ impl WorkspaceComposerDefaults {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadRollout {
+    pub conversation_id: String,
+    pub rollout_path: String,
+    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forked_from_conversation_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forked_from_nth_user_message: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadRecord {
+    pub thread_id: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub current_conversation_id: String,
+    pub rollouts: Vec<ThreadRollout>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
+}
+
 #[derive(Clone)]
 pub struct WorkspaceManager {
-    state: Arc<RwLock<WorkspacePersistenceState>>,
-    state_path: PathBuf,
     active_conversations: Arc<Mutex<HashMap<String, ActiveConversation>>>,
 }
 
 impl WorkspaceManager {
-    pub fn new(state_path: PathBuf) -> Self {
+    pub fn new() -> Self {
         Self {
-            state: Arc::new(RwLock::new(WorkspacePersistenceState::default())),
-            state_path,
             active_conversations: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    pub async fn load_state(&self) -> Result<()> {
-        let content = match fs::read_to_string(&self.state_path).await {
-            Ok(content) => content,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                return Ok(());
-            }
-            Err(e) => {
-                return Err(e).context("Failed to read workspace state file");
-            }
-        };
-
-        let loaded_state: WorkspacePersistenceState =
-            serde_json::from_str(&content).context("Failed to parse workspace state JSON")?;
-
-        let mut state = self.state.write().await;
-        *state = loaded_state;
-
-        Ok(())
-    }
-
-    pub async fn save_state(&self) -> Result<()> {
-        let state = self.state.read().await;
-        let json =
-            serde_json::to_string_pretty(&*state).context("Failed to serialize workspace state")?;
-
-        if let Some(parent) = self.state_path.parent() {
-            fs::create_dir_all(parent)
-                .await
-                .context("Failed to create state directory")?;
-        }
-
-        fs::write(&self.state_path, json)
-            .await
-            .context("Failed to write workspace state file")?;
-
-        Ok(())
-    }
-
-    pub async fn record_workspace_access(&self, workspace_path: String) -> Result<String> {
-        let normalized = self.normalize_workspace_path(&workspace_path)?;
-
-        let mut state = self.state.write().await;
-        self.touch_recent_workspace(&mut state, &normalized);
-
-        drop(state);
-        self.save_state().await?;
-
-        Ok(normalized)
-    }
-
-    pub async fn get_recent_workspaces(&self) -> Vec<String> {
-        let state = self.state.read().await;
-        state.recent.clone()
     }
 
     pub fn normalize_workspace_path(&self, path: &str) -> Result<String> {
@@ -192,45 +152,6 @@ impl WorkspaceManager {
             .and_then(|name| name.to_str())
             .map(|s| s.to_string())
             .unwrap_or_else(|| workspace_path.to_string())
-    }
-
-    fn touch_recent_workspace(&self, state: &mut WorkspacePersistenceState, path: &str) {
-        state.recent.retain(|p| p != path);
-        state.recent.insert(0, path.to_string());
-        state.recent.truncate(10);
-    }
-
-    pub async fn get_workspace_defaults_for_normalized(
-        &self,
-        workspace_path: &str,
-    ) -> WorkspaceComposerDefaults {
-        let state = self.state.read().await;
-        state
-            .workspace_defaults
-            .get(workspace_path)
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    pub async fn set_workspace_defaults_for_normalized(
-        &self,
-        workspace_path: &str,
-        defaults: WorkspaceComposerDefaults,
-    ) -> Result<()> {
-        let mut state = self.state.write().await;
-
-        if defaults.is_empty() {
-            state.workspace_defaults.remove(workspace_path);
-        } else {
-            state
-                .workspace_defaults
-                .insert(workspace_path.to_string(), defaults);
-        }
-
-        drop(state);
-        self.save_state().await?;
-
-        Ok(())
     }
 
     pub async fn store_active_conversation(

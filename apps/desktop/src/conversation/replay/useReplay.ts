@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { useWorkspaceConversationStores } from '~/workspace';
+import { useWorkspaceActions } from '~/workspace';
 
 import {
   DEFAULT_REPLAY_TIMING,
@@ -33,7 +33,7 @@ const TIMING_CONFIGS: Record<ReplayMode, ReplayTimingConfig> = {
 
 export function useReplay(options: UseReplayOptions = {}): UseReplayReturn {
   const { conversationId: providedConversationId } = options;
-  const { applyConversationEvent } = useWorkspaceConversationStores();
+  const { applyConversationEvent } = useWorkspaceActions();
   const [isReplaying, setIsReplaying] = useState(false);
   const [mode, setMode] = useState<ReplayMode>('default');
   const controlRef = useRef<ReplayControl | null>(null);

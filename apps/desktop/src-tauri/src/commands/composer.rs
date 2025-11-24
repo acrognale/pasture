@@ -1,3 +1,4 @@
+use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::State;
@@ -60,6 +61,7 @@ pub struct UpdateComposerConfigParams {
 pub async fn get_composer_config(
     params: GetComposerConfigParams,
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
 ) -> CommandResult<ComposerTurnConfigPayload> {
     let workspace_path = workspace_manager
@@ -70,9 +72,9 @@ pub async fn get_composer_config(
         return Err("Runtime not initialized".to_string());
     }
 
-    let defaults = workspace_manager
-        .get_workspace_defaults_for_normalized(&workspace_path)
-        .await;
+    let defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path)
+        .await
+        .unwrap_or_default();
 
     let mut payload = ComposerTurnConfigPayload::default();
     payload.model = defaults.model;
@@ -91,6 +93,7 @@ pub async fn get_composer_config(
 pub async fn update_composer_config(
     params: UpdateComposerConfigParams,
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
 ) -> CommandResult<()> {
     let workspace_path = workspace_manager
@@ -117,9 +120,9 @@ pub async fn update_composer_config(
         || sandbox.is_some()
         || approval.is_some()
     {
-        let mut defaults = workspace_manager
-            .get_workspace_defaults_for_normalized(&workspace_path)
-            .await;
+        let mut defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path)
+            .await
+            .unwrap_or_default();
         let mut changed = false;
 
         if let Some(value) = model {
@@ -144,8 +147,7 @@ pub async fn update_composer_config(
         }
 
         if changed {
-            workspace_manager
-                .set_workspace_defaults_for_normalized(&workspace_path, defaults)
+            crate::db::workspace::set_workspace_defaults(&db, &workspace_path, defaults)
                 .await
                 .map_err(|e| e.to_string())?;
         }

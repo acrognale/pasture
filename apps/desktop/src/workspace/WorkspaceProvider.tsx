@@ -1,40 +1,27 @@
+import { useQueryClient } from '@tanstack/react-query';
 import {
   type PropsWithChildren,
   createContext,
-  useCallback,
   useContext,
   useMemo,
-  useRef,
-  useState,
 } from 'react';
+import { useStore } from 'zustand';
 import { type ApprovalsStore, createApprovalsStore } from '~/approvals/store';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import { Codex } from '~/codex/client';
-import {
-  type ConversationStore,
-  createConversationStore,
-} from '~/conversation/store/store';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 
 import { normalizeWorkspacePath } from './conversations';
-import type { WorkspaceMetadata } from './types';
+import {
+  type WorkspaceStore,
+  type WorkspaceStoreActions,
+  createWorkspaceStore,
+} from './store';
 
 type WorkspaceContextValue = {
   workspacePath: string;
   normalizedWorkspacePath: string | null;
   keys: ReturnType<typeof createWorkspaceKeys>;
   approvalsStore: ApprovalsStore;
-  getConversationStore: (conversationId: string | null) => ConversationStore;
-  applyConversationEvent: (
-    payload: ConversationEventPayload
-  ) => ConversationStore | null;
-  loadConversation: (
-    conversationId: string,
-    options?: { force?: boolean }
-  ) => Promise<void>;
-  clearConversationStore: (conversationId: string) => void;
-  openConversationIds: string[];
-  closeConversation: (conversationId: string) => void;
+  workspaceStore: WorkspaceStore;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -47,13 +34,10 @@ export const WorkspaceProvider = ({
   workspacePath,
   children,
 }: WorkspaceProviderProps) => {
+  const queryClient = useQueryClient();
   const normalizedWorkspacePath = useMemo(
     () => normalizeWorkspacePath(workspacePath),
     [workspacePath]
-  );
-  const metadata = useMemo<WorkspaceMetadata>(
-    () => ({ workspacePath, normalizedWorkspacePath }),
-    [workspacePath, normalizedWorkspacePath]
   );
   const keys = useMemo(
     () => createWorkspaceKeys(workspacePath),
@@ -63,173 +47,32 @@ export const WorkspaceProvider = ({
     void workspacePath;
     return createApprovalsStore();
   }, [workspacePath]);
-  const conversationStoresRef = useRef(new Map<string, ConversationStore>());
-  const loadingStatesRef = useRef<
-    Map<string, 'idle' | 'loading' | 'loaded' | 'error'>
-  >(new Map());
-  const fallbackConversationStoreRef = useRef(createConversationStore());
-  const openConversationIdsRef = useRef<Set<string>>(new Set());
-  const [openConversationIds, setOpenConversationIds] = useState<string[]>([]);
 
-  const syncOpenConversationIds = useCallback(() => {
-    setOpenConversationIds(Array.from(openConversationIdsRef.current));
-  }, []);
-
-  const markConversationOpen = useCallback(
-    (conversationId: string) => {
-      if (!conversationId) {
-        return;
-      }
-      if (openConversationIdsRef.current.has(conversationId)) {
-        return;
-      }
-      openConversationIdsRef.current.add(conversationId);
-      syncOpenConversationIds();
-    },
-    [syncOpenConversationIds]
-  );
-
-  const closeConversation = useCallback(
-    (conversationId: string) => {
-      if (!conversationId) {
-        return;
-      }
-      if (!openConversationIdsRef.current.has(conversationId)) {
-        return;
-      }
-      openConversationIdsRef.current.delete(conversationId);
-      syncOpenConversationIds();
-    },
-    [syncOpenConversationIds]
-  );
-
-  const ensureConversationStore = useCallback((conversationId: string) => {
-    if (!conversationId) {
-      throw new Error('conversationId is required');
-    }
-    let store = conversationStoresRef.current.get(conversationId);
-    if (!store) {
-      store = createConversationStore({ conversationId });
-      conversationStoresRef.current.set(conversationId, store);
-    }
-    return store;
-  }, []);
-
-  const getConversationStore = useCallback(
-    (conversationId: string | null) => {
-      if (!conversationId) {
-        return fallbackConversationStoreRef.current;
-      }
-      return ensureConversationStore(conversationId);
-    },
-    [ensureConversationStore]
-  );
-
-  const applyConversationEvent = useCallback(
-    (payload: ConversationEventPayload) => {
-      if (!payload.conversationId) {
-        return null;
-      }
-      const store = ensureConversationStore(payload.conversationId);
-      store.getState().ingestEvent(payload);
-      return store;
-    },
-    [ensureConversationStore]
-  );
-
-  const loadConversation = useCallback(
-    async (conversationId: string, options?: { force?: boolean }) => {
-      if (!conversationId) {
-        return;
-      }
-
-      markConversationOpen(conversationId);
-
-      const loadingStates = loadingStatesRef.current;
-      const status = loadingStates.get(conversationId);
-      if (!options?.force && (status === 'loading' || status === 'loaded')) {
-        return;
-      }
-
-      loadingStates.set(conversationId, 'loading');
-      const store = ensureConversationStore(conversationId);
-      store.getState().reset();
-      store.getState().setLoading(true);
-      store.getState().setError(null);
-
-      try {
-        const { sessionConfigured, reasoningSummary } =
-          await Codex.initializeConversation({ conversationId });
-
-        const events = sessionConfigured.initial_messages
-          ? [...sessionConfigured.initial_messages]
-          : [];
-        // initializeConversation is the sole source of historical events; the live stream starts
-        // after the session is configured, so we must ingest the returned messages here.
-        events.forEach((event, index) => {
-          const turnId =
-            'turn_id' in event && typeof event.turn_id === 'string'
-              ? event.turn_id
-              : `initial::${conversationId}::${index}`;
-          const eventId =
-            (event as { event_id?: string }).event_id ??
-            `${turnId}::${index.toString()}`;
-          store.getState().ingestEvent({
-            conversationId,
-            turnId,
-            eventId,
-            event,
-            timestamp: new Date().toISOString(),
-          });
-        });
-        store.getState().setReasoningSummaryPreference(reasoningSummary);
-
-        store.getState().setLoading(false);
-        loadingStates.set(conversationId, 'loaded');
-      } catch (error) {
-        store.getState().reset();
-        store.getState().setLoading(false);
-        store
-          .getState()
-          .setError(error instanceof Error ? error : new Error(String(error)));
-        loadingStates.set(conversationId, 'error');
-      }
-    },
-    [ensureConversationStore, markConversationOpen]
-  );
-
-  const clearConversationStore = useCallback(
-    (conversationId: string) => {
-      conversationStoresRef.current.delete(conversationId);
-      loadingStatesRef.current.delete(conversationId);
-      closeConversation(conversationId);
-    },
-    [closeConversation]
+  const workspaceStore = useMemo(
+    () =>
+      createWorkspaceStore({
+        workspacePath,
+        normalizedWorkspacePath,
+        keys,
+        queryClient,
+      }),
+    [workspacePath, normalizedWorkspacePath, keys, queryClient]
   );
 
   const value = useMemo<WorkspaceContextValue>(
     () => ({
-      workspacePath: metadata.workspacePath,
-      normalizedWorkspacePath: metadata.normalizedWorkspacePath,
+      workspacePath,
+      normalizedWorkspacePath,
       keys,
       approvalsStore,
-      getConversationStore,
-      applyConversationEvent,
-      loadConversation,
-      clearConversationStore,
-      openConversationIds,
-      closeConversation,
+      workspaceStore,
     }),
     [
-      applyConversationEvent,
-      approvalsStore,
-      closeConversation,
-      clearConversationStore,
-      getConversationStore,
+      workspacePath,
+      normalizedWorkspacePath,
       keys,
-      loadConversation,
-      metadata,
-      openConversationIds,
+      approvalsStore,
+      workspaceStore,
     ]
   );
 
@@ -241,11 +84,30 @@ export const WorkspaceProvider = ({
 };
 
 const useWorkspaceContext = () => {
-  const context = useContext(WorkspaceContext);
-  if (!context) {
+  const ctx = useContext(WorkspaceContext);
+  if (!ctx)
     throw new Error('WorkspaceProvider is missing in the component tree.');
-  }
-  return context;
+  return ctx;
+};
+
+const useWorkspaceStore = () => useWorkspaceContext().workspaceStore;
+
+export const useWorkspaceActions = (): WorkspaceStoreActions => {
+  const store = useWorkspaceStore();
+  return useStore(store, (state) => state.actions);
+};
+
+export const useWorkspaceOpenThreads = () => {
+  const store = useWorkspaceStore();
+  return useStore(store, (state) => state.openThreadIds);
+};
+
+export const useWorkspaceThreadConversationId = (threadId: string | null) => {
+  const store = useWorkspaceStore();
+  return useStore(
+    store,
+    (state) => (threadId ? state.threadConversationIds[threadId] : null) ?? null
+  );
 };
 
 export const useWorkspace = () => {
@@ -257,24 +119,3 @@ export const useWorkspaceKeys = () => useWorkspaceContext().keys;
 
 export const useWorkspaceApprovalsStore = () =>
   useWorkspaceContext().approvalsStore;
-
-export const useWorkspaceConversationStores = () => {
-  const {
-    getConversationStore,
-    applyConversationEvent,
-    loadConversation,
-    clearConversationStore,
-    closeConversation,
-  } = useWorkspaceContext();
-
-  return {
-    getConversationStore,
-    applyConversationEvent,
-    loadConversation,
-    clearConversationStore,
-    closeConversation,
-  };
-};
-
-export const useWorkspaceOpenConversations = () =>
-  useWorkspaceContext().openConversationIds;

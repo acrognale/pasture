@@ -1,5 +1,6 @@
 use crate::commands::workspace::WorkspacePathParams;
 use crate::workspace_manager::WorkspaceManager;
+use sea_orm::DatabaseConnection;
 use tauri::AppHandle;
 use tauri::Manager;
 use tauri::Wry;
@@ -16,10 +17,12 @@ const MENU_RECENT_WORKSPACE_PREFIX: &str = "recent_workspace_";
 
 /// Build the native application menu
 pub async fn build_menu(app: &AppHandle) -> Result<Menu<Wry>, tauri::Error> {
-    let workspace_manager = app.state::<WorkspaceManager>();
+    let db = app.state::<DatabaseConnection>();
 
     // Get workspace state asynchronously
-    let recent_workspaces = workspace_manager.get_recent_workspaces().await;
+    let recent_workspaces = crate::db::workspace::list_recent_workspaces(&db, 10)
+        .await
+        .unwrap_or_default();
 
     let menu = MenuBuilder::new(app)
         .items(&[
@@ -175,8 +178,10 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
                 let app_clone = app_handle.clone();
                 tauri::async_runtime::spawn(async move {
                     let app_handle = app_clone;
-                    let workspace_manager = app_handle.state::<WorkspaceManager>();
-                    let recent = workspace_manager.get_recent_workspaces().await;
+                    let db = app_handle.state::<DatabaseConnection>();
+                    let recent = crate::db::workspace::list_recent_workspaces(&db, 10)
+                        .await
+                        .unwrap_or_default();
 
                     if let Some(workspace_path) = recent.get(idx)
                         && let Err(err) =
@@ -202,11 +207,13 @@ async fn open_workspace_via_menu(
     workspace_path: String,
 ) -> Result<(), String> {
     let workspace_manager = app_handle.state::<WorkspaceManager>();
+    let db = app_handle.state::<DatabaseConnection>();
 
     // Create a new window for the workspace
     crate::commands::workspace::create_workspace_window(
         WorkspacePathParams { workspace_path },
         workspace_manager,
+        db,
         app_handle.clone(),
     )
     .await?;

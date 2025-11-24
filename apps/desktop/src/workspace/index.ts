@@ -4,19 +4,28 @@ export {
   useWorkspace,
   useWorkspaceKeys,
   useWorkspaceApprovalsStore,
-  useWorkspaceConversationStores,
+  useWorkspaceOpenThreads,
+  useWorkspaceActions,
 } from './WorkspaceProvider';
 export {
   normalizeWorkspacePath,
   sortConversationsByTimestamp,
+  sortThreadsByTimestamp,
+  updateThreadPreview,
+  updateThreadTimestamp,
   updateConversationPreview,
   updateConversationTimestamp,
 } from './conversations';
 export {
-  useWorkspaceConversations,
-  useOpenWorkspaceConversations,
-} from './hooks/useWorkspaceConversations';
+  useWorkspaceThreads,
+  useOpenWorkspaceThreads,
+} from './hooks/useWorkspaceThreads';
+export {
+  useWorkspaceThreadRollouts,
+  useThreadVersionGroups,
+  computeThreadVersionGroups,
+} from './hooks/useWorkspaceThreadRollouts';
 export type {
-  WorkspaceConversationsState,
-  WorkspaceOpenConversationsState,
-} from './hooks/useWorkspaceConversations';
+  WorkspaceThreadsState,
+  WorkspaceOpenThreadsState,
+} from './hooks/useWorkspaceThreads';

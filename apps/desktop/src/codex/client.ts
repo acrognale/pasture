@@ -6,52 +6,75 @@ import type {
   AuthState,
   CompactConversationParams,
   ComposerTurnConfigPayload,
+  ForkThreadParams,
+  ForkThreadResponse,
   GetComposerConfigParams,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
-  InitializeConversationParams,
-  InitializeConversationResponse,
+  InitializeThreadParams,
+  InitializeThreadResponse,
   InterruptConversationParams,
   InterruptConversationResponse,
-  ListConversationsParams,
-  ListConversationsResponse,
+  ListThreadRolloutsParams,
+  ListThreadRolloutsResponse,
+  ListThreadsParams,
+  ListThreadsResponse,
   ListTurnSnapshotsParams,
   ListTurnSnapshotsResponse,
-  NewConversationCommandParams,
-  NewConversationResponse,
+  NewThreadCommandParams,
+  NewThreadResponse,
   RemoveConversationListenerParams,
   RespondApprovalParams,
   SendUserMessageParams,
   SetWindowTitleParams,
+  SwitchThreadRolloutParams,
+  SwitchThreadRolloutResponse,
   UpdateComposerConfigParams,
   WorkspaceComposerDefaults,
   WorkspacePathParams,
 } from '~/codex.gen';
 
 export namespace Codex {
-  export async function listConversations(
-    params: ListConversationsParams
-  ): Promise<ListConversationsResponse> {
-    return await invoke<ListConversationsResponse>('list_conversations', {
+  export async function listThreads(
+    params: ListThreadsParams
+  ): Promise<ListThreadsResponse> {
+    return await invoke<ListThreadsResponse>('list_threads', { params });
+  }
+
+  export async function listThreadRollouts(
+    params: ListThreadRolloutsParams
+  ): Promise<ListThreadRolloutsResponse> {
+    return await invoke<ListThreadRolloutsResponse>('list_thread_rollouts', {
       params,
     });
   }
 
-  export async function initializeConversation(
-    params: InitializeConversationParams
-  ): Promise<InitializeConversationResponse> {
-    return await invoke<InitializeConversationResponse>(
-      'initialize_conversation',
-      { params }
-    );
-  }
-
-  export async function newConversation(
-    params: NewConversationCommandParams
-  ): Promise<NewConversationResponse> {
-    return await invoke<NewConversationResponse>('new_conversation', {
+  export async function switchThreadRollout(
+    params: SwitchThreadRolloutParams
+  ): Promise<SwitchThreadRolloutResponse> {
+    return await invoke<SwitchThreadRolloutResponse>('switch_thread_rollout', {
       params,
     });
+  }
+
+  export async function newThread(
+    params: NewThreadCommandParams
+  ): Promise<NewThreadResponse> {
+    return await invoke<NewThreadResponse>('new_thread', { params });
+  }
+
+  export async function initializeThread(
+    params: InitializeThreadParams
+  ): Promise<InitializeThreadResponse> {
+    return await invoke<InitializeThreadResponse>('initialize_thread', {
+      params,
+    });
+  }
+
+  export async function forkThread(
+    params: ForkThreadParams
+  ): Promise<ForkThreadResponse> {
+    return await invoke<ForkThreadResponse>('fork_thread', { params });
   }
 
   export async function sendUserMessage(

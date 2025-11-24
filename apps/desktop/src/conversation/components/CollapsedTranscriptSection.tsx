@@ -10,12 +10,18 @@ type CollapsedTranscriptSectionProps = {
   hiddenCells: ReadonlyArray<TranscriptCell>;
   isExpanded: boolean;
   onToggle: () => void;
+  conversationId: string;
+  nthUserMessageMap: Record<string, number>;
+  onConversationForked?: (conversationId: string) => void;
 };
 
 export function CollapsedTranscriptSection({
   hiddenCells,
   isExpanded,
   onToggle,
+  conversationId,
+  nthUserMessageMap,
+  onConversationForked,
 }: CollapsedTranscriptSectionProps) {
   const hiddenCount = hiddenCells.length;
   const collapseLabel = isExpanded
@@ -34,7 +40,17 @@ export function CollapsedTranscriptSection({
             style={{ overflow: 'hidden' }}
           >
             {hiddenCells.map((cell) => (
-              <TranscriptCells key={cell.id} cell={cell} />
+              <TranscriptCells
+                key={cell.id}
+                cell={cell}
+                conversationId={conversationId}
+                nthUserMessage={
+                  cell.kind === 'user-message'
+                    ? nthUserMessageMap[cell.id]
+                    : undefined
+                }
+                onConversationForked={onConversationForked}
+              />
             ))}
           </motion.div>
         )}

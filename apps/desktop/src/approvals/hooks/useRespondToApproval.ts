@@ -3,8 +3,7 @@ import { produce } from 'immer';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
-import { useWorkspaceApprovalsStore } from '~/workspace';
-import { useWorkspaceConversationStores } from '~/workspace';
+import { useWorkspaceActions, useWorkspaceApprovalsStore } from '~/workspace';
 
 import type { ApprovalRequest } from '../types';
 
@@ -31,7 +30,7 @@ const mapApprovalDecision = (
 
 export const useRespondToApproval = () => {
   const approvalsStore = useWorkspaceApprovalsStore();
-  const { getConversationStore } = useWorkspaceConversationStores();
+  const { getConversationStore } = useWorkspaceActions();
   const advanceQueue = useCallback(
     () => approvalsStore.getState().advance(),
     [approvalsStore]

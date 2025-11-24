@@ -20,16 +20,32 @@ import { UserMessage } from './UserMessage';
 
 type TranscriptCellsProps = {
   cell: TranscriptCell;
+  conversationId: string;
+  nthUserMessage?: number;
+  onConversationForked?: (conversationId: string) => void;
 };
 
-const TranscriptCellsComponent = ({ cell }: TranscriptCellsProps) => {
+const TranscriptCellsComponent = ({
+  cell,
+  conversationId,
+  nthUserMessage,
+  onConversationForked,
+}: TranscriptCellsProps) => {
   const timestamp = formatTimestampClock(cell.timestamp);
 
   switch (cell.kind) {
     case 'session-configured':
       return <div />;
     case 'user-message':
-      return <UserMessage cell={cell} timestamp={timestamp} />;
+      return (
+        <UserMessage
+          cell={cell}
+          timestamp={timestamp}
+          conversationId={conversationId}
+          nthUserMessage={nthUserMessage}
+          onConversationForked={onConversationForked}
+        />
+      );
     case 'agent-message':
       return <AgentMessage cell={cell} timestamp={timestamp} />;
     case 'agent-reasoning':

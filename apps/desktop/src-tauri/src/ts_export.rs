@@ -11,7 +11,6 @@ use anyhow::anyhow;
 use ts_rs::TS;
 
 use crate::commands;
-use crate::commands::conversations::ConversationSummary;
 use crate::events;
 
 const HEADER: &str = "// GENERATED CODE! DO NOT MODIFY BY HAND!\n";
@@ -78,7 +77,6 @@ fn export_additional_types(out_dir: &Path) -> std::result::Result<(), ts_rs::Exp
     export_type::<StepStatus>(out_dir)?;
     export_type::<events::ConversationEventPayload>(out_dir)?;
     export_type::<events::CodexEvent>(out_dir)?;
-    export_type::<ConversationSummary>(out_dir)?;
     Ok(())
 }
 

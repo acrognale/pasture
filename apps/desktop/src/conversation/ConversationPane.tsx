@@ -6,7 +6,7 @@ import {
 } from '~/composer/components/ComposerBar';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { copyToClipboard } from '~/lib/utils';
-import { useWorkspaceConversationStores } from '~/workspace';
+import { useWorkspaceActions } from '~/workspace';
 
 import { ConversationDevCommandMenu } from './components/ConversationDevCommandMenu';
 import { ConversationPaneHeader } from './components/ConversationPaneHeader';
@@ -30,14 +30,15 @@ import {
 type ConversationPaneProps = {
   workspacePath: string;
   conversationId: string;
+  onConversationForked?: (conversationId: string) => void;
 };
 
 export function ConversationPane({
   workspacePath,
   conversationId,
+  onConversationForked,
 }: ConversationPaneProps) {
-  const { loadConversation, getConversationStore } =
-    useWorkspaceConversationStores();
+  const { loadConversation, getConversationStore } = useWorkspaceActions();
   const { interruptConversation, isPending: interruptPending } =
     useInterruptConversation(conversationId);
   const [expandedTurnsByConversation, setExpandedTurnsByConversation] =
@@ -53,12 +54,6 @@ export function ConversationPane({
   const { isReplaying, startReplay, stopReplay } = useReplay({
     conversationId,
   });
-
-  useEffect(() => {
-    if (conversationId) {
-      void loadConversation(conversationId);
-    }
-  }, [conversationId, loadConversation]);
 
   const handleScrollToBottom = useCallback(() => {
     transcriptHandleRef.current?.scrollToBottomAndMark();
@@ -223,12 +218,12 @@ export function ConversationPane({
 
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
           <ConversationTranscriptSection
-            key={conversationId}
             ref={transcriptHandleRef}
             conversationId={conversationId}
             loadConversation={loadConversation}
             expandedTurns={expandedTurns}
             onToggleTurn={toggleTurn}
+            onConversationForked={onConversationForked}
             onScrollToBottom={handleScrollToBottom}
           />
 

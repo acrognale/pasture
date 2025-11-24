@@ -3,10 +3,7 @@
 import type { ReasoningSummary } from './ReasoningSummary';
 import type { SessionConfiguredEvent } from './SessionConfiguredEvent';
 
-/**
- * Response returned after initializing a conversation stream.
- */
-export type InitializeConversationResponse = {
+export type InitializeThreadResponse = {
   sessionConfigured: SessionConfiguredEvent;
   reasoningSummary: ReasoningSummary;
 };
