@@ -113,3 +113,18 @@ export const useConversationQueueActions = (conversationId: string | null) =>
     popQueuedUserMessage: state.popQueuedUserMessage,
     clearQueuedUserMessages: state.clearQueuedUserMessages,
   }));
+
+export const useConversationIsSendingUserMessage = (
+  conversationId: string | null
+) =>
+  useConversationSelector(
+    conversationId,
+    (state) => state.isSendingUserMessage
+  );
+
+export const useConversationSendMessageActions = (
+  conversationId: string | null
+) =>
+  useConversationSelector(conversationId, (state) => ({
+    setSendingUserMessage: state.setSendingUserMessage,
+  }));

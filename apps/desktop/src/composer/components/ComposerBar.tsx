@@ -10,6 +10,7 @@ import { useQueueableSendMessage } from '~/conversation/hooks/useQueueableSendMe
 import {
   useConversationComposerLimits,
   useConversationIsRunning,
+  useConversationIsSendingUserMessage,
 } from '~/conversation/store/hooks';
 
 import {
@@ -121,7 +122,9 @@ export function ComposerBar({
     workspacePath,
     conversationId
   );
-  const isMutationPending = mutation.isPending;
+  const isSendingUserMessage =
+    useConversationIsSendingUserMessage(conversationId);
+  const isMutationPending = mutation.isPending || isSendingUserMessage;
   const slashCommands = useSlashCommands(workspacePath);
   const conversationIsRunning = useConversationIsRunning(conversationId);
   const isTurnActive = isTurnActiveProp ?? conversationIsRunning;

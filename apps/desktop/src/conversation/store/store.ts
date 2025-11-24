@@ -28,6 +28,7 @@ type ConversationStoreActions = {
   queueUserMessage: (text: string) => void;
   popQueuedUserMessage: () => string | null;
   clearQueuedUserMessages: () => void;
+  setSendingUserMessage: (isSending: boolean) => void;
 };
 
 export type ConversationStoreState = ConversationControllerState &
@@ -101,6 +102,10 @@ export const createConversationStore = (
       clearQueuedUserMessages: () =>
         updateData((draft) => {
           draft.queuedUserMessages = [];
+        }),
+      setSendingUserMessage: (isSending: boolean) =>
+        updateData((draft) => {
+          draft.isSendingUserMessage = isSending;
         }),
     };
   });

@@ -4,7 +4,9 @@ import { useAuthState } from '~/auth/useAuthState';
 
 import {
   useConversationIsRunning,
+  useConversationIsSendingUserMessage,
   useConversationQueueActions,
+  useConversationSendMessageActions,
 } from '../store/hooks';
 import { type SendMessageVariables, useSendMessage } from './useSendMessage';
 
@@ -15,11 +17,18 @@ export const useQueueableSendMessage = (
   const authState = useAuthState();
   const { queueUserMessage, popQueuedUserMessage } =
     useConversationQueueActions(conversationId ?? null);
+  const { setSendingUserMessage } = useConversationSendMessageActions(
+    conversationId ?? null
+  );
   const isRunning = useConversationIsRunning(conversationId ?? null);
+  const isSendingUserMessage = useConversationIsSendingUserMessage(
+    conversationId ?? null
+  );
   const { sendMessage, mutation } = useSendMessage(
     workspacePath,
     conversationId
   );
+  const isMutationPending = mutation.isPending || isSendingUserMessage;
 
   const sendOrQueue = useCallback(
     async ({ text, turnConfig }: SendMessageVariables) => {
@@ -31,24 +40,31 @@ export const useQueueableSendMessage = (
         return;
       }
 
-      if (isRunning) {
+      if (isRunning || isSendingUserMessage) {
         queueUserMessage(trimmed);
         return;
       }
 
-      await sendMessage({ text: trimmed, turnConfig });
+      setSendingUserMessage(true);
+      try {
+        await sendMessage({ text: trimmed, turnConfig });
+      } finally {
+        setSendingUserMessage(false);
+      }
     },
     [
       authState.data?.requiresAuth,
       authState.isLoading,
       isRunning,
+      isSendingUserMessage,
       queueUserMessage,
       sendMessage,
+      setSendingUserMessage,
     ]
   );
 
   const sendNextQueuedIfIdle = useCallback(async () => {
-    if (isRunning) {
+    if (isRunning || isSendingUserMessage) {
       return;
     }
 
@@ -57,6 +73,7 @@ export const useQueueableSendMessage = (
       return;
     }
 
+    setSendingUserMessage(true);
     try {
       await sendMessage({ text: nextMessage });
     } catch (error) {
@@ -64,12 +81,21 @@ export const useQueueableSendMessage = (
       const description =
         error instanceof Error ? error.message : 'Please try again.';
       toast.error('Failed to send queued message.', { description });
+    } finally {
+      setSendingUserMessage(false);
     }
-  }, [isRunning, popQueuedUserMessage, queueUserMessage, sendMessage]);
+  }, [
+    isRunning,
+    isSendingUserMessage,
+    popQueuedUserMessage,
+    queueUserMessage,
+    sendMessage,
+    setSendingUserMessage,
+  ]);
 
   return {
     sendOrQueue,
     sendNextQueuedIfIdle,
-    mutation,
+    mutation: { ...mutation, isPending: isMutationPending },
   };
 };
