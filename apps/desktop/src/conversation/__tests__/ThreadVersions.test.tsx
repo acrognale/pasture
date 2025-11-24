@@ -7,7 +7,7 @@ import { ConversationPane } from '~/conversation/ConversationPane';
 import { ConversationProvider } from '~/conversation/store';
 import { mockCodex, mockEvents } from '~/testing/codex';
 import { renderWithProviders } from '~/testing/harness';
-import { WorkspaceProvider, useWorkspaceThreadsContext } from '~/workspace';
+import { WorkspaceProvider, useWorkspaceActions } from '~/workspace';
 
 import { WORKSPACE, setupConversationTest } from './setup';
 
@@ -156,7 +156,7 @@ describe('Thread version selector integration', () => {
     });
 
     const ThreadLoader = ({ threadId }: { threadId: string }) => {
-      const { loadThread } = useWorkspaceThreadsContext();
+      const { loadThread } = useWorkspaceActions();
       // Load the thread (maps thread -> conversation)
       // and ignore the resolved conversationId; ConversationPane below uses the fork ID.
       React.useEffect(() => {

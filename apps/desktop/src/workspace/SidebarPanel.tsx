@@ -28,8 +28,8 @@ import { sortThreadsByTimestamp } from '~/workspace/conversations';
 import { OPEN_WORKSPACE_THREAD_SWITCHER_EVENT } from './WorkspaceConversationSwitcher';
 import {
   useWorkspace,
+  useWorkspaceActions,
   useWorkspaceKeys,
-  useWorkspaceThreadsContext,
 } from './WorkspaceProvider';
 import {
   type WorkspaceThreadsState,
@@ -42,7 +42,7 @@ export function SidebarPanel() {
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
   const keys = useWorkspaceKeys();
   const threads = useOpenWorkspaceThreads();
-  const { closeThread } = useWorkspaceThreadsContext();
+  const { closeThread } = useWorkspaceActions();
   const threadMatch = useRouterState({
     select: (state) =>
       state.matches.find(

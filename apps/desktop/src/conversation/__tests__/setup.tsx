@@ -4,7 +4,7 @@ import { ConversationPane } from '~/conversation/ConversationPane';
 import { ConversationProvider } from '~/conversation/store';
 import { mockCodex, mockEvents } from '~/testing/codex';
 import { renderWithProviders } from '~/testing/harness';
-import { WorkspaceProvider, useWorkspaceThreadsContext } from '~/workspace';
+import { WorkspaceProvider, useWorkspaceActions } from '~/workspace';
 
 export const WORKSPACE = '/Users/tester/workspace';
 
@@ -73,7 +73,7 @@ export const renderConversationPane = (
   );
 
 const ThreadLoader = ({ threadId }: { threadId: string }) => {
-  const { loadThread } = useWorkspaceThreadsContext();
+  const { loadThread } = useWorkspaceActions();
   useEffect(() => {
     void loadThread(threadId, { force: true });
   }, [loadThread, threadId]);

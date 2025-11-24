@@ -1,8 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-  useThreadVersionGroups,
-  useWorkspaceConversationStores,
-} from '~/workspace';
+import { useThreadVersionGroups, useWorkspaceActions } from '~/workspace';
 
 export type MessageVersionEntry = {
   conversationId: string;
@@ -31,7 +28,7 @@ export const useMessageVersions = ({
     getThreadIdForConversation,
     getThreadConversationId,
     switchThreadConversation,
-  } = useWorkspaceConversationStores();
+  } = useWorkspaceActions();
   const [threadId, setThreadId] = useState<string | null>(() =>
     getThreadIdForConversation(conversationId)
   );

@@ -1,6 +1,6 @@
 import { shallow } from 'zustand/shallow';
 import { useStoreWithEqualityFn } from 'zustand/traditional';
-import { useWorkspaceConversationStores } from '~/workspace';
+import { useWorkspaceActions } from '~/workspace';
 
 import type { ConversationStoreState } from './store';
 
@@ -9,7 +9,7 @@ const useConversationSelector = <T>(
   selector: (state: ConversationStoreState) => T,
   equalityFn?: (a: T, b: T) => boolean
 ) => {
-  const { getConversationStore } = useWorkspaceConversationStores();
+  const { getConversationStore } = useWorkspaceActions();
   const store = getConversationStore(conversationId);
   return useStoreWithEqualityFn(store, selector, equalityFn);
 };

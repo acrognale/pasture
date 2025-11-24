@@ -7,7 +7,7 @@ import {
 } from '~/components/ui/sidebar';
 import { ConversationProvider } from '~/conversation/store';
 import { renderWithProviders } from '~/testing/harness';
-import { WorkspaceProvider, useWorkspaceConversationStores } from '~/workspace';
+import { WorkspaceProvider, useWorkspaceActions } from '~/workspace';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 
 export const WORKSPACE = '/Users/tester/workspace';
@@ -28,7 +28,7 @@ const OpenConversationsInitializer = ({
 }: {
   threadIds: string[];
 }) => {
-  const { loadThread } = useWorkspaceConversationStores();
+  const { loadThread } = useWorkspaceActions();
 
   useEffect(() => {
     threadIds.forEach((threadId) => {

@@ -21,8 +21,8 @@ import {
   updateConversationTimestamp,
   updateThreadPreview,
   updateThreadTimestamp,
+  useWorkspaceActions,
   useWorkspaceApprovalsStore,
-  useWorkspaceConversationStores,
 } from '~/workspace';
 import type { WorkspaceConversationsState } from '~/workspace/conversations';
 
@@ -72,7 +72,7 @@ export function ConversationProvider({
   children,
 }: ConversationProviderProps) {
   const { applyConversationEvent, getThreadIdForConversation } =
-    useWorkspaceConversationStores();
+    useWorkspaceActions();
   const queryClient = useQueryClient();
   const approvalsStore = useWorkspaceApprovalsStore();
   const keys = useMemo(

@@ -4,9 +4,8 @@ export {
   useWorkspace,
   useWorkspaceKeys,
   useWorkspaceApprovalsStore,
-  useWorkspaceConversationStores,
-  useWorkspaceThreadsContext,
   useWorkspaceOpenThreads,
+  useWorkspaceActions,
 } from './WorkspaceProvider';
 export {
   normalizeWorkspacePath,

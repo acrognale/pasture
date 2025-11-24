@@ -6,7 +6,7 @@ import {
 } from '~/composer/components/ComposerBar';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { copyToClipboard } from '~/lib/utils';
-import { useWorkspaceConversationStores } from '~/workspace';
+import { useWorkspaceActions } from '~/workspace';
 
 import { ConversationDevCommandMenu } from './components/ConversationDevCommandMenu';
 import { ConversationPaneHeader } from './components/ConversationPaneHeader';
@@ -38,8 +38,7 @@ export function ConversationPane({
   conversationId,
   onConversationForked,
 }: ConversationPaneProps) {
-  const { loadConversation, getConversationStore } =
-    useWorkspaceConversationStores();
+  const { loadConversation, getConversationStore } = useWorkspaceActions();
   const { interruptConversation, isPending: interruptPending } =
     useInterruptConversation(conversationId);
   const [expandedTurnsByConversation, setExpandedTurnsByConversation] =

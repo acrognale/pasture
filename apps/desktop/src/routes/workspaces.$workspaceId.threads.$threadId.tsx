@@ -2,10 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ConversationPane } from '~/conversation/ConversationPane';
 import { decodeWorkspaceId } from '~/lib/routing';
-import {
-  useWorkspaceConversationStores,
-  useWorkspaceThreadsContext,
-} from '~/workspace';
+import { useWorkspaceActions } from '~/workspace';
 
 export const Route = createFileRoute(
   '/workspaces/$workspaceId/threads/$threadId'
@@ -19,8 +16,8 @@ function RouteComponent() {
     () => decodeWorkspaceId(workspaceId),
     [workspaceId]
   );
-  const { loadThread } = useWorkspaceThreadsContext();
-  const { getThreadConversationId } = useWorkspaceConversationStores();
+  const { loadThread } = useWorkspaceActions();
+  const { getThreadConversationId } = useWorkspaceActions();
   const [conversationId, setConversationId] = useState<string | null>(() =>
     getThreadConversationId(threadId)
   );

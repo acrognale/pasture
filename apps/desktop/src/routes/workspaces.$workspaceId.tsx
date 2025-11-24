@@ -16,7 +16,7 @@ import { decodeWorkspaceId } from '~/lib/routing';
 import { WorkspaceProvider } from '~/workspace';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';
-import { useWorkspaceConversationStores } from '~/workspace/WorkspaceProvider';
+import { useWorkspaceActions } from '~/workspace/WorkspaceProvider';
 import { WorkspaceTopBar } from '~/workspace/WorkspaceTopBar';
 
 export const Route = createFileRoute('/workspaces/$workspaceId')({
@@ -54,7 +54,7 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
           match.routeId === '/workspaces/$workspaceId/threads/$threadId'
       ),
   });
-  const { getThreadConversationId } = useWorkspaceConversationStores();
+  const { getThreadConversationId } = useWorkspaceActions();
   const [isResizing] = useState(false);
 
   const activeConversationId =

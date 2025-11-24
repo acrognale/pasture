@@ -3,7 +3,8 @@ import {
   type ConversationState,
   createInitialConversationState,
 } from '~/conversation/store/reducer';
-import { useWorkspaceConversationStores } from '~/workspace';
+
+import { useWorkspaceConversationStores } from '../workspace';
 
 export const useConversationState = (
   conversationId: string | null

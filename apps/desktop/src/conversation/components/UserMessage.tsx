@@ -11,7 +11,7 @@ import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
 import type { TranscriptUserMessageCell } from '~/conversation/transcript/types';
 import { copyToClipboard } from '~/lib/utils';
-import { useWorkspaceConversationStores } from '~/workspace';
+import { useWorkspaceActions } from '~/workspace';
 
 import { useMessageVersions } from '../hooks/useMessageVersions';
 import { MessageVersions } from './MessageVersions';
@@ -36,8 +36,7 @@ export function UserMessage({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(message);
   const [isSaving, setIsSaving] = useState(false);
-  const { forkThread, getThreadIdForConversation } =
-    useWorkspaceConversationStores();
+  const { forkThread, getThreadIdForConversation } = useWorkspaceActions();
   const {
     versions,
     activeConversationId,
