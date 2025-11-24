@@ -27,6 +27,13 @@ export type ModelName =
   | 'gpt-5.1-codex-max'
   | 'gpt-5.1-codex-mini';
 
+const MODEL_REASONING_EFFORTS: Record<ModelName, ReasoningEffort[]> = {
+  'gpt-5.1': ['low', 'medium', 'high'],
+  'gpt-5.1-codex': ['low', 'medium', 'high'],
+  'gpt-5.1-codex-max': ['low', 'medium', 'high', 'xhigh'],
+  'gpt-5.1-codex-mini': ['medium', 'high'],
+};
+
 const MODEL_DISPLAY_NAMES: Record<ModelName, string> = {
   'gpt-5.1': 'GPT-5.1',
   'gpt-5.1-codex': 'GPT-5.1 Codex',
@@ -53,16 +60,7 @@ export const REASONING_EFFORT_DISPLAY: Record<ReasoningEffort, string> = {
 };
 
 const getAvailableReasoningEfforts = (model: ModelName): ReasoningEffort[] => {
-  if (model === 'gpt-5.1-codex-max') {
-    return ['low', 'medium', 'high', 'xhigh'];
-  }
-  if (model === 'gpt-5.1-codex') {
-    return ['low', 'medium', 'high'];
-  }
-  if (model === 'gpt-5.1-codex-mini') {
-    return ['medium', 'high'];
-  }
-  return [...REASONING_EFFORT_OPTIONS];
+  return MODEL_REASONING_EFFORTS[model] ?? [...REASONING_EFFORT_OPTIONS];
 };
 
 export const SANDBOX_OPTIONS: readonly SandboxMode[] = [
