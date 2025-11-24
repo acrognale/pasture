@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useWorkspaceConversationStores } from '~/workspace';
+import {
+  useThreadVersionGroups,
+  useWorkspaceConversationStores,
+} from '~/workspace';
 
 export type MessageVersionEntry = {
   conversationId: string;
@@ -13,71 +16,50 @@ type UseMessageVersionsParams = {
   nthUserMessage?: number;
 };
 
+type UseMessageVersionsResult = {
+  versions: MessageVersionEntry[];
+  activeConversationId: string | null;
+  isLoading: boolean;
+  selectVersion: (targetConversationId: string) => Promise<string | null>;
+};
+
 export const useMessageVersions = ({
   conversationId,
   nthUserMessage,
-}: UseMessageVersionsParams) => {
+}: UseMessageVersionsParams): UseMessageVersionsResult => {
   const {
     getThreadIdForConversation,
     getThreadConversationId,
-    getThreadVersionGroups,
-    loadThreadRollouts,
     switchThreadConversation,
   } = useWorkspaceConversationStores();
-  const [versions, setVersions] = useState<MessageVersionEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const threadId = useMemo(
-    () => getThreadIdForConversation(conversationId),
-    [conversationId, getThreadIdForConversation]
+  const [threadId, setThreadId] = useState<string | null>(() =>
+    getThreadIdForConversation(conversationId)
+  );
+  useEffect(() => {
+    setThreadId(getThreadIdForConversation(conversationId));
+  }, [conversationId, getThreadIdForConversation]);
+  const [isSwitching, setIsSwitching] = useState(false);
+  const { groups, currentConversationId, query } = useThreadVersionGroups(
+    threadId ?? null
   );
 
-  useEffect(() => {
+  const versions = useMemo(() => {
     if (!threadId || nthUserMessage == null) {
-      setVersions([]);
-      return;
+      return [];
     }
-
-    let cancelled = false;
-    const run = async () => {
-      try {
-        setIsLoading(true);
-        await loadThreadRollouts(threadId);
-        if (cancelled) {
-          return;
-        }
-        const groups = getThreadVersionGroups(threadId);
-        const items = groups?.get(nthUserMessage) ?? [];
-        setVersions(
-          items.map((rollout) => ({
-            conversationId: rollout.conversationId,
-            createdAt: rollout.createdAt,
-            forkedFromConversationId: rollout.forkedFromConversationId ?? null,
-            forkedFromNthUserMessage: rollout.forkedFromNthUserMessage ?? null,
-          }))
-        );
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    conversationId,
-    getThreadVersionGroups,
-    loadThreadRollouts,
-    nthUserMessage,
-    threadId,
-  ]);
+    const items = groups.get(nthUserMessage) ?? [];
+    return items.map((rollout) => ({
+      conversationId: rollout.conversationId,
+      createdAt: rollout.createdAt,
+      forkedFromConversationId: rollout.forkedFromConversationId ?? null,
+      forkedFromNthUserMessage: rollout.forkedFromNthUserMessage ?? null,
+    }));
+  }, [groups, nthUserMessage, threadId]);
 
   const activeConversationId = useMemo(
-    () => (threadId ? getThreadConversationId(threadId) : null),
-    [getThreadConversationId, threadId]
+    () =>
+      threadId ? getThreadConversationId(threadId) : currentConversationId,
+    [currentConversationId, getThreadConversationId, threadId]
   );
 
   const selectVersion = async (targetConversationId: string) => {
@@ -85,21 +67,21 @@ export const useMessageVersions = ({
       return null;
     }
     try {
-      setIsLoading(true);
+      setIsSwitching(true);
       const resolvedConversationId = await switchThreadConversation(
         threadId,
         targetConversationId
       );
       return resolvedConversationId;
     } finally {
-      setIsLoading(false);
+      setIsSwitching(false);
     }
   };
 
   return {
     versions,
     activeConversationId,
-    isLoading,
+    isLoading: query.isLoading || query.isFetching || isSwitching,
     selectVersion,
   };
 };

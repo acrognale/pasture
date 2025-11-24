@@ -21,6 +21,11 @@ export {
   useWorkspaceThreads,
   useOpenWorkspaceThreads,
 } from './hooks/useWorkspaceThreads';
+export {
+  useWorkspaceThreadRollouts,
+  useThreadVersionGroups,
+  computeThreadVersionGroups,
+} from './hooks/useWorkspaceThreadRollouts';
 export type {
   WorkspaceThreadsState,
   WorkspaceOpenThreadsState,

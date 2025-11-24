@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import {
   type PropsWithChildren,
   createContext,
@@ -9,7 +10,7 @@ import {
 } from 'react';
 import { type ApprovalsStore, createApprovalsStore } from '~/approvals/store';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { ThreadRollout } from '~/codex.gen/ThreadRollout';
+import type { ListThreadRolloutsResponse } from '~/codex.gen/ListThreadRolloutsResponse';
 import { Codex } from '~/codex/client';
 import {
   type ConversationStore,
@@ -18,54 +19,8 @@ import {
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 
 import { normalizeWorkspacePath } from './conversations';
+import type { WorkspaceThreadsState } from './hooks/useWorkspaceThreads';
 import type { WorkspaceMetadata } from './types';
-
-const computeThreadVersionGroups = (
-  rollouts: ThreadRollout[]
-): Map<number, ThreadRollout[]> => {
-  const byConversationId = new Map(
-    rollouts.map((rollout) => [rollout.conversationId, rollout])
-  );
-  const groups = new Map<number, ThreadRollout[]>();
-  const seenByNth = new Map<number, Set<string>>();
-
-  rollouts.forEach((rollout) => {
-    const nth = rollout.forkedFromNthUserMessage;
-    if (nth == null) {
-      return;
-    }
-
-    let current: ThreadRollout | undefined = rollout;
-    while (current) {
-      const seen = seenByNth.get(nth) ?? new Set<string>();
-      const group = groups.get(nth) ?? [];
-      if (!seen.has(current.conversationId)) {
-        group.push(current);
-        seen.add(current.conversationId);
-        groups.set(nth, group);
-        seenByNth.set(nth, seen);
-      }
-
-      if (!current.forkedFromConversationId) {
-        break;
-      }
-      current = byConversationId.get(current.forkedFromConversationId);
-    }
-  });
-
-  groups.forEach((group, nth) => {
-    const sorted = [...group].sort((a, b) => {
-      const dateComparison = a.createdAt.localeCompare(b.createdAt);
-      if (dateComparison !== 0) {
-        return dateComparison;
-      }
-      return a.conversationId.localeCompare(b.conversationId);
-    });
-    groups.set(nth, sorted);
-  });
-
-  return groups;
-};
 
 type WorkspaceContextValue = {
   workspacePath: string;
@@ -91,14 +46,6 @@ type WorkspaceContextValue = {
   ) => Promise<string | null>;
   getThreadConversationId: (threadId: string) => string | null;
   getThreadIdForConversation: (conversationId: string) => string | null;
-  getThreadRollouts: (threadId: string) => ThreadRollout[] | null;
-  loadThreadRollouts: (
-    threadId: string,
-    options?: { force?: boolean }
-  ) => Promise<ThreadRollout[]>;
-  getThreadVersionGroups: (
-    threadId: string
-  ) => Map<number, ThreadRollout[]> | null;
   switchThreadConversation: (
     threadId: string,
     conversationId: string
@@ -136,6 +83,7 @@ export const WorkspaceProvider = ({
     void workspacePath;
     return createApprovalsStore();
   }, [workspacePath]);
+  const queryClient = useQueryClient();
   const conversationStoresRef = useRef(new Map<string, ConversationStore>());
   const loadingStatesRef = useRef<
     Map<string, 'idle' | 'loading' | 'loaded' | 'error'>
@@ -149,13 +97,6 @@ export const WorkspaceProvider = ({
   const conversationToThreadMapRef = useRef<Map<string, string>>(new Map());
   const threadLoadingStatesRef = useRef<
     Map<string, 'idle' | 'loading' | 'loaded' | 'error'>
-  >(new Map());
-  const threadRolloutsRef = useRef<Map<string, ThreadRollout[]>>(new Map());
-  const threadRolloutsLoadingRef = useRef<
-    Map<string, 'idle' | 'loading' | 'loaded' | 'error'>
-  >(new Map());
-  const threadVersionGroupsRef = useRef<
-    Map<string, Map<number, ThreadRollout[]>>
   >(new Map());
 
   const syncOpenConversationIds = useCallback(() => {
@@ -238,29 +179,6 @@ export const WorkspaceProvider = ({
       }
     },
     [clearConversationStore, closeConversation, syncOpenThreadIds]
-  );
-
-  const upsertThreadRolloutCache = useCallback(
-    (threadId: string, rollout: ThreadRollout) => {
-      const rollouts = threadRolloutsRef.current.get(threadId) ?? [];
-      const existingIndex = rollouts.findIndex(
-        (item) => item.conversationId === rollout.conversationId
-      );
-      const nextRollouts =
-        existingIndex === -1
-          ? [...rollouts, rollout]
-          : [
-              ...rollouts.slice(0, existingIndex),
-              rollout,
-              ...rollouts.slice(existingIndex + 1),
-            ];
-      threadRolloutsRef.current.set(threadId, nextRollouts);
-      threadVersionGroupsRef.current.set(
-        threadId,
-        computeThreadVersionGroups(nextRollouts)
-      );
-    },
-    []
   );
 
   const ensureConversationStore = useCallback((conversationId: string) => {
@@ -392,54 +310,6 @@ export const WorkspaceProvider = ({
     ]
   );
 
-  const getThreadRollouts = useCallback(
-    (threadId: string) => threadRolloutsRef.current.get(threadId) ?? null,
-    []
-  );
-
-  const getThreadVersionGroups = useCallback(
-    (threadId: string) => threadVersionGroupsRef.current.get(threadId) ?? null,
-    []
-  );
-
-  const loadThreadRollouts = useCallback(
-    async (threadId: string, options?: { force?: boolean }) => {
-      if (!threadId) {
-        return [];
-      }
-
-      const status = threadRolloutsLoadingRef.current.get(threadId);
-      const cached = threadRolloutsRef.current.get(threadId);
-      if (!options?.force && status === 'loading') {
-        return cached ?? [];
-      }
-      if (!options?.force && status === 'loaded' && cached) {
-        return cached;
-      }
-
-      threadRolloutsLoadingRef.current.set(threadId, 'loading');
-
-      try {
-        const response = await Codex.listThreadRollouts({
-          workspacePath,
-          threadId,
-        });
-        const rollouts = response.rollouts ?? [];
-        threadRolloutsRef.current.set(threadId, rollouts);
-        threadVersionGroupsRef.current.set(
-          threadId,
-          computeThreadVersionGroups(rollouts)
-        );
-        threadRolloutsLoadingRef.current.set(threadId, 'loaded');
-        return rollouts;
-      } catch (error) {
-        threadRolloutsLoadingRef.current.set(threadId, 'error');
-        throw error;
-      }
-    },
-    [workspacePath]
-  );
-
   const forkThread = useCallback(
     async (
       threadId: string,
@@ -482,14 +352,69 @@ export const WorkspaceProvider = ({
         );
         store.getState().setLoading(false);
         threadLoadingStates.set(threadId, 'loaded');
-        upsertThreadRolloutCache(threadId, {
-          conversationId,
-          rolloutPath,
-          createdAt,
-          label: null,
-          forkedFromConversationId: forkBaseConversationId,
-          forkedFromNthUserMessage: forkNthUserMessage,
-        });
+        queryClient.setQueryData<WorkspaceThreadsState | undefined>(
+          keys.threads(),
+          (state) => {
+            if (!state) {
+              return state;
+            }
+            const index = state.items.findIndex(
+              (thread) => thread.threadId === threadId
+            );
+            if (index === -1) {
+              return state;
+            }
+            const updated = {
+              ...state.items[index],
+              currentConversationId: conversationId,
+              rolloutCount: (state.items[index]?.rolloutCount ?? 0) + 1,
+              timestamp: createdAt,
+            };
+            const items = [...state.items];
+            items[index] = updated;
+            return { ...state, items };
+          }
+        );
+        queryClient.setQueryData<ListThreadRolloutsResponse | undefined>(
+          keys.threadRollouts(threadId),
+          (state) => {
+            const rollouts = state?.rollouts ?? [];
+            const existingIndex = rollouts.findIndex(
+              (item) => item.conversationId === conversationId
+            );
+            const nextRollouts =
+              existingIndex === -1
+                ? [
+                    ...rollouts,
+                    {
+                      conversationId,
+                      rolloutPath,
+                      createdAt,
+                      label: null,
+                      forkedFromConversationId: forkBaseConversationId,
+                      forkedFromNthUserMessage: forkNthUserMessage,
+                    },
+                  ]
+                : [
+                    ...rollouts.slice(0, existingIndex),
+                    {
+                      conversationId,
+                      rolloutPath,
+                      createdAt,
+                      label: null,
+                      forkedFromConversationId: forkBaseConversationId,
+                      forkedFromNthUserMessage: forkNthUserMessage,
+                    },
+                    ...rollouts.slice(existingIndex + 1),
+                  ];
+
+            return {
+              threadId,
+              currentConversationId: conversationId,
+              rollouts: nextRollouts,
+            };
+          }
+        );
         return conversationId;
       } catch (error) {
         threadLoadingStates.set(threadId, 'error');
@@ -500,8 +425,9 @@ export const WorkspaceProvider = ({
       hydrateConversationStore,
       markConversationOpen,
       markThreadOpen,
-      upsertThreadRolloutCache,
+      queryClient,
       workspacePath,
+      keys,
     ]
   );
 
@@ -564,23 +490,36 @@ export const WorkspaceProvider = ({
 
         threadLoadingStates.set(threadId, 'loaded');
 
-        const cachedRollout =
-          threadRolloutsRef.current
-            .get(threadId)
-            ?.find((rollout) => rollout.conversationId === conversationIdStr) ??
-          null;
-        if (cachedRollout) {
-          upsertThreadRolloutCache(threadId, cachedRollout);
-        } else if (sessionConfigured) {
-          upsertThreadRolloutCache(threadId, {
-            conversationId: conversationIdStr,
-            rolloutPath: sessionConfigured.rollout_path,
-            createdAt: new Date().toISOString(),
-            label: null,
-            forkedFromConversationId: null,
-            forkedFromNthUserMessage: null,
-          });
-        }
+        const timestamp = new Date().toISOString();
+        queryClient.setQueryData<WorkspaceThreadsState | undefined>(
+          keys.threads(),
+          (state) => {
+            if (!state) {
+              return state;
+            }
+            const index = state.items.findIndex(
+              (thread) => thread.threadId === threadId
+            );
+            if (index === -1) {
+              return state;
+            }
+            const updated = {
+              ...state.items[index],
+              currentConversationId: conversationIdStr,
+              timestamp,
+            };
+            const items = [...state.items];
+            items[index] = updated;
+            return { ...state, items };
+          }
+        );
+        queryClient.setQueryData<ListThreadRolloutsResponse | undefined>(
+          keys.threadRollouts(threadId),
+          (state) =>
+            state
+              ? { ...state, currentConversationId: conversationIdStr }
+              : state
+        );
 
         return conversationIdStr;
       } catch (error) {
@@ -593,7 +532,8 @@ export const WorkspaceProvider = ({
       markConversationOpen,
       markThreadOpen,
       workspacePath,
-      upsertThreadRolloutCache,
+      queryClient,
+      keys,
     ]
   );
 
@@ -652,11 +592,8 @@ export const WorkspaceProvider = ({
       applyConversationEvent,
       loadConversation,
       loadThread,
-      loadThreadRollouts,
       forkThread,
       switchThreadConversation,
-      getThreadRollouts,
-      getThreadVersionGroups,
       getThreadConversationId: (threadId: string) =>
         threadConversationMapRef.current.get(threadId) ?? null,
       getThreadIdForConversation: (conversationId: string) =>
@@ -674,12 +611,9 @@ export const WorkspaceProvider = ({
       closeConversation,
       clearConversationStore,
       getConversationStore,
-      getThreadRollouts,
-      getThreadVersionGroups,
       keys,
       loadConversation,
       loadThread,
-      loadThreadRollouts,
       forkThread,
       switchThreadConversation,
       metadata,
@@ -719,12 +653,9 @@ export const useWorkspaceConversationStores = () => {
     applyConversationEvent,
     loadConversation,
     loadThread,
-    loadThreadRollouts,
     forkThread,
     switchThreadConversation,
     getThreadIdForConversation,
-    getThreadRollouts,
-    getThreadVersionGroups,
     clearConversationStore,
     closeConversation,
     getThreadConversationId,
@@ -735,12 +666,9 @@ export const useWorkspaceConversationStores = () => {
     applyConversationEvent,
     loadConversation,
     loadThread,
-    loadThreadRollouts,
     forkThread,
     switchThreadConversation,
     getThreadIdForConversation,
-    getThreadRollouts,
-    getThreadVersionGroups,
     clearConversationStore,
     closeConversation,
     getThreadConversationId,
@@ -753,24 +681,18 @@ export const useWorkspaceOpenConversations = () =>
 export const useWorkspaceThreadsContext = () => {
   const {
     loadThread,
-    loadThreadRollouts,
     forkThread,
     switchThreadConversation,
     getThreadConversationId,
-    getThreadRollouts,
-    getThreadVersionGroups,
     openThreadIds,
     closeThread,
   } = useWorkspaceContext();
 
   return {
     loadThread,
-    loadThreadRollouts,
     forkThread,
     switchThreadConversation,
     getThreadConversationId,
-    getThreadRollouts,
-    getThreadVersionGroups,
     openThreadIds,
     closeThread,
   };
