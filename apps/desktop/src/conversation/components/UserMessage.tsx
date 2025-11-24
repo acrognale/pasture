@@ -27,7 +27,6 @@ type UserMessageProps = {
 export function UserMessage({
   cell,
   conversationId,
-  timestamp,
   nthUserMessage,
   onConversationForked,
 }: UserMessageProps) {
@@ -172,10 +171,10 @@ export function UserMessage({
 
   return (
     <div className="w-full px-1.5 py-2 flex justify-end group">
-      <div className="flex flex-col items-end gap-2 max-w-[80%]">
+      <div className="flex flex-col items-end gap-1 max-w-[80%]">
         <div className="bg-muted/60 rounded-lg px-3 py-2 w-full space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 space-y-1">
+          <div className="flex flex-1 space-y-1">
+            <div className="w-full space-y-1">
               {isEditing ? (
                 <textarea
                   className="w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
@@ -200,67 +199,62 @@ export function UserMessage({
                 </div>
               ) : null}
             </div>
-            <div className="flex flex-col items-end gap-1">
-              <span className="text-transcript-micro text-muted-foreground">
-                {timestamp}
-              </span>
-              <div className="flex items-center gap-1">
-                {message ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      void handleCopy();
-                    }}
-                    className="h-7 w-7 shrink-0"
-                    title="Copy as markdown"
-                  >
-                    <CopyIcon className="size-3" />
-                  </Button>
-                ) : null}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    void handleRetry();
-                  }}
-                  className="h-7 w-7 shrink-0"
-                  disabled={isSaving}
-                  title="Retry from here"
-                >
-                  <RotateCcwIcon className="size-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsEditing((prev) => !prev)}
-                  className="h-7 w-7 shrink-0"
-                  disabled={isSaving}
-                  title={isEditing ? 'Cancel edit' : 'Edit message'}
-                >
-                  {isEditing ? (
-                    <XIcon className="size-3" />
-                  ) : (
-                    <PencilIcon className="size-3" />
-                  )}
-                </Button>
-                {isEditing ? (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      void handleSaveEdit();
-                    }}
-                    className="h-7 w-7 shrink-0"
-                    disabled={isSaving}
-                    title="Save and retry from here"
-                  >
-                    <SaveIcon className="size-3" />
-                  </Button>
-                ) : null}
-              </div>
-            </div>
           </div>
+        </div>
+        <div className="flex w-full items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pr-1">
+          {message ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                void handleCopy();
+              }}
+              className="h-8 w-8 shrink-0"
+              title="Copy as markdown"
+            >
+              <CopyIcon className="size-3" />
+            </Button>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              void handleRetry();
+            }}
+            className="h-8 w-8 shrink-0"
+            disabled={isSaving}
+            title="Retry from here"
+          >
+            <RotateCcwIcon className="size-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsEditing((prev) => !prev)}
+            className="h-8 w-8 shrink-0"
+            disabled={isSaving}
+            title={isEditing ? 'Cancel edit' : 'Edit message'}
+          >
+            {isEditing ? (
+              <XIcon className="size-3" />
+            ) : (
+              <PencilIcon className="size-3" />
+            )}
+          </Button>
+          {isEditing ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                void handleSaveEdit();
+              }}
+              className="h-8 w-8 shrink-0"
+              disabled={isSaving}
+              title="Save and retry from here"
+            >
+              <SaveIcon className="size-3" />
+            </Button>
+          ) : null}
           <MessageVersions
             versions={versions}
             activeConversationId={activeConversationId}
