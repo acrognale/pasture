@@ -6,6 +6,6 @@ import type { SessionConfiguredEvent } from './SessionConfiguredEvent';
 
 export type SwitchThreadRolloutResponse = {
   conversationId: ConversationId;
-  sessionConfigured: SessionConfiguredEvent;
-  reasoningSummary: ReasoningSummary;
+  sessionConfigured: SessionConfiguredEvent | null;
+  reasoningSummary: ReasoningSummary | null;
 };

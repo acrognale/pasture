@@ -23,7 +23,6 @@ export const useMessageVersions = ({
     getThreadVersionGroups,
     loadThreadRollouts,
     switchThreadConversation,
-    loadConversation,
   } = useWorkspaceConversationStores();
   const [isLoading, setIsLoading] = useState(false);
   const threadId = useMemo(
@@ -78,15 +77,16 @@ export const useMessageVersions = ({
     if (!threadId || !targetConversationId) {
       return null;
     }
-    const resolvedConversationId = await switchThreadConversation(
-      threadId,
-      targetConversationId
-    );
-    if (resolvedConversationId) {
-      await loadConversation(resolvedConversationId, { force: true });
+    try {
+      setIsLoading(true);
+      const resolvedConversationId = await switchThreadConversation(
+        threadId,
+        targetConversationId
+      );
       return resolvedConversationId;
+    } finally {
+      setIsLoading(false);
     }
-    return null;
   };
 
   return {

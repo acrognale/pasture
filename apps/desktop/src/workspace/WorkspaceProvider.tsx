@@ -525,13 +525,24 @@ export const WorkspaceProvider = ({
         threadConversationMapRef.current.set(threadId, conversationIdStr);
         conversationToThreadMapRef.current.set(conversationIdStr, threadId);
         markConversationOpen(conversationIdStr);
-        loadingStatesRef.current.set(conversationIdStr, 'loaded');
-        const store = hydrateConversationStore(
-          conversationIdStr,
-          sessionConfigured,
-          reasoningSummary
-        );
-        store.getState().setLoading(false);
+        const loadingStates = loadingStatesRef.current;
+        const hasLoadedStore =
+          !!conversationStoresRef.current.get(conversationIdStr) &&
+          loadingStates.get(conversationIdStr) === 'loaded';
+
+        if (!hasLoadedStore && sessionConfigured && reasoningSummary) {
+          loadingStates.set(conversationIdStr, 'loading');
+          const store = hydrateConversationStore(
+            conversationIdStr,
+            sessionConfigured,
+            reasoningSummary
+          );
+          store.getState().setLoading(false);
+          loadingStates.set(conversationIdStr, 'loaded');
+        } else {
+          loadingStates.set(conversationIdStr, 'loaded');
+        }
+
         threadLoadingStates.set(threadId, 'loaded');
 
         const cachedRollout =
@@ -541,7 +552,7 @@ export const WorkspaceProvider = ({
           null;
         if (cachedRollout) {
           upsertThreadRolloutCache(threadId, cachedRollout);
-        } else {
+        } else if (sessionConfigured) {
           upsertThreadRolloutCache(threadId, {
             conversationId: conversationIdStr,
             rolloutPath: sessionConfigured.rollout_path,

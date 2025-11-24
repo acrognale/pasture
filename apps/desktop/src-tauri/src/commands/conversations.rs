@@ -83,8 +83,10 @@ pub struct SwitchThreadRolloutParams {
 #[serde(rename_all = "camelCase")]
 pub struct SwitchThreadRolloutResponse {
     pub conversation_id: ConversationId,
-    pub session_configured: SessionConfiguredEvent,
-    pub reasoning_summary: ReasoningSummary,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_configured: Option<SessionConfiguredEvent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_summary: Option<ReasoningSummary>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, TS)]
@@ -479,6 +481,9 @@ pub async fn switch_thread_rollout(
         .await
         .ok_or_else(|| "Unknown thread".to_string())?;
 
+    let conv_id = ConversationId::from_string(&params.conversation_id)
+        .map_err(|e| format!("Invalid conversation ID: {}", e))?;
+
     let rollout = find_rollout_for_conversation(&thread, &params.conversation_id)
         .ok_or_else(|| "Rollout not found for thread".to_string())?;
     let rollout_path = PathBuf::from(&rollout.rollout_path);
@@ -506,32 +511,55 @@ pub async fn switch_thread_rollout(
     config.shell_environment_policy.r#set = env_vars.clone();
     let reasoning_summary = config.model_reasoning_summary;
     let auth_manager = runtime.auth_manager().clone();
-
-    let new_conversation = runtime
-        .conversation_manager()
-        .resume_conversation_from_rollout(config, rollout_path.clone(), auth_manager)
-        .await
-        .map_err(|e| format!("Failed to resume conversation: {}", e))?;
-
-    let session_configured = new_conversation.session_configured.clone();
-    let conv_id = ConversationId::from_string(&params.conversation_id)
-        .map_err(|e| format!("Invalid conversation ID: {}", e))?;
-
-    if let Ok(conversation) = runtime
+    let existing_conversation = runtime
         .conversation_manager()
         .get_conversation(conv_id)
-        .await
-    {
-        let _ = runtime
-            .event_manager()
-            .subscribe(
-                conv_id,
-                conversation,
-                app_handle.clone(),
-                params.conversation_id.clone(),
-            )
-            .await;
-    }
+        .await;
+
+    let (session_configured, reasoning_summary) = match existing_conversation {
+        Ok(conversation) => {
+            // Conversation already active in runtime; ensure we have a subscription,
+            // but avoid replaying history from the rollout.
+            let _ = runtime
+                .event_manager()
+                .subscribe(
+                    conv_id,
+                    conversation,
+                    app_handle.clone(),
+                    params.conversation_id.clone(),
+                )
+                .await;
+
+            (None, None)
+        }
+        Err(_) => {
+            let new_conversation = runtime
+                .conversation_manager()
+                .resume_conversation_from_rollout(config, rollout_path.clone(), auth_manager)
+                .await
+                .map_err(|e| format!("Failed to resume conversation: {}", e))?;
+
+            let session_configured = new_conversation.session_configured.clone();
+
+            if let Ok(conversation) = runtime
+                .conversation_manager()
+                .get_conversation(conv_id)
+                .await
+            {
+                let _ = runtime
+                    .event_manager()
+                    .subscribe(
+                        conv_id,
+                        conversation,
+                        app_handle.clone(),
+                        params.conversation_id.clone(),
+                    )
+                    .await;
+            }
+
+            (Some(session_configured), Some(reasoning_summary))
+        }
+    };
 
     if let Err(err) = session.review_snapshots().ensure_base().await {
         log::debug!(
