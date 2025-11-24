@@ -54,9 +54,13 @@ const computeThreadVersionGroups = (
   });
 
   groups.forEach((group, nth) => {
-    const sorted = [...group].sort((a, b) =>
-      a.createdAt.localeCompare(b.createdAt)
-    );
+    const sorted = [...group].sort((a, b) => {
+      const dateComparison = a.createdAt.localeCompare(b.createdAt);
+      if (dateComparison !== 0) {
+        return dateComparison;
+      }
+      return a.conversationId.localeCompare(b.conversationId);
+    });
     groups.set(nth, sorted);
   });
 
@@ -530,12 +534,27 @@ export const WorkspaceProvider = ({
           !!conversationStoresRef.current.get(conversationIdStr) &&
           loadingStates.get(conversationIdStr) === 'loaded';
 
-        if (!hasLoadedStore && sessionConfigured && reasoningSummary) {
+        let sessionToHydrate = sessionConfigured;
+        let reasoningToHydrate = reasoningSummary;
+
+        if (!hasLoadedStore && !sessionToHydrate) {
+          // The runtime may already have this conversation active and omit initial
+          // messages. In that case, explicitly re-initialize the thread to hydrate
+          // the transcript for the target conversation.
+          const init = await Codex.initializeThread({
+            threadId,
+            workspacePath,
+          });
+          sessionToHydrate = init.sessionConfigured;
+          reasoningToHydrate = init.reasoningSummary;
+        }
+
+        if (!hasLoadedStore && sessionToHydrate && reasoningToHydrate) {
           loadingStates.set(conversationIdStr, 'loading');
           const store = hydrateConversationStore(
             conversationIdStr,
-            sessionConfigured,
-            reasoningSummary
+            sessionToHydrate,
+            reasoningToHydrate
           );
           store.getState().setLoading(false);
           loadingStates.set(conversationIdStr, 'loaded');

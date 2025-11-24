@@ -405,7 +405,7 @@ pub async fn initialize_thread(
         .await
     {
         Some(active) => active.cwd.clone(),
-        None => load_rollout_cwd(&rollout_path).await?,
+        None => load_rollout_cwd(&rollout_path, Some(&workspace_path)).await?,
     };
 
     let session = workspace_manager
@@ -493,7 +493,7 @@ pub async fn switch_thread_rollout(
         .await
     {
         Some(active) => active.cwd.clone(),
-        None => load_rollout_cwd(&rollout_path).await?,
+        None => load_rollout_cwd(&rollout_path, Some(&workspace_path)).await?,
     };
 
     let session = workspace_manager
@@ -631,7 +631,7 @@ pub async fn fork_thread(
         .await
     {
         Some(active) => active.cwd.clone(),
-        None => load_rollout_cwd(&rollout_path).await?,
+        None => load_rollout_cwd(&rollout_path, Some(&workspace_path)).await?,
     };
 
     let session = workspace_manager
@@ -1475,10 +1475,29 @@ fn find_rollout_for_conversation<'a>(
         .find(|rollout| rollout.conversation_id == conversation_id)
 }
 
-async fn load_rollout_cwd(rollout_path: &Path) -> CommandResult<PathBuf> {
-    let file = File::open(rollout_path)
-        .await
-        .map_err(|e| format!("Failed to open rollout {}: {}", rollout_path.display(), e))?;
+async fn load_rollout_cwd(
+    rollout_path: &Path,
+    fallback_workspace: Option<&str>,
+) -> CommandResult<PathBuf> {
+    let file = match File::open(rollout_path).await {
+        Ok(file) => file,
+        Err(e) => {
+            if let Some(ws) = fallback_workspace {
+                log::debug!(
+                    "Falling back to workspace cwd {} for rollout {}: {}",
+                    ws,
+                    rollout_path.display(),
+                    e
+                );
+                return Ok(PathBuf::from(ws));
+            }
+            return Err(format!(
+                "Failed to open rollout {}: {}",
+                rollout_path.display(),
+                e
+            ));
+        }
+    };
     let mut reader = BufReader::new(file);
     let mut first_line = String::new();
     let bytes_read = reader.read_line(&mut first_line).await.map_err(|e| {
@@ -1490,16 +1509,53 @@ async fn load_rollout_cwd(rollout_path: &Path) -> CommandResult<PathBuf> {
     })?;
 
     if bytes_read == 0 {
+        if let Some(ws) = fallback_workspace {
+            log::debug!(
+                "Rollout {} did not contain a session header, falling back to workspace cwd {}",
+                rollout_path.display(),
+                ws
+            );
+            return Ok(PathBuf::from(ws));
+        }
         return Err(format!(
             "Rollout {} did not contain a session header",
             rollout_path.display()
         ));
     }
 
-    let session_meta: SessionMeta = serde_json::from_str(&first_line)
-        .map_err(|e| format!("Failed to parse rollout header: {}", e))?;
+    let value: serde_json::Value = match serde_json::from_str(&first_line) {
+        Ok(v) => v,
+        Err(e) => {
+            if let Some(ws) = fallback_workspace {
+                log::debug!(
+                    "Failed to parse rollout header {} ({}), falling back to workspace cwd {}",
+                    rollout_path.display(),
+                    e,
+                    ws
+                );
+                return Ok(PathBuf::from(ws));
+            }
+            return Err(format!("Failed to parse rollout header: {}", e));
+        }
+    };
 
-    Ok(session_meta.cwd)
+    if let Some(cwd_str) = value.get("cwd").and_then(|v| v.as_str()) {
+        return Ok(PathBuf::from(cwd_str));
+    }
+
+    if let Some(ws) = fallback_workspace {
+        log::debug!(
+            "Rollout {} header missing cwd, falling back to workspace cwd {}",
+            rollout_path.display(),
+            ws
+        );
+        return Ok(PathBuf::from(ws));
+    }
+
+    Err(format!(
+        "Rollout {} header missing cwd",
+        rollout_path.display()
+    ))
 }
 
 #[cfg(test)]

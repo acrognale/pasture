@@ -24,6 +24,7 @@ export const useMessageVersions = ({
     loadThreadRollouts,
     switchThreadConversation,
   } = useWorkspaceConversationStores();
+  const [versions, setVersions] = useState<MessageVersionEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const threadId = useMemo(
     () => getThreadIdForConversation(conversationId),
@@ -32,6 +33,7 @@ export const useMessageVersions = ({
 
   useEffect(() => {
     if (!threadId || nthUserMessage == null) {
+      setVersions([]);
       return;
     }
 
@@ -40,6 +42,19 @@ export const useMessageVersions = ({
       try {
         setIsLoading(true);
         await loadThreadRollouts(threadId);
+        if (cancelled) {
+          return;
+        }
+        const groups = getThreadVersionGroups(threadId);
+        const items = groups?.get(nthUserMessage) ?? [];
+        setVersions(
+          items.map((rollout) => ({
+            conversationId: rollout.conversationId,
+            createdAt: rollout.createdAt,
+            forkedFromConversationId: rollout.forkedFromConversationId ?? null,
+            forkedFromNthUserMessage: rollout.forkedFromNthUserMessage ?? null,
+          }))
+        );
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -52,21 +67,13 @@ export const useMessageVersions = ({
     return () => {
       cancelled = true;
     };
-  }, [loadThreadRollouts, nthUserMessage, threadId]);
-
-  const versions = useMemo<MessageVersionEntry[]>(() => {
-    if (!threadId || nthUserMessage == null) {
-      return [];
-    }
-    const groups = getThreadVersionGroups(threadId);
-    const items = groups?.get(nthUserMessage) ?? [];
-    return items.map((rollout) => ({
-      conversationId: rollout.conversationId,
-      createdAt: rollout.createdAt,
-      forkedFromConversationId: rollout.forkedFromConversationId ?? null,
-      forkedFromNthUserMessage: rollout.forkedFromNthUserMessage ?? null,
-    }));
-  }, [getThreadVersionGroups, nthUserMessage, threadId]);
+  }, [
+    conversationId,
+    getThreadVersionGroups,
+    loadThreadRollouts,
+    nthUserMessage,
+    threadId,
+  ]);
 
   const activeConversationId = useMemo(
     () => (threadId ? getThreadConversationId(threadId) : null),

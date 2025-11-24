@@ -13,6 +13,7 @@ import type { InitializeThreadResponse } from '~/codex.gen/InitializeThreadRespo
 import type { InterruptConversationResponse } from '~/codex.gen/InterruptConversationResponse';
 import type { ListConversationsParams } from '~/codex.gen/ListConversationsParams';
 import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
+import type { ListThreadRolloutsResponse } from '~/codex.gen/ListThreadRolloutsResponse';
 import type { ListThreadsResponse } from '~/codex.gen/ListThreadsResponse';
 import type { ListTurnSnapshotsResponse } from '~/codex.gen/ListTurnSnapshotsResponse';
 import type { NewConversationResponse } from '~/codex.gen/NewConversationResponse';
@@ -140,6 +141,18 @@ const mockCodexNamespace = {
     async (): Promise<InitializeThreadResponse> =>
       createDefaultInitializeThreadResponse()
   ),
+  listThreadRollouts: defineStub<[], ListThreadRolloutsResponse>(
+    async (): Promise<ListThreadRolloutsResponse> => ({
+      threadId: 'mock-thread',
+      currentConversationId: 'mock-conversation',
+      rollouts: [],
+    })
+  ),
+  switchThreadRollout: defineStub(async () => ({
+    conversationId: 'mock-conversation',
+    sessionConfigured: createDefaultSessionConfiguredEvent(),
+    reasoningSummary: 'auto' satisfies ReasoningSummary,
+  })),
   compactConversation: defineStub(async () => undefined),
   sendUserMessage: defineStub(async () => undefined),
   interruptConversation: defineStub(async () =>
