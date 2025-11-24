@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import type { SendUserMessageParams } from '~/codex.gen/SendUserMessageParams';
 import { mockCodex, mockEvents } from '~/testing/codex';
 
 import {
@@ -275,6 +276,107 @@ describe('Conversation streaming flow', () => {
         exact: false,
       })
     ).toBeInTheDocument();
+  });
+
+  test('queues messages typed while a turn is active instead of sending immediately', async () => {
+    renderConversationPane(CONVERSATION_ID);
+
+    const composer = await screen.findByRole('textbox');
+
+    emitSessionConfigured();
+    emitEvent({
+      type: 'task_started',
+      model_context_window: BigInt(32768),
+    });
+
+    fireEvent.change(composer, { target: { value: 'Queued while busy' } });
+    fireEvent.keyDown(composer, { key: 'Enter', metaKey: true });
+
+    await waitFor(() => expect(composer).toHaveValue(''));
+    expect(mockCodex.stub.sendUserMessage).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText('Queued while busy', { exact: false })
+    ).toBeInTheDocument();
+  });
+
+  test('sends a single queued message when a turn completes and leaves the rest queued', async () => {
+    renderConversationPane(CONVERSATION_ID);
+
+    const composer = await screen.findByRole('textbox');
+
+    emitSessionConfigured();
+    emitEvent({
+      type: 'task_started',
+      model_context_window: BigInt(32768),
+    });
+
+    fireEvent.change(composer, { target: { value: 'First queued' } });
+    fireEvent.keyDown(composer, { key: 'Enter', metaKey: true });
+    fireEvent.change(composer, { target: { value: 'Second queued' } });
+    fireEvent.keyDown(composer, { key: 'Enter', metaKey: true });
+
+    expect(mockCodex.stub.sendUserMessage).not.toHaveBeenCalled();
+
+    emitEvent({
+      type: 'task_complete',
+      last_agent_message: 'Done.',
+    });
+
+    await waitFor(() =>
+      expect(mockCodex.stub.sendUserMessage).toHaveBeenCalledTimes(1)
+    );
+    type SendUserMessageMock = {
+      mock: { calls: [SendUserMessageParams][] };
+    };
+    const sendUserMessageMock = mockCodex.stub
+      .sendUserMessage as unknown as SendUserMessageMock;
+    const firstCall = sendUserMessageMock.mock.calls[0]?.[0];
+    const firstItem = firstCall?.items?.[0];
+    const firstSent =
+      firstItem && firstItem.type === 'text' ? firstItem.data.text : null;
+    expect(firstSent).toBe('First queued');
+
+    emitEvent({
+      type: 'task_started',
+      model_context_window: BigInt(32768),
+    });
+
+    expect(
+      await screen.findByText('Second queued', { exact: false })
+    ).toBeInTheDocument();
+  });
+
+  test('interrupt merges queued messages back into the composer and clears the queue', async () => {
+    renderConversationPane(CONVERSATION_ID);
+
+    const composer = await screen.findByRole('textbox');
+
+    emitSessionConfigured();
+    emitEvent({
+      type: 'task_started',
+      model_context_window: BigInt(32768),
+    });
+
+    fireEvent.change(composer, { target: { value: 'Queued draft' } });
+    fireEvent.keyDown(composer, { key: 'Enter', metaKey: true });
+
+    await screen.findByText('Queued draft', { exact: false });
+
+    fireEvent.keyDown(composer, { key: 'Escape' });
+
+    expect(mockCodex.stub.interruptConversation).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => expect(composer).toHaveValue('Queued draft'));
+
+    emitEvent({
+      type: 'turn_aborted',
+      reason: 'interrupted',
+    });
+
+    await waitFor(() =>
+      expect(mockCodex.stub.sendUserMessage).toHaveBeenCalledTimes(0)
+    );
+    expect(screen.queryByText('Queued draft')).toBeNull();
   });
 
   test('updates the token gauge when token_count events emit', async () => {
