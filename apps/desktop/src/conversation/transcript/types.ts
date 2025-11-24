@@ -270,5 +270,10 @@ export type TranscriptTurnDiff = {
   timestamp: string;
   unifiedDiff: string;
   turnNumber: number;
+  /**
+   * ID of the underlying Codex turn/event that produced this diff.
+   * Used for mapping to backend review snapshots, which are keyed by turn ID.
+   */
+  turnId?: string;
   headSnapshotId?: string | null;
 };

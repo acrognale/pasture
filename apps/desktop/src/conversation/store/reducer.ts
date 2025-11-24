@@ -898,6 +898,10 @@ function onTurnDiff(
     timestamp,
     unifiedDiff: event.unified_diff ?? '',
     turnNumber,
+    // Map to the backend snapshot key so turn review can request
+    // cumulative diffs using Codex's turn identifier rather than
+    // the frontend-local eventId.
+    turnId,
   };
 
   const existingIndex = history.findIndex(

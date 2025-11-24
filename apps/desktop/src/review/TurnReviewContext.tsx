@@ -99,7 +99,32 @@ const makeCommentId = () => {
   return `comment-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
-const TurnReviewContext = createContext<TurnReviewContextValue | null>(null);
+const defaultTurnReviewContext: TurnReviewContextValue = {
+  diff: null,
+  diffEventId: null,
+  selectedDiff: null,
+  history: [],
+  selectDiffByEventId: () => undefined,
+  baseTurnId: null,
+  setBaseTurnId: () => undefined,
+  targetTurnId: null,
+  snapshotDisabled: true,
+  baselineSnapshotId: null,
+  turnSnapshots: new Map(),
+  selectedFileId: null,
+  setSelectedFileId: () => undefined,
+  comments: [],
+  addComment: () => null,
+  updateComment: () => undefined,
+  removeComment: () => undefined,
+  getLineReference: () => undefined,
+  conversationId: null,
+  buildFeedbackPrompt: () => null,
+};
+
+const TurnReviewContext = createContext<TurnReviewContextValue>(
+  defaultTurnReviewContext
+);
 
 const buildLineLookup = (
   diff: ParsedTurnDiff | null
@@ -237,6 +262,14 @@ export function TurnReviewProvider({
     }
   }, [baseTurnId, history, targetTurnId]);
 
+  const historyById = useMemo(() => {
+    const map = new Map<string, TranscriptTurnDiff>();
+    for (const entry of history) {
+      map.set(entry.eventId, entry);
+    }
+    return map;
+  }, [history]);
+
   const selectedDiff = useMemo<TranscriptTurnDiff | null>(() => {
     if (!targetTurnId) {
       return latestDiff ?? null;
@@ -285,12 +318,22 @@ export function TurnReviewProvider({
     if (!conversationId || !targetTurnId || snapshotDisabled) {
       return null;
     }
+    const targetEntry = historyById.get(targetTurnId);
+    const targetSnapshotEventId = targetEntry?.turnId ?? null;
+    if (!targetSnapshotEventId) {
+      return null;
+    }
+    const baseSnapshotEventId =
+      baseTurnId === null
+        ? null
+        : (historyById.get(baseTurnId)?.turnId ?? null);
+
     return {
       conversationId,
-      baseEventId: baseTurnId,
-      targetEventId: targetTurnId,
+      baseEventId: baseSnapshotEventId,
+      targetEventId: targetSnapshotEventId,
     };
-  }, [baseTurnId, conversationId, snapshotDisabled, targetTurnId]);
+  }, [baseTurnId, conversationId, historyById, snapshotDisabled, targetTurnId]);
 
   const extractErrorMessage = (error: unknown): string => {
     if (error instanceof Error) {
@@ -633,9 +676,5 @@ export function TurnReviewProvider({
 }
 
 export const useTurnReview = () => {
-  const context = useContext(TurnReviewContext);
-  if (!context) {
-    throw new Error('useTurnReview must be used within a TurnReviewProvider');
-  }
-  return context;
+  return useContext(TurnReviewContext);
 };

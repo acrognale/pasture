@@ -10,7 +10,6 @@ export const useBaseCandidates = (): TranscriptTurnDiff[] => {
     if (!targetTurnId) {
       return [];
     }
-    const snapshots = turnSnapshots;
     const ordered = [...history].sort((a, b) => a.turnNumber - b.turnNumber);
     const targetIndex = ordered.findIndex(
       (entry) => entry.eventId === targetTurnId
@@ -18,9 +17,10 @@ export const useBaseCandidates = (): TranscriptTurnDiff[] => {
     if (targetIndex <= 0) {
       return [];
     }
-    return ordered
-      .slice(0, targetIndex)
-      .filter((entry) => snapshots.has(entry.eventId));
+    return ordered.slice(0, targetIndex).filter((entry) => {
+      const snapshotKey = entry.turnId ?? entry.eventId;
+      return turnSnapshots.has(snapshotKey);
+    });
   }, [history, targetTurnId, turnSnapshots]);
 };
 
