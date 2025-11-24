@@ -218,7 +218,6 @@ export function ConversationPane({
 
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
           <ConversationTranscriptSection
-            key={conversationId}
             ref={transcriptHandleRef}
             conversationId={conversationId}
             loadConversation={loadConversation}
