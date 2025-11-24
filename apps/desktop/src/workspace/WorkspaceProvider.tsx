@@ -102,6 +102,14 @@ export const useWorkspaceOpenThreads = () => {
   return useStore(store, (state) => state.openThreadIds);
 };
 
+export const useWorkspaceThreadConversationId = (threadId: string | null) => {
+  const store = useWorkspaceStore();
+  return useStore(
+    store,
+    (state) => (threadId ? state.threadConversationIds[threadId] : null) ?? null
+  );
+};
+
 export const useWorkspace = () => {
   const { workspacePath, normalizedWorkspacePath } = useWorkspaceContext();
   return { workspacePath, normalizedWorkspacePath };

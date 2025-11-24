@@ -44,6 +44,7 @@ export type WorkspaceStoreActions = {
 
 export type WorkspaceStoreState = {
   openThreadIds: string[];
+  threadConversationIds: Record<string, string>;
   actions: WorkspaceStoreActions;
 };
 
@@ -70,6 +71,15 @@ export const createWorkspaceStore = (
   return createStore<WorkspaceStoreState>((set) => {
     const syncOpenThreadIds = () =>
       set({ openThreadIds: Array.from(openThreadIdsSet) });
+
+    const syncThreadConversationIds = () => {
+      const entries = Array.from(threadConversationMap.entries());
+      const next: Record<string, string> = {};
+      for (const [threadId, conversationId] of entries) {
+        next[threadId] = conversationId;
+      }
+      set({ threadConversationIds: next });
+    };
 
     const ensureConversationStore = (conversationId: string) => {
       if (!conversationId) {
@@ -113,6 +123,7 @@ export const createWorkspaceStore = (
       if (conversationId) {
         clearConversationStore(conversationId);
       }
+      syncThreadConversationIds();
     };
 
     const applyConversationEvent = (payload: ConversationEventPayload) => {
@@ -202,6 +213,7 @@ export const createWorkspaceStore = (
         );
         store.getState().setLoading(false);
         threadLoading.set(threadId, 'loaded');
+        syncThreadConversationIds();
         return conversationId;
       } catch (error) {
         threadLoading.set(threadId, 'error');
@@ -298,6 +310,7 @@ export const createWorkspaceStore = (
           forkBaseConversationId,
           forkNthUserMessage,
         });
+        syncThreadConversationIds();
         return conversationId;
       } catch (error) {
         threadLoading.set(threadId, 'error');
@@ -360,6 +373,7 @@ export const createWorkspaceStore = (
         }
 
         threadLoading.set(threadId, 'loaded');
+        syncThreadConversationIds();
         updateThreadOnSwitch(deps.queryClient, deps.keys, {
           threadId,
           conversationId: conversationIdStr,
@@ -395,6 +409,7 @@ export const createWorkspaceStore = (
 
     return {
       openThreadIds: Array.from(openThreadIdsSet),
+      threadConversationIds: {},
       actions,
     };
   });

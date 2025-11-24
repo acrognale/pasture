@@ -16,7 +16,7 @@ import { decodeWorkspaceId } from '~/lib/routing';
 import { WorkspaceProvider } from '~/workspace';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';
-import { useWorkspaceActions } from '~/workspace/WorkspaceProvider';
+import { useWorkspaceThreadConversationId } from '~/workspace/WorkspaceProvider';
 import { WorkspaceTopBar } from '~/workspace/WorkspaceTopBar';
 
 export const Route = createFileRoute('/workspaces/$workspaceId')({
@@ -54,13 +54,13 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
           match.routeId === '/workspaces/$workspaceId/threads/$threadId'
       ),
   });
-  const { getThreadConversationId } = useWorkspaceActions();
   const [isResizing] = useState(false);
 
-  const activeConversationId =
+  const threadId =
     typeof threadMatch?.params?.threadId === 'string'
-      ? getThreadConversationId(threadMatch.params.threadId)
+      ? threadMatch.params.threadId
       : null;
+  const activeConversationId = useWorkspaceThreadConversationId(threadId);
 
   return (
     <SidebarProvider

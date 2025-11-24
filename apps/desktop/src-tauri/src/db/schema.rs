@@ -188,7 +188,7 @@ pub fn encode_thread_record(record: &ThreadRecord, workspace_path: &str) -> Thre
         .rollouts
         .iter()
         .map(|rollout| thread_rollouts::ActiveModel {
-            id: Set(Default::default()),
+            id: sea_orm::ActiveValue::NotSet,
             thread_id: Set(record.thread_id.clone()),
             conversation_id: Set(rollout.conversation_id.clone()),
             rollout_path: Set(rollout.rollout_path.clone()),
