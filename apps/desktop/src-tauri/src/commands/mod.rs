@@ -17,6 +17,14 @@ codex_command_descriptors! {
         params: conversations::ListThreadsParams,
         result: conversations::ListThreadsResponse,
     },
+    conversations::list_thread_rollouts {
+        params: conversations::ListThreadRolloutsParams,
+        result: conversations::ListThreadRolloutsResponse,
+    },
+    conversations::switch_thread_rollout {
+        params: conversations::SwitchThreadRolloutParams,
+        result: conversations::SwitchThreadRolloutResponse,
+    },
     conversations::new_thread {
         params: conversations::NewThreadCommandParams,
         result: conversations::NewThreadResponse,
@@ -24,6 +32,10 @@ codex_command_descriptors! {
     conversations::initialize_thread {
         params: conversations::InitializeThreadParams,
         result: conversations::InitializeThreadResponse,
+    },
+    conversations::fork_thread {
+        params: conversations::ForkThreadParams,
+        result: conversations::ForkThreadResponse,
     },
     conversations::list_conversations {
         params: conversations::ListConversationsParams,

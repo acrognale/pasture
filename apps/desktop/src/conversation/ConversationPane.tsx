@@ -30,11 +30,13 @@ import {
 type ConversationPaneProps = {
   workspacePath: string;
   conversationId: string;
+  onConversationForked?: (conversationId: string) => void;
 };
 
 export function ConversationPane({
   workspacePath,
   conversationId,
+  onConversationForked,
 }: ConversationPaneProps) {
   const { loadConversation, getConversationStore } =
     useWorkspaceConversationStores();
@@ -223,6 +225,7 @@ export function ConversationPane({
             loadConversation={loadConversation}
             expandedTurns={expandedTurns}
             onToggleTurn={toggleTurn}
+            onConversationForked={onConversationForked}
             onScrollToBottom={handleScrollToBottom}
           />
 

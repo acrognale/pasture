@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { type ApprovalsStore, createApprovalsStore } from '~/approvals/store';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
+import type { ThreadRollout } from '~/codex.gen/ThreadRollout';
 import { Codex } from '~/codex/client';
 import {
   type ConversationStore,
@@ -18,6 +19,49 @@ import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 
 import { normalizeWorkspacePath } from './conversations';
 import type { WorkspaceMetadata } from './types';
+
+const computeThreadVersionGroups = (
+  rollouts: ThreadRollout[]
+): Map<number, ThreadRollout[]> => {
+  const byConversationId = new Map(
+    rollouts.map((rollout) => [rollout.conversationId, rollout])
+  );
+  const groups = new Map<number, ThreadRollout[]>();
+  const seenByNth = new Map<number, Set<string>>();
+
+  rollouts.forEach((rollout) => {
+    const nth = rollout.forkedFromNthUserMessage;
+    if (nth == null) {
+      return;
+    }
+
+    let current: ThreadRollout | undefined = rollout;
+    while (current) {
+      const seen = seenByNth.get(nth) ?? new Set<string>();
+      const group = groups.get(nth) ?? [];
+      if (!seen.has(current.conversationId)) {
+        group.push(current);
+        seen.add(current.conversationId);
+        groups.set(nth, group);
+        seenByNth.set(nth, seen);
+      }
+
+      if (!current.forkedFromConversationId) {
+        break;
+      }
+      current = byConversationId.get(current.forkedFromConversationId);
+    }
+  });
+
+  groups.forEach((group, nth) => {
+    const sorted = [...group].sort((a, b) =>
+      a.createdAt.localeCompare(b.createdAt)
+    );
+    groups.set(nth, sorted);
+  });
+
+  return groups;
+};
 
 type WorkspaceContextValue = {
   workspacePath: string;
@@ -36,8 +80,25 @@ type WorkspaceContextValue = {
     threadId: string,
     options?: { force?: boolean }
   ) => Promise<string | null>;
+  forkThread: (
+    threadId: string,
+    baseConversationId: string,
+    nthUserMessage: number
+  ) => Promise<string | null>;
   getThreadConversationId: (threadId: string) => string | null;
   getThreadIdForConversation: (conversationId: string) => string | null;
+  getThreadRollouts: (threadId: string) => ThreadRollout[] | null;
+  loadThreadRollouts: (
+    threadId: string,
+    options?: { force?: boolean }
+  ) => Promise<ThreadRollout[]>;
+  getThreadVersionGroups: (
+    threadId: string
+  ) => Map<number, ThreadRollout[]> | null;
+  switchThreadConversation: (
+    threadId: string,
+    conversationId: string
+  ) => Promise<string | null>;
   clearConversationStore: (conversationId: string) => void;
   openConversationIds: string[];
   closeConversation: (conversationId: string) => void;
@@ -84,6 +145,13 @@ export const WorkspaceProvider = ({
   const conversationToThreadMapRef = useRef<Map<string, string>>(new Map());
   const threadLoadingStatesRef = useRef<
     Map<string, 'idle' | 'loading' | 'loaded' | 'error'>
+  >(new Map());
+  const threadRolloutsRef = useRef<Map<string, ThreadRollout[]>>(new Map());
+  const threadRolloutsLoadingRef = useRef<
+    Map<string, 'idle' | 'loading' | 'loaded' | 'error'>
+  >(new Map());
+  const threadVersionGroupsRef = useRef<
+    Map<string, Map<number, ThreadRollout[]>>
   >(new Map());
 
   const syncOpenConversationIds = useCallback(() => {
@@ -166,6 +234,29 @@ export const WorkspaceProvider = ({
       }
     },
     [clearConversationStore, closeConversation, syncOpenThreadIds]
+  );
+
+  const upsertThreadRolloutCache = useCallback(
+    (threadId: string, rollout: ThreadRollout) => {
+      const rollouts = threadRolloutsRef.current.get(threadId) ?? [];
+      const existingIndex = rollouts.findIndex(
+        (item) => item.conversationId === rollout.conversationId
+      );
+      const nextRollouts =
+        existingIndex === -1
+          ? [...rollouts, rollout]
+          : [
+              ...rollouts.slice(0, existingIndex),
+              rollout,
+              ...rollouts.slice(existingIndex + 1),
+            ];
+      threadRolloutsRef.current.set(threadId, nextRollouts);
+      threadVersionGroupsRef.current.set(
+        threadId,
+        computeThreadVersionGroups(nextRollouts)
+      );
+    },
+    []
   );
 
   const ensureConversationStore = useCallback((conversationId: string) => {
@@ -297,6 +388,185 @@ export const WorkspaceProvider = ({
     ]
   );
 
+  const getThreadRollouts = useCallback(
+    (threadId: string) => threadRolloutsRef.current.get(threadId) ?? null,
+    []
+  );
+
+  const getThreadVersionGroups = useCallback(
+    (threadId: string) => threadVersionGroupsRef.current.get(threadId) ?? null,
+    []
+  );
+
+  const loadThreadRollouts = useCallback(
+    async (threadId: string, options?: { force?: boolean }) => {
+      if (!threadId) {
+        return [];
+      }
+
+      const status = threadRolloutsLoadingRef.current.get(threadId);
+      const cached = threadRolloutsRef.current.get(threadId);
+      if (!options?.force && status === 'loading') {
+        return cached ?? [];
+      }
+      if (!options?.force && status === 'loaded' && cached) {
+        return cached;
+      }
+
+      threadRolloutsLoadingRef.current.set(threadId, 'loading');
+
+      try {
+        const response = await Codex.listThreadRollouts({
+          workspacePath,
+          threadId,
+        });
+        const rollouts = response.rollouts ?? [];
+        threadRolloutsRef.current.set(threadId, rollouts);
+        threadVersionGroupsRef.current.set(
+          threadId,
+          computeThreadVersionGroups(rollouts)
+        );
+        threadRolloutsLoadingRef.current.set(threadId, 'loaded');
+        return rollouts;
+      } catch (error) {
+        threadRolloutsLoadingRef.current.set(threadId, 'error');
+        throw error;
+      }
+    },
+    [workspacePath]
+  );
+
+  const forkThread = useCallback(
+    async (
+      threadId: string,
+      baseConversationId: string,
+      nthUserMessage: number
+    ) => {
+      if (!threadId || !baseConversationId) {
+        return null;
+      }
+
+      markThreadOpen(threadId);
+      const threadLoadingStates = threadLoadingStatesRef.current;
+
+      try {
+        threadLoadingStates.set(threadId, 'loading');
+        const {
+          conversationId,
+          sessionConfigured,
+          reasoningSummary,
+          rolloutPath,
+          baseConversationId: forkBaseConversationId,
+          nthUserMessage: forkNthUserMessage,
+          createdAt,
+        } = await Codex.forkThread({
+          workspacePath,
+          threadId,
+          baseConversationId,
+          nthUserMessage,
+          options: null,
+        });
+
+        threadConversationMapRef.current.set(threadId, conversationId);
+        conversationToThreadMapRef.current.set(conversationId, threadId);
+        markConversationOpen(conversationId);
+        loadingStatesRef.current.set(conversationId, 'loaded');
+        const store = hydrateConversationStore(
+          conversationId,
+          sessionConfigured,
+          reasoningSummary
+        );
+        store.getState().setLoading(false);
+        threadLoadingStates.set(threadId, 'loaded');
+        upsertThreadRolloutCache(threadId, {
+          conversationId,
+          rolloutPath,
+          createdAt,
+          label: null,
+          forkedFromConversationId: forkBaseConversationId,
+          forkedFromNthUserMessage: forkNthUserMessage,
+        });
+        return conversationId;
+      } catch (error) {
+        threadLoadingStates.set(threadId, 'error');
+        throw error;
+      }
+    },
+    [
+      hydrateConversationStore,
+      markConversationOpen,
+      markThreadOpen,
+      upsertThreadRolloutCache,
+      workspacePath,
+    ]
+  );
+
+  const switchThreadConversation = useCallback(
+    async (threadId: string, conversationId: string) => {
+      if (!threadId || !conversationId) {
+        return null;
+      }
+
+      markThreadOpen(threadId);
+      const threadLoadingStates = threadLoadingStatesRef.current;
+      try {
+        threadLoadingStates.set(threadId, 'loading');
+        const {
+          conversationId: resolvedConversationId,
+          sessionConfigured,
+          reasoningSummary,
+        } = await Codex.switchThreadRollout({
+          workspacePath,
+          threadId,
+          conversationId,
+        });
+
+        const conversationIdStr = resolvedConversationId;
+        threadConversationMapRef.current.set(threadId, conversationIdStr);
+        conversationToThreadMapRef.current.set(conversationIdStr, threadId);
+        markConversationOpen(conversationIdStr);
+        loadingStatesRef.current.set(conversationIdStr, 'loaded');
+        const store = hydrateConversationStore(
+          conversationIdStr,
+          sessionConfigured,
+          reasoningSummary
+        );
+        store.getState().setLoading(false);
+        threadLoadingStates.set(threadId, 'loaded');
+
+        const cachedRollout =
+          threadRolloutsRef.current
+            .get(threadId)
+            ?.find((rollout) => rollout.conversationId === conversationIdStr) ??
+          null;
+        if (cachedRollout) {
+          upsertThreadRolloutCache(threadId, cachedRollout);
+        } else {
+          upsertThreadRolloutCache(threadId, {
+            conversationId: conversationIdStr,
+            rolloutPath: sessionConfigured.rollout_path,
+            createdAt: new Date().toISOString(),
+            label: null,
+            forkedFromConversationId: null,
+            forkedFromNthUserMessage: null,
+          });
+        }
+
+        return conversationIdStr;
+      } catch (error) {
+        threadLoadingStates.set(threadId, 'error');
+        throw error;
+      }
+    },
+    [
+      hydrateConversationStore,
+      markConversationOpen,
+      markThreadOpen,
+      workspacePath,
+      upsertThreadRolloutCache,
+    ]
+  );
+
   const loadConversation = useCallback(
     async (conversationId: string, options?: { force?: boolean }) => {
       if (!conversationId) {
@@ -352,6 +622,11 @@ export const WorkspaceProvider = ({
       applyConversationEvent,
       loadConversation,
       loadThread,
+      loadThreadRollouts,
+      forkThread,
+      switchThreadConversation,
+      getThreadRollouts,
+      getThreadVersionGroups,
       getThreadConversationId: (threadId: string) =>
         threadConversationMapRef.current.get(threadId) ?? null,
       getThreadIdForConversation: (conversationId: string) =>
@@ -369,9 +644,14 @@ export const WorkspaceProvider = ({
       closeConversation,
       clearConversationStore,
       getConversationStore,
+      getThreadRollouts,
+      getThreadVersionGroups,
       keys,
       loadConversation,
       loadThread,
+      loadThreadRollouts,
+      forkThread,
+      switchThreadConversation,
       metadata,
       openConversationIds,
       openThreadIds,
@@ -409,7 +689,12 @@ export const useWorkspaceConversationStores = () => {
     applyConversationEvent,
     loadConversation,
     loadThread,
+    loadThreadRollouts,
+    forkThread,
+    switchThreadConversation,
     getThreadIdForConversation,
+    getThreadRollouts,
+    getThreadVersionGroups,
     clearConversationStore,
     closeConversation,
     getThreadConversationId,
@@ -420,7 +705,12 @@ export const useWorkspaceConversationStores = () => {
     applyConversationEvent,
     loadConversation,
     loadThread,
+    loadThreadRollouts,
+    forkThread,
+    switchThreadConversation,
     getThreadIdForConversation,
+    getThreadRollouts,
+    getThreadVersionGroups,
     clearConversationStore,
     closeConversation,
     getThreadConversationId,
@@ -431,10 +721,29 @@ export const useWorkspaceOpenConversations = () =>
   useWorkspaceContext().openConversationIds;
 
 export const useWorkspaceThreadsContext = () => {
-  const { loadThread, getThreadConversationId, openThreadIds, closeThread } =
-    useWorkspaceContext();
+  const {
+    loadThread,
+    loadThreadRollouts,
+    forkThread,
+    switchThreadConversation,
+    getThreadConversationId,
+    getThreadRollouts,
+    getThreadVersionGroups,
+    openThreadIds,
+    closeThread,
+  } = useWorkspaceContext();
 
-  return { loadThread, getThreadConversationId, openThreadIds, closeThread };
+  return {
+    loadThread,
+    loadThreadRollouts,
+    forkThread,
+    switchThreadConversation,
+    getThreadConversationId,
+    getThreadRollouts,
+    getThreadVersionGroups,
+    openThreadIds,
+    closeThread,
+  };
 };
 
 export const useWorkspaceOpenThreads = () =>

@@ -13,6 +13,7 @@ describe('TranscriptList', () => {
 
     render(
       <TranscriptList
+        conversationId="test-conversation"
         turns={turns}
         turnOrder={turnOrder}
         expandedTurns={expandedTurns}
@@ -37,6 +38,7 @@ describe('TranscriptList', () => {
 
     render(
       <TranscriptList
+        conversationId="test-conversation"
         turns={turns}
         turnOrder={turnOrder}
         expandedTurns={{}}
@@ -91,6 +93,7 @@ describe('TranscriptList', () => {
 
     render(
       <TranscriptList
+        conversationId="test-conversation"
         turns={mutatedTurns}
         turnOrder={turnOrder}
         expandedTurns={{}}

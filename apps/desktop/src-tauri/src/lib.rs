@@ -85,8 +85,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::conversations::list_threads,
+            commands::conversations::list_thread_rollouts,
+            commands::conversations::switch_thread_rollout,
             commands::conversations::new_thread,
             commands::conversations::initialize_thread,
+            commands::conversations::fork_thread,
             commands::conversations::list_conversations,
             commands::conversations::initialize_conversation,
             commands::conversations::new_conversation,

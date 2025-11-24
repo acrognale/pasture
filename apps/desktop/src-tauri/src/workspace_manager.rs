@@ -111,7 +111,7 @@ impl WorkspaceComposerDefaults {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRollout {
     pub conversation_id: String,
@@ -119,6 +119,10 @@ pub struct ThreadRollout {
     pub created_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forked_from_conversation_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forked_from_nth_user_message: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -36,7 +36,11 @@ export const Timeline: Story = {
   render: () => (
     <div className="flex flex-col gap-3 bg-background p-6">
       {flatCells.map((cell) => (
-        <TranscriptCells key={cell.id} cell={cell} />
+        <TranscriptCells
+          key={cell.id}
+          cell={cell}
+          conversationId="story-conversation"
+        />
       ))}
     </div>
   ),
@@ -51,7 +55,7 @@ const buildSingleCellStory = (kind: TranscriptCellKind) =>
       const cell = findCell(kind);
       return (
         <div className="bg-background p-6">
-          <TranscriptCells cell={cell} />
+          <TranscriptCells cell={cell} conversationId="story-conversation" />
         </div>
       );
     },
@@ -67,7 +71,13 @@ export const MarkdownShowcase: Story = {
     return (
       <div className="flex flex-col gap-4 bg-background p-6">
         {markdownCells.map((cell) => {
-          return <TranscriptCells key={cell.id} cell={cell} />;
+          return (
+            <TranscriptCells
+              key={cell.id}
+              cell={cell}
+              conversationId="story-conversation"
+            />
+          );
         })}
       </div>
     );

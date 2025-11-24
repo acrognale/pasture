@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import type { MotionProps } from 'framer-motion';
+import { useMemo } from 'react';
 import type { MutableRefObject } from 'react';
 import type {
   TranscriptCell,
@@ -27,10 +28,12 @@ const createRowMotionProps = (): Pick<
 });
 
 type TranscriptListProps = {
+  conversationId: string;
   turns: Record<string, TranscriptTurn>;
   turnOrder: string[];
   expandedTurns: Record<string, boolean>;
   onToggleTurn: (turnId: string) => void;
+  onConversationForked?: (conversationId: string) => void;
   bottomAnchorRef?: MutableRefObject<HTMLDivElement | null>;
   contentRef?: MutableRefObject<HTMLDivElement | null>;
 };
@@ -40,6 +43,9 @@ type TranscriptTurnProps = {
   turn: TranscriptTurn;
   isExpanded: boolean;
   onToggle: () => void;
+  conversationId: string;
+  nthUserMessageMap: Record<string, number>;
+  onConversationForked?: (conversationId: string) => void;
 };
 
 const TranscriptTurnGroup = ({
@@ -47,6 +53,9 @@ const TranscriptTurnGroup = ({
   turn,
   isExpanded,
   onToggle,
+  conversationId,
+  nthUserMessageMap,
+  onConversationForked,
 }: TranscriptTurnProps) => {
   const { cells } = turn;
   if (!cells.length) {
@@ -56,9 +65,16 @@ const TranscriptTurnGroup = ({
   const renderAllCells = () => {
     const motionProps = createRowMotionProps();
     return cells.map((cell) => {
+      const nthUserMessage =
+        cell.kind === 'user-message' ? nthUserMessageMap[cell.id] : undefined;
       return (
         <motion.div key={cell.id} {...motionProps}>
-          <TranscriptCells cell={cell} />
+          <TranscriptCells
+            cell={cell}
+            conversationId={conversationId}
+            nthUserMessage={nthUserMessage}
+            onConversationForked={onConversationForked}
+          />
         </motion.div>
       );
     });
@@ -97,23 +113,53 @@ const TranscriptTurnGroup = ({
     return (
       <>
         <motion.div key={firstCell.id} {...motionProps}>
-          <TranscriptCells cell={firstCell} />
+          <TranscriptCells
+            cell={firstCell}
+            conversationId={conversationId}
+            nthUserMessage={
+              firstCell.kind === 'user-message'
+                ? nthUserMessageMap[firstCell.id]
+                : undefined
+            }
+            onConversationForked={onConversationForked}
+          />
         </motion.div>
         <motion.div key={`${turnId}-collapsed`} {...motionProps}>
           <CollapsedTranscriptSection
             hiddenCells={hiddenCells}
             isExpanded={isExpanded}
             onToggle={onToggle}
+            conversationId={conversationId}
+            nthUserMessageMap={nthUserMessageMap}
+            onConversationForked={onConversationForked}
           />
         </motion.div>
         {anchorCell && (
           <motion.div key={anchorCell.id} {...motionProps}>
-            <TranscriptCells cell={anchorCell} />
+            <TranscriptCells
+              cell={anchorCell}
+              conversationId={conversationId}
+              nthUserMessage={
+                anchorCell.kind === 'user-message'
+                  ? nthUserMessageMap[anchorCell.id]
+                  : undefined
+              }
+              onConversationForked={onConversationForked}
+            />
           </motion.div>
         )}
         {cells.slice(anchorIndex + 1).map((cell) => (
           <motion.div key={cell.id} {...motionProps}>
-            <TranscriptCells cell={cell} />
+            <TranscriptCells
+              cell={cell}
+              conversationId={conversationId}
+              nthUserMessage={
+                cell.kind === 'user-message'
+                  ? nthUserMessageMap[cell.id]
+                  : undefined
+              }
+              onConversationForked={onConversationForked}
+            />
           </motion.div>
         ))}
       </>
@@ -124,13 +170,33 @@ const TranscriptTurnGroup = ({
 };
 
 export const TranscriptList = ({
+  conversationId,
   turns,
   turnOrder,
   expandedTurns,
   onToggleTurn,
+  onConversationForked,
   bottomAnchorRef,
   contentRef,
 }: TranscriptListProps) => {
+  const nthUserMessageMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    let nth = 0;
+    turnOrder.forEach((id) => {
+      const turn = turns[id];
+      if (!turn) {
+        return;
+      }
+      turn.cells.forEach((cell) => {
+        if (cell.kind === 'user-message') {
+          map[cell.id] = nth;
+          nth += 1;
+        }
+      });
+    });
+    return map;
+  }, [turnOrder, turns]);
+
   const turnEntries = turnOrder
     .map((turnId) => {
       const turn = turns[turnId];
@@ -153,6 +219,9 @@ export const TranscriptList = ({
             turn={turn}
             isExpanded={Boolean(expandedTurns[turnId])}
             onToggle={() => onToggleTurn(turnId)}
+            conversationId={conversationId}
+            nthUserMessageMap={nthUserMessageMap}
+            onConversationForked={onConversationForked}
           />
         ))}
       </AnimatePresence>

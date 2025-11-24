@@ -6,6 +6,8 @@ import type {
   AuthState,
   CompactConversationParams,
   ComposerTurnConfigPayload,
+  ForkThreadParams,
+  ForkThreadResponse,
   GetComposerConfigParams,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
@@ -17,6 +19,8 @@ import type {
   InterruptConversationResponse,
   ListConversationsParams,
   ListConversationsResponse,
+  ListThreadRolloutsParams,
+  ListThreadRolloutsResponse,
   ListThreadsParams,
   ListThreadsResponse,
   ListTurnSnapshotsParams,
@@ -29,6 +33,8 @@ import type {
   RespondApprovalParams,
   SendUserMessageParams,
   SetWindowTitleParams,
+  SwitchThreadRolloutParams,
+  SwitchThreadRolloutResponse,
   UpdateComposerConfigParams,
   WorkspaceComposerDefaults,
   WorkspacePathParams,
@@ -39,6 +45,22 @@ export namespace Codex {
     params: ListThreadsParams
   ): Promise<ListThreadsResponse> {
     return await invoke<ListThreadsResponse>('list_threads', { params });
+  }
+
+  export async function listThreadRollouts(
+    params: ListThreadRolloutsParams
+  ): Promise<ListThreadRolloutsResponse> {
+    return await invoke<ListThreadRolloutsResponse>('list_thread_rollouts', {
+      params,
+    });
+  }
+
+  export async function switchThreadRollout(
+    params: SwitchThreadRolloutParams
+  ): Promise<SwitchThreadRolloutResponse> {
+    return await invoke<SwitchThreadRolloutResponse>('switch_thread_rollout', {
+      params,
+    });
   }
 
   export async function newThread(
@@ -53,6 +75,12 @@ export namespace Codex {
     return await invoke<InitializeThreadResponse>('initialize_thread', {
       params,
     });
+  }
+
+  export async function forkThread(
+    params: ForkThreadParams
+  ): Promise<ForkThreadResponse> {
+    return await invoke<ForkThreadResponse>('fork_thread', { params });
   }
 
   export async function listConversations(
