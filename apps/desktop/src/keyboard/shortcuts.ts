@@ -8,18 +8,18 @@ export const SHORTCUTS = {
     description: 'Toggle the workspace sidebar',
     allowInInput: true,
   },
-  'workspace.newConversation': {
-    id: 'workspace.newConversation',
+  'workspace.newThread': {
+    id: 'workspace.newThread',
     chord: 'CmdOrCtrl+N',
     scope: 'workspace',
-    description: 'Start a new conversation',
+    description: 'Start a new thread',
     allowInInput: true,
   },
-  'workspace.openConversationSwitcher': {
-    id: 'workspace.openConversationSwitcher',
+  'workspace.openThreadSwitcher': {
+    id: 'workspace.openThreadSwitcher',
     chord: 'CmdOrCtrl+P',
     scope: 'workspace',
-    description: 'Open conversation switcher',
+    description: 'Open thread switcher',
     allowInInput: true,
     when: (event) => !event.altKey && !event.shiftKey,
   },

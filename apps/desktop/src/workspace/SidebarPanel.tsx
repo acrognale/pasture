@@ -171,7 +171,7 @@ export function SidebarPanel() {
     newThreadMutation.mutate();
   }, [newThreadMutation]);
 
-  const newConversationShortcutOverrides = useMemo(
+  const newThreadShortcutOverrides = useMemo(
     () => ({
       enabled: () => !newThreadMutation.isPending,
       when: (event: KeyboardEvent) => !event.altKey && !event.shiftKey,
@@ -188,8 +188,8 @@ export function SidebarPanel() {
   }, [handleStartNewSession, newThreadMutation.isPending]);
 
   useNamedShortcut(
-    'workspace.newConversation',
-    newConversationShortcutOverrides,
+    'workspace.newThread',
+    newThreadShortcutOverrides,
     handleNewConversationShortcut
   );
 

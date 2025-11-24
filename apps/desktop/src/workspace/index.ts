@@ -18,17 +18,9 @@ export {
   updateConversationTimestamp,
 } from './conversations';
 export {
-  useWorkspaceConversations,
-  useOpenWorkspaceConversations,
-} from './hooks/useWorkspaceConversations';
-export {
   useWorkspaceThreads,
   useOpenWorkspaceThreads,
 } from './hooks/useWorkspaceThreads';
-export type {
-  WorkspaceConversationsState,
-  WorkspaceOpenConversationsState,
-} from './hooks/useWorkspaceConversations';
 export type {
   WorkspaceThreadsState,
   WorkspaceOpenThreadsState,

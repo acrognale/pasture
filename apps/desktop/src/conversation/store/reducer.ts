@@ -377,9 +377,9 @@ function onSessionConfigured(
     draft.conversation.transcript.reasoningSummaryFormat =
       preference === 'none' ? 'none' : 'experimental';
   }
-  // Historical transcript events are replayed via Codex.initializeConversation.
-  // Streaming session_configured events intentionally skip initial_messages to avoid
-  // duplicating the RPC response when windows reconnect.
+  // Historical transcript events are replayed from rollout history during thread
+  // initialization, so streaming session_configured events intentionally skip
+  // initial_messages to avoid duplicating the RPC response when windows reconnect.
 }
 
 function onUserMessage(

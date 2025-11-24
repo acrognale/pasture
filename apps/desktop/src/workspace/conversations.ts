@@ -1,11 +1,22 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
-import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
 import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import {
   normalizeWorkspaceSlashes,
   trimWorkspaceTrailingSeparators,
 } from '~/lib/workspaces';
+
+export type ConversationSummary = {
+  conversationId: string;
+  path: string;
+  cwd: string;
+  preview: string;
+  timestamp?: string | null;
+};
+
+export type WorkspaceConversationsState = {
+  items: ConversationSummary[];
+  nextCursor: string | null;
+};
 
 type WorkspaceThreadsState = {
   items: ThreadSummary[];
@@ -88,7 +99,7 @@ export const updateConversationTimestamp = (
   conversationId: string,
   timestamp: string
 ) => {
-  queryClient.setQueryData<ListConversationsResponse>(
+  queryClient.setQueryData<WorkspaceConversationsState>(
     conversationsKey,
     (state) => {
       if (!state) {
@@ -129,7 +140,7 @@ export const updateConversationPreview = (
   preview: string,
   timestamp: string
 ) => {
-  queryClient.setQueryData<ListConversationsResponse>(
+  queryClient.setQueryData<WorkspaceConversationsState>(
     conversationsKey,
     (state) => {
       if (!state) {

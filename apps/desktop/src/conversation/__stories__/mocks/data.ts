@@ -1,4 +1,3 @@
-import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import type { FileChange } from '~/codex.gen/FileChange';
 import type { ParsedCommand } from '~/codex.gen/ParsedCommand';
 import type { ComposerTurnConfig } from '~/composer/config';
@@ -24,6 +23,7 @@ import type {
   TranscriptTurn,
   TranscriptUserMessageCell,
 } from '~/conversation/transcript/types';
+import type { ConversationSummary } from '~/workspace/conversations';
 
 const iso = (value: string) => new Date(value).toISOString();
 

@@ -52,7 +52,7 @@ export function WorkspaceConversationSwitcher() {
     };
   }, []);
 
-  useNamedShortcut('workspace.openConversationSwitcher', undefined, handleOpen);
+  useNamedShortcut('workspace.openThreadSwitcher', undefined, handleOpen);
 
   const handleSelectConversation = useCallback(
     (threadId: string) => {

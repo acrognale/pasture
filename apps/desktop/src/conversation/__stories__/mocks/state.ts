@@ -1,7 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { createStore } from 'zustand/vanilla';
 import type { StoreApi } from 'zustand/vanilla';
-import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import type { ComposerTurnConfig } from '~/composer/config';
 import {
   type ConversationState,
@@ -12,6 +11,7 @@ import type {
   TranscriptTurn,
   TranscriptUserMessageCell,
 } from '~/conversation/transcript/types';
+import type { ConversationSummary } from '~/workspace/conversations';
 
 import {
   createSampleConversationState,

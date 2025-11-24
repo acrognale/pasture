@@ -37,18 +37,6 @@ codex_command_descriptors! {
         params: conversations::ForkThreadParams,
         result: conversations::ForkThreadResponse,
     },
-    conversations::list_conversations {
-        params: conversations::ListConversationsParams,
-        result: conversations::ListConversationsResponse,
-    },
-    conversations::initialize_conversation {
-        params: conversations::InitializeConversationParams,
-        result: conversations::InitializeConversationResponse,
-    },
-    conversations::new_conversation {
-        params: conversations::NewConversationCommandParams,
-        result: conversations::NewConversationResponse,
-    },
     conversations::send_user_message {
         params: conversations::SendUserMessageParams,
         result: (),

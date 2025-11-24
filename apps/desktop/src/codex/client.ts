@@ -11,22 +11,16 @@ import type {
   GetComposerConfigParams,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
-  InitializeConversationParams,
-  InitializeConversationResponse,
   InitializeThreadParams,
   InitializeThreadResponse,
   InterruptConversationParams,
   InterruptConversationResponse,
-  ListConversationsParams,
-  ListConversationsResponse,
   ListThreadRolloutsParams,
   ListThreadRolloutsResponse,
   ListThreadsParams,
   ListThreadsResponse,
   ListTurnSnapshotsParams,
   ListTurnSnapshotsResponse,
-  NewConversationCommandParams,
-  NewConversationResponse,
   NewThreadCommandParams,
   NewThreadResponse,
   RemoveConversationListenerParams,
@@ -81,31 +75,6 @@ export namespace Codex {
     params: ForkThreadParams
   ): Promise<ForkThreadResponse> {
     return await invoke<ForkThreadResponse>('fork_thread', { params });
-  }
-
-  export async function listConversations(
-    params: ListConversationsParams
-  ): Promise<ListConversationsResponse> {
-    return await invoke<ListConversationsResponse>('list_conversations', {
-      params,
-    });
-  }
-
-  export async function initializeConversation(
-    params: InitializeConversationParams
-  ): Promise<InitializeConversationResponse> {
-    return await invoke<InitializeConversationResponse>(
-      'initialize_conversation',
-      { params }
-    );
-  }
-
-  export async function newConversation(
-    params: NewConversationCommandParams
-  ): Promise<NewConversationResponse> {
-    return await invoke<NewConversationResponse>('new_conversation', {
-      params,
-    });
   }
 
   export async function sendUserMessage(

@@ -6,7 +6,6 @@ import { mapConversationEventToApprovalRequest } from '~/approvals/event-utils';
 import type { CodexEvent } from '~/codex.gen';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 import type { EventMsg } from '~/codex.gen/EventMsg';
-import type { ListConversationsResponse } from '~/codex.gen/ListConversationsResponse';
 import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import {
   derivePreviewFromEvent,
@@ -25,6 +24,7 @@ import {
   useWorkspaceApprovalsStore,
   useWorkspaceConversationStores,
 } from '~/workspace';
+import type { WorkspaceConversationsState } from '~/workspace/conversations';
 
 import type { ConversationSideEffect } from './reducer';
 
@@ -111,7 +111,9 @@ export function ConversationProvider({
         }
 
         const summaries =
-          queryClient.getQueryData<ListConversationsResponse>(conversationsKey);
+          queryClient.getQueryData<WorkspaceConversationsState>(
+            conversationsKey
+          );
         const preview =
           summaries?.items.find(
             (item) => item.conversationId === conversationId

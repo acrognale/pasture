@@ -304,25 +304,6 @@ impl WorkspaceManager {
         Ok(())
     }
 
-    pub async fn find_thread_by_conversation(
-        &self,
-        conversation_id: &str,
-    ) -> Option<(String, ThreadRecord)> {
-        let state = self.state.read().await;
-        for (workspace, threads) in state.threads.iter() {
-            if let Some(thread) = threads.iter().find(|thread| {
-                thread.current_conversation_id == conversation_id
-                    || thread
-                        .rollouts
-                        .iter()
-                        .any(|rollout| rollout.conversation_id == conversation_id)
-            }) {
-                return Some((workspace.clone(), thread.clone()));
-            }
-        }
-        None
-    }
-
     pub async fn update_thread_preview_for_conversation(
         &self,
         conversation_id: &str,

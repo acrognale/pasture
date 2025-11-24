@@ -7,10 +7,10 @@ import {
 } from 'react';
 import { createApprovalsStore } from '~/approvals/store';
 import type { ApprovalsStore } from '~/approvals/store';
-import type { ConversationSummary } from '~/codex.gen/ConversationSummary';
 import { createInitialConversationState } from '~/conversation/store/reducer';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 import {
+  type ConversationSummary,
   normalizeWorkspacePath as baseNormalizeWorkspacePath,
   sortConversationsByTimestamp as baseSortConversationsByTimestamp,
   updateConversationPreview as baseUpdateConversationPreview,
