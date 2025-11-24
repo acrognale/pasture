@@ -6,10 +6,11 @@ import { Button } from '~/components/ui/button';
 import { Textarea } from '~/components/ui/textarea';
 import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
 import { useSlashCommands } from '~/composer/hooks/useSlashCommands';
-import { useSendMessage } from '~/conversation/hooks/useSendMessage';
+import { useQueueableSendMessage } from '~/conversation/hooks/useQueueableSendMessage';
 import {
   useConversationComposerLimits,
   useConversationIsRunning,
+  useConversationIsSendingUserMessage,
 } from '~/conversation/store/hooks';
 
 import {
@@ -117,11 +118,13 @@ export function ComposerBar({
   const disabled = authDisabled;
   const disabledReason = authDisabledReason;
 
-  const { sendMessage: defaultSendMessage, mutation } = useSendMessage(
+  const { sendOrQueue, mutation } = useQueueableSendMessage(
     workspacePath,
     conversationId
   );
-  const isMutationPending = mutation.isPending;
+  const isSendingUserMessage =
+    useConversationIsSendingUserMessage(conversationId);
+  const isMutationPending = mutation.isPending || isSendingUserMessage;
   const slashCommands = useSlashCommands(workspacePath);
   const conversationIsRunning = useConversationIsRunning(conversationId);
   const isTurnActive = isTurnActiveProp ?? conversationIsRunning;
@@ -142,9 +145,6 @@ export function ComposerBar({
 
   const canSend = () => {
     if (disabled || isMutationPending) {
-      return false;
-    }
-    if (isTurnActive) {
       return false;
     }
 
@@ -217,7 +217,7 @@ export function ComposerBar({
     setDraft('');
     onScrollToBottom();
 
-    void defaultSendMessage({ text }).catch(() => {
+    void sendOrQueue({ text }).catch(() => {
       setDraft(text);
     });
   };

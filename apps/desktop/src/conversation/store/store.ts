@@ -25,6 +25,10 @@ type ConversationStoreActions = {
   drainSideEffects: () => ConversationSideEffect[];
   getEventsAsJsonl: () => string;
   getEventCount: () => number;
+  queueUserMessage: (text: string) => void;
+  popQueuedUserMessage: () => string | null;
+  clearQueuedUserMessages: () => void;
+  setSendingUserMessage: (isSending: boolean) => void;
 };
 
 export type ConversationStoreState = ConversationControllerState &
@@ -81,5 +85,27 @@ export const createConversationStore = (
       },
       getEventsAsJsonl: () => getConversationEventsAsJsonl(get()),
       getEventCount: () => get().ingestedEvents.length,
+      queueUserMessage: (text: string) =>
+        updateData((draft) => {
+          const trimmed = text.trim();
+          if (trimmed) {
+            draft.queuedUserMessages.push(trimmed);
+          }
+        }),
+      popQueuedUserMessage: () => {
+        let nextMessage: string | null = null;
+        updateData((draft) => {
+          nextMessage = draft.queuedUserMessages.shift() ?? null;
+        });
+        return nextMessage;
+      },
+      clearQueuedUserMessages: () =>
+        updateData((draft) => {
+          draft.queuedUserMessages = [];
+        }),
+      setSendingUserMessage: (isSending: boolean) =>
+        updateData((draft) => {
+          draft.isSendingUserMessage = isSending;
+        }),
     };
   });

@@ -5,6 +5,7 @@ import { formatElapsedCompact } from '~/lib/time';
 import {
   useConversationActiveTurn,
   useConversationIsRunning,
+  useConversationQueuedMessages,
 } from '../store/hooks';
 
 export type StatusIndicatorProps = {
@@ -69,6 +70,7 @@ export function StatusIndicator({
   const conversationIsRunning = useConversationIsRunning(
     conversationId ?? null
   );
+  const queuedMessages = useConversationQueuedMessages(conversationId ?? null);
   const isConversationBound = conversationId !== undefined;
   const running = isConversationBound ? conversationIsRunning : runningProp;
   const startedAt = isConversationBound
@@ -141,6 +143,19 @@ export function StatusIndicator({
           to interrupt
         </button>
       </div>
+      {queuedMessages.length > 0 ? (
+        <div className="mt-2 space-y-1 text-transcript-base text-muted-foreground">
+          {queuedMessages.map((message, index) => (
+            <div
+              key={`queued-${index}`}
+              className="truncate rounded-md bg-muted/60 px-2 py-1"
+              title={message}
+            >
+              {message}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

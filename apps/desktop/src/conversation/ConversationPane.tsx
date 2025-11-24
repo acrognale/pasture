@@ -21,10 +21,13 @@ import {
   type OpenReviewOverlayDetail,
 } from './events';
 import { useInterruptConversation } from './hooks/useInterruptConversation';
+import { useQueueableSendMessage } from './hooks/useQueueableSendMessage';
 import { useReplay } from './replay';
 import {
   useConversationHasTurnDiffHistory,
   useConversationIsRunning,
+  useConversationQueueActions,
+  useConversationQueuedMessages,
 } from './store/hooks';
 
 type ConversationPaneProps = {
@@ -46,6 +49,7 @@ export function ConversationPane({
   const transcriptHandleRef = useRef<ConversationTranscriptHandle | null>(null);
   const [composerControls, setComposerControls] =
     useState<ComposerBarControls | null>(null);
+  const interruptRequestedRef = useRef(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const expandedTurns = expandedTurnsByConversation[conversationId] ?? {};
@@ -54,6 +58,13 @@ export function ConversationPane({
   const { isReplaying, startReplay, stopReplay } = useReplay({
     conversationId,
   });
+  const queuedUserMessages = useConversationQueuedMessages(conversationId);
+  const { clearQueuedUserMessages } =
+    useConversationQueueActions(conversationId);
+  const { sendNextQueuedIfIdle } = useQueueableSendMessage(
+    workspacePath,
+    conversationId
+  );
 
   const handleScrollToBottom = useCallback(() => {
     transcriptHandleRef.current?.scrollToBottomAndMark();
@@ -108,6 +119,32 @@ export function ConversationPane({
       });
     }
   }, [conversationId, getConversationStore]);
+
+  const handleInterrupt = useCallback(() => {
+    const queuedText = queuedUserMessages.join('\n');
+    const existingDraft = composerControls?.getDraft().trim() ?? '';
+    let combinedDraft = existingDraft;
+
+    if (queuedText && existingDraft) {
+      combinedDraft = `${queuedText}\n${existingDraft}`;
+    } else if (queuedText) {
+      combinedDraft = queuedText;
+    }
+
+    if (combinedDraft) {
+      composerControls?.setDraft(combinedDraft);
+      composerControls?.focus();
+    }
+
+    clearQueuedUserMessages();
+    interruptRequestedRef.current = true;
+    void interruptConversation();
+  }, [
+    clearQueuedUserMessages,
+    composerControls,
+    interruptConversation,
+    queuedUserMessages,
+  ]);
 
   const devActions = useMemo(
     () => [
@@ -165,9 +202,9 @@ export function ConversationPane({
     if (!isTurnActive) {
       return false;
     }
-    void interruptConversation();
+    handleInterrupt();
     return true;
-  }, [interruptConversation, isTurnActive]);
+  }, [handleInterrupt, isTurnActive]);
 
   useNamedShortcut(
     'conversation.interruptTurn',
@@ -211,6 +248,20 @@ export function ConversationPane({
     };
   }, [conversationId]);
 
+  const previousRunningState = useRef(isTurnActive);
+  useEffect(() => {
+    const wasRunning = previousRunningState.current;
+    if (wasRunning && !isTurnActive) {
+      if (interruptRequestedRef.current) {
+        interruptRequestedRef.current = false;
+      } else if (queuedUserMessages.length > 0) {
+        void sendNextQueuedIfIdle();
+      }
+    }
+
+    previousRunningState.current = isTurnActive;
+  }, [isTurnActive, queuedUserMessages.length, sendNextQueuedIfIdle]);
+
   return (
     <>
       <div className="flex flex-1 flex-col h-full overflow-hidden relative">
@@ -230,9 +281,7 @@ export function ConversationPane({
           <div className="shrink-0 bg-background px-4 pb-4 space-y-3">
             <StatusIndicator
               conversationId={conversationId}
-              onInterrupt={() => {
-                void interruptConversation();
-              }}
+              onInterrupt={handleInterrupt}
             />
             <ComposerBar
               workspacePath={workspacePath}
@@ -240,9 +289,7 @@ export function ConversationPane({
               isTurnActive={isTurnActive}
               interruptPending={interruptPending}
               stopButtonId="interrupt-conversation-button"
-              onInterrupt={() => {
-                void interruptConversation();
-              }}
+              onInterrupt={handleInterrupt}
               onScrollToBottom={handleScrollToBottom}
               onComposerReady={(controls) => {
                 setComposerControls(controls);

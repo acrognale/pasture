@@ -99,3 +99,32 @@ export const useConversationHasTurnDiffHistory = (
     conversationId,
     (state) => state.conversation.transcript.turnDiffHistory.length > 0
   );
+
+export const useConversationQueuedMessages = (conversationId: string | null) =>
+  useConversationSelector(
+    conversationId,
+    (state) => state.queuedUserMessages,
+    shallow
+  );
+
+export const useConversationQueueActions = (conversationId: string | null) =>
+  useConversationSelector(conversationId, (state) => ({
+    queueUserMessage: state.queueUserMessage,
+    popQueuedUserMessage: state.popQueuedUserMessage,
+    clearQueuedUserMessages: state.clearQueuedUserMessages,
+  }));
+
+export const useConversationIsSendingUserMessage = (
+  conversationId: string | null
+) =>
+  useConversationSelector(
+    conversationId,
+    (state) => state.isSendingUserMessage
+  );
+
+export const useConversationSendMessageActions = (
+  conversationId: string | null
+) =>
+  useConversationSelector(conversationId, (state) => ({
+    setSendingUserMessage: state.setSendingUserMessage,
+  }));

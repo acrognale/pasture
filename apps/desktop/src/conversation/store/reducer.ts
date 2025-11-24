@@ -113,6 +113,8 @@ export type ConversationControllerState = {
   tokenInfo: TokenUsageInfo | null;
   rateLimitSnapshot: RateLimitSnapshot | null;
   ingestedEvents: ConversationEventPayload[];
+  queuedUserMessages: string[];
+  isSendingUserMessage: boolean;
 };
 
 export type ConversationControllerSnapshot = ConversationControllerState;
@@ -149,6 +151,8 @@ export const createConversationControllerState = (
   tokenInfo: null,
   rateLimitSnapshot: null,
   ingestedEvents: [],
+  queuedUserMessages: [],
+  isSendingUserMessage: false,
 });
 
 // ---------------------------------------------------------------------------
