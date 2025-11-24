@@ -360,6 +360,7 @@ describe('turn diff handling', () => {
       timestamp: ts(1),
       unifiedDiff: firstDiff.unified_diff,
       turnNumber: 1,
+      turnId: 'turn-1',
     });
 
     const nextTurnStarted: EventMsg = {
@@ -382,6 +383,7 @@ describe('turn diff handling', () => {
       timestamp: ts(3),
       unifiedDiff: secondDiff.unified_diff,
       turnNumber: 2,
+      turnId: 'turn-2',
     });
 
     const userMessage: EventMsg = {
