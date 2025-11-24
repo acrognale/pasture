@@ -1,3 +1,4 @@
+use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::AppHandle;
@@ -13,9 +14,11 @@ use super::util::CommandResult;
 /// List recently opened workspaces (most recent first).
 #[tauri::command]
 pub async fn list_recent_workspaces(
-    workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
 ) -> CommandResult<Vec<String>> {
-    Ok(workspace_manager.get_recent_workspaces().await)
+    Ok(crate::db::workspace::list_recent_workspaces(&db, 10)
+        .await
+        .unwrap_or_default())
 }
 
 /// Parameters accepted by workspace navigation commands.
@@ -30,9 +33,13 @@ pub struct WorkspacePathParams {
 pub async fn open_workspace(
     params: WorkspacePathParams,
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
 ) -> CommandResult<String> {
     let normalized = workspace_manager
-        .record_workspace_access(params.workspace_path)
+        .normalize_workspace_path(&params.workspace_path)
+        .map_err(|e| e.to_string())?;
+
+    crate::db::workspace::upsert_workspace(&db, &normalized, None)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -44,10 +51,14 @@ pub async fn open_workspace(
 pub async fn create_workspace_window(
     params: WorkspacePathParams,
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
     app_handle: AppHandle,
 ) -> CommandResult<()> {
     let normalized = workspace_manager
-        .record_workspace_access(params.workspace_path)
+        .normalize_workspace_path(&params.workspace_path)
+        .map_err(|e| e.to_string())?;
+
+    crate::db::workspace::upsert_workspace(&db, &normalized, None)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -113,11 +124,14 @@ pub async fn browse_for_workspace(app_handle: AppHandle) -> CommandResult<Option
 pub async fn get_workspace_composer_defaults(
     params: WorkspacePathParams,
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
 ) -> CommandResult<WorkspaceComposerDefaults> {
     let normalized = workspace_manager
         .normalize_workspace_path(&params.workspace_path)
         .map_err(|e| e.to_string())?;
-    Ok(workspace_manager
-        .get_workspace_defaults_for_normalized(&normalized)
-        .await)
+    Ok(
+        crate::db::workspace::get_workspace_defaults(&db, &normalized)
+            .await
+            .unwrap_or_default(),
+    )
 }

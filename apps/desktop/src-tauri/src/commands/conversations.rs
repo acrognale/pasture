@@ -15,6 +15,7 @@ use codex_protocol::protocol::SandboxPolicy;
 use codex_protocol::protocol::SessionConfiguredEvent;
 use codex_protocol::protocol::TurnAbortReason;
 use codex_protocol::user_input::UserInput as CoreUserInput;
+use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
@@ -152,15 +153,16 @@ pub struct InitializeThreadResponse {
 #[tauri::command]
 pub async fn list_threads(
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
     params: ListThreadsParams,
 ) -> CommandResult<ListThreadsResponse> {
     let workspace_path = workspace_manager
         .normalize_workspace_path(&params.workspace_path)
         .map_err(|e| e.to_string())?;
 
-    let threads = workspace_manager
-        .get_threads_for_workspace(&workspace_path)
-        .await;
+    let threads = crate::db::threads::get_threads_for_workspace(&db, &workspace_path)
+        .await
+        .unwrap_or_default();
 
     let items = threads
         .into_iter()
@@ -185,15 +187,16 @@ pub async fn list_threads(
 #[tauri::command]
 pub async fn list_thread_rollouts(
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
     params: ListThreadRolloutsParams,
 ) -> CommandResult<ListThreadRolloutsResponse> {
     let workspace_path = workspace_manager
         .normalize_workspace_path(&params.workspace_path)
         .map_err(|e| e.to_string())?;
 
-    let thread = workspace_manager
-        .get_thread(&workspace_path, &params.thread_id)
+    let thread = crate::db::threads::get_thread(&db, &workspace_path, &params.thread_id)
         .await
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| "Unknown thread".to_string())?;
 
     Ok(ListThreadRolloutsResponse {
@@ -208,6 +211,7 @@ pub async fn list_thread_rollouts(
 pub async fn new_thread(
     params: NewThreadCommandParams,
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
 ) -> CommandResult<NewThreadResponse> {
@@ -221,9 +225,9 @@ pub async fn new_thread(
     }
 
     let mut options = params.options.unwrap_or_default();
-    let workspace_defaults = workspace_manager
-        .get_workspace_defaults_for_normalized(&workspace_path)
-        .await;
+    let workspace_defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path)
+        .await
+        .unwrap_or_default();
     apply_workspace_defaults(&mut options, &workspace_defaults);
 
     let mut base_config = runtime.config().as_ref().clone();
@@ -269,8 +273,7 @@ pub async fn new_thread(
         preview: Some("Untitled session".to_string()),
     };
 
-    workspace_manager
-        .upsert_thread(&workspace_path, thread_record)
+    crate::db::threads::upsert_thread(&db, &workspace_path, thread_record)
         .await
         .map_err(|e| format!("Failed to persist thread: {}", e))?;
 
@@ -322,6 +325,7 @@ pub async fn new_thread(
 pub async fn initialize_thread(
     params: InitializeThreadParams,
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
 ) -> CommandResult<InitializeThreadResponse> {
@@ -333,9 +337,9 @@ pub async fn initialize_thread(
         .normalize_workspace_path(&params.workspace_path)
         .map_err(|e| e.to_string())?;
 
-    let thread = workspace_manager
-        .get_thread(&workspace_path, &params.thread_id)
+    let thread = crate::db::threads::get_thread(&db, &workspace_path, &params.thread_id)
         .await
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| "Unknown thread".to_string())?;
 
     let conversation_id = thread.current_conversation_id.clone();
@@ -408,6 +412,7 @@ pub async fn initialize_thread(
 pub async fn switch_thread_rollout(
     params: SwitchThreadRolloutParams,
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
 ) -> CommandResult<SwitchThreadRolloutResponse> {
@@ -419,9 +424,9 @@ pub async fn switch_thread_rollout(
         .normalize_workspace_path(&params.workspace_path)
         .map_err(|e| e.to_string())?;
 
-    let mut thread = workspace_manager
-        .get_thread(&workspace_path, &params.thread_id)
+    let mut thread = crate::db::threads::get_thread(&db, &workspace_path, &params.thread_id)
         .await
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| "Unknown thread".to_string())?;
 
     let conv_id = ConversationId::from_string(&params.conversation_id)
@@ -516,8 +521,7 @@ pub async fn switch_thread_rollout(
     thread.current_conversation_id = params.conversation_id.clone();
     thread.updated_at = timestamp;
 
-    workspace_manager
-        .upsert_thread(&workspace_path, thread)
+    crate::db::threads::upsert_thread(&db, &workspace_path, thread)
         .await
         .map_err(|e| format!("Failed to persist thread: {}", e))?;
 
@@ -533,6 +537,7 @@ pub async fn switch_thread_rollout(
 pub async fn fork_thread(
     params: ForkThreadParams,
     workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
 ) -> CommandResult<ForkThreadResponse> {
@@ -552,9 +557,9 @@ pub async fn fork_thread(
         .normalize_workspace_path(&workspace_path)
         .map_err(|e| e.to_string())?;
 
-    let mut thread = workspace_manager
-        .get_thread(&workspace_path, &thread_id)
+    let mut thread = crate::db::threads::get_thread(&db, &workspace_path, &thread_id)
         .await
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| "Unknown thread".to_string())?;
 
     let base_conversation_id_parsed =
@@ -586,9 +591,9 @@ pub async fn fork_thread(
         .await;
 
     let mut options = options.unwrap_or_default();
-    let workspace_defaults = workspace_manager
-        .get_workspace_defaults_for_normalized(&workspace_path)
-        .await;
+    let workspace_defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path)
+        .await
+        .unwrap_or_default();
     apply_workspace_defaults(&mut options, &workspace_defaults);
 
     let mut base_config = runtime.config().as_ref().clone();
@@ -626,8 +631,7 @@ pub async fn fork_thread(
     thread.current_conversation_id = conversation_id_str.clone();
     thread.updated_at = timestamp.clone();
 
-    workspace_manager
-        .upsert_thread(&workspace_path, thread)
+    crate::db::threads::upsert_thread(&db, &workspace_path, thread)
         .await
         .map_err(|e| format!("Failed to persist thread: {}", e))?;
 
@@ -739,7 +743,7 @@ pub async fn send_user_message(
     params: SendUserMessageParams,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
-    workspace_manager: State<'_, WorkspaceManager>,
+    db: State<'_, DatabaseConnection>,
 ) -> CommandResult<()> {
     if !runtime.is_initialized().await {
         return Err("Runtime not initialized".to_string());
@@ -791,9 +795,12 @@ pub async fn send_user_message(
         })
         .filter(|text| !text.is_empty())
     {
-        if let Err(err) = workspace_manager
-            .update_thread_preview_for_conversation(&conversation_id, preview)
-            .await
+        if let Err(err) = crate::db::threads::update_thread_preview_for_conversation(
+            &db,
+            &conversation_id,
+            preview,
+        )
+        .await
         {
             log::debug!(
                 "Failed to update thread preview for conversation {}: {}",

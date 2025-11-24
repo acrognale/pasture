@@ -1,5 +1,6 @@
 mod codex_runtime;
 mod commands;
+mod db;
 mod env;
 mod event_listener;
 mod events;
@@ -57,18 +58,19 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|e| format!("Failed to get app data dir: {}", e))?;
-            let state_file = if cfg!(debug_assertions) {
-                app_data_dir.join("workspace-state.dev.json")
+            let db_file = if cfg!(debug_assertions) {
+                app_data_dir.join("workspace.dev.db")
             } else {
-                app_data_dir.join("workspace-state.json")
+                app_data_dir.join("workspace.db")
             };
 
-            let workspace_manager = WorkspaceManager::new(state_file);
-            tauri::async_runtime::block_on(async { workspace_manager.load_state().await })
-                .map_err(|e| {
-                    log::error!("Failed to load workspace state: {}", e);
-                    e.to_string()
-                })?;
+            let workspace_db = tauri::async_runtime::block_on(async {
+                db::init::connect_and_migrate(&db_file).await
+            })
+            .map_err(|e| format!("Failed to initialize workspace database: {}", e))?;
+
+            let workspace_manager = WorkspaceManager::new();
+            app.manage(workspace_db.clone());
 
             app.manage(workspace_manager);
             log::info!("Workspace manager initialized successfully");
