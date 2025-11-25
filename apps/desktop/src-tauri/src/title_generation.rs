@@ -1,13 +1,17 @@
-use codex_core::{Prompt, ResponseItem};
+use codex_core::Prompt;
+use codex_core::ResponseItem;
+use codex_protocol::ConversationId;
 use codex_protocol::config_types::ReasoningEffort;
-use codex_protocol::{ConversationId, models::ContentItem};
+use codex_protocol::models::ContentItem;
 use sea_orm::DatabaseConnection;
 use serde_json::json;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
+use tauri::Emitter;
 
 use crate::codex_runtime::CodexRuntime;
 use crate::completions;
-use crate::events::{CodexEvent, ThreadMetadataPayload};
+use crate::events::CodexEvent;
+use crate::events::ThreadMetadataPayload;
 
 const MAX_TITLE_LENGTH: usize = 80;
 const MAX_INPUT_LENGTH: usize = 500;
