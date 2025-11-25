@@ -97,6 +97,7 @@ pub fn run() {
                 WorkspaceService::new(workspace_repo.clone(), workspace_settings_repo.clone());
             app.manage(workspace_service.clone());
             let thread_repo = db::ThreadRepo::new(workspace_db.clone());
+            app.manage(thread_repo.clone());
             let config_deriver = ConversationConfigDeriver::new(workspace_settings_repo.clone());
             let thread_service = ThreadService::new(
                 thread_repo,

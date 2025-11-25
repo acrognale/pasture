@@ -7,12 +7,13 @@ use codex_core::config::Config;
 use codex_protocol::ConversationId;
 use codex_protocol::config_types::ReasoningEffort;
 use codex_protocol::models::ContentItem;
-use sea_orm::DatabaseConnection;
 use serde_json::json;
 use tauri::AppHandle;
 use tauri::Emitter;
 
 use crate::completions;
+use crate::db::ThreadRepo;
+use crate::domain::ForkId;
 use crate::events::CodexEvent;
 use crate::events::ThreadMetadataPayload;
 
@@ -24,7 +25,7 @@ const MAX_INPUT_LENGTH: usize = 500;
 pub fn spawn_generate_thread_title(
     config: Arc<Config>,
     auth_manager: Arc<AuthManager>,
-    db: DatabaseConnection,
+    thread_repo: ThreadRepo,
     conversation_id: ConversationId,
     user_message: String,
     app_handle: AppHandle,
@@ -33,7 +34,7 @@ pub fn spawn_generate_thread_title(
         if let Err(err) = maybe_generate_thread_title(
             config,
             auth_manager,
-            db,
+            thread_repo,
             conversation_id,
             user_message,
             app_handle,
@@ -48,7 +49,7 @@ pub fn spawn_generate_thread_title(
 async fn maybe_generate_thread_title(
     config: Arc<Config>,
     auth_manager: Arc<AuthManager>,
-    db: DatabaseConnection,
+    thread_repo: ThreadRepo,
     conversation_id: ConversationId,
     user_message: String,
     app_handle: AppHandle,
@@ -63,7 +64,9 @@ async fn maybe_generate_thread_title(
     }
 
     let conversation_id_str = conversation_id.to_string();
-    let needs_title = crate::db::threads::conversation_has_missing_title(&db, &conversation_id_str)
+    let fork_id = ForkId::from(conversation_id.clone());
+    let needs_title = thread_repo
+        .has_missing_title_for_fork(&fork_id)
         .await
         .unwrap_or_else(|err| {
             log::debug!(
@@ -102,19 +105,13 @@ async fn maybe_generate_thread_title(
                 text
             );
             if let Some(title) = parse_title_from_text(&text) {
-                match crate::db::threads::update_thread_title_for_conversation(
-                    &db,
-                    &conversation_id_str,
-                    &title,
-                )
-                .await
-                {
+                match thread_repo.update_title_for_fork(&fork_id, &title).await {
                     Ok(updated) => {
                         if updated {
                             emit_thread_metadata_events(
-                                &db,
+                                &thread_repo,
                                 &app_handle,
-                                &conversation_id_str,
+                                &fork_id,
                                 Some(title),
                                 None,
                             )
@@ -222,14 +219,14 @@ fn normalize_title(raw: &str) -> Option<String> {
 }
 
 async fn emit_thread_metadata_events(
-    db: &DatabaseConnection,
+    thread_repo: &ThreadRepo,
     app_handle: &AppHandle,
-    conversation_id: &str,
+    fork_id: &ForkId,
     title: Option<String>,
     preview: Option<String>,
 ) {
-    let threads = match crate::db::threads::get_threads_for_conversation(db, conversation_id).await
-    {
+    let conversation_id = fork_id.as_str();
+    let threads = match thread_repo.list_for_fork(fork_id).await {
         Ok(threads) => threads,
         Err(err) => {
             log::debug!(
@@ -243,9 +240,9 @@ async fn emit_thread_metadata_events(
 
     for thread in threads {
         let payload = ThreadMetadataPayload {
-            thread_id: thread.id.clone(),
-            conversation_id: thread.current_fork_id.clone(),
-            workspace_path: thread.workspace_path.clone(),
+            thread_id: thread.id.as_str().to_string(),
+            conversation_id: thread.current_fork_id.as_str().to_string(),
+            workspace_path: thread.workspace_path.as_str().to_string(),
             title: title.clone().or(thread.title.clone()),
             preview: preview.clone().or(thread.preview.clone()),
             timestamp: thread.updated_at.clone(),

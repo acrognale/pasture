@@ -195,6 +195,18 @@ impl ThreadRepo {
         Ok(changed)
     }
 
+    pub async fn list_for_fork(&self, fork_id: &ForkId) -> AppResult<Vec<Thread>> {
+        let models = self.threads_for_fork(fork_id).await?;
+        let mut threads = Vec::with_capacity(models.len());
+
+        for model in models {
+            let forks = self.load_forks(model.id.clone()).await?;
+            threads.push(decode_thread(model, forks));
+        }
+
+        Ok(threads)
+    }
+
     async fn load_forks(&self, thread_id: String) -> AppResult<Vec<schema::forks::Model>> {
         schema::forks::Entity::find()
             .filter(schema::forks::Column::ThreadId.eq(thread_id))

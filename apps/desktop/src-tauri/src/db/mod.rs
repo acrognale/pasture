@@ -1,9 +1,7 @@
 pub mod init;
 pub mod schema;
 pub mod snapshots_repo;
-pub mod threads;
 pub mod threads_repo;
-pub mod workspace;
 pub mod workspaces_repo;
 
 pub use snapshots_repo::{ForkSnapshotState, TurnSnapshot, TurnSnapshotRepo};

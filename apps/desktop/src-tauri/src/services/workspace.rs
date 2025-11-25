@@ -47,6 +47,7 @@ impl WorkspaceService {
         workspace: &WorkspacePath,
         settings: &WorkspaceSettings,
     ) -> AppResult<()> {
+        self.workspaces.touch(workspace, None).await?;
         self.settings.save(workspace, settings).await
     }
 }

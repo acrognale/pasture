@@ -9,7 +9,6 @@ use codex_protocol::ConversationId;
 use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMode};
 use codex_protocol::protocol::{AskForApproval, SessionConfiguredEvent, TurnAbortReason};
 use codex_protocol::user_input::UserInput as CoreUserInput;
-use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, State};
@@ -18,6 +17,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use ts_rs::TS;
 use uuid::Uuid;
 
+use crate::db::ThreadRepo;
 use crate::domain::{ForkId, ForkPoint, ThreadId};
 use crate::errors::{AppError, AppResult};
 use crate::events::EventRouter;
@@ -592,7 +592,7 @@ pub async fn send_user_message(
     auth_manager: State<'_, Arc<AuthManager>>,
     turn_service: State<'_, TurnService>,
     app_handle: AppHandle,
-    db: State<'_, DatabaseConnection>,
+    thread_repo: State<'_, ThreadRepo>,
 ) -> AppResult<()> {
     let SendUserMessageParams {
         conversation_id,
@@ -628,13 +628,7 @@ pub async fn send_user_message(
         })
         .filter(|text| !text.is_empty())
     {
-        if let Err(err) = crate::db::threads::update_thread_preview_for_conversation(
-            &db,
-            &conversation_id,
-            preview,
-        )
-        .await
-        {
+        if let Err(err) = thread_repo.update_preview_for_fork(&fork_id, preview).await {
             log::debug!(
                 "Failed to update thread preview for conversation {}: {}",
                 conversation_id,
@@ -645,7 +639,7 @@ pub async fn send_user_message(
         title_generation::spawn_generate_thread_title(
             config.inner().clone(),
             auth_manager.inner().clone(),
-            db.inner().clone(),
+            thread_repo.inner().clone(),
             conv_id,
             preview.to_string(),
             app_handle.clone(),

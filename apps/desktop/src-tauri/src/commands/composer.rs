@@ -1,4 +1,5 @@
-use sea_orm::DatabaseConnection;
+use std::sync::Arc;
+
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::State;
@@ -9,8 +10,10 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
-use crate::domain::WorkspacePath;
-use crate::errors::{AppError, AppResult};
+use crate::domain::WorkspaceSettings;
+use crate::errors::AppResult;
+use crate::services::WorkspaceService;
+use crate::workspace_manager::WorkspaceComposerDefaults;
 use codex_core::config::Config;
 
 /// Serialized composer configuration for a conversation.
@@ -59,13 +62,16 @@ pub struct UpdateComposerConfigParams {
 #[tauri::command]
 pub async fn get_composer_config(
     params: GetComposerConfigParams,
-    db: State<'_, DatabaseConnection>,
-    config: State<'_, Config>,
+    workspace_service: State<'_, WorkspaceService>,
+    config: State<'_, Arc<Config>>,
 ) -> AppResult<ComposerTurnConfigPayload> {
-    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
+    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
 
-    let defaults =
-        crate::db::workspace::get_workspace_defaults(&db, workspace_path.as_str()).await?;
+    let defaults: WorkspaceComposerDefaults = workspace_service
+        .get_settings(&workspace_path)
+        .await?
+        .into();
+    let config = config.inner();
 
     let mut payload = ComposerTurnConfigPayload::default();
     payload.model = defaults.model;
@@ -83,10 +89,9 @@ pub async fn get_composer_config(
 #[tauri::command]
 pub async fn update_composer_config(
     params: UpdateComposerConfigParams,
-    db: State<'_, DatabaseConnection>,
-    _config: State<'_, Config>,
+    workspace_service: State<'_, WorkspaceService>,
 ) -> AppResult<()> {
-    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
+    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
 
     let UpdateComposerConfigParams {
         workspace_path: _,
@@ -104,33 +109,34 @@ pub async fn update_composer_config(
         || sandbox.is_some()
         || approval.is_some()
     {
-        let mut defaults =
-            crate::db::workspace::get_workspace_defaults(&db, workspace_path.as_str()).await?;
+        let mut settings: WorkspaceSettings =
+            workspace_service.get_settings(&workspace_path).await?;
         let mut changed = false;
 
         if let Some(value) = model {
-            defaults.model = Some(value);
+            settings.model = Some(value);
             changed = true;
         }
         if let Some(value) = reasoning_effort {
-            defaults.reasoning_effort = Some(value);
+            settings.reasoning_effort = Some(value);
             changed = true;
         }
         if let Some(value) = summary {
-            defaults.reasoning_summary = Some(value);
+            settings.reasoning_summary = Some(value);
             changed = true;
         }
         if let Some(value) = sandbox {
-            defaults.sandbox = Some(value);
+            settings.sandbox = Some(value);
             changed = true;
         }
         if let Some(value) = approval {
-            defaults.approval = Some(value);
+            settings.approval = Some(value);
             changed = true;
         }
 
         if changed {
-            crate::db::workspace::set_workspace_defaults(&db, workspace_path.as_str(), defaults)
+            workspace_service
+                .save_settings(&workspace_path, &settings)
                 .await?;
         }
     }
