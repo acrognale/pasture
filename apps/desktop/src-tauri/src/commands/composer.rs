@@ -10,9 +10,8 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
-use crate::domain::WorkspaceSettings;
 use crate::errors::AppResult;
-use crate::services::WorkspaceService;
+use crate::services::{ComposerSettingsUpdate, WorkspaceService};
 use crate::workspace_manager::WorkspaceComposerDefaults;
 use codex_core::config::Config;
 
@@ -68,21 +67,16 @@ pub async fn get_composer_config(
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
 
     let defaults: WorkspaceComposerDefaults = workspace_service
-        .get_settings(&workspace_path)
-        .await?
-        .into();
-    let config = config.inner();
+        .get_composer_defaults(&workspace_path, config.inner())
+        .await?;
 
-    let mut payload = ComposerTurnConfigPayload::default();
-    payload.model = defaults.model;
-    payload.reasoning_effort = defaults.reasoning_effort;
-    payload.summary = defaults
-        .reasoning_summary
-        .or(Some(config.model_reasoning_summary));
-    payload.sandbox = defaults.sandbox;
-    payload.approval = defaults.approval;
-
-    Ok(payload)
+    Ok(ComposerTurnConfigPayload {
+        model: defaults.model,
+        reasoning_effort: defaults.reasoning_effort,
+        summary: defaults.reasoning_summary,
+        sandbox: defaults.sandbox,
+        approval: defaults.approval,
+    })
 }
 
 /// Update the composer configuration for a conversation.
@@ -103,43 +97,18 @@ pub async fn update_composer_config(
         approval,
     } = params;
 
-    if model.is_some()
-        || reasoning_effort.is_some()
-        || summary.is_some()
-        || sandbox.is_some()
-        || approval.is_some()
-    {
-        let mut settings: WorkspaceSettings =
-            workspace_service.get_settings(&workspace_path).await?;
-        let mut changed = false;
-
-        if let Some(value) = model {
-            settings.model = Some(value);
-            changed = true;
-        }
-        if let Some(value) = reasoning_effort {
-            settings.reasoning_effort = Some(value);
-            changed = true;
-        }
-        if let Some(value) = summary {
-            settings.reasoning_summary = Some(value);
-            changed = true;
-        }
-        if let Some(value) = sandbox {
-            settings.sandbox = Some(value);
-            changed = true;
-        }
-        if let Some(value) = approval {
-            settings.approval = Some(value);
-            changed = true;
-        }
-
-        if changed {
-            workspace_service
-                .save_settings(&workspace_path, &settings)
-                .await?;
-        }
-    }
+    workspace_service
+        .update_composer_defaults(
+            &workspace_path,
+            ComposerSettingsUpdate {
+                model,
+                reasoning_effort,
+                reasoning_summary: summary,
+                sandbox,
+                approval,
+            },
+        )
+        .await?;
 
     Ok(())
 }

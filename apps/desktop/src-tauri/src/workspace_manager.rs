@@ -1,6 +1,5 @@
 use serde::Deserialize;
 use serde::Serialize;
-use std::path::PathBuf;
 use ts_rs::TS;
 
 use codex_protocol::config_types::ReasoningEffort;
@@ -8,10 +7,8 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
-use crate::domain::ids::{ForkId, ThreadId, WorkspacePath};
-use crate::domain::thread::{Fork, ForkPoint, Thread};
+use crate::domain::thread::{Fork, Thread};
 use crate::domain::workspace::WorkspaceSettings;
-use crate::errors::AppResult;
 
 /// Remembered per-workspace defaults applied to new conversations.
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Default)]
@@ -29,15 +26,7 @@ pub struct WorkspaceComposerDefaults {
     pub approval: Option<AskForApproval>,
 }
 
-impl WorkspaceComposerDefaults {
-    pub fn is_empty(&self) -> bool {
-        self.model.is_none()
-            && self.reasoning_effort.is_none()
-            && self.reasoning_summary.is_none()
-            && self.sandbox.is_none()
-            && self.approval.is_none()
-    }
-}
+impl WorkspaceComposerDefaults {}
 
 impl From<WorkspaceComposerDefaults> for WorkspaceSettings {
     fn from(value: WorkspaceComposerDefaults) -> Self {
@@ -63,6 +52,7 @@ impl From<WorkspaceSettings> for WorkspaceComposerDefaults {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRollout {
@@ -77,6 +67,7 @@ pub struct ThreadRollout {
     pub forked_from_nth_user_message: Option<u32>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRecord {
@@ -89,30 +80,6 @@ pub struct ThreadRecord {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
-}
-
-impl ThreadRollout {
-    pub fn into_domain(self, thread_id: &ThreadId) -> Fork {
-        let fork_point = match (
-            self.forked_from_conversation_id,
-            self.forked_from_nth_user_message,
-        ) {
-            (Some(fork_id), Some(after_message)) => Some(ForkPoint {
-                fork_id: ForkId(fork_id),
-                after_message,
-            }),
-            _ => None,
-        };
-
-        Fork {
-            id: ForkId(self.conversation_id),
-            thread_id: thread_id.clone(),
-            rollout_path: self.rollout_path,
-            created_at: self.created_at,
-            label: self.label,
-            fork_point,
-        }
-    }
 }
 
 impl From<&Fork> for ThreadRollout {
@@ -132,28 +99,6 @@ impl From<&Fork> for ThreadRollout {
             label: fork.label.clone(),
             forked_from_conversation_id,
             forked_from_nth_user_message,
-        }
-    }
-}
-
-impl ThreadRecord {
-    pub fn into_domain(self, workspace_path: WorkspacePath) -> Thread {
-        let thread_id = ThreadId(self.thread_id);
-        let forks = self
-            .rollouts
-            .into_iter()
-            .map(|rollout| rollout.into_domain(&thread_id))
-            .collect();
-
-        Thread {
-            id: thread_id,
-            current_fork_id: ForkId(self.current_conversation_id),
-            forks,
-            title: self.title,
-            preview: self.preview,
-            created_at: self.created_at,
-            updated_at: self.updated_at,
-            workspace_path,
         }
     }
 }

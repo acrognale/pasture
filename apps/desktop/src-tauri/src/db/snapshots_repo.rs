@@ -35,15 +35,6 @@ impl TurnSnapshotRepo {
         Self { db }
     }
 
-    pub async fn get_base_commit(&self, fork_id: &ForkId) -> AppResult<Option<String>> {
-        let fork = schema::forks::Entity::find_by_id(fork_id.as_str().to_string())
-            .one(&self.db)
-            .await
-            .map_err(|e| db_err("Failed to load fork base commit", e))?;
-
-        Ok(fork.and_then(|f| f.base_commit))
-    }
-
     pub async fn get_fork_snapshot_state(
         &self,
         fork_id: &ForkId,
@@ -88,15 +79,6 @@ impl TurnSnapshotRepo {
             .map_err(|e| db_err("Failed to update base commit", e))?;
 
         Ok(())
-    }
-
-    pub async fn snapshots_disabled(&self, fork_id: &ForkId) -> AppResult<bool> {
-        let fork = schema::forks::Entity::find_by_id(fork_id.as_str().to_string())
-            .one(&self.db)
-            .await
-            .map_err(|e| db_err("Failed to load fork snapshot flag", e))?;
-
-        Ok(fork.map(|f| f.snapshots_disabled).unwrap_or(false))
     }
 
     pub async fn disable_snapshots(&self, fork_id: &ForkId) -> AppResult<()> {
@@ -150,7 +132,7 @@ impl TurnSnapshotRepo {
             .map_err(|e| db_err("Failed to load turn snapshot", e))?;
 
         let should_update = existing.is_some();
-        let mut active = match existing {
+        let active = match existing {
             Some(model) => {
                 let mut active: schema::turn_snapshots::ActiveModel = model.into();
                 active.commit_sha = Set(snapshot.commit_sha);
@@ -197,15 +179,5 @@ impl TurnSnapshotRepo {
                 created_at: item.created_at,
             })
             .collect())
-    }
-
-    pub async fn delete_for_fork(&self, fork_id: &ForkId) -> AppResult<()> {
-        schema::turn_snapshots::Entity::delete_many()
-            .filter(schema::turn_snapshots::Column::ForkId.eq(fork_id.as_str()))
-            .exec(&self.db)
-            .await
-            .map_err(|e| db_err("Failed to delete turn snapshots", e))?;
-
-        Ok(())
     }
 }

@@ -4,10 +4,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::domain::ids::WorkspacePath;
-use crate::domain::thread::Thread;
 use crate::domain::workspace::WorkspaceSettings;
-use crate::workspace_manager::ThreadRecord;
-use crate::workspace_manager::ThreadRollout;
 use crate::workspace_manager::WorkspaceComposerDefaults;
 
 pub mod workspaces {
@@ -224,76 +221,6 @@ pub fn encode_workspace_settings(
 
 pub fn decode_workspace_settings(model: workspace_settings::Model) -> Result<WorkspaceSettings> {
     decode_workspace_defaults(model).map(WorkspaceSettings::from)
-}
-
-pub struct ThreadModels {
-    pub thread: threads::ActiveModel,
-    pub forks: Vec<forks::ActiveModel>,
-}
-
-pub fn encode_thread_record(record: &ThreadRecord, workspace_path: &str) -> ThreadModels {
-    let thread = threads::ActiveModel {
-        id: Set(record.thread_id.clone()),
-        workspace_path: Set(workspace_path.to_string()),
-        created_at: Set(record.created_at.clone()),
-        updated_at: Set(record.updated_at.clone()),
-        current_fork_id: Set(record.current_conversation_id.clone()),
-        title: Set(record.title.clone()),
-        preview: Set(record.preview.clone()),
-    };
-
-    let forks = record
-        .rollouts
-        .iter()
-        .map(|rollout| forks::ActiveModel {
-            id: Set(rollout.conversation_id.clone()),
-            thread_id: Set(record.thread_id.clone()),
-            rollout_path: Set(rollout.rollout_path.clone()),
-            created_at: Set(rollout.created_at.clone()),
-            label: Set(rollout.label.clone()),
-            forked_from_fork_id: Set(rollout.forked_from_conversation_id.clone()),
-            forked_from_after_message: Set(rollout.forked_from_nth_user_message.map(|v| v as i32)),
-            base_commit: Set(None),
-            snapshots_disabled: Set(false),
-        })
-        .collect();
-
-    ThreadModels { thread, forks }
-}
-
-pub fn decode_thread_record(thread: threads::Model, forks: Vec<forks::Model>) -> ThreadRecord {
-    let rollouts = forks
-        .into_iter()
-        .map(|rollout| ThreadRollout {
-            conversation_id: rollout.id,
-            rollout_path: rollout.rollout_path,
-            created_at: rollout.created_at,
-            label: rollout.label,
-            forked_from_conversation_id: rollout.forked_from_fork_id,
-            forked_from_nth_user_message: rollout
-                .forked_from_after_message
-                .map(|value| value as u32),
-        })
-        .collect();
-
-    ThreadRecord {
-        thread_id: thread.id,
-        created_at: thread.created_at,
-        updated_at: thread.updated_at,
-        current_conversation_id: thread.current_fork_id,
-        rollouts,
-        title: thread.title,
-        preview: thread.preview,
-    }
-}
-
-pub fn encode_thread(thread: &Thread) -> ThreadModels {
-    encode_thread_record(&ThreadRecord::from(thread), thread.workspace_path.as_str())
-}
-
-pub fn decode_thread(thread: threads::Model, rollouts: Vec<forks::Model>) -> Thread {
-    let workspace_path = WorkspacePath(thread.workspace_path.clone());
-    decode_thread_record(thread, rollouts).into_domain(workspace_path)
 }
 
 fn serialize_json<T: Serialize>(value: &Option<T>) -> Result<Option<String>> {

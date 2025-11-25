@@ -12,7 +12,7 @@ use sea_orm::TransactionTrait;
 
 use crate::db::{db_err, schema};
 use crate::domain::{Fork, ForkId, ForkPoint, Thread, ThreadId, WorkspacePath};
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppResult;
 
 #[derive(Clone)]
 pub struct ThreadRepo {
@@ -70,7 +70,7 @@ impl ThreadRepo {
             .await
             .map_err(|e| db_err("Failed to fetch existing thread for upsert", e))?;
 
-        let mut thread_active = encode_thread(thread, workspace, existing.as_ref());
+        let thread_active = encode_thread(thread, workspace, existing.as_ref());
 
         if existing.is_some() {
             thread_active
@@ -96,7 +96,7 @@ impl ThreadRepo {
 
         for fork in &thread.forks {
             let prior = existing_forks.remove(fork.id.as_str());
-            let mut active = encode_fork(fork, &thread.id, prior.as_ref());
+            let active = encode_fork(fork, &thread.id, prior.as_ref());
 
             if prior.is_some() {
                 active
@@ -259,7 +259,7 @@ fn encode_thread(
 ) -> schema::threads::ActiveModel {
     let mut active = match existing {
         Some(model) => {
-            let mut active: schema::threads::ActiveModel = model.clone().into();
+            let active: schema::threads::ActiveModel = model.clone().into();
             active
         }
         None => schema::threads::ActiveModel {

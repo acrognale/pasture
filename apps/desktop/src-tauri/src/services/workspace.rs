@@ -3,11 +3,22 @@ use std::path::Path;
 use crate::db::{WorkspaceRepo, WorkspaceSettingsRepo};
 use crate::domain::{WorkspacePath, WorkspaceSettings, WorkspaceSummary};
 use crate::errors::AppResult;
+use crate::workspace_manager::WorkspaceComposerDefaults;
+use codex_core::config::Config;
 
 #[derive(Clone)]
 pub struct WorkspaceService {
     workspaces: WorkspaceRepo,
     settings: WorkspaceSettingsRepo,
+}
+
+#[derive(Debug, Default)]
+pub struct ComposerSettingsUpdate {
+    pub model: Option<String>,
+    pub reasoning_effort: Option<codex_protocol::config_types::ReasoningEffort>,
+    pub reasoning_summary: Option<codex_protocol::config_types::ReasoningSummary>,
+    pub sandbox: Option<codex_protocol::config_types::SandboxMode>,
+    pub approval: Option<codex_protocol::protocol::AskForApproval>,
 }
 
 impl WorkspaceService {
@@ -49,5 +60,70 @@ impl WorkspaceService {
     ) -> AppResult<()> {
         self.workspaces.touch(workspace, None).await?;
         self.settings.save(workspace, settings).await
+    }
+
+    pub async fn get_composer_defaults(
+        &self,
+        workspace: &WorkspacePath,
+        config: &Config,
+    ) -> AppResult<WorkspaceComposerDefaults> {
+        let mut defaults: WorkspaceComposerDefaults = self.get_settings(workspace).await?.into();
+        if defaults.reasoning_summary.is_none() {
+            defaults.reasoning_summary = Some(config.model_reasoning_summary);
+        }
+        Ok(defaults)
+    }
+
+    pub async fn update_composer_defaults(
+        &self,
+        workspace: &WorkspacePath,
+        updates: ComposerSettingsUpdate,
+    ) -> AppResult<()> {
+        let ComposerSettingsUpdate {
+            model,
+            reasoning_effort,
+            reasoning_summary,
+            sandbox,
+            approval,
+        } = updates;
+
+        if model.is_none()
+            && reasoning_effort.is_none()
+            && reasoning_summary.is_none()
+            && sandbox.is_none()
+            && approval.is_none()
+        {
+            return Ok(());
+        }
+
+        let mut settings = self.get_settings(workspace).await?;
+        let mut changed = false;
+
+        if let Some(value) = model {
+            settings.model = Some(value);
+            changed = true;
+        }
+        if let Some(value) = reasoning_effort {
+            settings.reasoning_effort = Some(value);
+            changed = true;
+        }
+        if let Some(value) = reasoning_summary {
+            settings.reasoning_summary = Some(value);
+            changed = true;
+        }
+        if let Some(value) = sandbox {
+            settings.sandbox = Some(value);
+            changed = true;
+        }
+        if let Some(value) = approval {
+            settings.approval = Some(value);
+            changed = true;
+        }
+
+        if changed {
+            self.save_settings(workspace, &settings).await?;
+        }
+
+        Ok(())
     }
 }
