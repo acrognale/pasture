@@ -9,9 +9,9 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
-use crate::codex_runtime::CodexRuntime;
 use crate::domain::WorkspacePath;
 use crate::errors::{AppError, AppResult};
+use codex_core::config::Config;
 
 /// Serialized composer configuration for a conversation.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, TS)]
@@ -60,15 +60,9 @@ pub struct UpdateComposerConfigParams {
 pub async fn get_composer_config(
     params: GetComposerConfigParams,
     db: State<'_, DatabaseConnection>,
-    runtime: State<'_, CodexRuntime>,
+    config: State<'_, Config>,
 ) -> AppResult<ComposerTurnConfigPayload> {
     let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
-
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
 
     let defaults =
         crate::db::workspace::get_workspace_defaults(&db, workspace_path.as_str()).await?;
@@ -78,7 +72,7 @@ pub async fn get_composer_config(
     payload.reasoning_effort = defaults.reasoning_effort;
     payload.summary = defaults
         .reasoning_summary
-        .or(Some(runtime.config().model_reasoning_summary));
+        .or(Some(config.model_reasoning_summary));
     payload.sandbox = defaults.sandbox;
     payload.approval = defaults.approval;
 
@@ -90,15 +84,9 @@ pub async fn get_composer_config(
 pub async fn update_composer_config(
     params: UpdateComposerConfigParams,
     db: State<'_, DatabaseConnection>,
-    runtime: State<'_, CodexRuntime>,
+    _config: State<'_, Config>,
 ) -> AppResult<()> {
     let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
-
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
 
     let UpdateComposerConfigParams {
         workspace_path: _,

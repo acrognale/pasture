@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use codex_core::AuthManager;
+use codex_core::ConversationManager;
+use codex_core::config::Config;
 use codex_protocol::ConversationId;
 use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMode};
 use codex_protocol::protocol::{AskForApproval, SessionConfiguredEvent, TurnAbortReason};
@@ -15,16 +18,14 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::codex_runtime::CodexRuntime;
 use crate::domain::{ForkId, ForkPoint, ThreadId};
-use crate::env;
 use crate::errors::{AppError, AppResult};
 use crate::events::EventRouter;
 use crate::services::{
     NewThreadOptions, ReviewService, ThreadService, TurnOverrides, TurnService, WorkspaceService,
 };
 use crate::title_generation;
-use crate::workspace_manager::{ThreadRollout, WorkspaceManager};
+use crate::workspace_manager::ThreadRollout;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -202,31 +203,18 @@ pub async fn new_thread(
     params: NewThreadCommandParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    workspace_manager: State<'_, WorkspaceManager>,
-    runtime: State<'_, CodexRuntime>,
+    config: State<'_, Arc<Config>>,
+    conversation_manager: State<'_, Arc<ConversationManager>>,
     events: State<'_, Arc<EventRouter>>,
     review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<NewThreadResponse> {
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
-    let workspace_root_path = PathBuf::from(workspace_path.as_str());
-
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
 
     let options = params.options.unwrap_or_default();
     let thread_options = NewThreadOptions::from(options);
 
-    let base_cwd = workspace_root_path.clone();
-    let resolved_cwd = resolve_thread_cwd(&base_cwd, &thread_options);
-
-    let fallback_env = runtime.config().shell_environment_policy.r#set.clone();
-    let env_vars = env::capture_login_shell_environment(Some(resolved_cwd.as_path()))
-        .await
-        .unwrap_or(fallback_env);
+    let env_vars = config.shell_environment_policy.r#set.clone();
 
     let (thread, new_conv) = thread_service
         .create(&workspace_path, thread_options, env_vars.clone())
@@ -237,21 +225,8 @@ pub async fn new_thread(
     let conversation_id_str = conversation_id.to_string();
     let rollout_path = new_conv.session_configured.rollout_path.clone();
 
-    let session = workspace_manager
-        .store_active_conversation(
-            conversation_id_str.clone(),
-            rollout_path.clone(),
-            resolved_cwd.clone(),
-        )
-        .await;
-
-    session.set_environment_cache(env_vars.clone()).await;
-
     let review_service = review.inner().clone();
-    if let Err(err) = review_service
-        .ensure_base(&fork_id, resolved_cwd.as_path())
-        .await
-    {
+    if let Err(err) = review_service.ensure_base(&fork_id).await {
         log::debug!(
             "Failed to capture baseline snapshot for conversation {}: {}",
             conversation_id_str,
@@ -259,11 +234,7 @@ pub async fn new_thread(
         );
     }
 
-    if let Ok(conversation) = runtime
-        .conversation_manager()
-        .get_conversation(conversation_id)
-        .await
-    {
+    if let Ok(conversation) = conversation_manager.get_conversation(conversation_id).await {
         let _ = events
             .ensure_subscription(
                 fork_id.clone(),
@@ -289,18 +260,12 @@ pub async fn initialize_thread(
     params: InitializeThreadParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    workspace_manager: State<'_, WorkspaceManager>,
-    runtime: State<'_, CodexRuntime>,
+    config: State<'_, Arc<Config>>,
+    conversation_manager: State<'_, Arc<ConversationManager>>,
     events: State<'_, Arc<EventRouter>>,
     review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<InitializeThreadResponse> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let thread_id = ThreadId(params.thread_id);
     let thread = thread_service.get(&workspace_path, &thread_id).await?;
@@ -313,20 +278,8 @@ pub async fn initialize_thread(
         .ok_or(AppError::NotFound { entity: "rollout" })?;
     let rollout_path = PathBuf::from(&start_rollout.rollout_path);
 
-    let cwd = match workspace_manager
-        .get_active_conversation(&conversation_id)
-        .await
-    {
-        Some(active) => active.cwd.clone(),
-        None => load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?,
-    };
-
-    let session = workspace_manager
-        .store_active_conversation(conversation_id.clone(), rollout_path.clone(), cwd.clone())
-        .await;
-
-    let fallback_env = runtime.config().shell_environment_policy.r#set.clone();
-    let env_vars = session.workspace_environment(&fallback_env).await;
+    let cwd = load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?;
+    let env_vars = config.shell_environment_policy.r#set.clone();
 
     let (_, new_conversation) = thread_service
         .initialize(
@@ -339,18 +292,14 @@ pub async fn initialize_thread(
         .await?;
 
     let session_configured = new_conversation.session_configured.clone();
-    let reasoning_summary = runtime.config().model_reasoning_summary;
+    let reasoning_summary = config.model_reasoning_summary;
     let conv_id =
         ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
         })?;
     let fork_id = ForkId::from(conv_id.clone());
 
-    if let Ok(conversation) = runtime
-        .conversation_manager()
-        .get_conversation(conv_id)
-        .await
-    {
+    if let Ok(conversation) = conversation_manager.get_conversation(conv_id).await {
         let _ = events
             .ensure_subscription(
                 fork_id.clone(),
@@ -362,11 +311,7 @@ pub async fn initialize_thread(
     }
 
     let review_service = review.inner().clone();
-    let cwd_for_snapshot = session.cwd.clone();
-    if let Err(err) = review_service
-        .ensure_base(&fork_id, cwd_for_snapshot.as_path())
-        .await
-    {
+    if let Err(err) = review_service.ensure_base(&fork_id).await {
         log::debug!(
             "Failed to ensure baseline snapshot for conversation {}: {}",
             conversation_id,
@@ -386,18 +331,12 @@ pub async fn switch_thread_rollout(
     params: SwitchThreadRolloutParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    workspace_manager: State<'_, WorkspaceManager>,
-    runtime: State<'_, CodexRuntime>,
+    config: State<'_, Arc<Config>>,
+    conversation_manager: State<'_, Arc<ConversationManager>>,
     events: State<'_, Arc<EventRouter>>,
     review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<SwitchThreadRolloutResponse> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let thread_id = ThreadId(params.thread_id);
     let thread = thread_service.get(&workspace_path, &thread_id).await?;
@@ -415,30 +354,11 @@ pub async fn switch_thread_rollout(
         .ok_or(AppError::NotFound { entity: "rollout" })?;
     let rollout_path = PathBuf::from(&rollout.rollout_path);
 
-    let cwd = match workspace_manager
-        .get_active_conversation(&params.conversation_id)
-        .await
-    {
-        Some(active) => active.cwd.clone(),
-        None => load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?,
-    };
+    let cwd = load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?;
+    let env_vars = config.shell_environment_policy.r#set.clone();
+    let reasoning_summary = config.model_reasoning_summary;
 
-    let session = workspace_manager
-        .store_active_conversation(
-            params.conversation_id.clone(),
-            rollout_path.clone(),
-            cwd.clone(),
-        )
-        .await;
-
-    let fallback_env = runtime.config().shell_environment_policy.r#set.clone();
-    let env_vars = session.workspace_environment(&fallback_env).await;
-    let reasoning_summary = runtime.config().model_reasoning_summary;
-
-    let existing_conversation = runtime
-        .conversation_manager()
-        .get_conversation(conv_id.clone())
-        .await;
+    let existing_conversation = conversation_manager.get_conversation(conv_id.clone()).await;
 
     let (session_configured, resumed_reasoning_summary) = match existing_conversation {
         Ok(conversation) => {
@@ -464,11 +384,7 @@ pub async fn switch_thread_rollout(
                 )
                 .await?;
 
-            if let Ok(conversation) = runtime
-                .conversation_manager()
-                .get_conversation(conv_id.clone())
-                .await
-            {
+            if let Ok(conversation) = conversation_manager.get_conversation(conv_id.clone()).await {
                 let _ = events
                     .ensure_subscription(
                         fork_id.clone(),
@@ -487,11 +403,7 @@ pub async fn switch_thread_rollout(
     };
 
     let review_service = review.inner().clone();
-    let cwd_for_snapshot = session.cwd.clone();
-    if let Err(err) = review_service
-        .ensure_base(&fork_id, cwd_for_snapshot.as_path())
-        .await
-    {
+    if let Err(err) = review_service.ensure_base(&fork_id).await {
         log::debug!(
             "Failed to ensure baseline snapshot for conversation {}: {}",
             params.conversation_id,
@@ -516,18 +428,12 @@ pub async fn fork_thread(
     params: ForkThreadParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    workspace_manager: State<'_, WorkspaceManager>,
-    runtime: State<'_, CodexRuntime>,
+    config: State<'_, Arc<Config>>,
+    conversation_manager: State<'_, Arc<ConversationManager>>,
     events: State<'_, Arc<EventRouter>>,
     review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<ForkThreadResponse> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
     let ForkThreadParams {
         workspace_path,
         thread_id,
@@ -556,25 +462,9 @@ pub async fn fork_thread(
         .ok_or(AppError::NotFound { entity: "rollout" })?;
     let rollout_path = PathBuf::from(&base_rollout.rollout_path);
 
-    let cwd = match workspace_manager
-        .get_active_conversation(&base_conversation_id)
-        .await
-    {
-        Some(active) => active.cwd.clone(),
-        None => load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?,
-    };
-
-    let session = workspace_manager
-        .store_active_conversation(
-            base_conversation_id.clone(),
-            rollout_path.clone(),
-            cwd.clone(),
-        )
-        .await;
-
-    let fallback_env = runtime.config().shell_environment_policy.r#set.clone();
-    let env_vars = session.workspace_environment(&fallback_env).await;
-    let reasoning_summary = runtime.config().model_reasoning_summary;
+    let cwd = load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?;
+    let env_vars = config.shell_environment_policy.r#set.clone();
+    let reasoning_summary = config.model_reasoning_summary;
 
     let thread_options = NewThreadOptions::from(options.unwrap_or_default());
     let fork_point = ForkPoint {
@@ -605,21 +495,8 @@ pub async fn fork_thread(
     let fork_id = ForkId::from(conversation_id.clone());
     let session_configured = new_conv.session_configured.clone();
 
-    let session = workspace_manager
-        .store_active_conversation(
-            conversation_id_str.clone(),
-            new_conv.session_configured.rollout_path.clone(),
-            cwd.clone(),
-        )
-        .await;
-    session.set_environment_cache(env_vars.clone()).await;
-
     let review_service = review.inner().clone();
-    let cwd_for_snapshot = session.cwd.clone();
-    if let Err(err) = review_service
-        .ensure_base(&fork_id, cwd_for_snapshot.as_path())
-        .await
-    {
+    if let Err(err) = review_service.ensure_base(&fork_id).await {
         log::debug!(
             "Failed to ensure baseline snapshot for conversation {}: {}",
             conversation_id_str,
@@ -627,11 +504,7 @@ pub async fn fork_thread(
         );
     }
 
-    if let Ok(conversation) = runtime
-        .conversation_manager()
-        .get_conversation(conversation_id)
-        .await
-    {
+    if let Ok(conversation) = conversation_manager.get_conversation(conversation_id).await {
         let _ = events
             .ensure_subscription(
                 fork_id.clone(),
@@ -715,17 +588,12 @@ pub struct SendUserMessageParams {
 #[tauri::command]
 pub async fn send_user_message(
     params: SendUserMessageParams,
-    runtime: State<'_, CodexRuntime>,
+    config: State<'_, Arc<Config>>,
+    auth_manager: State<'_, Arc<AuthManager>>,
     turn_service: State<'_, TurnService>,
     app_handle: AppHandle,
     db: State<'_, DatabaseConnection>,
 ) -> AppResult<()> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
     let SendUserMessageParams {
         conversation_id,
         items,
@@ -775,7 +643,8 @@ pub async fn send_user_message(
         }
 
         title_generation::spawn_generate_thread_title(
-            runtime.inner().clone(),
+            config.inner().clone(),
+            auth_manager.inner().clone(),
             db.inner().clone(),
             conv_id,
             preview.to_string(),
@@ -815,16 +684,9 @@ pub struct CompactConversationParams {
 #[tauri::command]
 pub async fn compact_conversation(
     params: CompactConversationParams,
-    runtime: State<'_, CodexRuntime>,
     turn_service: State<'_, TurnService>,
     app_handle: AppHandle,
 ) -> AppResult<()> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
     let conversation_id = params.conversation_id;
     let conv_id =
         ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
@@ -857,15 +719,8 @@ pub struct InterruptConversationResponse {
 #[tauri::command]
 pub async fn interrupt_conversation(
     params: InterruptConversationParams,
-    runtime: State<'_, CodexRuntime>,
     turn_service: State<'_, TurnService>,
 ) -> AppResult<InterruptConversationResponse> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
     let conv_id =
         ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
@@ -897,23 +752,16 @@ pub struct AddConversationSubscriptionResponse {
 #[tauri::command]
 pub async fn add_conversation_listener(
     params: AddConversationListenerParams,
-    runtime: State<'_, CodexRuntime>,
+    conversation_manager: State<'_, Arc<ConversationManager>>,
     events: State<'_, Arc<EventRouter>>,
     app_handle: AppHandle,
 ) -> AppResult<AddConversationSubscriptionResponse> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
     let conv_id =
         ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let conversation = runtime
-        .conversation_manager()
+    let conversation = conversation_manager
         .get_conversation(conv_id)
         .await
         .map_err(|_| AppError::NotFound {
@@ -944,15 +792,8 @@ pub struct RemoveConversationListenerParams {
 #[tauri::command]
 pub async fn remove_conversation_listener(
     params: RemoveConversationListenerParams,
-    runtime: State<'_, CodexRuntime>,
     events: State<'_, Arc<EventRouter>>,
 ) -> AppResult<()> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
     let uuid = Uuid::parse_str(&params.subscription_id).map_err(|e| AppError::Validation {
         message: format!("Invalid subscription ID: {}", e),
     })?;
@@ -978,21 +819,6 @@ impl From<NewConversationParams> for NewThreadOptions {
             include_apply_patch_tool: params.include_apply_patch_tool,
         }
     }
-}
-
-fn resolve_thread_cwd(base_cwd: &PathBuf, options: &NewThreadOptions) -> PathBuf {
-    options
-        .cwd
-        .as_ref()
-        .map(Path::new)
-        .map(|path| {
-            if path.is_absolute() {
-                path.to_path_buf()
-            } else {
-                base_cwd.join(path)
-            }
-        })
-        .unwrap_or_else(|| base_cwd.clone())
 }
 
 async fn load_rollout_cwd(

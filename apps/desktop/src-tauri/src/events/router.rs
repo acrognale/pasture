@@ -17,7 +17,6 @@ use crate::domain::ForkId;
 use crate::events::CodexEvent;
 use crate::events::ConversationEventPayload;
 use crate::services::ReviewService;
-use crate::workspace_manager::WorkspaceManager;
 
 #[derive(Debug)]
 pub struct Subscription {
@@ -209,42 +208,23 @@ impl EventRouter {
                 return;
             };
             let review_service: Arc<ReviewService> = review_state.inner().clone();
-            let Some(workspace_state) = app_handle.try_state::<WorkspaceManager>() else {
-                tracing::debug!("WorkspaceManager unavailable; skipping turn snapshot capture");
+            if let Err(err) = review_service.ensure_base(fork_id).await {
+                tracing::debug!(
+                    "Failed to ensure baseline snapshot for fork {}: {}",
+                    fork_id,
+                    err
+                );
                 return;
-            };
+            }
 
-            let workspace_manager: WorkspaceManager = workspace_state.inner().clone();
-            let conversation_key = fork_id.to_string();
-
-            if let Some(session) = workspace_manager
-                .get_active_conversation(&conversation_key)
+            if let Err(err) = review_service
+                .record_turn_snapshot(fork_id, &event.id)
                 .await
             {
-                let cwd = session.cwd.clone();
-                if let Err(err) = review_service.ensure_base(fork_id, cwd.as_path()).await {
-                    tracing::debug!(
-                        "Failed to ensure baseline snapshot for fork {}: {}",
-                        fork_id,
-                        err
-                    );
-                    return;
-                }
-
-                if let Err(err) = review_service
-                    .record_turn_snapshot(fork_id, &event.id, cwd.as_path())
-                    .await
-                {
-                    tracing::debug!(
-                        "Failed to capture turn snapshot for fork {}: {}",
-                        fork_id,
-                        err
-                    );
-                }
-            } else {
                 tracing::debug!(
-                    "No cached conversation session for {}; unable to capture snapshot",
-                    conversation_key
+                    "Failed to capture turn snapshot for fork {}: {}",
+                    fork_id,
+                    err
                 );
             }
         }

@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
+use codex_core::AuthManager;
 use codex_core::auth::CodexAuth;
+use codex_core::config::Config;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::State;
 use ts_rs::TS;
-
-use crate::codex_runtime::CodexRuntime;
 
 use crate::errors::AppResult;
 
@@ -37,10 +39,14 @@ pub struct AuthState {
 }
 
 impl AuthState {
-    pub(crate) async fn capture(runtime: &CodexRuntime, error: Option<String>) -> Self {
-        let auth = runtime.auth_manager().auth();
+    pub(crate) async fn capture(
+        auth_manager: &AuthManager,
+        config: &Config,
+        error: Option<String>,
+    ) -> Self {
+        let auth = auth_manager.auth();
         let (mode, email, plan_type) = derive_auth_details(auth.clone()).await;
-        let requires_auth = runtime.config().model_provider.requires_openai_auth && auth.is_none();
+        let requires_auth = config.model_provider.requires_openai_auth && auth.is_none();
 
         Self {
             is_authenticated: auth.is_some(),
@@ -85,7 +91,10 @@ fn infer_auth_mode(auth: &CodexAuth) -> Option<AuthMode> {
 
 /// Retrieve the cached authentication state.
 #[tauri::command]
-pub async fn get_auth_state(runtime: State<'_, CodexRuntime>) -> AppResult<AuthState> {
-    runtime.auth_manager().reload();
-    Ok(AuthState::capture(&runtime, None).await)
+pub async fn get_auth_state(
+    auth_manager: State<'_, Arc<AuthManager>>,
+    config: State<'_, Arc<Config>>,
+) -> AppResult<AuthState> {
+    auth_manager.reload();
+    Ok(AuthState::capture(auth_manager.inner(), config.inner(), None).await)
 }

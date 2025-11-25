@@ -1,5 +1,9 @@
+use std::sync::Arc;
+
+use codex_core::AuthManager;
 use codex_core::Prompt;
 use codex_core::ResponseItem;
+use codex_core::config::Config;
 use codex_protocol::ConversationId;
 use codex_protocol::config_types::ReasoningEffort;
 use codex_protocol::models::ContentItem;
@@ -8,7 +12,6 @@ use serde_json::json;
 use tauri::AppHandle;
 use tauri::Emitter;
 
-use crate::codex_runtime::CodexRuntime;
 use crate::completions;
 use crate::events::CodexEvent;
 use crate::events::ThreadMetadataPayload;
@@ -19,16 +22,23 @@ const MAX_INPUT_LENGTH: usize = 500;
 /// Spawn a background task to generate a session title for the given conversation.
 /// Best-effort: errors are logged at debug level and will not impact the user flow.
 pub fn spawn_generate_thread_title(
-    runtime: CodexRuntime,
+    config: Arc<Config>,
+    auth_manager: Arc<AuthManager>,
     db: DatabaseConnection,
     conversation_id: ConversationId,
     user_message: String,
     app_handle: AppHandle,
 ) {
     tauri::async_runtime::spawn(async move {
-        if let Err(err) =
-            maybe_generate_thread_title(runtime, db, conversation_id, user_message, app_handle)
-                .await
+        if let Err(err) = maybe_generate_thread_title(
+            config,
+            auth_manager,
+            db,
+            conversation_id,
+            user_message,
+            app_handle,
+        )
+        .await
         {
             log::debug!("Session title generation skipped: {err}");
         }
@@ -36,7 +46,8 @@ pub fn spawn_generate_thread_title(
 }
 
 async fn maybe_generate_thread_title(
-    runtime: CodexRuntime,
+    config: Arc<Config>,
+    auth_manager: Arc<AuthManager>,
     db: DatabaseConnection,
     conversation_id: ConversationId,
     user_message: String,
@@ -81,7 +92,9 @@ async fn maybe_generate_thread_title(
         model.model
     );
 
-    match completions::generate_text(&runtime, conversation_id, &prompt, Some(model)).await {
+    match completions::generate_text(config, auth_manager, conversation_id, &prompt, Some(model))
+        .await
+    {
         Ok(Some(text)) => {
             log::info!(
                 "Title generation model response for conversation {}: {}",

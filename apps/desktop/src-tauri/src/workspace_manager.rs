@@ -1,9 +1,6 @@
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use ts_rs::TS;
 
 use codex_protocol::config_types::ReasoningEffort;
@@ -14,56 +11,7 @@ use codex_protocol::protocol::AskForApproval;
 use crate::domain::ids::{ForkId, ThreadId, WorkspacePath};
 use crate::domain::thread::{Fork, ForkPoint, Thread};
 use crate::domain::workspace::WorkspaceSettings;
-use crate::env;
 use crate::errors::AppResult;
-
-#[derive(Debug, Clone)]
-pub struct ActiveConversation {
-    pub rollout_path: PathBuf,
-    pub cwd: PathBuf,
-    environment: Arc<Mutex<Option<HashMap<String, String>>>>,
-}
-
-impl ActiveConversation {
-    pub fn new(rollout_path: PathBuf, cwd: PathBuf) -> Self {
-        Self {
-            rollout_path,
-            cwd: cwd.clone(),
-            environment: Arc::new(Mutex::new(None)),
-        }
-    }
-
-    pub async fn workspace_environment(
-        &self,
-        fallback_env: &HashMap<String, String>,
-    ) -> HashMap<String, String> {
-        {
-            let env_guard = self.environment.lock().await;
-            if let Some(env) = env_guard.clone() {
-                return env;
-            }
-        }
-
-        let captured = env::capture_login_shell_environment(Some(self.cwd.as_path())).await;
-        let env_map = captured.unwrap_or_else(|| fallback_env.clone());
-
-        let mut env_guard = self.environment.lock().await;
-        *env_guard = Some(env_map.clone());
-        env_map
-    }
-
-    pub async fn refresh_paths(&mut self, rollout_path: PathBuf, cwd: PathBuf) {
-        self.rollout_path = rollout_path;
-        self.cwd = cwd.clone();
-        let mut env_guard = self.environment.lock().await;
-        *env_guard = None;
-    }
-
-    pub async fn set_environment_cache(&self, env_map: HashMap<String, String>) {
-        let mut env_guard = self.environment.lock().await;
-        *env_guard = Some(env_map);
-    }
-}
 
 /// Remembered per-workspace defaults applied to new conversations.
 #[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Default)]
@@ -221,50 +169,5 @@ impl From<&Thread> for ThreadRecord {
             title: thread.title.clone(),
             preview: thread.preview.clone(),
         }
-    }
-}
-
-#[derive(Clone)]
-pub struct WorkspaceManager {
-    active_conversations: Arc<Mutex<HashMap<String, ActiveConversation>>>,
-}
-
-impl WorkspaceManager {
-    pub fn new() -> Self {
-        Self {
-            active_conversations: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    pub async fn store_active_conversation(
-        &self,
-        conversation_id: String,
-        rollout_path: PathBuf,
-        cwd: PathBuf,
-    ) -> ActiveConversation {
-        let existing = {
-            let conversations = self.active_conversations.lock().await;
-            conversations.get(&conversation_id).cloned()
-        };
-
-        if let Some(mut conversation) = existing {
-            conversation.refresh_paths(rollout_path, cwd).await;
-            let mut conversations = self.active_conversations.lock().await;
-            conversations.insert(conversation_id, conversation.clone());
-            conversation
-        } else {
-            let conversation = ActiveConversation::new(rollout_path, cwd);
-            let mut conversations = self.active_conversations.lock().await;
-            conversations.insert(conversation_id, conversation.clone());
-            conversation
-        }
-    }
-
-    pub async fn get_active_conversation(
-        &self,
-        conversation_id: &str,
-    ) -> Option<ActiveConversation> {
-        let conversations = self.active_conversations.lock().await;
-        conversations.get(conversation_id).cloned()
     }
 }

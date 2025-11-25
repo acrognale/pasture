@@ -64,6 +64,7 @@ impl TurnService {
             .submit(Op::UserInput { items })
             .await
             .map_err(|e| AppError::Codex(format!("Failed to submit user message: {}", e)))
+            .map(|_| ())
     }
 
     pub async fn interrupt(&self, fork_id: &ForkId) -> AppResult<()> {
@@ -72,6 +73,7 @@ impl TurnService {
             .submit(Op::Interrupt)
             .await
             .map_err(|e| AppError::Codex(format!("Failed to interrupt conversation: {}", e)))
+            .map(|_| ())
     }
 
     pub async fn compact(
@@ -95,6 +97,7 @@ impl TurnService {
             .submit(Op::Compact)
             .await
             .map_err(|e| AppError::Codex(format!("Failed to compact conversation: {}", e)))
+            .map(|_| ())
     }
 
     async fn resolve_conversation(&self, fork_id: &ForkId) -> AppResult<Arc<CodexConversation>> {

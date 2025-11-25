@@ -30,7 +30,7 @@ impl ReviewService {
         Self { repo, snapshotter }
     }
 
-    pub async fn ensure_base(&self, fork_id: &ForkId, cwd: &Path) -> AppResult<()> {
+    pub async fn ensure_base(&self, fork_id: &ForkId) -> AppResult<()> {
         let state = self.fork_state(fork_id).await?;
 
         if state.snapshots_disabled {
@@ -43,7 +43,8 @@ impl ReviewService {
             return Ok(());
         }
 
-        let commit = self.capture_snapshot(fork_id, cwd).await?;
+        let cwd = self.resolve_snapshot_cwd(&state).await;
+        let commit = self.capture_snapshot(fork_id, &cwd).await?;
         self.repo.set_base_commit(fork_id, &commit).await?;
         Ok(())
     }
@@ -52,7 +53,6 @@ impl ReviewService {
         &self,
         fork_id: &ForkId,
         event_id: &str,
-        cwd: &Path,
     ) -> AppResult<Option<String>> {
         let state = self.fork_state(fork_id).await?;
 
@@ -66,7 +66,8 @@ impl ReviewService {
             });
         }
 
-        let commit = self.capture_snapshot(fork_id, cwd).await?;
+        let cwd = self.resolve_snapshot_cwd(&state).await;
+        let commit = self.capture_snapshot(fork_id, &cwd).await?;
         let snapshot = TurnSnapshot {
             event_id: event_id.to_string(),
             commit_sha: commit.clone(),

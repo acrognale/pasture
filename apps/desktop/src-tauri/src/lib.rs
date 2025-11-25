@@ -1,4 +1,3 @@
-mod codex_runtime;
 mod commands;
 mod completions;
 mod db;
@@ -15,12 +14,15 @@ pub mod ts_export;
 
 use std::sync::Arc;
 
+use codex_core::AuthManager;
+use codex_core::ConversationManager;
+use codex_core::config::{Config, ConfigOverrides};
+use codex_protocol::protocol::SessionSource;
 use services::{
     ConversationConfigDeriver, GitSnapshotter, ReviewService, ThreadService, TurnService,
     WorkspaceService,
 };
 use tauri::Manager;
-use workspace_manager::WorkspaceManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -37,26 +39,28 @@ pub fn run() {
                 }
             }
 
-            let codex_runtime = tauri::async_runtime::block_on(async {
-                use codex_core::config::Config;
-                use codex_core::config::ConfigOverrides;
+            let base_config: Arc<Config> = tauri::async_runtime::block_on(async {
                 let mut cfg = Config::load_with_cli_overrides(vec![], ConfigOverrides::default())
                     .await
                     .map_err(|e| format!("Failed to load config: {}", e))?;
                 env::apply_shell_environment_defaults(&mut cfg).await;
-                let runtime = crate::codex_runtime::CodexRuntime::with_config(cfg)
-                    .await
-                    .map_err(|e| format!("Failed to construct runtime: {}", e))?;
-                runtime
-                    .initialize("Tauri Codex Client".to_string(), "0.1.0".to_string())
-                    .await
-                    .map_err(|e| format!("Failed to initialize Codex runtime: {}", e))?;
-                Ok::<_, String>(runtime)
+                Ok::<_, String>(Arc::new(cfg))
             })?;
-            let conversation_manager = codex_runtime.conversation_manager().clone();
-            let auth_manager = codex_runtime.auth_manager().clone();
-            let base_config = codex_runtime.config().clone();
-            app.manage(codex_runtime);
+
+            let auth_manager = AuthManager::shared(
+                base_config.codex_home.clone(),
+                false,
+                base_config.cli_auth_credentials_store_mode,
+            );
+
+            let conversation_manager = Arc::new(ConversationManager::new(
+                auth_manager.clone(),
+                SessionSource::VSCode,
+            ));
+
+            app.manage(base_config.clone());
+            app.manage(auth_manager.clone());
+            app.manage(conversation_manager.clone());
 
             // Initialize workspace manager
             let app_data_dir = app
@@ -87,9 +91,6 @@ pub fn run() {
             let turn_service = TurnService::new(conversation_manager.clone(), event_router.clone());
             app.manage(turn_service.clone());
 
-            let workspace_manager = WorkspaceManager::new();
-            app.manage(workspace_manager);
-
             let workspace_repo = db::WorkspaceRepo::new(workspace_db.clone());
             let workspace_settings_repo = db::WorkspaceSettingsRepo::new(workspace_db.clone());
             let workspace_service =
@@ -106,7 +107,7 @@ pub fn run() {
                 config_deriver,
             );
             app.manage(thread_service.clone());
-            log::info!("Workspace manager initialized successfully");
+            log::info!("Services initialized successfully");
 
             // Build and install the native menu
             let menu =
