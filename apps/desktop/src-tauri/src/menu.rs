@@ -1,5 +1,7 @@
 use crate::commands::workspace::WorkspacePathParams;
+use crate::errors::AppResult;
 use crate::workspace_manager::WorkspaceManager;
+use log::warn;
 use sea_orm::DatabaseConnection;
 use tauri::AppHandle;
 use tauri::Manager;
@@ -20,9 +22,13 @@ pub async fn build_menu(app: &AppHandle) -> Result<Menu<Wry>, tauri::Error> {
     let db = app.state::<DatabaseConnection>();
 
     // Get workspace state asynchronously
-    let recent_workspaces = crate::db::workspace::list_recent_workspaces(&db, 10)
-        .await
-        .unwrap_or_default();
+    let recent_workspaces = match crate::db::workspace::list_recent_workspaces(&db, 10).await {
+        Ok(items) => items,
+        Err(err) => {
+            warn!("Failed to load recent workspaces: {}", err);
+            Vec::new()
+        }
+    };
 
     let menu = MenuBuilder::new(app)
         .items(&[
@@ -179,9 +185,13 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
                 tauri::async_runtime::spawn(async move {
                     let app_handle = app_clone;
                     let db = app_handle.state::<DatabaseConnection>();
-                    let recent = crate::db::workspace::list_recent_workspaces(&db, 10)
-                        .await
-                        .unwrap_or_default();
+                    let recent = match crate::db::workspace::list_recent_workspaces(&db, 10).await {
+                        Ok(items) => items,
+                        Err(err) => {
+                            warn!("Failed to load recent workspaces: {}", err);
+                            Vec::new()
+                        }
+                    };
 
                     if let Some(workspace_path) = recent.get(idx)
                         && let Err(err) =
@@ -202,10 +212,7 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
     }
 }
 
-async fn open_workspace_via_menu(
-    app_handle: &AppHandle,
-    workspace_path: String,
-) -> Result<(), String> {
+async fn open_workspace_via_menu(app_handle: &AppHandle, workspace_path: String) -> AppResult<()> {
     let workspace_manager = app_handle.state::<WorkspaceManager>();
     let db = app_handle.state::<DatabaseConnection>();
 

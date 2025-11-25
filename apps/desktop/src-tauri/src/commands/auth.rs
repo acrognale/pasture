@@ -6,7 +6,7 @@ use ts_rs::TS;
 
 use crate::codex_runtime::CodexRuntime;
 
-use super::util::CommandResult;
+use crate::errors::AppResult;
 
 /// Authentication method currently active for the workspace.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, TS)]
@@ -85,7 +85,7 @@ fn infer_auth_mode(auth: &CodexAuth) -> Option<AuthMode> {
 
 /// Retrieve the cached authentication state.
 #[tauri::command]
-pub async fn get_auth_state(runtime: State<'_, CodexRuntime>) -> CommandResult<AuthState> {
+pub async fn get_auth_state(runtime: State<'_, CodexRuntime>) -> AppResult<AuthState> {
     runtime.auth_manager().reload();
     Ok(AuthState::capture(&runtime, None).await)
 }

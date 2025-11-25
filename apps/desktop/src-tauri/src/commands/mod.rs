@@ -1,5 +1,4 @@
 mod registry;
-mod util;
 
 pub mod approvals;
 pub mod auth;

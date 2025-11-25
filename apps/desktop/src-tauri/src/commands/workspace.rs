@@ -6,19 +6,15 @@ use tauri::State;
 use tauri::Window;
 use ts_rs::TS;
 
+use crate::errors::{AppError, AppResult};
 use crate::workspace_manager::WorkspaceComposerDefaults;
 use crate::workspace_manager::WorkspaceManager;
 
-use super::util::CommandResult;
-
 /// List recently opened workspaces (most recent first).
 #[tauri::command]
-pub async fn list_recent_workspaces(
-    db: State<'_, DatabaseConnection>,
-) -> CommandResult<Vec<String>> {
-    Ok(crate::db::workspace::list_recent_workspaces(&db, 10)
-        .await
-        .unwrap_or_default())
+pub async fn list_recent_workspaces(db: State<'_, DatabaseConnection>) -> AppResult<Vec<String>> {
+    let workspaces = crate::db::workspace::list_recent_workspaces(&db, 10).await?;
+    Ok(workspaces)
 }
 
 /// Parameters accepted by workspace navigation commands.
@@ -34,14 +30,10 @@ pub async fn open_workspace(
     params: WorkspacePathParams,
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
-) -> CommandResult<String> {
-    let normalized = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+) -> AppResult<String> {
+    let normalized = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
-    crate::db::workspace::upsert_workspace(&db, &normalized, None)
-        .await
-        .map_err(|e| e.to_string())?;
+    crate::db::workspace::upsert_workspace(&db, &normalized, None).await?;
 
     Ok(normalized)
 }
@@ -53,14 +45,10 @@ pub async fn create_workspace_window(
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     app_handle: AppHandle,
-) -> CommandResult<()> {
-    let normalized = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+) -> AppResult<()> {
+    let normalized = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
-    crate::db::workspace::upsert_workspace(&db, &normalized, None)
-        .await
-        .map_err(|e| e.to_string())?;
+    crate::db::workspace::upsert_workspace(&db, &normalized, None).await?;
 
     let title = workspace_manager.build_workspace_title(&normalized);
 
@@ -87,7 +75,9 @@ pub async fn create_workspace_window(
             .hidden_title(true);
     }
 
-    builder.build().map_err(|e| e.to_string())?;
+    builder
+        .build()
+        .map_err(|e| AppError::Internal(anyhow::Error::new(e)))?;
 
     Ok(())
 }
@@ -100,14 +90,16 @@ pub struct SetWindowTitleParams {
 
 /// Set the current window's title.
 #[tauri::command]
-pub async fn set_window_title(params: SetWindowTitleParams, window: Window) -> CommandResult<()> {
-    window.set_title(&params.title).map_err(|e| e.to_string())?;
+pub async fn set_window_title(params: SetWindowTitleParams, window: Window) -> AppResult<()> {
+    window
+        .set_title(&params.title)
+        .map_err(|e| AppError::Internal(anyhow::Error::new(e)))?;
     Ok(())
 }
 
 /// Browse for a workspace directory using the system file dialog.
 #[tauri::command]
-pub async fn browse_for_workspace(app_handle: AppHandle) -> CommandResult<Option<String>> {
+pub async fn browse_for_workspace(app_handle: AppHandle) -> AppResult<Option<String>> {
     use tauri_plugin_dialog::DialogExt;
 
     let folder_path = app_handle
@@ -125,13 +117,8 @@ pub async fn get_workspace_composer_defaults(
     params: WorkspacePathParams,
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
-) -> CommandResult<WorkspaceComposerDefaults> {
-    let normalized = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
-    Ok(
-        crate::db::workspace::get_workspace_defaults(&db, &normalized)
-            .await
-            .unwrap_or_default(),
-    )
+) -> AppResult<WorkspaceComposerDefaults> {
+    let normalized = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
+    let defaults = crate::db::workspace::get_workspace_defaults(&db, &normalized).await?;
+    Ok(defaults)
 }

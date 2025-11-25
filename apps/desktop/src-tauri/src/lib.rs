@@ -3,6 +3,7 @@ mod commands;
 mod completions;
 mod db;
 mod env;
+mod errors;
 mod event_listener;
 mod events;
 mod menu;

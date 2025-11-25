@@ -29,13 +29,12 @@ use uuid::Uuid;
 
 use crate::codex_runtime::CodexRuntime;
 use crate::env;
+use crate::errors::{AppError, AppResult};
 use crate::title_generation;
 use crate::workspace_manager::ThreadRecord;
 use crate::workspace_manager::ThreadRollout;
 use crate::workspace_manager::WorkspaceComposerDefaults;
 use crate::workspace_manager::WorkspaceManager;
-
-use super::util::CommandResult;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -158,14 +157,10 @@ pub async fn list_threads(
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     params: ListThreadsParams,
-) -> CommandResult<ListThreadsResponse> {
-    let workspace_path = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+) -> AppResult<ListThreadsResponse> {
+    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
-    let threads = crate::db::threads::get_threads_for_workspace(&db, &workspace_path)
-        .await
-        .unwrap_or_default();
+    let threads = crate::db::threads::get_threads_for_workspace(&db, &workspace_path).await?;
 
     let items = threads
         .into_iter()
@@ -193,15 +188,12 @@ pub async fn list_thread_rollouts(
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     params: ListThreadRolloutsParams,
-) -> CommandResult<ListThreadRolloutsResponse> {
-    let workspace_path = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+) -> AppResult<ListThreadRolloutsResponse> {
+    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
     let thread = crate::db::threads::get_thread(&db, &workspace_path, &params.thread_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Unknown thread".to_string())?;
+        .await?
+        .ok_or(AppError::NotFound { entity: "thread" })?;
 
     Ok(ListThreadRolloutsResponse {
         thread_id: thread.thread_id,
@@ -218,28 +210,25 @@ pub async fn new_thread(
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
-) -> CommandResult<NewThreadResponse> {
-    let workspace_path = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+) -> AppResult<NewThreadResponse> {
+    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
     let workspace_root_path = PathBuf::from(&workspace_path);
 
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
     let mut options = params.options.unwrap_or_default();
-    let workspace_defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path)
-        .await
-        .unwrap_or_default();
+    let workspace_defaults =
+        crate::db::workspace::get_workspace_defaults(&db, &workspace_path).await?;
     apply_workspace_defaults(&mut options, &workspace_defaults);
 
     let mut base_config = runtime.config().as_ref().clone();
     base_config.cwd = workspace_root_path.clone();
 
-    let mut config = derive_config_from_params(options, &base_config)
-        .await
-        .map_err(|e| format!("Failed to derive config: {}", e))?;
+    let mut config = derive_config_from_params(options, &base_config).await?;
     let cwd = config.cwd.clone();
     let fallback_env = runtime.config().shell_environment_policy.r#set.clone();
     let env_vars = env::capture_login_shell_environment(Some(config.cwd.as_path()))
@@ -251,7 +240,7 @@ pub async fn new_thread(
         .conversation_manager()
         .new_conversation(config)
         .await
-        .map_err(|e| format!("Failed to create conversation: {}", e))?;
+        .map_err(|e| AppError::Codex(format!("Failed to create conversation: {}", e)))?;
 
     let conversation_id = new_conv.conversation_id;
     let conversation_id_str = conversation_id.to_string();
@@ -277,9 +266,7 @@ pub async fn new_thread(
         preview: Some("Untitled session".to_string()),
     };
 
-    crate::db::threads::upsert_thread(&db, &workspace_path, thread_record)
-        .await
-        .map_err(|e| format!("Failed to persist thread: {}", e))?;
+    crate::db::threads::upsert_thread(&db, &workspace_path, thread_record).await?;
 
     let session = workspace_manager
         .store_active_conversation(
@@ -332,23 +319,22 @@ pub async fn initialize_thread(
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
-) -> CommandResult<InitializeThreadResponse> {
+) -> AppResult<InitializeThreadResponse> {
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
-    let workspace_path = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
     let thread = crate::db::threads::get_thread(&db, &workspace_path, &params.thread_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Unknown thread".to_string())?;
+        .await?
+        .ok_or(AppError::NotFound { entity: "thread" })?;
 
     let conversation_id = thread.current_conversation_id.clone();
     let current_rollout = find_rollout_for_conversation(&thread, &conversation_id)
-        .ok_or_else(|| "Active rollout not found for thread".to_string())?;
+        .ok_or(AppError::NotFound { entity: "rollout" })?;
     let rollout_path = PathBuf::from(&current_rollout.rollout_path);
 
     let cwd = match workspace_manager
@@ -375,11 +361,13 @@ pub async fn initialize_thread(
         .conversation_manager()
         .resume_conversation_from_rollout(config, rollout_path.clone(), auth_manager)
         .await
-        .map_err(|e| format!("Failed to resume conversation: {}", e))?;
+        .map_err(|e| AppError::Codex(format!("Failed to resume conversation: {}", e)))?;
 
     let session_configured = new_conversation.session_configured.clone();
-    let conv_id = ConversationId::from_string(&conversation_id)
-        .map_err(|e| format!("Invalid conversation ID: {}", e))?;
+    let conv_id =
+        ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
+            message: format!("Invalid conversation ID: {}", e),
+        })?;
 
     if let Ok(conversation) = runtime
         .conversation_manager()
@@ -419,25 +407,26 @@ pub async fn switch_thread_rollout(
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
-) -> CommandResult<SwitchThreadRolloutResponse> {
+) -> AppResult<SwitchThreadRolloutResponse> {
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
-    let workspace_path = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
     let mut thread = crate::db::threads::get_thread(&db, &workspace_path, &params.thread_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Unknown thread".to_string())?;
+        .await?
+        .ok_or(AppError::NotFound { entity: "thread" })?;
 
-    let conv_id = ConversationId::from_string(&params.conversation_id)
-        .map_err(|e| format!("Invalid conversation ID: {}", e))?;
+    let conv_id =
+        ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
+            message: format!("Invalid conversation ID: {}", e),
+        })?;
 
     let rollout = find_rollout_for_conversation(&thread, &params.conversation_id)
-        .ok_or_else(|| "Rollout not found for thread".to_string())?;
+        .ok_or(AppError::NotFound { entity: "rollout" })?;
     let rollout_path = PathBuf::from(&rollout.rollout_path);
 
     let cwd = match workspace_manager
@@ -489,7 +478,7 @@ pub async fn switch_thread_rollout(
                 .conversation_manager()
                 .resume_conversation_from_rollout(config, rollout_path.clone(), auth_manager)
                 .await
-                .map_err(|e| format!("Failed to resume conversation: {}", e))?;
+                .map_err(|e| AppError::Codex(format!("Failed to resume conversation: {}", e)))?;
 
             let session_configured = new_conversation.session_configured.clone();
 
@@ -525,9 +514,7 @@ pub async fn switch_thread_rollout(
     thread.current_conversation_id = params.conversation_id.clone();
     thread.updated_at = timestamp;
 
-    crate::db::threads::upsert_thread(&db, &workspace_path, thread)
-        .await
-        .map_err(|e| format!("Failed to persist thread: {}", e))?;
+    crate::db::threads::upsert_thread(&db, &workspace_path, thread).await?;
 
     Ok(SwitchThreadRolloutResponse {
         conversation_id: conv_id,
@@ -544,9 +531,11 @@ pub async fn fork_thread(
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
-) -> CommandResult<ForkThreadResponse> {
+) -> AppResult<ForkThreadResponse> {
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
     let ForkThreadParams {
@@ -557,25 +546,22 @@ pub async fn fork_thread(
         options,
     } = params;
 
-    let workspace_path = workspace_manager
-        .normalize_workspace_path(&workspace_path)
-        .map_err(|e| e.to_string())?;
+    let workspace_path = workspace_manager.normalize_workspace_path(&workspace_path)?;
 
     let mut thread = crate::db::threads::get_thread(&db, &workspace_path, &thread_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "Unknown thread".to_string())?;
+        .await?
+        .ok_or(AppError::NotFound { entity: "thread" })?;
 
     let base_conversation_id_parsed =
-        ConversationId::from_string(&base_conversation_id).map_err(|e| {
-            format!(
+        ConversationId::from_string(&base_conversation_id).map_err(|e| AppError::Validation {
+            message: format!(
                 "Invalid conversation ID for fork (thread {}): {}",
                 thread_id, e
-            )
+            ),
         })?;
 
     let base_rollout = find_rollout_for_conversation(&thread, &base_conversation_id)
-        .ok_or_else(|| "Active rollout not found for thread".to_string())?;
+        .ok_or(AppError::NotFound { entity: "rollout" })?;
     let rollout_path = PathBuf::from(&base_rollout.rollout_path);
 
     let cwd = match workspace_manager
@@ -595,17 +581,14 @@ pub async fn fork_thread(
         .await;
 
     let mut options = options.unwrap_or_default();
-    let workspace_defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path)
-        .await
-        .unwrap_or_default();
+    let workspace_defaults =
+        crate::db::workspace::get_workspace_defaults(&db, &workspace_path).await?;
     apply_workspace_defaults(&mut options, &workspace_defaults);
 
     let mut base_config = runtime.config().as_ref().clone();
     base_config.cwd = cwd.clone();
 
-    let mut config = derive_config_from_params(options, &base_config)
-        .await
-        .map_err(|e| format!("Failed to derive config: {}", e))?;
+    let mut config = derive_config_from_params(options, &base_config).await?;
 
     let fallback_env = config.shell_environment_policy.r#set.clone();
     let env_vars = session.workspace_environment(&fallback_env).await;
@@ -616,7 +599,7 @@ pub async fn fork_thread(
         .conversation_manager()
         .fork_conversation(nth_user_message as usize, config, rollout_path.clone())
         .await
-        .map_err(|e| format!("Failed to fork conversation: {}", e))?;
+        .map_err(|e| AppError::Codex(format!("Failed to fork conversation: {}", e)))?;
 
     let conversation_id = new_conv.conversation_id;
     let conversation_id_str = conversation_id.to_string();
@@ -635,9 +618,7 @@ pub async fn fork_thread(
     thread.current_conversation_id = conversation_id_str.clone();
     thread.updated_at = timestamp.clone();
 
-    crate::db::threads::upsert_thread(&db, &workspace_path, thread)
-        .await
-        .map_err(|e| format!("Failed to persist thread: {}", e))?;
+    crate::db::threads::upsert_thread(&db, &workspace_path, thread).await?;
 
     let session = workspace_manager
         .store_active_conversation(
@@ -748,9 +729,11 @@ pub async fn send_user_message(
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
     db: State<'_, DatabaseConnection>,
-) -> CommandResult<()> {
+) -> AppResult<()> {
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
     let SendUserMessageParams {
@@ -763,8 +746,10 @@ pub async fn send_user_message(
         approval_policy,
     } = params;
 
-    let conv_id = ConversationId::from_string(&conversation_id)
-        .map_err(|e| format!("Invalid conversation ID: {}", e))?;
+    let conv_id =
+        ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
+            message: format!("Invalid conversation ID: {}", e),
+        })?;
 
     let app_handle_clone = app_handle.clone();
 
@@ -772,7 +757,9 @@ pub async fn send_user_message(
         .conversation_manager()
         .get_conversation(conv_id)
         .await
-        .map_err(|_| format!("Conversation not found: {}", conversation_id))?;
+        .map_err(|_| AppError::NotFound {
+            entity: "conversation",
+        })?;
 
     let _ = runtime
         .event_manager()
@@ -843,7 +830,7 @@ pub async fn send_user_message(
                 summary,
             })
             .await
-            .map_err(|e| format!("Failed to apply turn overrides: {}", e))?;
+            .map_err(|e| AppError::Codex(format!("Failed to apply turn overrides: {}", e)))?;
     }
 
     conversation
@@ -851,7 +838,7 @@ pub async fn send_user_message(
             items: mapped_items,
         })
         .await
-        .map_err(|e| format!("Failed to submit user message: {}", e))?;
+        .map_err(|e| AppError::Codex(format!("Failed to submit user message: {}", e)))?;
 
     Ok(())
 }
@@ -869,20 +856,26 @@ pub async fn compact_conversation(
     params: CompactConversationParams,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
-) -> CommandResult<()> {
+) -> AppResult<()> {
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
     let conversation_id = params.conversation_id;
-    let conv_id = ConversationId::from_string(&conversation_id)
-        .map_err(|e| format!("Invalid conversation ID: {}", e))?;
+    let conv_id =
+        ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
+            message: format!("Invalid conversation ID: {}", e),
+        })?;
 
     let conversation = runtime
         .conversation_manager()
         .get_conversation(conv_id)
         .await
-        .map_err(|_| format!("Conversation not found: {}", conversation_id.clone()))?;
+        .map_err(|_| AppError::NotFound {
+            entity: "conversation",
+        })?;
 
     let _ = runtime
         .event_manager()
@@ -897,7 +890,7 @@ pub async fn compact_conversation(
     conversation
         .submit(Op::Compact)
         .await
-        .map_err(|e| format!("Failed to compact conversation: {}", e))?;
+        .map_err(|e| AppError::Codex(format!("Failed to compact conversation: {}", e)))?;
 
     Ok(())
 }
@@ -921,24 +914,30 @@ pub struct InterruptConversationResponse {
 pub async fn interrupt_conversation(
     params: InterruptConversationParams,
     runtime: State<'_, CodexRuntime>,
-) -> CommandResult<InterruptConversationResponse> {
+) -> AppResult<InterruptConversationResponse> {
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
-    let conv_id = ConversationId::from_string(&params.conversation_id)
-        .map_err(|e| format!("Invalid conversation ID: {}", e))?;
+    let conv_id =
+        ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
+            message: format!("Invalid conversation ID: {}", e),
+        })?;
 
     let conversation = runtime
         .conversation_manager()
         .get_conversation(conv_id)
         .await
-        .map_err(|_| format!("Conversation not found: {}", params.conversation_id))?;
+        .map_err(|_| AppError::NotFound {
+            entity: "conversation",
+        })?;
 
     conversation
         .submit(Op::Interrupt)
         .await
-        .map_err(|e| format!("Failed to interrupt conversation: {}", e))?;
+        .map_err(|e| AppError::Codex(format!("Failed to interrupt conversation: {}", e)))?;
 
     Ok(InterruptConversationResponse {
         abort_reason: TurnAbortReason::Interrupted,
@@ -965,19 +964,25 @@ pub async fn add_conversation_listener(
     params: AddConversationListenerParams,
     runtime: State<'_, CodexRuntime>,
     app_handle: AppHandle,
-) -> CommandResult<AddConversationSubscriptionResponse> {
+) -> AppResult<AddConversationSubscriptionResponse> {
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
-    let conv_id = ConversationId::from_string(&params.conversation_id)
-        .map_err(|e| format!("Invalid conversation ID: {}", e))?;
+    let conv_id =
+        ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
+            message: format!("Invalid conversation ID: {}", e),
+        })?;
 
     let conversation = runtime
         .conversation_manager()
         .get_conversation(conv_id)
         .await
-        .map_err(|_| format!("Conversation not found: {}", params.conversation_id))?;
+        .map_err(|_| AppError::NotFound {
+            entity: "conversation",
+        })?;
 
     let subscription_id = runtime
         .event_manager()
@@ -1004,15 +1009,16 @@ pub struct RemoveConversationListenerParams {
 pub async fn remove_conversation_listener(
     params: RemoveConversationListenerParams,
     runtime: State<'_, CodexRuntime>,
-) -> CommandResult<()> {
-    let uuid = Uuid::parse_str(&params.subscription_id)
-        .map_err(|e| format!("Invalid subscription ID: {}", e))?;
+) -> AppResult<()> {
+    let uuid = Uuid::parse_str(&params.subscription_id).map_err(|e| AppError::Validation {
+        message: format!("Invalid subscription ID: {}", e),
+    })?;
 
     runtime
         .event_manager()
         .unsubscribe(uuid)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| AppError::Validation { message: e })?;
 
     Ok(())
 }
@@ -1020,7 +1026,7 @@ pub async fn remove_conversation_listener(
 async fn derive_config_from_params(
     params: NewConversationParams,
     base_config: &Config,
-) -> anyhow::Result<Config> {
+) -> AppResult<Config> {
     let NewConversationParams {
         model,
         profile,
@@ -1067,7 +1073,7 @@ async fn derive_config_from_params(
 
     let mut config = Config::load_with_cli_overrides(cli_overrides, overrides)
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to load config: {}", e))?;
+        .map_err(|e| AppError::Codex(format!("Failed to load config: {}", e)))?;
     // Preserve captured login-shell environment (PATH, etc.) from the base config.
     config.shell_environment_policy = base_config.shell_environment_policy.clone();
     Ok(config)
@@ -1128,7 +1134,7 @@ fn find_rollout_for_conversation<'a>(
 async fn load_rollout_cwd(
     rollout_path: &Path,
     fallback_workspace: Option<&str>,
-) -> CommandResult<PathBuf> {
+) -> AppResult<PathBuf> {
     let file = match File::open(rollout_path).await {
         Ok(file) => file,
         Err(e) => {
@@ -1141,22 +1147,15 @@ async fn load_rollout_cwd(
                 );
                 return Ok(PathBuf::from(ws));
             }
-            return Err(format!(
-                "Failed to open rollout {}: {}",
-                rollout_path.display(),
-                e
-            ));
+            return Err(AppError::Io(e));
         }
     };
     let mut reader = BufReader::new(file);
     let mut first_line = String::new();
-    let bytes_read = reader.read_line(&mut first_line).await.map_err(|e| {
-        format!(
-            "Failed to read rollout header {}: {}",
-            rollout_path.display(),
-            e
-        )
-    })?;
+    let bytes_read = reader
+        .read_line(&mut first_line)
+        .await
+        .map_err(AppError::Io)?;
 
     if bytes_read == 0 {
         if let Some(ws) = fallback_workspace {
@@ -1167,10 +1166,12 @@ async fn load_rollout_cwd(
             );
             return Ok(PathBuf::from(ws));
         }
-        return Err(format!(
-            "Rollout {} did not contain a session header",
-            rollout_path.display()
-        ));
+        return Err(AppError::Validation {
+            message: format!(
+                "Rollout {} did not contain a session header",
+                rollout_path.display()
+            ),
+        });
     }
 
     let value: serde_json::Value = match serde_json::from_str(&first_line) {
@@ -1185,7 +1186,9 @@ async fn load_rollout_cwd(
                 );
                 return Ok(PathBuf::from(ws));
             }
-            return Err(format!("Failed to parse rollout header: {}", e));
+            return Err(AppError::Validation {
+                message: format!("Failed to parse rollout header: {}", e),
+            });
         }
     };
 
@@ -1202,10 +1205,9 @@ async fn load_rollout_cwd(
         return Ok(PathBuf::from(ws));
     }
 
-    Err(format!(
-        "Rollout {} header missing cwd",
-        rollout_path.display()
-    ))
+    Err(AppError::Validation {
+        message: format!("Rollout {} header missing cwd", rollout_path.display()),
+    })
 }
 
 #[cfg(test)]

@@ -1,10 +1,9 @@
-use anyhow::Context;
-use anyhow::Result;
 use chrono::Utc;
 use sea_orm::ActiveModelTrait;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
 use sea_orm::DatabaseConnection;
+use sea_orm::DbErr;
 use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
 use sea_orm::QueryOrder;
@@ -13,18 +12,19 @@ use std::collections::HashSet;
 
 use crate::db::schema;
 use crate::db::workspace;
+use crate::errors::{AppError, AppResult};
 use crate::workspace_manager::ThreadRecord;
 
 pub async fn get_threads_for_workspace(
     db: &DatabaseConnection,
     normalized_path: &str,
-) -> Result<Vec<ThreadRecord>> {
+) -> AppResult<Vec<ThreadRecord>> {
     let threads = schema::threads::Entity::find()
         .filter(schema::threads::Column::WorkspacePath.eq(normalized_path))
         .order_by_desc(schema::threads::Column::UpdatedAt)
         .all(db)
         .await
-        .context("Failed to list threads")?;
+        .map_err(|e| db_error("Failed to list threads", e))?;
 
     let mut result = Vec::with_capacity(threads.len());
 
@@ -34,7 +34,7 @@ pub async fn get_threads_for_workspace(
             .order_by_asc(schema::thread_rollouts::Column::Id)
             .all(db)
             .await
-            .context("Failed to list thread rollouts")?;
+            .map_err(|e| db_error("Failed to list thread rollouts", e))?;
         result.push(schema::decode_thread_record(thread, rollouts));
     }
 
@@ -45,12 +45,12 @@ pub async fn get_thread(
     db: &DatabaseConnection,
     normalized_path: &str,
     thread_id: &str,
-) -> Result<Option<ThreadRecord>> {
+) -> AppResult<Option<ThreadRecord>> {
     let thread = schema::threads::Entity::find_by_id(thread_id.to_string())
         .filter(schema::threads::Column::WorkspacePath.eq(normalized_path))
         .one(db)
         .await
-        .context("Failed to load thread")?;
+        .map_err(|e| db_error("Failed to load thread", e))?;
 
     let Some(thread) = thread else {
         return Ok(None);
@@ -61,7 +61,7 @@ pub async fn get_thread(
         .order_by_asc(schema::thread_rollouts::Column::Id)
         .all(db)
         .await
-        .context("Failed to load thread rollouts")?;
+        .map_err(|e| db_error("Failed to load thread rollouts", e))?;
 
     Ok(Some(schema::decode_thread_record(thread, rollouts)))
 }
@@ -70,20 +70,20 @@ pub async fn upsert_thread(
     db: &DatabaseConnection,
     normalized_path: &str,
     thread: ThreadRecord,
-) -> Result<()> {
+) -> AppResult<()> {
     workspace::upsert_workspace(db, normalized_path, None).await?;
 
     let txn = db
         .begin()
         .await
-        .context("Failed to begin thread upsert transaction")?;
+        .map_err(|e| db_error("Failed to begin thread upsert transaction", e))?;
 
     let models = schema::encode_thread_record(&thread, normalized_path);
 
     match schema::threads::Entity::find_by_id(thread.thread_id.clone())
         .one(&txn)
         .await
-        .context("Failed to fetch existing thread for upsert")?
+        .map_err(|e| db_error("Failed to fetch existing thread for upsert", e))?
     {
         Some(existing) => {
             let mut active: schema::threads::ActiveModel = existing.into();
@@ -96,20 +96,20 @@ pub async fn upsert_thread(
             active
                 .update(&txn)
                 .await
-                .context("Failed to update thread")?;
+                .map_err(|e| db_error("Failed to update thread", e))?;
 
             schema::thread_rollouts::Entity::delete_many()
                 .filter(schema::thread_rollouts::Column::ThreadId.eq(thread.thread_id.clone()))
                 .exec(&txn)
                 .await
-                .context("Failed to delete existing rollouts")?;
+                .map_err(|e| db_error("Failed to delete existing rollouts", e))?;
         }
         None => {
             models
                 .thread
                 .insert(&txn)
                 .await
-                .context("Failed to insert thread")?;
+                .map_err(|e| db_error("Failed to insert thread", e))?;
         }
     }
 
@@ -117,12 +117,12 @@ pub async fn upsert_thread(
         rollout
             .insert(&txn)
             .await
-            .context("Failed to insert rollout")?;
+            .map_err(|e| db_error("Failed to insert rollout", e))?;
     }
 
     txn.commit()
         .await
-        .context("Failed to commit thread upsert")?;
+        .map_err(|e| db_error("Failed to commit thread upsert", e))?;
 
     Ok(())
 }
@@ -131,7 +131,7 @@ pub async fn update_thread_preview_for_conversation(
     db: &DatabaseConnection,
     conversation_id: &str,
     preview: &str,
-) -> Result<bool> {
+) -> AppResult<bool> {
     let targets = get_threads_for_conversation(db, conversation_id).await?;
     let mut changed = false;
     let timestamp = Utc::now().to_rfc3339();
@@ -148,7 +148,7 @@ pub async fn update_thread_preview_for_conversation(
         active
             .update(db)
             .await
-            .context("Failed to update thread preview")?;
+            .map_err(|e| db_error("Failed to update thread preview", e))?;
         changed = true;
     }
 
@@ -158,7 +158,7 @@ pub async fn update_thread_preview_for_conversation(
 pub async fn conversation_has_missing_title(
     db: &DatabaseConnection,
     conversation_id: &str,
-) -> Result<bool> {
+) -> AppResult<bool> {
     let threads = get_threads_for_conversation(db, conversation_id).await?;
     Ok(threads.iter().any(|thread| is_missing_title(&thread.title)))
 }
@@ -167,7 +167,7 @@ pub async fn update_thread_title_for_conversation(
     db: &DatabaseConnection,
     conversation_id: &str,
     title: &str,
-) -> Result<bool> {
+) -> AppResult<bool> {
     let normalized_title = title.trim();
     if normalized_title.is_empty() || normalized_title == "Untitled session" {
         return Ok(false);
@@ -188,11 +188,15 @@ pub async fn update_thread_title_for_conversation(
         active
             .update(db)
             .await
-            .context("Failed to update thread title")?;
+            .map_err(|e| db_error("Failed to update thread title", e))?;
         changed = true;
     }
 
     Ok(changed)
+}
+
+fn db_error(context: &str, err: DbErr) -> AppError {
+    AppError::Database(DbErr::Custom(format!("{context}: {err}")))
 }
 
 fn is_missing_title(title: &Option<String>) -> bool {
@@ -205,18 +209,18 @@ fn is_missing_title(title: &Option<String>) -> bool {
 pub async fn get_threads_for_conversation(
     db: &DatabaseConnection,
     conversation_id: &str,
-) -> Result<Vec<schema::threads::Model>> {
+) -> AppResult<Vec<schema::threads::Model>> {
     let mut targets = schema::threads::Entity::find()
         .filter(schema::threads::Column::CurrentConversationId.eq(conversation_id))
         .all(db)
         .await
-        .context("Failed to find threads for conversation")?;
+        .map_err(|e| db_error("Failed to find threads for conversation", e))?;
 
     let rollout_threads: Vec<String> = schema::thread_rollouts::Entity::find()
         .filter(schema::thread_rollouts::Column::ConversationId.eq(conversation_id))
         .all(db)
         .await
-        .context("Failed to find rollouts for conversation")?
+        .map_err(|e| db_error("Failed to find rollouts for conversation", e))?
         .into_iter()
         .map(|r| r.thread_id)
         .collect();
@@ -230,8 +234,7 @@ pub async fn get_threads_for_conversation(
         if let Some(thread) = schema::threads::Entity::find_by_id(thread_id.clone())
             .one(db)
             .await
-            .ok()
-            .flatten()
+            .map_err(|e| db_error("Failed to find thread by rollout", e))?
         {
             targets.push(thread);
         }

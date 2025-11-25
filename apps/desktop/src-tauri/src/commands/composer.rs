@@ -10,9 +10,8 @@ use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
 use crate::codex_runtime::CodexRuntime;
+use crate::errors::{AppError, AppResult};
 use crate::workspace_manager::WorkspaceManager;
-
-use super::util::CommandResult;
 
 /// Serialized composer configuration for a conversation.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, TS)]
@@ -63,18 +62,16 @@ pub async fn get_composer_config(
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
-) -> CommandResult<ComposerTurnConfigPayload> {
-    let workspace_path = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+) -> AppResult<ComposerTurnConfigPayload> {
+    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
-    let defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path)
-        .await
-        .unwrap_or_default();
+    let defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path).await?;
 
     let mut payload = ComposerTurnConfigPayload::default();
     payload.model = defaults.model;
@@ -95,13 +92,13 @@ pub async fn update_composer_config(
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
-) -> CommandResult<()> {
-    let workspace_path = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+) -> AppResult<()> {
+    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
     if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
     }
 
     let UpdateComposerConfigParams {
@@ -120,9 +117,8 @@ pub async fn update_composer_config(
         || sandbox.is_some()
         || approval.is_some()
     {
-        let mut defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path)
-            .await
-            .unwrap_or_default();
+        let mut defaults =
+            crate::db::workspace::get_workspace_defaults(&db, &workspace_path).await?;
         let mut changed = false;
 
         if let Some(value) = model {
@@ -147,9 +143,7 @@ pub async fn update_composer_config(
         }
 
         if changed {
-            crate::db::workspace::set_workspace_defaults(&db, &workspace_path, defaults)
-                .await
-                .map_err(|e| e.to_string())?;
+            crate::db::workspace::set_workspace_defaults(&db, &workspace_path, defaults).await?;
         }
     }
 

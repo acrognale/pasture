@@ -1,25 +1,25 @@
-use anyhow::Context;
-use anyhow::Result;
 use chrono::Utc;
 use sea_orm::ActiveModelTrait;
 use sea_orm::ActiveValue::Set;
 use sea_orm::DatabaseConnection;
+use sea_orm::DbErr;
 use sea_orm::EntityTrait;
 use sea_orm::QueryOrder;
 use sea_orm::QuerySelect;
 
 use crate::db::schema;
+use crate::errors::{AppError, AppResult};
 use crate::workspace_manager::WorkspaceComposerDefaults;
 
 pub async fn upsert_workspace(
     db: &DatabaseConnection,
     path: &str,
     last_accessed: Option<String>,
-) -> Result<()> {
+) -> AppResult<()> {
     let existing = schema::workspaces::Entity::find_by_id(path.to_string())
         .one(db)
         .await
-        .context("Failed to fetch workspace for upsert")?;
+        .map_err(|e| db_error("Failed to fetch workspace for upsert", e))?;
 
     let timestamp = last_accessed.unwrap_or_else(|| Utc::now().to_rfc3339());
 
@@ -29,7 +29,7 @@ pub async fn upsert_workspace(
         active
             .update(db)
             .await
-            .context("Failed to update workspace")?;
+            .map_err(|e| db_error("Failed to update workspace", e))?;
     } else {
         schema::workspaces::ActiveModel {
             path: Set(path.to_string()),
@@ -37,19 +37,23 @@ pub async fn upsert_workspace(
         }
         .insert(db)
         .await
-        .context("Failed to insert workspace")?;
+        .map_err(|e| db_error("Failed to insert workspace", e))?;
     }
 
     Ok(())
 }
 
-pub async fn list_recent_workspaces(db: &DatabaseConnection, limit: u64) -> Result<Vec<String>> {
+fn db_error(context: &str, err: DbErr) -> AppError {
+    AppError::Database(DbErr::Custom(format!("{context}: {err}")))
+}
+
+pub async fn list_recent_workspaces(db: &DatabaseConnection, limit: u64) -> AppResult<Vec<String>> {
     let items = schema::workspaces::Entity::find()
         .order_by_desc(schema::workspaces::Column::LastAccessed)
         .limit(limit)
         .all(db)
         .await
-        .context("Failed to list recent workspaces")?;
+        .map_err(|e| db_error("Failed to list recent workspaces", e))?;
 
     Ok(items.into_iter().map(|w| w.path).collect())
 }
@@ -57,11 +61,11 @@ pub async fn list_recent_workspaces(db: &DatabaseConnection, limit: u64) -> Resu
 pub async fn get_workspace_defaults(
     db: &DatabaseConnection,
     workspace_path: &str,
-) -> Result<WorkspaceComposerDefaults> {
+) -> AppResult<WorkspaceComposerDefaults> {
     let defaults = schema::workspace_defaults::Entity::find_by_id(workspace_path.to_string())
         .one(db)
         .await
-        .context("Failed to load workspace defaults")?
+        .map_err(|e| db_error("Failed to load workspace defaults", e))?
         .and_then(|model| schema::decode_workspace_defaults(model).ok())
         .unwrap_or_default();
 
@@ -72,12 +76,12 @@ pub async fn set_workspace_defaults(
     db: &DatabaseConnection,
     workspace_path: &str,
     defaults: WorkspaceComposerDefaults,
-) -> Result<()> {
+) -> AppResult<()> {
     if defaults.is_empty() {
         schema::workspace_defaults::Entity::delete_by_id(workspace_path.to_string())
             .exec(db)
             .await
-            .context("Failed to delete workspace defaults")?;
+            .map_err(|e| db_error("Failed to delete workspace defaults", e))?;
         return Ok(());
     }
 
@@ -87,7 +91,7 @@ pub async fn set_workspace_defaults(
     match schema::workspace_defaults::Entity::find_by_id(workspace_path.to_string())
         .one(db)
         .await
-        .context("Failed to load workspace defaults for upsert")?
+        .map_err(|e| db_error("Failed to load workspace defaults for upsert", e))?
     {
         Some(existing) => {
             let mut model: schema::workspace_defaults::ActiveModel = existing.into();
@@ -99,13 +103,13 @@ pub async fn set_workspace_defaults(
             model
                 .update(db)
                 .await
-                .context("Failed to update workspace defaults")?;
+                .map_err(|e| db_error("Failed to update workspace defaults", e))?;
         }
         None => {
             active
                 .insert(db)
                 .await
-                .context("Failed to insert workspace defaults")?;
+                .map_err(|e| db_error("Failed to insert workspace defaults", e))?;
         }
     }
 
