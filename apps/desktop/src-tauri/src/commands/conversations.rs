@@ -4,9 +4,7 @@ use std::sync::Arc;
 
 use codex_protocol::ConversationId;
 use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMode};
-use codex_protocol::protocol::{
-    AskForApproval, Op, SandboxPolicy, SessionConfiguredEvent, TurnAbortReason,
-};
+use codex_protocol::protocol::{AskForApproval, SessionConfiguredEvent, TurnAbortReason};
 use codex_protocol::user_input::UserInput as CoreUserInput;
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
@@ -22,7 +20,9 @@ use crate::domain::{ForkId, ForkPoint, ThreadId};
 use crate::env;
 use crate::errors::{AppError, AppResult};
 use crate::events::EventRouter;
-use crate::services::{NewThreadOptions, ReviewService, ThreadService, WorkspaceService};
+use crate::services::{
+    NewThreadOptions, ReviewService, ThreadService, TurnOverrides, TurnService, WorkspaceService,
+};
 use crate::title_generation;
 use crate::workspace_manager::{ThreadRollout, WorkspaceManager};
 
@@ -716,7 +716,7 @@ pub struct SendUserMessageParams {
 pub async fn send_user_message(
     params: SendUserMessageParams,
     runtime: State<'_, CodexRuntime>,
-    events: State<'_, Arc<EventRouter>>,
+    turn_service: State<'_, TurnService>,
     app_handle: AppHandle,
     db: State<'_, DatabaseConnection>,
 ) -> AppResult<()> {
@@ -741,25 +741,7 @@ pub async fn send_user_message(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let app_handle_clone = app_handle.clone();
-
-    let conversation = runtime
-        .conversation_manager()
-        .get_conversation(conv_id)
-        .await
-        .map_err(|_| AppError::NotFound {
-            entity: "conversation",
-        })?;
-
     let fork_id = ForkId::from(conv_id.clone());
-    let _ = events
-        .ensure_subscription(
-            fork_id,
-            conversation.clone(),
-            app_handle_clone,
-            conversation_id.clone(),
-        )
-        .await;
 
     let mapped_items: Vec<CoreUserInput> = items
         .into_iter()
@@ -801,34 +783,23 @@ pub async fn send_user_message(
         );
     }
 
-    let sandbox_policy = sandbox.map(sandbox_mode_to_policy);
-    let effort_override = reasoning_effort.map(Some);
+    let overrides = TurnOverrides {
+        model,
+        reasoning_effort,
+        summary,
+        sandbox,
+        approval_policy,
+    };
 
-    if model.is_some()
-        || effort_override.is_some()
-        || summary.is_some()
-        || sandbox_policy.is_some()
-        || approval_policy.is_some()
-    {
-        conversation
-            .submit(Op::OverrideTurnContext {
-                cwd: None,
-                approval_policy,
-                sandbox_policy,
-                model: model.clone(),
-                effort: effort_override,
-                summary,
-            })
-            .await
-            .map_err(|e| AppError::Codex(format!("Failed to apply turn overrides: {}", e)))?;
-    }
-
-    conversation
-        .submit(Op::UserInput {
-            items: mapped_items,
-        })
-        .await
-        .map_err(|e| AppError::Codex(format!("Failed to submit user message: {}", e)))?;
+    turn_service
+        .send(
+            &fork_id,
+            mapped_items,
+            overrides,
+            &conversation_id,
+            app_handle.clone(),
+        )
+        .await?;
 
     Ok(())
 }
@@ -845,7 +816,7 @@ pub struct CompactConversationParams {
 pub async fn compact_conversation(
     params: CompactConversationParams,
     runtime: State<'_, CodexRuntime>,
-    events: State<'_, Arc<EventRouter>>,
+    turn_service: State<'_, TurnService>,
     app_handle: AppHandle,
 ) -> AppResult<()> {
     if !runtime.is_initialized().await {
@@ -860,28 +831,10 @@ pub async fn compact_conversation(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let conversation = runtime
-        .conversation_manager()
-        .get_conversation(conv_id)
-        .await
-        .map_err(|_| AppError::NotFound {
-            entity: "conversation",
-        })?;
-
     let fork_id = ForkId::from(conv_id.clone());
-    let _ = events
-        .ensure_subscription(
-            fork_id,
-            conversation.clone(),
-            app_handle,
-            conversation_id.clone(),
-        )
-        .await;
-
-    conversation
-        .submit(Op::Compact)
-        .await
-        .map_err(|e| AppError::Codex(format!("Failed to compact conversation: {}", e)))?;
+    turn_service
+        .compact(&fork_id, &conversation_id, app_handle)
+        .await?;
 
     Ok(())
 }
@@ -905,6 +858,7 @@ pub struct InterruptConversationResponse {
 pub async fn interrupt_conversation(
     params: InterruptConversationParams,
     runtime: State<'_, CodexRuntime>,
+    turn_service: State<'_, TurnService>,
 ) -> AppResult<InterruptConversationResponse> {
     if !runtime.is_initialized().await {
         return Err(AppError::Validation {
@@ -917,18 +871,8 @@ pub async fn interrupt_conversation(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let conversation = runtime
-        .conversation_manager()
-        .get_conversation(conv_id)
-        .await
-        .map_err(|_| AppError::NotFound {
-            entity: "conversation",
-        })?;
-
-    conversation
-        .submit(Op::Interrupt)
-        .await
-        .map_err(|e| AppError::Codex(format!("Failed to interrupt conversation: {}", e)))?;
+    let fork_id = ForkId::from(conv_id.clone());
+    turn_service.interrupt(&fork_id).await?;
 
     Ok(InterruptConversationResponse {
         abort_reason: TurnAbortReason::Interrupted,
@@ -1128,12 +1072,4 @@ async fn load_rollout_cwd(
     Err(AppError::Validation {
         message: format!("Rollout {} header missing cwd", rollout_path.display()),
     })
-}
-
-fn sandbox_mode_to_policy(mode: SandboxMode) -> SandboxPolicy {
-    match mode {
-        SandboxMode::ReadOnly => SandboxPolicy::new_read_only_policy(),
-        SandboxMode::WorkspaceWrite => SandboxPolicy::new_workspace_write_policy(),
-        SandboxMode::DangerFullAccess => SandboxPolicy::DangerFullAccess,
-    }
 }

@@ -16,7 +16,8 @@ pub mod ts_export;
 use std::sync::Arc;
 
 use services::{
-    ConversationConfigDeriver, GitSnapshotter, ReviewService, ThreadService, WorkspaceService,
+    ConversationConfigDeriver, GitSnapshotter, ReviewService, ThreadService, TurnService,
+    WorkspaceService,
 };
 use tauri::Manager;
 use workspace_manager::WorkspaceManager;
@@ -82,6 +83,9 @@ pub fn run() {
 
             let event_router = Arc::new(crate::events::EventRouter::new());
             app.manage(event_router.clone());
+
+            let turn_service = TurnService::new(conversation_manager.clone(), event_router.clone());
+            app.manage(turn_service.clone());
 
             let workspace_manager = WorkspaceManager::new();
             app.manage(workspace_manager);
