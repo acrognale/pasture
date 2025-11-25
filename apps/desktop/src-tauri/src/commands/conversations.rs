@@ -29,6 +29,7 @@ use uuid::Uuid;
 
 use crate::codex_runtime::CodexRuntime;
 use crate::env;
+use crate::title_generation;
 use crate::workspace_manager::ThreadRecord;
 use crate::workspace_manager::ThreadRollout;
 use crate::workspace_manager::WorkspaceComposerDefaults;
@@ -43,6 +44,8 @@ pub struct ThreadSummary {
     pub workspace_path: String,
     pub current_conversation_id: String,
     pub preview: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     pub timestamp: String,
     pub rollout_count: usize,
 }
@@ -170,6 +173,7 @@ pub async fn list_threads(
             thread_id: thread.thread_id.clone(),
             workspace_path: workspace_path.clone(),
             current_conversation_id: thread.current_conversation_id.clone(),
+            title: thread.title.clone(),
             preview: thread
                 .preview
                 .clone()
@@ -762,6 +766,8 @@ pub async fn send_user_message(
     let conv_id = ConversationId::from_string(&conversation_id)
         .map_err(|e| format!("Invalid conversation ID: {}", e))?;
 
+    let app_handle_clone = app_handle.clone();
+
     let conversation = runtime
         .conversation_manager()
         .get_conversation(conv_id)
@@ -773,7 +779,7 @@ pub async fn send_user_message(
         .subscribe(
             conv_id,
             conversation.clone(),
-            app_handle,
+            app_handle_clone,
             conversation_id.clone(),
         )
         .await;
@@ -808,6 +814,14 @@ pub async fn send_user_message(
                 err
             );
         }
+
+        title_generation::spawn_generate_thread_title(
+            runtime.inner().clone(),
+            db.inner().clone(),
+            conv_id,
+            preview.to_string(),
+            app_handle.clone(),
+        );
     }
 
     let sandbox_policy = sandbox.map(sandbox_mode_to_policy);

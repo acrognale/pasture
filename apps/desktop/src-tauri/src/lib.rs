@@ -1,11 +1,13 @@
 mod codex_runtime;
 mod commands;
+mod completions;
 mod db;
 mod env;
 mod event_listener;
 mod events;
 mod menu;
 mod review_snapshots;
+mod title_generation;
 mod workspace_manager;
 
 pub mod ts_export;
@@ -26,13 +28,6 @@ pub fn run() {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.set_traffic_lights_inset(20.0, 22.0);
                 }
-            }
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
             }
 
             let codex_runtime = tauri::async_runtime::block_on(async {

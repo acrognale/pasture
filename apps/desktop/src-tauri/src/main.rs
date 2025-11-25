@@ -3,10 +3,21 @@
 
 use std::io::stderr;
 use std::io::stdout;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::prelude::*;
 
 use codex_core::CODEX_APPLY_PATCH_ARG1;
+use tracing_subscriber::EnvFilter;
 
 fn main() -> anyhow::Result<()> {
+    let filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env_lossy();
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(filter)
+        .init();
+
     if let Some(exit_code) = maybe_run_apply_patch() {
         std::process::exit(exit_code);
     }

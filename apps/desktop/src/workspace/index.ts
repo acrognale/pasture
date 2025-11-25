@@ -13,6 +13,7 @@ export {
   sortThreadsByTimestamp,
   updateThreadPreview,
   updateThreadTimestamp,
+  updateThreadTitle,
   updateConversationPreview,
   updateConversationTimestamp,
 } from './conversations';

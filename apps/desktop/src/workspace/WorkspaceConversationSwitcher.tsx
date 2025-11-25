@@ -83,6 +83,7 @@ export function WorkspaceConversationSwitcher() {
             <CommandItem
               key={session.threadId}
               value={[
+                session.title ?? '',
                 session.preview ?? '',
                 session.threadId,
                 session.workspacePath,
@@ -95,7 +96,9 @@ export function WorkspaceConversationSwitcher() {
             >
               <div className="flex w-full items-center justify-between gap-3">
                 <span className="truncate">
-                  {formatSessionPreview(session.preview ?? session.threadId)}
+                  {formatSessionPreview(
+                    session.title ?? session.preview ?? session.threadId
+                  )}
                 </span>
                 {session.timestamp ? (
                   <span className="text-transcript-micro text-muted-foreground">

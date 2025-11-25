@@ -62,6 +62,7 @@ describe('SidebarPanel sessions', () => {
           workspacePath: WORKSPACE,
           currentConversationId: ACTIVE_CONVERSATION_ID,
           preview: 'Existing session',
+          title: null,
           timestamp: now,
           rolloutCount: 1,
         },
@@ -134,6 +135,7 @@ describe('SidebarPanel sessions', () => {
           workspacePath: WORKSPACE,
           currentConversationId: ACTIVE_CONVERSATION_ID,
           preview: 'Existing session',
+          title: null,
           timestamp: now,
           rolloutCount: 1,
         },
@@ -221,6 +223,7 @@ describe('SidebarPanel sessions', () => {
           workspacePath: WORKSPACE,
           currentConversationId: conversationId,
           preview: `Session ${index}`,
+          title: null,
           timestamp: now,
           rolloutCount: 1,
         };

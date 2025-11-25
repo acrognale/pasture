@@ -71,11 +71,12 @@ export const mapThreadToConversationSummary = (
   thread: ThreadSummary,
   normalizedWorkspace: string | null
 ): ConversationSummary => {
+  const label = thread.title || thread.preview || 'Untitled session';
   return {
     conversationId: thread.currentConversationId,
     path: '',
     cwd: normalizedWorkspace ?? thread.workspacePath,
-    preview: thread.preview || 'Untitled session',
+    preview: label,
     timestamp: thread.timestamp,
   };
 };
@@ -200,6 +201,41 @@ export const updateThreadPreview = (
         ...state.items[index],
         preview,
         timestamp,
+      };
+
+      const items = [...state.items];
+      items[index] = updated;
+
+      return { ...state, items };
+    }
+  );
+};
+
+export const updateThreadTitle = (
+  queryClient: QueryClient,
+  threadsKey: readonly unknown[],
+  threadId: string,
+  title: string,
+  timestamp: string | undefined
+) => {
+  queryClient.setQueryData<WorkspaceThreadsState | undefined>(
+    threadsKey,
+    (state) => {
+      if (!state) {
+        return state;
+      }
+
+      const index = state.items.findIndex(
+        (thread) => thread.threadId === threadId
+      );
+      if (index === -1) {
+        return state;
+      }
+
+      const updated = {
+        ...state.items[index],
+        title,
+        timestamp: timestamp ?? state.items[index].timestamp,
       };
 
       const items = [...state.items];

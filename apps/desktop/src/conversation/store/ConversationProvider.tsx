@@ -10,9 +10,11 @@ import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import {
   derivePreviewFromEvent,
   getAuthUpdatedPayload,
+  getThreadMetadataPayload,
   isAuthUpdatedEvent,
   isConversationEvent,
   isTauriEnvironment,
+  isThreadMetadataUpdatedEvent,
   subscribeToCodexEvents,
 } from '~/codex/events';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
@@ -21,6 +23,7 @@ import {
   updateConversationTimestamp,
   updateThreadPreview,
   updateThreadTimestamp,
+  updateThreadTitle,
   useWorkspaceActions,
   useWorkspaceApprovalsStore,
 } from '~/workspace';
@@ -254,6 +257,33 @@ export function ConversationProvider({
       enqueueDeltaPayload(payload);
     };
 
+    const handleThreadMetadataUpdated = (
+      event: CodexEvent & { kind: 'thread-metadata-updated' }
+    ) => {
+      const payload = getThreadMetadataPayload(event);
+      if (payload.workspacePath !== workspacePath) {
+        return;
+      }
+      if (payload.title) {
+        updateThreadTitle(
+          queryClient,
+          threadsKey,
+          payload.threadId,
+          payload.title,
+          payload.timestamp
+        );
+      }
+      if (payload.preview) {
+        updateThreadPreview(
+          queryClient,
+          threadsKey,
+          payload.threadId,
+          payload.preview,
+          payload.timestamp
+        );
+      }
+    };
+
     const handleAuthUpdated = (
       event: CodexEvent & { kind: 'auth-updated' }
     ) => {
@@ -275,6 +305,11 @@ export function ConversationProvider({
     const unsubscribe = subscribeToCodexEvents((event: CodexEvent) => {
       if (isConversationEvent(event)) {
         handleConversationEvent(event);
+        return;
+      }
+
+      if (isThreadMetadataUpdatedEvent(event)) {
+        handleThreadMetadataUpdated(event);
         return;
       }
 

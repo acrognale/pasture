@@ -3,6 +3,7 @@ import type { AuthState } from '~/codex.gen/AuthState';
 import type { CodexEvent } from '~/codex.gen/CodexEvent';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 import type { EventMsg } from '~/codex.gen/EventMsg';
+import type { ThreadMetadataPayload } from '~/codex.gen/ThreadMetadataPayload';
 
 export const isTauriEnvironment = (): boolean =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -42,6 +43,11 @@ export const isAuthUpdatedEvent = (
 ): event is CodexEvent & { kind: 'auth-updated' } =>
   event.kind === 'auth-updated';
 
+export const isThreadMetadataUpdatedEvent = (
+  event: CodexBridgeEvent
+): event is CodexEvent & { kind: 'thread-metadata-updated' } =>
+  event.kind === 'thread-metadata-updated';
+
 export const getConversationEventPayload = (
   event: CodexBridgeEvent
 ): ConversationEventPayload => {
@@ -57,6 +63,15 @@ export const getAuthUpdatedPayload = (event: CodexBridgeEvent): AuthState => {
     throw new Error('Unsupported Codex event kind');
   }
 
+  return event.payload;
+};
+
+export const getThreadMetadataPayload = (
+  event: CodexBridgeEvent
+): ThreadMetadataPayload => {
+  if (!isThreadMetadataUpdatedEvent(event)) {
+    throw new Error('Unsupported Codex event kind');
+  }
   return event.payload;
 };
 

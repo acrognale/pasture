@@ -9,6 +9,7 @@ use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
 use sea_orm::QueryOrder;
 use sea_orm::TransactionTrait;
+use std::collections::HashSet;
 
 use crate::db::schema;
 use crate::db::workspace;
@@ -131,40 +132,9 @@ pub async fn update_thread_preview_for_conversation(
     conversation_id: &str,
     preview: &str,
 ) -> Result<bool> {
+    let targets = get_threads_for_conversation(db, conversation_id).await?;
     let mut changed = false;
     let timestamp = Utc::now().to_rfc3339();
-
-    let mut targets = schema::threads::Entity::find()
-        .filter(schema::threads::Column::CurrentConversationId.eq(conversation_id))
-        .all(db)
-        .await
-        .context("Failed to find threads for preview update")?;
-
-    let rollout_threads: Vec<String> = schema::thread_rollouts::Entity::find()
-        .filter(schema::thread_rollouts::Column::ConversationId.eq(conversation_id))
-        .all(db)
-        .await
-        .context("Failed to find rollouts for preview update")?
-        .into_iter()
-        .map(|r| r.thread_id)
-        .collect();
-
-    let mut seen = std::collections::HashSet::new();
-
-    for thread_id in rollout_threads {
-        if seen.contains(&thread_id) {
-            continue;
-        }
-        if let Some(thread) = schema::threads::Entity::find_by_id(thread_id.clone())
-            .one(db)
-            .await
-            .ok()
-            .flatten()
-        {
-            targets.push(thread);
-            seen.insert(thread_id);
-        }
-    }
 
     for thread in targets {
         let existing = thread.preview.as_deref().unwrap_or("");
@@ -174,7 +144,6 @@ pub async fn update_thread_preview_for_conversation(
 
         let mut active: schema::threads::ActiveModel = thread.into();
         active.preview = Set(Some(preview.to_string()));
-        active.title = Set(Some(preview.to_string()));
         active.updated_at = Set(timestamp.clone());
         active
             .update(db)
@@ -184,4 +153,89 @@ pub async fn update_thread_preview_for_conversation(
     }
 
     Ok(changed)
+}
+
+pub async fn conversation_has_missing_title(
+    db: &DatabaseConnection,
+    conversation_id: &str,
+) -> Result<bool> {
+    let threads = get_threads_for_conversation(db, conversation_id).await?;
+    Ok(threads.iter().any(|thread| is_missing_title(&thread.title)))
+}
+
+pub async fn update_thread_title_for_conversation(
+    db: &DatabaseConnection,
+    conversation_id: &str,
+    title: &str,
+) -> Result<bool> {
+    let normalized_title = title.trim();
+    if normalized_title.is_empty() || normalized_title == "Untitled session" {
+        return Ok(false);
+    }
+
+    let mut changed = false;
+    let timestamp = Utc::now().to_rfc3339();
+    let targets = get_threads_for_conversation(db, conversation_id).await?;
+
+    for thread in targets {
+        if !is_missing_title(&thread.title) {
+            continue;
+        }
+
+        let mut active: schema::threads::ActiveModel = thread.into();
+        active.title = Set(Some(normalized_title.to_string()));
+        active.updated_at = Set(timestamp.clone());
+        active
+            .update(db)
+            .await
+            .context("Failed to update thread title")?;
+        changed = true;
+    }
+
+    Ok(changed)
+}
+
+fn is_missing_title(title: &Option<String>) -> bool {
+    match title.as_deref() {
+        Some(existing) => existing.trim().is_empty() || existing == "Untitled session",
+        None => true,
+    }
+}
+
+pub async fn get_threads_for_conversation(
+    db: &DatabaseConnection,
+    conversation_id: &str,
+) -> Result<Vec<schema::threads::Model>> {
+    let mut targets = schema::threads::Entity::find()
+        .filter(schema::threads::Column::CurrentConversationId.eq(conversation_id))
+        .all(db)
+        .await
+        .context("Failed to find threads for conversation")?;
+
+    let rollout_threads: Vec<String> = schema::thread_rollouts::Entity::find()
+        .filter(schema::thread_rollouts::Column::ConversationId.eq(conversation_id))
+        .all(db)
+        .await
+        .context("Failed to find rollouts for conversation")?
+        .into_iter()
+        .map(|r| r.thread_id)
+        .collect();
+
+    let mut seen: HashSet<String> = targets.iter().map(|thread| thread.id.clone()).collect();
+
+    for thread_id in rollout_threads {
+        if !seen.insert(thread_id.clone()) {
+            continue;
+        }
+        if let Some(thread) = schema::threads::Entity::find_by_id(thread_id.clone())
+            .one(db)
+            .await
+            .ok()
+            .flatten()
+        {
+            targets.push(thread);
+        }
+    }
+
+    Ok(targets)
 }
