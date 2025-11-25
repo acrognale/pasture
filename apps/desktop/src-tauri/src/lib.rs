@@ -8,7 +8,6 @@ mod events;
 mod menu;
 mod services;
 mod title_generation;
-mod workspace_manager;
 
 pub mod ts_export;
 

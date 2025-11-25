@@ -5,9 +5,9 @@ use tauri::State;
 use tauri::Window;
 use ts_rs::TS;
 
+use crate::domain::WorkspaceComposerDefaults;
 use crate::errors::{AppError, AppResult};
 use crate::services::WorkspaceService;
-use crate::workspace_manager::WorkspaceComposerDefaults;
 
 /// List recently opened workspaces (most recent first).
 #[tauri::command]

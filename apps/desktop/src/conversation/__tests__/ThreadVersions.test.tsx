@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { describe, expect, test } from 'vitest';
-import type { ThreadRollout } from '~/codex.gen/ThreadRollout';
+import type { Fork } from '~/codex.gen/Fork';
 import { ConversationPane } from '~/conversation/ConversationPane';
 import { ConversationProvider } from '~/conversation/store';
 import { mockCodex, mockEvents } from '~/testing/codex';
@@ -15,27 +15,30 @@ const THREAD_ID = 'f387a944-c3c2-4cc6-9f21-4fe4853100d5';
 const BASE_CONVERSATION_ID = '019ab3a1-b4cc-7812-945e-c5496d0ed6b2';
 const FORK_CONVERSATION_ID = '019ab3a1-f1a6-7601-8583-b20987cc7fa7';
 
-const buildRolloutsFixture = (): ThreadRollout[] => {
+const buildRolloutsFixture = (): Fork[] => {
   const createdAtBase = '2025-11-24T02:11:50.617132+00:00';
   const createdAtFork = '2025-11-24T02:12:06.196488+00:00';
   return [
     {
-      conversationId: BASE_CONVERSATION_ID,
+      id: BASE_CONVERSATION_ID,
+      threadId: THREAD_ID,
       rolloutPath:
         '/Users/anthony/.codex/sessions/2025/11/23/rollout-2025-11-23T21-11-50-019ab3a1-b4cc-7812-945e-c5496d0ed6b2.jsonl',
       createdAt: createdAtBase,
       label: null,
-      forkedFromConversationId: null,
-      forkedFromNthUserMessage: null,
+      forkPoint: null,
     },
     {
-      conversationId: FORK_CONVERSATION_ID,
+      id: FORK_CONVERSATION_ID,
+      threadId: THREAD_ID,
       rolloutPath:
         '/Users/anthony/.codex/sessions/2025/11/23/rollout-2025-11-23T21-12-06-019ab3a1-f1a6-7601-8583-b20987cc7fa7.jsonl',
       createdAt: createdAtFork,
       label: null,
-      forkedFromConversationId: BASE_CONVERSATION_ID,
-      forkedFromNthUserMessage: 1,
+      forkPoint: {
+        forkId: BASE_CONVERSATION_ID,
+        afterMessage: 1,
+      },
     },
   ];
 };

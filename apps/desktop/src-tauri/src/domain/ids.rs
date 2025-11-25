@@ -3,10 +3,11 @@ use std::path::Path;
 
 use codex_protocol::ConversationId;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::errors::{AppError, AppResult};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(transparent)]
 pub struct ThreadId(pub String);
 
@@ -34,7 +35,7 @@ impl fmt::Display for ThreadId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(transparent)]
 pub struct ForkId(pub String);
 

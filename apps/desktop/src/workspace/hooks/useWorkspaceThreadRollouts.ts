@@ -4,43 +4,43 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
+import type { Fork } from '~/codex.gen/Fork';
 import type { ListThreadRolloutsResponse } from '~/codex.gen/ListThreadRolloutsResponse';
-import type { ThreadRollout } from '~/codex.gen/ThreadRollout';
 import { Codex } from '~/codex/client';
 
 import { useWorkspace, useWorkspaceKeys } from '../WorkspaceProvider';
 import type { WorkspaceThreadsState } from './useWorkspaceThreads';
 
 const computeThreadVersionGroupsInternal = (
-  rollouts: ThreadRollout[]
-): Map<number, ThreadRollout[]> => {
+  rollouts: Fork[]
+): Map<number, Fork[]> => {
   const byConversationId = new Map(
-    rollouts.map((rollout) => [rollout.conversationId, rollout])
+    rollouts.map((rollout) => [rollout.id, rollout])
   );
-  const groups = new Map<number, ThreadRollout[]>();
+  const groups = new Map<number, Fork[]>();
   const seenByNth = new Map<number, Set<string>>();
 
   rollouts.forEach((rollout) => {
-    const nth = rollout.forkedFromNthUserMessage;
+    const nth = rollout.forkPoint?.afterMessage;
     if (nth == null) {
       return;
     }
 
-    let current: ThreadRollout | undefined = rollout;
+    let current: Fork | undefined = rollout;
     while (current) {
       const seen = seenByNth.get(nth) ?? new Set<string>();
       const group = groups.get(nth) ?? [];
-      if (!seen.has(current.conversationId)) {
+      if (!seen.has(current.id)) {
         group.push(current);
-        seen.add(current.conversationId);
+        seen.add(current.id);
         groups.set(nth, group);
         seenByNth.set(nth, seen);
       }
 
-      if (!current.forkedFromConversationId) {
+      if (!current.forkPoint?.forkId) {
         break;
       }
-      current = byConversationId.get(current.forkedFromConversationId);
+      current = byConversationId.get(current.forkPoint.forkId);
     }
   });
 
@@ -50,7 +50,7 @@ const computeThreadVersionGroupsInternal = (
       if (dateComparison !== 0) {
         return dateComparison;
       }
-      return a.conversationId.localeCompare(b.conversationId);
+      return a.id.localeCompare(b.id);
     });
     groups.set(nth, sorted);
   });
@@ -59,11 +59,11 @@ const computeThreadVersionGroupsInternal = (
 };
 
 export const computeThreadVersionGroups = (
-  rollouts: ThreadRollout[]
-): Map<number, ThreadRollout[]> => computeThreadVersionGroupsInternal(rollouts);
+  rollouts: Fork[]
+): Map<number, Fork[]> => computeThreadVersionGroupsInternal(rollouts);
 
 type ThreadRolloutsQueryResult = {
-  rollouts: ThreadRollout[];
+  rollouts: Fork[];
   currentConversationId: string | null;
   query: UseQueryResult<ListThreadRolloutsResponse, Error>;
 };
@@ -136,8 +136,8 @@ export const useWorkspaceThreadRollouts = (
 };
 
 type ThreadVersionGroupsResult = {
-  groups: Map<number, ThreadRollout[]>;
-  rollouts: ThreadRollout[];
+  groups: Map<number, Fork[]>;
+  rollouts: Fork[];
   currentConversationId: string | null;
   query: UseQueryResult<ListThreadRolloutsResponse, Error>;
 };

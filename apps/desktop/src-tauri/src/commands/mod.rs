@@ -78,7 +78,7 @@ codex_command_descriptors! {
     },
     workspace::get_workspace_composer_defaults {
         params: workspace::WorkspacePathParams,
-        result: crate::workspace_manager::WorkspaceComposerDefaults,
+        result: crate::domain::WorkspaceComposerDefaults,
     },
     workspace::list_recent_workspaces {
         params: (),

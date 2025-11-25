@@ -10,9 +10,9 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
+use crate::domain::WorkspaceComposerDefaults;
 use crate::errors::AppResult;
 use crate::services::{ComposerSettingsUpdate, WorkspaceService};
-use crate::workspace_manager::WorkspaceComposerDefaults;
 use codex_core::config::Config;
 
 /// Serialized composer configuration for a conversation.

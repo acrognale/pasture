@@ -4,8 +4,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::domain::ids::WorkspacePath;
-use crate::domain::workspace::WorkspaceSettings;
-use crate::workspace_manager::WorkspaceComposerDefaults;
+use crate::domain::workspace::{WorkspaceComposerDefaults, WorkspaceSettings};
 
 pub mod workspaces {
     use sea_orm::entity::prelude::*;

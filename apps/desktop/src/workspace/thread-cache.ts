@@ -59,30 +59,36 @@ export const updateThreadOnFork = (
     (state) => {
       const rollouts = state?.rollouts ?? [];
       const existingIndex = rollouts.findIndex(
-        (item) => item.conversationId === conversationId
+        (item) => item.id === conversationId
       );
       const nextRollouts =
         existingIndex === -1
           ? [
               ...rollouts,
               {
-                conversationId,
+                id: conversationId,
+                threadId,
                 rolloutPath,
                 createdAt,
                 label: null,
-                forkedFromConversationId: forkBaseConversationId,
-                forkedFromNthUserMessage: forkNthUserMessage,
+                forkPoint: {
+                  forkId: forkBaseConversationId,
+                  afterMessage: forkNthUserMessage,
+                },
               },
             ]
           : [
               ...rollouts.slice(0, existingIndex),
               {
-                conversationId,
+                id: conversationId,
+                threadId,
                 rolloutPath,
                 createdAt,
                 label: null,
-                forkedFromConversationId: forkBaseConversationId,
-                forkedFromNthUserMessage: forkNthUserMessage,
+                forkPoint: {
+                  forkId: forkBaseConversationId,
+                  afterMessage: forkNthUserMessage,
+                },
               },
               ...rollouts.slice(existingIndex + 1),
             ];

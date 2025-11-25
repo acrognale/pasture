@@ -6,7 +6,7 @@ import type { ReasoningSummary } from './ReasoningSummary';
 import type { SandboxMode } from './SandboxMode';
 
 /**
- * Remembered per-workspace defaults applied to new conversations.
+ * Wire representation of per-workspace composer defaults stored for the renderer.
  */
 export type WorkspaceComposerDefaults = {
   model: string | null;

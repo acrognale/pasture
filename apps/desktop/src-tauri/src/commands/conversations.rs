@@ -18,6 +18,7 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::db::ThreadRepo;
+use crate::domain::Fork;
 use crate::domain::{ForkId, ForkPoint, ThreadId};
 use crate::errors::{AppError, AppResult};
 use crate::events::EventRouter;
@@ -25,7 +26,6 @@ use crate::services::{
     NewThreadOptions, ReviewService, ThreadService, TurnOverrides, TurnService, WorkspaceService,
 };
 use crate::title_generation;
-use crate::workspace_manager::ThreadRollout;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -52,7 +52,7 @@ pub struct ListThreadRolloutsParams {
 pub struct ListThreadRolloutsResponse {
     pub thread_id: String,
     pub current_conversation_id: String,
-    pub rollouts: Vec<ThreadRollout>,
+    pub rollouts: Vec<Fork>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
@@ -184,11 +184,7 @@ pub async fn list_thread_rollouts(
     let thread_id = ThreadId(params.thread_id);
     let thread = thread_service.get(&workspace_path, &thread_id).await?;
 
-    let rollouts = thread
-        .forks
-        .iter()
-        .map(|fork| ThreadRollout::from(fork))
-        .collect();
+    let rollouts = thread.forks.clone();
 
     Ok(ListThreadRolloutsResponse {
         thread_id: thread.id.as_str().to_string(),

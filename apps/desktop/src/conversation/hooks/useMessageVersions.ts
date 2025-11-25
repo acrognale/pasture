@@ -46,10 +46,10 @@ export const useMessageVersions = ({
     }
     const items = groups.get(nthUserMessage) ?? [];
     return items.map((rollout) => ({
-      conversationId: rollout.conversationId,
+      conversationId: rollout.id,
       createdAt: rollout.createdAt,
-      forkedFromConversationId: rollout.forkedFromConversationId ?? null,
-      forkedFromNthUserMessage: rollout.forkedFromNthUserMessage ?? null,
+      forkedFromConversationId: rollout.forkPoint?.forkId ?? null,
+      forkedFromNthUserMessage: rollout.forkPoint?.afterMessage ?? null,
     }));
   }, [groups, nthUserMessage, threadId]);
 

@@ -1,14 +1,17 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::domain::ids::{ForkId, ThreadId, WorkspacePath};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 pub struct ForkPoint {
     pub fork_id: ForkId,
     pub after_message: u32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 pub struct Fork {
     pub id: ForkId,
     pub thread_id: ThreadId,

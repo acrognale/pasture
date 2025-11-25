@@ -1,9 +1,10 @@
 use std::path::Path;
 
 use crate::db::{WorkspaceRepo, WorkspaceSettingsRepo};
-use crate::domain::{WorkspacePath, WorkspaceSettings, WorkspaceSummary};
+use crate::domain::{
+    WorkspaceComposerDefaults, WorkspacePath, WorkspaceSettings, WorkspaceSummary,
+};
 use crate::errors::AppResult;
-use crate::workspace_manager::WorkspaceComposerDefaults;
 use codex_core::config::Config;
 
 #[derive(Clone)]
