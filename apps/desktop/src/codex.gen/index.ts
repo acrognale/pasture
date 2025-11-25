@@ -124,6 +124,7 @@ export type { TaskCompleteEvent } from './TaskCompleteEvent';
 export type { TaskStartedEvent } from './TaskStartedEvent';
 export type { TextContent } from './TextContent';
 export type { TextResourceContents } from './TextResourceContents';
+export type { ThreadMetadataPayload } from './ThreadMetadataPayload';
 export type { ThreadRollout } from './ThreadRollout';
 export type { ThreadSummary } from './ThreadSummary';
 export type { TokenCountEvent } from './TokenCountEvent';

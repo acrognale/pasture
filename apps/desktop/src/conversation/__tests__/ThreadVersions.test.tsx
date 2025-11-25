@@ -53,6 +53,7 @@ describe('Thread version selector integration', () => {
           workspacePath: WORKSPACE,
           currentConversationId: FORK_CONVERSATION_ID,
           preview: 'test 123',
+          title: null,
           timestamp: rollouts[0]?.createdAt ?? new Date().toISOString(),
           rolloutCount: rollouts.length,
         },

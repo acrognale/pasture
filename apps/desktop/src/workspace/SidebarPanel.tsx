@@ -131,6 +131,7 @@ export function SidebarPanel() {
         workspacePath: normalizedWorkspacePath || workspacePath,
         currentConversationId: data.conversationId,
         preview: 'Untitled session',
+        title: null,
         timestamp: new Date().toISOString(),
         rolloutCount: 1,
       };
@@ -301,6 +302,10 @@ function SidebarConversationMenuItem({
   const [isHovered, setIsHovered] = useState(false);
 
   const showCloseButton = !isRunning && isHovered;
+  const label =
+    (session.title ?? '').trim() ||
+    (session.preview ?? '').trim() ||
+    session.threadId;
 
   const handleBlur = useCallback((event: FocusEvent<HTMLButtonElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -325,7 +330,7 @@ function SidebarConversationMenuItem({
               <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" />
             ) : null}
             <span className="truncate text-sm font-medium">
-              {formatSessionPreview(session.preview ?? session.threadId)}
+              {formatSessionPreview(label)}
             </span>
           </span>
           <span className="flex items-center">

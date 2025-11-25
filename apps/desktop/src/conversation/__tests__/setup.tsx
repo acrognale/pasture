@@ -20,6 +20,7 @@ export const setupConversationTest = (
         workspacePath: WORKSPACE,
         currentConversationId: conversationId,
         preview: '',
+        title: null,
         timestamp,
         rolloutCount: 1,
       },
