@@ -1,158 +1,13 @@
-use std::sync::Arc;
-
-use codex_core::AuthManager;
 use codex_core::Prompt;
 use codex_core::ResponseItem;
-use codex_core::config::Config;
-use codex_protocol::ConversationId;
-use codex_protocol::config_types::ReasoningEffort;
 use codex_protocol::models::ContentItem;
 use serde_json::json;
-use tauri::AppHandle;
-use tauri::Emitter;
-
-use crate::completions;
-use crate::db::ThreadRepo;
-use crate::domain::ForkId;
-use crate::events::CodexEvent;
-use crate::events::ThreadMetadataPayload;
 
 const MAX_TITLE_LENGTH: usize = 80;
 const MAX_INPUT_LENGTH: usize = 500;
 
-/// Spawn a background task to generate a session title for the given conversation.
-/// Best-effort: errors are logged at debug level and will not impact the user flow.
-pub fn spawn_generate_thread_title(
-    config: Arc<Config>,
-    auth_manager: Arc<AuthManager>,
-    thread_repo: ThreadRepo,
-    conversation_id: ConversationId,
-    user_message: String,
-    app_handle: AppHandle,
-) {
-    tauri::async_runtime::spawn(async move {
-        if let Err(err) = maybe_generate_thread_title(
-            config,
-            auth_manager,
-            thread_repo,
-            conversation_id,
-            user_message,
-            app_handle,
-        )
-        .await
-        {
-            log::debug!("Session title generation skipped: {err}");
-        }
-    });
-}
-
-async fn maybe_generate_thread_title(
-    config: Arc<Config>,
-    auth_manager: Arc<AuthManager>,
-    thread_repo: ThreadRepo,
-    conversation_id: ConversationId,
-    user_message: String,
-    app_handle: AppHandle,
-) -> anyhow::Result<()> {
-    let trimmed_message = user_message.trim();
-    if trimmed_message.is_empty() {
-        log::debug!(
-            "Skipping title generation for conversation {}: empty first user text",
-            conversation_id
-        );
-        return Ok(());
-    }
-
-    let conversation_id_str = conversation_id.to_string();
-    let fork_id = ForkId::from(conversation_id.clone());
-    let needs_title = thread_repo
-        .has_missing_title_for_fork(&fork_id)
-        .await
-        .unwrap_or_else(|err| {
-            log::debug!(
-                "Failed to check existing titles for conversation {conversation_id_str}: {err}"
-            );
-            false
-        });
-
-    if !needs_title {
-        log::debug!(
-            "Skipping title generation for conversation {}: title already present",
-            conversation_id_str
-        );
-        return Ok(());
-    }
-
-    let prompt = build_prompt(trimmed_message);
-    let model = completions::ModelConfig {
-        model: "gpt-5.1-codex-mini".to_string(),
-        reasoning_effort: Some(ReasoningEffort::Low),
-    };
-
-    log::info!(
-        "Generating session title for conversation {} using model {}",
-        conversation_id_str,
-        model.model
-    );
-
-    match completions::generate_text(config, auth_manager, conversation_id, &prompt, Some(model))
-        .await
-    {
-        Ok(Some(text)) => {
-            log::info!(
-                "Title generation model response for conversation {}: {}",
-                conversation_id_str,
-                text
-            );
-            if let Some(title) = parse_title_from_text(&text) {
-                match thread_repo.update_title_for_fork(&fork_id, &title).await {
-                    Ok(updated) => {
-                        if updated {
-                            emit_thread_metadata_events(
-                                &thread_repo,
-                                &app_handle,
-                                &fork_id,
-                                Some(title),
-                                None,
-                            )
-                            .await;
-                            log::info!(
-                                "Emitted generated session title for conversation {}",
-                                conversation_id_str
-                            );
-                        } else {
-                            log::info!(
-                                "Generated title for conversation {} but no rows were updated (possibly already set)",
-                                conversation_id_str
-                            );
-                        }
-                    }
-                    Err(err) => {
-                        log::info!(
-                            "Failed to store generated title for conversation {conversation_id_str}: {err}"
-                        );
-                    }
-                }
-            } else {
-                log::info!(
-                    "Model did not return a usable title for conversation {conversation_id_str}"
-                );
-            }
-        }
-        Ok(None) => {
-            log::info!(
-                "Model did not return a usable title for conversation {conversation_id_str}"
-            );
-        }
-        Err(err) => {
-            log::info!("Failed to generate title for conversation {conversation_id_str}: {err:?}");
-        }
-    }
-
-    Ok(())
-}
-
-fn build_prompt(user_message: &str) -> Prompt {
+/// Build a prompt asking the model to generate a concise thread title.
+pub(crate) fn build_prompt(user_message: &str) -> Prompt {
     let condensed_message: String = user_message.chars().take(MAX_INPUT_LENGTH).collect();
     let mut prompt = Prompt::default();
 
@@ -184,7 +39,8 @@ fn build_prompt(user_message: &str) -> Prompt {
     prompt
 }
 
-fn parse_title_from_text(text: &str) -> Option<String> {
+/// Parse a normalized title from the model's response text.
+pub(crate) fn parse_title_from_text(text: &str) -> Option<String> {
     let trimmed = text.trim();
 
     if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) {
@@ -196,7 +52,7 @@ fn parse_title_from_text(text: &str) -> Option<String> {
     normalize_title(trimmed)
 }
 
-fn normalize_title(raw: &str) -> Option<String> {
+pub(crate) fn normalize_title(raw: &str) -> Option<String> {
     let stripped = raw
         .trim()
         .trim_matches(|c| matches!(c, '"' | '\'' | '“' | '”' | '`'));
@@ -216,46 +72,4 @@ fn normalize_title(raw: &str) -> Option<String> {
     };
 
     Some(normalized)
-}
-
-async fn emit_thread_metadata_events(
-    thread_repo: &ThreadRepo,
-    app_handle: &AppHandle,
-    fork_id: &ForkId,
-    title: Option<String>,
-    preview: Option<String>,
-) {
-    let conversation_id = fork_id.as_str();
-    let threads = match thread_repo.list_for_fork(fork_id).await {
-        Ok(threads) => threads,
-        Err(err) => {
-            log::debug!(
-                "Failed to load threads for metadata event (conversation {}): {}",
-                conversation_id,
-                err
-            );
-            return;
-        }
-    };
-
-    for thread in threads {
-        let payload = ThreadMetadataPayload {
-            thread_id: thread.id.as_str().to_string(),
-            conversation_id: thread.current_fork_id.as_str().to_string(),
-            workspace_path: thread.workspace_path.as_str().to_string(),
-            title: title.clone().or(thread.title.clone()),
-            preview: preview.clone().or(thread.preview.clone()),
-            timestamp: thread.updated_at.clone(),
-        };
-        log::info!(
-            "Emitting thread-metadata-updated for thread {} (conversation {})",
-            payload.thread_id,
-            payload.conversation_id
-        );
-        if let Err(err) =
-            app_handle.emit("codex-event", CodexEvent::ThreadMetadataUpdated { payload })
-        {
-            log::debug!("Failed to emit thread metadata event: {}", err);
-        }
-    }
 }

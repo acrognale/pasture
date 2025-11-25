@@ -1,30 +1,20 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 
-use codex_core::AuthManager;
-use codex_core::ConversationManager;
-use codex_core::config::Config;
 use codex_protocol::ConversationId;
 use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMode};
-use codex_protocol::protocol::{AskForApproval, SessionConfiguredEvent, TurnAbortReason};
-use codex_protocol::user_input::UserInput as CoreUserInput;
+use codex_protocol::protocol::{AskForApproval, SessionConfiguredEvent};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, State};
 use ts_rs::TS;
-use uuid::Uuid;
 
-use crate::db::ThreadRepo;
-use crate::domain::Fork;
-use crate::domain::{ForkId, ForkPoint, ThreadId};
+use crate::domain::{Fork, ForkId, ForkPoint, ThreadId};
 use crate::errors::{AppError, AppResult};
-use crate::events::EventRouter;
 use crate::services::{
     ForkThreadResult, NewThreadOptions, SwitchForkResult, ThreadInitialization, ThreadService,
-    TurnOverrides, TurnService, WorkspaceService,
+    WorkspaceService,
 };
-use crate::title_generation;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -139,6 +129,27 @@ pub struct InitializeThreadParams {
 pub struct InitializeThreadResponse {
     pub session_configured: SessionConfiguredEvent,
     pub reasoning_summary: ReasoningSummary,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct NewConversationParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_policy: Option<AskForApproval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<SandboxMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<HashMap<String, Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_instructions: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_apply_patch_tool: Option<bool>,
 }
 
 /// List all threads for a workspace from Pasture persistence.
@@ -342,279 +353,6 @@ pub async fn fork_thread(
         nth_user_message,
         created_at: new_fork.created_at.clone(),
     })
-}
-
-/// Options accepted when creating a new conversation.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct NewConversationParams {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub profile: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cwd: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub approval_policy: Option<AskForApproval>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sandbox: Option<SandboxMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub config: Option<HashMap<String, Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub base_instructions: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub include_apply_patch_tool: Option<bool>,
-}
-
-/// Wire representation of user-provided inputs.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
-#[serde(rename_all = "camelCase")]
-#[serde(tag = "type", content = "data")]
-pub enum InputItem {
-    Text {
-        text: String,
-    },
-    Image {
-        image_url: String,
-    },
-    LocalImage {
-        #[ts(type = "string")]
-        path: PathBuf,
-    },
-}
-
-/// Parameters accepted when sending a user message.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct SendUserMessageParams {
-    pub conversation_id: String,
-    pub items: Vec<InputItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_effort: Option<ReasoningEffort>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub summary: Option<ReasoningSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sandbox: Option<SandboxMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub approval_policy: Option<AskForApproval>,
-}
-
-/// Send a user message to a conversation.
-#[tauri::command]
-pub async fn send_user_message(
-    params: SendUserMessageParams,
-    config: State<'_, Arc<Config>>,
-    auth_manager: State<'_, Arc<AuthManager>>,
-    turn_service: State<'_, TurnService>,
-    app_handle: AppHandle,
-    thread_repo: State<'_, ThreadRepo>,
-) -> AppResult<()> {
-    let SendUserMessageParams {
-        conversation_id,
-        items,
-        model,
-        reasoning_effort,
-        summary,
-        sandbox,
-        approval_policy,
-    } = params;
-
-    let conv_id =
-        ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
-            message: format!("Invalid conversation ID: {}", e),
-        })?;
-
-    let fork_id = ForkId::from(conv_id.clone());
-
-    let mapped_items: Vec<CoreUserInput> = items
-        .into_iter()
-        .map(|item| match item {
-            InputItem::Text { text } => CoreUserInput::Text { text },
-            InputItem::Image { image_url } => CoreUserInput::Image { image_url },
-            InputItem::LocalImage { path } => CoreUserInput::LocalImage { path },
-        })
-        .collect();
-
-    if let Some(preview) = mapped_items
-        .iter()
-        .find_map(|item| match item {
-            CoreUserInput::Text { text } => Some(text.trim()),
-            _ => None,
-        })
-        .filter(|text| !text.is_empty())
-    {
-        if let Err(err) = thread_repo.update_preview_for_fork(&fork_id, preview).await {
-            log::debug!(
-                "Failed to update thread preview for conversation {}: {}",
-                conversation_id,
-                err
-            );
-        }
-
-        title_generation::spawn_generate_thread_title(
-            config.inner().clone(),
-            auth_manager.inner().clone(),
-            thread_repo.inner().clone(),
-            conv_id,
-            preview.to_string(),
-            app_handle.clone(),
-        );
-    }
-
-    let overrides = TurnOverrides {
-        model,
-        reasoning_effort,
-        summary,
-        sandbox,
-        approval_policy,
-    };
-
-    turn_service
-        .send(
-            &fork_id,
-            mapped_items,
-            overrides,
-            &conversation_id,
-            app_handle.clone(),
-        )
-        .await?;
-
-    Ok(())
-}
-
-/// Parameters accepted when compacting a conversation.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct CompactConversationParams {
-    pub conversation_id: String,
-}
-
-/// Trigger the compact operation for a conversation.
-#[tauri::command]
-pub async fn compact_conversation(
-    params: CompactConversationParams,
-    turn_service: State<'_, TurnService>,
-    app_handle: AppHandle,
-) -> AppResult<()> {
-    let conversation_id = params.conversation_id;
-    let conv_id =
-        ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
-            message: format!("Invalid conversation ID: {}", e),
-        })?;
-
-    let fork_id = ForkId::from(conv_id.clone());
-    turn_service
-        .compact(&fork_id, &conversation_id, app_handle)
-        .await?;
-
-    Ok(())
-}
-
-/// Parameters accepted when interrupting a conversation.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct InterruptConversationParams {
-    pub conversation_id: String,
-}
-
-/// Response returned when interrupting a conversation.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct InterruptConversationResponse {
-    pub abort_reason: TurnAbortReason,
-}
-
-/// Interrupt an active conversation.
-#[tauri::command]
-pub async fn interrupt_conversation(
-    params: InterruptConversationParams,
-    turn_service: State<'_, TurnService>,
-) -> AppResult<InterruptConversationResponse> {
-    let conv_id =
-        ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
-            message: format!("Invalid conversation ID: {}", e),
-        })?;
-
-    let fork_id = ForkId::from(conv_id.clone());
-    turn_service.interrupt(&fork_id).await?;
-
-    Ok(InterruptConversationResponse {
-        abort_reason: TurnAbortReason::Interrupted,
-    })
-}
-
-/// Parameters accepted when adding a conversation listener.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct AddConversationListenerParams {
-    pub conversation_id: String,
-}
-
-/// Response returned when subscribing to a conversation.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct AddConversationSubscriptionResponse {
-    pub subscription_id: Uuid,
-}
-
-/// Subscribe to conversation events.
-#[tauri::command]
-pub async fn add_conversation_listener(
-    params: AddConversationListenerParams,
-    conversation_manager: State<'_, Arc<ConversationManager>>,
-    events: State<'_, Arc<EventRouter>>,
-    app_handle: AppHandle,
-) -> AppResult<AddConversationSubscriptionResponse> {
-    let conv_id =
-        ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
-            message: format!("Invalid conversation ID: {}", e),
-        })?;
-
-    let conversation = conversation_manager
-        .get_conversation(conv_id)
-        .await
-        .map_err(|_| AppError::NotFound {
-            entity: "conversation",
-        })?;
-
-    let fork_id = ForkId::from(conv_id.clone());
-    let subscription_id = events
-        .ensure_subscription(
-            fork_id,
-            conversation,
-            app_handle,
-            params.conversation_id.clone(),
-        )
-        .await;
-
-    Ok(AddConversationSubscriptionResponse { subscription_id })
-}
-
-/// Parameters accepted when removing a conversation listener.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct RemoveConversationListenerParams {
-    pub subscription_id: String,
-}
-
-/// Unsubscribe from conversation events.
-#[tauri::command]
-pub async fn remove_conversation_listener(
-    params: RemoveConversationListenerParams,
-    events: State<'_, Arc<EventRouter>>,
-) -> AppResult<()> {
-    let uuid = Uuid::parse_str(&params.subscription_id).map_err(|e| AppError::Validation {
-        message: format!("Invalid subscription ID: {}", e),
-    })?;
-
-    events
-        .unsubscribe(uuid)
-        .await
-        .map_err(|e| AppError::Validation { message: e })?;
-
-    Ok(())
 }
 
 impl From<NewConversationParams> for NewThreadOptions {

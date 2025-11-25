@@ -6,6 +6,7 @@ use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMod
 use codex_protocol::protocol::{AskForApproval, Op, SandboxPolicy};
 use codex_protocol::user_input::UserInput as CoreUserInput;
 use tauri::AppHandle;
+use uuid::Uuid;
 
 use crate::domain::ForkId;
 use crate::errors::{AppError, AppResult};
@@ -98,6 +99,26 @@ impl TurnService {
             .await
             .map_err(|e| AppError::Codex(format!("Failed to compact conversation: {}", e)))
             .map(|_| ())
+    }
+
+    pub async fn add_subscription(
+        &self,
+        fork_id: &ForkId,
+        app_handle: AppHandle,
+        window_label: String,
+    ) -> AppResult<Uuid> {
+        let conversation = self.resolve_conversation(fork_id).await?;
+        Ok(self
+            .events
+            .ensure_subscription(fork_id.clone(), conversation, app_handle, window_label)
+            .await)
+    }
+
+    pub async fn remove_subscription(&self, subscription_id: Uuid) -> AppResult<()> {
+        self.events
+            .unsubscribe(subscription_id)
+            .await
+            .map_err(|e| AppError::Validation { message: e })
     }
 
     async fn resolve_conversation(&self, fork_id: &ForkId) -> AppResult<Arc<CodexConversation>> {

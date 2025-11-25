@@ -7,18 +7,21 @@ use codex_core::ConversationManager;
 use codex_core::NewConversation;
 use codex_core::config::Config;
 use codex_protocol::ConversationId;
-use codex_protocol::config_types::ReasoningSummary;
+use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary};
 use codex_protocol::protocol::SessionConfiguredEvent;
 use tauri::AppHandle;
+use tauri::Emitter;
 use uuid::Uuid;
 
+use crate::completions;
 use crate::db::{ThreadRepo, WorkspaceRepo};
 use crate::domain::{Fork, ForkId, ForkPoint, Thread, ThreadId, WorkspacePath};
 use crate::errors::{AppError, AppResult};
-use crate::events::EventRouter;
+use crate::events::{CodexEvent, EventRouter, ThreadMetadataPayload};
 use crate::services::{
     ConversationConfigDeriver, NewThreadOptions, ReviewService, load_rollout_cwd,
 };
+use crate::title_generation;
 
 #[derive(Clone)]
 pub struct ThreadService {
@@ -294,6 +297,221 @@ impl ThreadService {
             session_configured,
             reasoning_summary,
         })
+    }
+
+    /// Update preview metadata for a fork and kick off background title generation.
+    /// Best effort: failures are logged and do not affect the user flow.
+    pub async fn handle_preview_and_title(
+        &self,
+        conversation_id: &ConversationId,
+        fork_id: &ForkId,
+        preview: String,
+        app_handle: AppHandle,
+    ) {
+        let trimmed_preview = preview.trim();
+        if trimmed_preview.is_empty() {
+            return;
+        }
+
+        if let Err(err) = self
+            .update_preview_for_fork(fork_id, trimmed_preview, &app_handle)
+            .await
+        {
+            log::debug!(
+                "Failed to update thread preview for conversation {}: {}",
+                conversation_id,
+                err
+            );
+        }
+
+        let service = self.clone();
+        let conversation_id = conversation_id.clone();
+        let fork_id = fork_id.clone();
+        let user_message = trimmed_preview.to_string();
+        tauri::async_runtime::spawn(async move {
+            if let Err(err) = service
+                .maybe_generate_thread_title(conversation_id, fork_id, user_message, app_handle)
+                .await
+            {
+                log::debug!("Session title generation skipped: {err}");
+            }
+        });
+    }
+
+    async fn update_preview_for_fork(
+        &self,
+        fork_id: &ForkId,
+        preview: &str,
+        app_handle: &AppHandle,
+    ) -> AppResult<()> {
+        let updated = self
+            .threads
+            .update_preview_for_fork(fork_id, preview)
+            .await?;
+
+        if updated {
+            self.emit_thread_metadata_events(fork_id, app_handle, None, Some(preview.to_string()))
+                .await;
+        }
+
+        Ok(())
+    }
+
+    async fn maybe_generate_thread_title(
+        &self,
+        conversation_id: ConversationId,
+        fork_id: ForkId,
+        user_message: String,
+        app_handle: AppHandle,
+    ) -> anyhow::Result<()> {
+        let trimmed_message = user_message.trim();
+        if trimmed_message.is_empty() {
+            log::debug!(
+                "Skipping title generation for conversation {}: empty first user text",
+                conversation_id
+            );
+            return Ok(());
+        }
+
+        let needs_title = self
+            .threads
+            .has_missing_title_for_fork(&fork_id)
+            .await
+            .unwrap_or_else(|err| {
+                log::debug!(
+                    "Failed to check existing titles for conversation {}: {err}",
+                    conversation_id
+                );
+                false
+            });
+
+        if !needs_title {
+            log::debug!(
+                "Skipping title generation for conversation {}: title already present",
+                conversation_id
+            );
+            return Ok(());
+        }
+
+        let prompt = title_generation::build_prompt(trimmed_message);
+        let model = completions::ModelConfig {
+            model: "gpt-5.1-codex-mini".to_string(),
+            reasoning_effort: Some(ReasoningEffort::Low),
+        };
+
+        log::info!(
+            "Generating session title for conversation {} using model {}",
+            conversation_id,
+            model.model
+        );
+
+        match completions::generate_text(
+            self.base_config.clone(),
+            self.auth_manager.clone(),
+            conversation_id.clone(),
+            &prompt,
+            Some(model),
+        )
+        .await
+        {
+            Ok(Some(text)) => {
+                log::info!(
+                    "Title generation model response for conversation {}: {}",
+                    conversation_id,
+                    text
+                );
+                if let Some(title) = title_generation::parse_title_from_text(&text) {
+                    match self.threads.update_title_for_fork(&fork_id, &title).await {
+                        Ok(updated) => {
+                            if updated {
+                                self.emit_thread_metadata_events(
+                                    &fork_id,
+                                    &app_handle,
+                                    Some(title),
+                                    None,
+                                )
+                                .await;
+                                log::info!(
+                                    "Emitted generated session title for conversation {}",
+                                    conversation_id
+                                );
+                            } else {
+                                log::info!(
+                                    "Generated title for conversation {} but no rows were updated (possibly already set)",
+                                    conversation_id
+                                );
+                            }
+                        }
+                        Err(err) => {
+                            log::info!(
+                                "Failed to store generated title for conversation {}: {err}",
+                                conversation_id
+                            );
+                        }
+                    }
+                } else {
+                    log::info!(
+                        "Model did not return a usable title for conversation {}",
+                        conversation_id
+                    );
+                }
+            }
+            Ok(None) => {
+                log::info!(
+                    "Model did not return a usable title for conversation {}",
+                    conversation_id
+                );
+            }
+            Err(err) => {
+                log::info!(
+                    "Failed to generate title for conversation {}: {err:?}",
+                    conversation_id
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn emit_thread_metadata_events(
+        &self,
+        fork_id: &ForkId,
+        app_handle: &AppHandle,
+        title: Option<String>,
+        preview: Option<String>,
+    ) {
+        let threads = match self.threads.list_for_fork(fork_id).await {
+            Ok(threads) => threads,
+            Err(err) => {
+                log::debug!(
+                    "Failed to load threads for metadata event (conversation {}): {}",
+                    fork_id.as_str(),
+                    err
+                );
+                return;
+            }
+        };
+
+        for thread in threads {
+            let payload = ThreadMetadataPayload {
+                thread_id: thread.id.as_str().to_string(),
+                conversation_id: thread.current_fork_id.as_str().to_string(),
+                workspace_path: thread.workspace_path.as_str().to_string(),
+                title: title.clone().or(thread.title.clone()),
+                preview: preview.clone().or(thread.preview.clone()),
+                timestamp: thread.updated_at.clone(),
+            };
+            log::info!(
+                "Emitting thread-metadata-updated for thread {} (conversation {})",
+                payload.thread_id,
+                payload.conversation_id
+            );
+            if let Err(err) =
+                app_handle.emit("codex-event", CodexEvent::ThreadMetadataUpdated { payload })
+            {
+                log::debug!("Failed to emit thread metadata event: {}", err);
+            }
+        }
     }
 
     fn find_fork<'a>(&self, thread: &'a Thread, fork_id: &ForkId) -> Option<&'a Fork> {

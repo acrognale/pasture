@@ -3,8 +3,10 @@ mod registry;
 pub mod approvals;
 pub mod auth;
 pub mod composer;
-pub mod conversations;
 pub mod review;
+pub mod subscriptions;
+pub mod threads;
+pub mod turns;
 pub mod workspace;
 
 pub use registry::CommandDescriptor;
@@ -12,32 +14,32 @@ pub use registry::CommandDescriptor;
 use registry::codex_command_descriptors;
 
 codex_command_descriptors! {
-    conversations::list_threads {
-        params: conversations::ListThreadsParams,
-        result: conversations::ListThreadsResponse,
+    threads::list_threads {
+        params: threads::ListThreadsParams,
+        result: threads::ListThreadsResponse,
     },
-    conversations::list_thread_forks {
-        params: conversations::ListThreadForksParams,
-        result: conversations::ListThreadForksResponse,
+    threads::list_thread_forks {
+        params: threads::ListThreadForksParams,
+        result: threads::ListThreadForksResponse,
     },
-    conversations::switch_thread_fork {
-        params: conversations::SwitchThreadForkParams,
-        result: conversations::SwitchThreadForkResponse,
+    threads::switch_thread_fork {
+        params: threads::SwitchThreadForkParams,
+        result: threads::SwitchThreadForkResponse,
     },
-    conversations::new_thread {
-        params: conversations::NewThreadCommandParams,
-        result: conversations::NewThreadResponse,
+    threads::new_thread {
+        params: threads::NewThreadCommandParams,
+        result: threads::NewThreadResponse,
     },
-    conversations::initialize_thread {
-        params: conversations::InitializeThreadParams,
-        result: conversations::InitializeThreadResponse,
+    threads::initialize_thread {
+        params: threads::InitializeThreadParams,
+        result: threads::InitializeThreadResponse,
     },
-    conversations::fork_thread {
-        params: conversations::ForkThreadParams,
-        result: conversations::ForkThreadResponse,
+    threads::fork_thread {
+        params: threads::ForkThreadParams,
+        result: threads::ForkThreadResponse,
     },
-    conversations::send_user_message {
-        params: conversations::SendUserMessageParams,
+    turns::send_user_message {
+        params: turns::SendUserMessageParams,
         result: (),
     },
     review::get_turn_diff_range {
@@ -48,13 +50,13 @@ codex_command_descriptors! {
         params: review::ListTurnSnapshotsParams,
         result: review::ListTurnSnapshotsResponse,
     },
-    conversations::compact_conversation {
-        params: conversations::CompactConversationParams,
+    turns::compact_conversation {
+        params: turns::CompactConversationParams,
         result: (),
     },
-    conversations::interrupt_conversation {
-        params: conversations::InterruptConversationParams,
-        result: conversations::InterruptConversationResponse,
+    turns::interrupt_conversation {
+        params: turns::InterruptConversationParams,
+        result: turns::InterruptConversationResponse,
     },
     composer::get_composer_config {
         params: composer::GetComposerConfigParams,
@@ -64,12 +66,12 @@ codex_command_descriptors! {
         params: composer::UpdateComposerConfigParams,
         result: (),
     },
-    conversations::add_conversation_listener {
-        params: conversations::AddConversationListenerParams,
-        result: conversations::AddConversationSubscriptionResponse,
+    subscriptions::add_conversation_listener {
+        params: subscriptions::AddConversationListenerParams,
+        result: subscriptions::AddConversationSubscriptionResponse,
     },
-    conversations::remove_conversation_listener {
-        params: conversations::RemoveConversationListenerParams,
+    subscriptions::remove_conversation_listener {
+        params: subscriptions::RemoveConversationListenerParams,
         result: (),
     },
     approvals::respond_approval {
