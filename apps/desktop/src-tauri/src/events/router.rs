@@ -8,6 +8,7 @@ use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
 use tauri::AppHandle;
 use tauri::Emitter;
+use tauri::Manager;
 use tokio::sync::Mutex;
 use tokio::sync::oneshot;
 use uuid::Uuid;

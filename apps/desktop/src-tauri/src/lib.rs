@@ -15,7 +15,7 @@ pub mod ts_export;
 
 use std::sync::Arc;
 
-use services::{GitSnapshotter, ReviewService};
+use services::{GitSnapshotter, ReviewService, WorkspaceService};
 use tauri::Manager;
 use workspace_manager::WorkspaceManager;
 
@@ -80,6 +80,11 @@ pub fn run() {
 
             let workspace_manager = WorkspaceManager::new();
             app.manage(workspace_manager);
+
+            let workspace_repo = db::WorkspaceRepo::new(workspace_db.clone());
+            let workspace_settings_repo = db::WorkspaceSettingsRepo::new(workspace_db.clone());
+            let workspace_service = WorkspaceService::new(workspace_repo, workspace_settings_repo);
+            app.manage(workspace_service.clone());
             log::info!("Workspace manager initialized successfully");
 
             // Build and install the native menu

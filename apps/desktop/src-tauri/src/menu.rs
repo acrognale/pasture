@@ -1,8 +1,7 @@
 use crate::commands::workspace::WorkspacePathParams;
 use crate::errors::AppResult;
-use crate::workspace_manager::WorkspaceManager;
+use crate::services::WorkspaceService;
 use log::warn;
-use sea_orm::DatabaseConnection;
 use tauri::AppHandle;
 use tauri::Manager;
 use tauri::Wry;
@@ -19,16 +18,21 @@ const MENU_RECENT_WORKSPACE_PREFIX: &str = "recent_workspace_";
 
 /// Build the native application menu
 pub async fn build_menu(app: &AppHandle) -> Result<Menu<Wry>, tauri::Error> {
-    let db = app.state::<DatabaseConnection>();
+    let workspace_service = app.state::<WorkspaceService>();
 
     // Get workspace state asynchronously
-    let recent_workspaces = match crate::db::workspace::list_recent_workspaces(&db, 10).await {
+    let recent_workspaces = match workspace_service.inner().clone().list_recent(10).await {
         Ok(items) => items,
         Err(err) => {
             warn!("Failed to load recent workspaces: {}", err);
             Vec::new()
         }
     };
+
+    let recent_workspaces = recent_workspaces
+        .into_iter()
+        .map(|summary| summary.path.into_string())
+        .collect::<Vec<_>>();
 
     let menu = MenuBuilder::new(app)
         .items(&[
@@ -184,14 +188,19 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
                 let app_clone = app_handle.clone();
                 tauri::async_runtime::spawn(async move {
                     let app_handle = app_clone;
-                    let db = app_handle.state::<DatabaseConnection>();
-                    let recent = match crate::db::workspace::list_recent_workspaces(&db, 10).await {
+                    let workspace_service = app_handle.state::<WorkspaceService>();
+                    let recent = match workspace_service.inner().clone().list_recent(10).await {
                         Ok(items) => items,
                         Err(err) => {
                             warn!("Failed to load recent workspaces: {}", err);
                             Vec::new()
                         }
                     };
+
+                    let recent = recent
+                        .into_iter()
+                        .map(|summary| summary.path.into_string())
+                        .collect::<Vec<_>>();
 
                     if let Some(workspace_path) = recent.get(idx)
                         && let Err(err) =
@@ -213,14 +222,12 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
 }
 
 async fn open_workspace_via_menu(app_handle: &AppHandle, workspace_path: String) -> AppResult<()> {
-    let workspace_manager = app_handle.state::<WorkspaceManager>();
-    let db = app_handle.state::<DatabaseConnection>();
+    let workspace_service = app_handle.state::<WorkspaceService>();
 
     // Create a new window for the workspace
     crate::commands::workspace::create_workspace_window(
         WorkspacePathParams { workspace_path },
-        workspace_manager,
-        db,
+        workspace_service,
         app_handle.clone(),
     )
     .await?;

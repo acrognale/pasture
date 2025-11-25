@@ -4,6 +4,7 @@ use sea_orm::ActiveValue::Set;
 use sea_orm::DatabaseConnection;
 use sea_orm::EntityTrait;
 use sea_orm::QueryOrder;
+use sea_orm::QuerySelect;
 
 use crate::db::{db_err, schema};
 use crate::domain::{WorkspacePath, WorkspaceSettings, WorkspaceSummary};

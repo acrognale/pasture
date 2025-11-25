@@ -29,7 +29,7 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::codex_runtime::CodexRuntime;
-use crate::domain::ForkId;
+use crate::domain::{ForkId, WorkspacePath};
 use crate::env;
 use crate::errors::{AppError, AppResult};
 use crate::events::EventRouter;
@@ -158,11 +158,10 @@ pub struct InitializeThreadResponse {
 /// List all threads for a workspace from Pasture persistence.
 #[tauri::command]
 pub async fn list_threads(
-    workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     params: ListThreadsParams,
 ) -> AppResult<ListThreadsResponse> {
-    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
 
     let workspace_path_str = workspace_path.as_str().to_string();
     let threads =
@@ -191,11 +190,10 @@ pub async fn list_threads(
 /// List all rollouts recorded for a thread.
 #[tauri::command]
 pub async fn list_thread_rollouts(
-    workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     params: ListThreadRolloutsParams,
 ) -> AppResult<ListThreadRolloutsResponse> {
-    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
 
     let thread = crate::db::threads::get_thread(&db, workspace_path.as_str(), &params.thread_id)
         .await?
@@ -219,7 +217,7 @@ pub async fn new_thread(
     review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<NewThreadResponse> {
-    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
     let workspace_root_path = PathBuf::from(workspace_path.as_str());
 
     if !runtime.is_initialized().await {
@@ -337,7 +335,7 @@ pub async fn initialize_thread(
         });
     }
 
-    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
 
     let thread = crate::db::threads::get_thread(&db, workspace_path.as_str(), &params.thread_id)
         .await?
@@ -432,7 +430,7 @@ pub async fn switch_thread_rollout(
         });
     }
 
-    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
 
     let mut thread =
         crate::db::threads::get_thread(&db, workspace_path.as_str(), &params.thread_id)
@@ -571,7 +569,7 @@ pub async fn fork_thread(
         options,
     } = params;
 
-    let workspace_path = workspace_manager.normalize_workspace_path(&workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&workspace_path)?;
 
     let mut thread = crate::db::threads::get_thread(&db, workspace_path.as_str(), &thread_id)
         .await?

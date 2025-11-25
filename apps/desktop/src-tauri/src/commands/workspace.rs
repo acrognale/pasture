@@ -1,4 +1,3 @@
-use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::AppHandle;
@@ -7,14 +6,19 @@ use tauri::Window;
 use ts_rs::TS;
 
 use crate::errors::{AppError, AppResult};
+use crate::services::WorkspaceService;
 use crate::workspace_manager::WorkspaceComposerDefaults;
-use crate::workspace_manager::WorkspaceManager;
 
 /// List recently opened workspaces (most recent first).
 #[tauri::command]
-pub async fn list_recent_workspaces(db: State<'_, DatabaseConnection>) -> AppResult<Vec<String>> {
-    let workspaces = crate::db::workspace::list_recent_workspaces(&db, 10).await?;
-    Ok(workspaces)
+pub async fn list_recent_workspaces(
+    workspace_service: State<'_, WorkspaceService>,
+) -> AppResult<Vec<String>> {
+    let workspaces = workspace_service.list_recent(10).await?;
+    Ok(workspaces
+        .into_iter()
+        .map(|summary| summary.path.into_string())
+        .collect())
 }
 
 /// Parameters accepted by workspace navigation commands.
@@ -28,12 +32,10 @@ pub struct WorkspacePathParams {
 #[tauri::command]
 pub async fn open_workspace(
     params: WorkspacePathParams,
-    workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
+    workspace_service: State<'_, WorkspaceService>,
 ) -> AppResult<String> {
-    let normalized = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
-
-    crate::db::workspace::upsert_workspace(&db, normalized.as_str(), None).await?;
+    let normalized = workspace_service.canonicalize(&params.workspace_path)?;
+    workspace_service.record_access(&normalized).await?;
 
     Ok(normalized.into_string())
 }
@@ -42,15 +44,13 @@ pub async fn open_workspace(
 #[tauri::command]
 pub async fn create_workspace_window(
     params: WorkspacePathParams,
-    workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
+    workspace_service: State<'_, WorkspaceService>,
     app_handle: AppHandle,
 ) -> AppResult<()> {
-    let normalized = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
+    let normalized = workspace_service.canonicalize(&params.workspace_path)?;
+    workspace_service.record_access(&normalized).await?;
 
-    crate::db::workspace::upsert_workspace(&db, normalized.as_str(), None).await?;
-
-    let title = workspace_manager.build_workspace_title(&normalized);
+    let title = workspace_service.build_title(&normalized);
 
     // Create a new window with the workspace route
     let url = format!("/workspaces/{}", urlencoding::encode(normalized.as_str()));
@@ -115,10 +115,9 @@ pub async fn browse_for_workspace(app_handle: AppHandle) -> AppResult<Option<Str
 #[tauri::command]
 pub async fn get_workspace_composer_defaults(
     params: WorkspacePathParams,
-    workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
+    workspace_service: State<'_, WorkspaceService>,
 ) -> AppResult<WorkspaceComposerDefaults> {
-    let normalized = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
-    let defaults = crate::db::workspace::get_workspace_defaults(&db, normalized.as_str()).await?;
-    Ok(defaults)
+    let normalized = workspace_service.canonicalize(&params.workspace_path)?;
+    let settings = workspace_service.get_settings(&normalized).await?;
+    Ok(settings.into())
 }

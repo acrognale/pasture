@@ -149,6 +149,7 @@ impl TurnSnapshotRepo {
             .await
             .map_err(|e| db_err("Failed to load turn snapshot", e))?;
 
+        let should_update = existing.is_some();
         let mut active = match existing {
             Some(model) => {
                 let mut active: schema::turn_snapshots::ActiveModel = model.into();
@@ -165,7 +166,7 @@ impl TurnSnapshotRepo {
             },
         };
 
-        if existing.is_some() {
+        if should_update {
             active
                 .update(&self.db)
                 .await

@@ -292,7 +292,7 @@ pub fn encode_thread(thread: &Thread) -> ThreadModels {
 }
 
 pub fn decode_thread(thread: threads::Model, rollouts: Vec<forks::Model>) -> Thread {
-    let workspace_path = WorkspacePath(thread.workspace_path);
+    let workspace_path = WorkspacePath(thread.workspace_path.clone());
     decode_thread_record(thread, rollouts).into_domain(workspace_path)
 }
 

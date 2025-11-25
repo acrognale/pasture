@@ -1,7 +1,6 @@
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -235,18 +234,6 @@ impl WorkspaceManager {
         Self {
             active_conversations: Arc::new(Mutex::new(HashMap::new())),
         }
-    }
-
-    pub fn normalize_workspace_path(&self, path: &str) -> AppResult<WorkspacePath> {
-        WorkspacePath::canonicalize(path)
-    }
-
-    pub fn build_workspace_title(&self, workspace_path: &WorkspacePath) -> String {
-        let path = Path::new(workspace_path.as_str());
-        path.file_name()
-            .and_then(|name| name.to_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| workspace_path.to_string())
     }
 
     pub async fn store_active_conversation(

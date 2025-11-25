@@ -231,7 +231,7 @@ async fn emit_thread_metadata_events(
     for thread in threads {
         let payload = ThreadMetadataPayload {
             thread_id: thread.id.clone(),
-            conversation_id: thread.current_conversation_id.clone(),
+            conversation_id: thread.current_fork_id.clone(),
             workspace_path: thread.workspace_path.clone(),
             title: title.clone().or(thread.title.clone()),
             preview: preview.clone().or(thread.preview.clone()),

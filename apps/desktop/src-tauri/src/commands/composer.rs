@@ -10,8 +10,8 @@ use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
 use crate::codex_runtime::CodexRuntime;
+use crate::domain::WorkspacePath;
 use crate::errors::{AppError, AppResult};
-use crate::workspace_manager::WorkspaceManager;
 
 /// Serialized composer configuration for a conversation.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, TS)]
@@ -59,11 +59,10 @@ pub struct UpdateComposerConfigParams {
 #[tauri::command]
 pub async fn get_composer_config(
     params: GetComposerConfigParams,
-    workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
 ) -> AppResult<ComposerTurnConfigPayload> {
-    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
 
     if !runtime.is_initialized().await {
         return Err(AppError::Validation {
@@ -90,11 +89,10 @@ pub async fn get_composer_config(
 #[tauri::command]
 pub async fn update_composer_config(
     params: UpdateComposerConfigParams,
-    workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
 ) -> AppResult<()> {
-    let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
 
     if !runtime.is_initialized().await {
         return Err(AppError::Validation {
