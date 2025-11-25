@@ -15,7 +15,9 @@ pub mod ts_export;
 
 use std::sync::Arc;
 
-use services::{GitSnapshotter, ReviewService, WorkspaceService};
+use services::{
+    ConversationConfigDeriver, GitSnapshotter, ReviewService, ThreadService, WorkspaceService,
+};
 use tauri::Manager;
 use workspace_manager::WorkspaceManager;
 
@@ -50,6 +52,9 @@ pub fn run() {
                     .map_err(|e| format!("Failed to initialize Codex runtime: {}", e))?;
                 Ok::<_, String>(runtime)
             })?;
+            let conversation_manager = codex_runtime.conversation_manager().clone();
+            let auth_manager = codex_runtime.auth_manager().clone();
+            let base_config = codex_runtime.config().clone();
             app.manage(codex_runtime);
 
             // Initialize workspace manager
@@ -83,8 +88,20 @@ pub fn run() {
 
             let workspace_repo = db::WorkspaceRepo::new(workspace_db.clone());
             let workspace_settings_repo = db::WorkspaceSettingsRepo::new(workspace_db.clone());
-            let workspace_service = WorkspaceService::new(workspace_repo, workspace_settings_repo);
+            let workspace_service =
+                WorkspaceService::new(workspace_repo.clone(), workspace_settings_repo.clone());
             app.manage(workspace_service.clone());
+            let thread_repo = db::ThreadRepo::new(workspace_db.clone());
+            let config_deriver = ConversationConfigDeriver::new(workspace_settings_repo.clone());
+            let thread_service = ThreadService::new(
+                thread_repo,
+                workspace_repo,
+                conversation_manager,
+                auth_manager,
+                base_config,
+                config_deriver,
+            );
+            app.manage(thread_service.clone());
             log::info!("Workspace manager initialized successfully");
 
             // Build and install the native menu

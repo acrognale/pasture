@@ -1,44 +1,30 @@
 use std::collections::HashMap;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use chrono::Utc;
-use codex_core::config::Config;
-use codex_core::config::ConfigOverrides;
 use codex_protocol::ConversationId;
-use codex_protocol::config_types::ReasoningEffort;
-use codex_protocol::config_types::ReasoningSummary;
-use codex_protocol::config_types::SandboxMode;
-use codex_protocol::protocol::AskForApproval;
-use codex_protocol::protocol::Op;
-use codex_protocol::protocol::SandboxPolicy;
-use codex_protocol::protocol::SessionConfiguredEvent;
-use codex_protocol::protocol::TurnAbortReason;
+use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMode};
+use codex_protocol::protocol::{
+    AskForApproval, Op, SandboxPolicy, SessionConfiguredEvent, TurnAbortReason,
+};
 use codex_protocol::user_input::UserInput as CoreUserInput;
 use sea_orm::DatabaseConnection;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::AppHandle;
-use tauri::State;
+use tauri::{AppHandle, State};
 use tokio::fs::File;
-use tokio::io::AsyncBufReadExt;
-use tokio::io::BufReader;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::codex_runtime::CodexRuntime;
-use crate::domain::{ForkId, WorkspacePath};
+use crate::domain::{ForkId, ForkPoint, ThreadId};
 use crate::env;
 use crate::errors::{AppError, AppResult};
 use crate::events::EventRouter;
-use crate::services::ReviewService;
+use crate::services::{NewThreadOptions, ReviewService, ThreadService, WorkspaceService};
 use crate::title_generation;
-use crate::workspace_manager::ThreadRecord;
-use crate::workspace_manager::ThreadRollout;
-use crate::workspace_manager::WorkspaceComposerDefaults;
-use crate::workspace_manager::WorkspaceManager;
+use crate::workspace_manager::{ThreadRollout, WorkspaceManager};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -158,29 +144,28 @@ pub struct InitializeThreadResponse {
 /// List all threads for a workspace from Pasture persistence.
 #[tauri::command]
 pub async fn list_threads(
-    db: State<'_, DatabaseConnection>,
+    workspace_service: State<'_, WorkspaceService>,
+    thread_service: State<'_, ThreadService>,
     params: ListThreadsParams,
 ) -> AppResult<ListThreadsResponse> {
-    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
-
+    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let workspace_path_str = workspace_path.as_str().to_string();
-    let threads =
-        crate::db::threads::get_threads_for_workspace(&db, workspace_path.as_str()).await?;
+    let threads = thread_service.list(&workspace_path).await?;
 
     let items = threads
         .into_iter()
         .map(|thread| ThreadSummary {
-            thread_id: thread.thread_id.clone(),
+            thread_id: thread.id.as_str().to_string(),
             workspace_path: workspace_path_str.clone(),
-            current_conversation_id: thread.current_conversation_id.clone(),
+            current_conversation_id: thread.current_fork_id.as_str().to_string(),
             title: thread.title.clone(),
             preview: thread
                 .preview
                 .clone()
-                .or(thread.title.clone())
+                .or_else(|| thread.title.clone())
                 .unwrap_or_else(|| "Untitled session".to_string()),
             timestamp: thread.updated_at.clone(),
-            rollout_count: thread.rollouts.len(),
+            rollout_count: thread.forks.len(),
         })
         .collect();
 
@@ -190,19 +175,24 @@ pub async fn list_threads(
 /// List all rollouts recorded for a thread.
 #[tauri::command]
 pub async fn list_thread_rollouts(
-    db: State<'_, DatabaseConnection>,
+    workspace_service: State<'_, WorkspaceService>,
+    thread_service: State<'_, ThreadService>,
     params: ListThreadRolloutsParams,
 ) -> AppResult<ListThreadRolloutsResponse> {
-    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
+    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
+    let thread_id = ThreadId(params.thread_id);
+    let thread = thread_service.get(&workspace_path, &thread_id).await?;
 
-    let thread = crate::db::threads::get_thread(&db, workspace_path.as_str(), &params.thread_id)
-        .await?
-        .ok_or(AppError::NotFound { entity: "thread" })?;
+    let rollouts = thread
+        .forks
+        .iter()
+        .map(|fork| ThreadRollout::from(fork))
+        .collect();
 
     Ok(ListThreadRolloutsResponse {
-        thread_id: thread.thread_id,
-        current_conversation_id: thread.current_conversation_id,
-        rollouts: thread.rollouts,
+        thread_id: thread.id.as_str().to_string(),
+        current_conversation_id: thread.current_fork_id.as_str().to_string(),
+        rollouts,
     })
 }
 
@@ -210,14 +200,15 @@ pub async fn list_thread_rollouts(
 #[tauri::command]
 pub async fn new_thread(
     params: NewThreadCommandParams,
+    workspace_service: State<'_, WorkspaceService>,
+    thread_service: State<'_, ThreadService>,
     workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     events: State<'_, Arc<EventRouter>>,
     review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<NewThreadResponse> {
-    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
+    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let workspace_root_path = PathBuf::from(workspace_path.as_str());
 
     if !runtime.is_initialized().await {
@@ -226,67 +217,41 @@ pub async fn new_thread(
         });
     }
 
-    let mut options = params.options.unwrap_or_default();
-    let workspace_defaults =
-        crate::db::workspace::get_workspace_defaults(&db, workspace_path.as_str()).await?;
-    apply_workspace_defaults(&mut options, &workspace_defaults);
+    let options = params.options.unwrap_or_default();
+    let thread_options = NewThreadOptions::from(options);
 
-    let mut base_config = runtime.config().as_ref().clone();
-    base_config.cwd = workspace_root_path.clone();
+    let base_cwd = workspace_root_path.clone();
+    let resolved_cwd = resolve_thread_cwd(&base_cwd, &thread_options);
 
-    let mut config = derive_config_from_params(options, &base_config).await?;
-    let cwd = config.cwd.clone();
     let fallback_env = runtime.config().shell_environment_policy.r#set.clone();
-    let env_vars = env::capture_login_shell_environment(Some(config.cwd.as_path()))
+    let env_vars = env::capture_login_shell_environment(Some(resolved_cwd.as_path()))
         .await
         .unwrap_or(fallback_env);
-    config.shell_environment_policy.r#set = env_vars.clone();
 
-    let new_conv = runtime
-        .conversation_manager()
-        .new_conversation(config)
-        .await
-        .map_err(|e| AppError::Codex(format!("Failed to create conversation: {}", e)))?;
+    let (thread, new_conv) = thread_service
+        .create(&workspace_path, thread_options, env_vars.clone())
+        .await?;
 
-    let conversation_id = new_conv.conversation_id;
+    let conversation_id = new_conv.conversation_id.clone();
     let fork_id = ForkId::from(conversation_id.clone());
     let conversation_id_str = conversation_id.to_string();
     let rollout_path = new_conv.session_configured.rollout_path.clone();
-
-    let thread_id = Uuid::new_v4().to_string();
-    let timestamp = Utc::now().to_rfc3339();
-    let thread_rollout = ThreadRollout {
-        conversation_id: conversation_id_str.clone(),
-        rollout_path: rollout_path.to_string_lossy().to_string(),
-        created_at: timestamp.clone(),
-        label: None,
-        forked_from_conversation_id: None,
-        forked_from_nth_user_message: None,
-    };
-    let thread_record = ThreadRecord {
-        thread_id: thread_id.clone(),
-        created_at: timestamp.clone(),
-        updated_at: timestamp.clone(),
-        current_conversation_id: conversation_id_str.clone(),
-        rollouts: vec![thread_rollout],
-        title: None,
-        preview: Some("Untitled session".to_string()),
-    };
-
-    crate::db::threads::upsert_thread(&db, workspace_path.as_str(), thread_record).await?;
 
     let session = workspace_manager
         .store_active_conversation(
             conversation_id_str.clone(),
             rollout_path.clone(),
-            cwd.clone(),
+            resolved_cwd.clone(),
         )
         .await;
 
-    session.set_environment_cache(env_vars).await;
+    session.set_environment_cache(env_vars.clone()).await;
 
     let review_service = review.inner().clone();
-    if let Err(err) = review_service.ensure_base(&fork_id, cwd.as_path()).await {
+    if let Err(err) = review_service
+        .ensure_base(&fork_id, resolved_cwd.as_path())
+        .await
+    {
         log::debug!(
             "Failed to capture baseline snapshot for conversation {}: {}",
             conversation_id_str,
@@ -304,14 +269,14 @@ pub async fn new_thread(
                 fork_id.clone(),
                 conversation,
                 app_handle,
-                conversation_id.to_string(),
+                conversation_id_str.clone(),
             )
             .await;
     }
 
     Ok(NewThreadResponse {
-        thread_id,
-        conversation_id,
+        thread_id: thread.id.as_str().to_string(),
+        conversation_id: new_conv.conversation_id,
         model: new_conv.session_configured.model,
         reasoning_effort: new_conv.session_configured.reasoning_effort,
         rollout_path,
@@ -322,8 +287,9 @@ pub async fn new_thread(
 #[tauri::command]
 pub async fn initialize_thread(
     params: InitializeThreadParams,
+    workspace_service: State<'_, WorkspaceService>,
+    thread_service: State<'_, ThreadService>,
     workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     events: State<'_, Arc<EventRouter>>,
     review: State<'_, Arc<ReviewService>>,
@@ -335,16 +301,17 @@ pub async fn initialize_thread(
         });
     }
 
-    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
+    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
+    let thread_id = ThreadId(params.thread_id);
+    let thread = thread_service.get(&workspace_path, &thread_id).await?;
 
-    let thread = crate::db::threads::get_thread(&db, workspace_path.as_str(), &params.thread_id)
-        .await?
-        .ok_or(AppError::NotFound { entity: "thread" })?;
-
-    let conversation_id = thread.current_conversation_id.clone();
-    let current_rollout = find_rollout_for_conversation(&thread, &conversation_id)
+    let conversation_id = thread.current_fork_id.as_str().to_string();
+    let start_rollout = thread
+        .forks
+        .iter()
+        .find(|fork| fork.id.as_str() == thread.current_fork_id.as_str())
         .ok_or(AppError::NotFound { entity: "rollout" })?;
-    let rollout_path = PathBuf::from(&current_rollout.rollout_path);
+    let rollout_path = PathBuf::from(&start_rollout.rollout_path);
 
     let cwd = match workspace_manager
         .get_active_conversation(&conversation_id)
@@ -358,21 +325,21 @@ pub async fn initialize_thread(
         .store_active_conversation(conversation_id.clone(), rollout_path.clone(), cwd.clone())
         .await;
 
-    let mut config = runtime.config().as_ref().clone();
-    config.cwd = cwd.clone();
-    let fallback_env = config.shell_environment_policy.r#set.clone();
+    let fallback_env = runtime.config().shell_environment_policy.r#set.clone();
     let env_vars = session.workspace_environment(&fallback_env).await;
-    config.shell_environment_policy.r#set = env_vars.clone();
-    let reasoning_summary = config.model_reasoning_summary;
-    let auth_manager = runtime.auth_manager().clone();
 
-    let new_conversation = runtime
-        .conversation_manager()
-        .resume_conversation_from_rollout(config, rollout_path.clone(), auth_manager)
-        .await
-        .map_err(|e| AppError::Codex(format!("Failed to resume conversation: {}", e)))?;
+    let (_, new_conversation) = thread_service
+        .initialize(
+            &workspace_path,
+            &thread_id,
+            rollout_path.clone(),
+            cwd.clone(),
+            env_vars.clone(),
+        )
+        .await?;
 
     let session_configured = new_conversation.session_configured.clone();
+    let reasoning_summary = runtime.config().model_reasoning_summary;
     let conv_id =
         ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
@@ -417,8 +384,9 @@ pub async fn initialize_thread(
 #[tauri::command]
 pub async fn switch_thread_rollout(
     params: SwitchThreadRolloutParams,
+    workspace_service: State<'_, WorkspaceService>,
+    thread_service: State<'_, ThreadService>,
     workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     events: State<'_, Arc<EventRouter>>,
     review: State<'_, Arc<ReviewService>>,
@@ -430,12 +398,9 @@ pub async fn switch_thread_rollout(
         });
     }
 
-    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
-
-    let mut thread =
-        crate::db::threads::get_thread(&db, workspace_path.as_str(), &params.thread_id)
-            .await?
-            .ok_or(AppError::NotFound { entity: "thread" })?;
+    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
+    let thread_id = ThreadId(params.thread_id);
+    let thread = thread_service.get(&workspace_path, &thread_id).await?;
 
     let conv_id =
         ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
@@ -443,7 +408,10 @@ pub async fn switch_thread_rollout(
         })?;
     let fork_id = ForkId::from(conv_id.clone());
 
-    let rollout = find_rollout_for_conversation(&thread, &params.conversation_id)
+    let rollout = thread
+        .forks
+        .iter()
+        .find(|fork| fork.id.as_str() == params.conversation_id)
         .ok_or(AppError::NotFound { entity: "rollout" })?;
     let rollout_path = PathBuf::from(&rollout.rollout_path);
 
@@ -463,22 +431,17 @@ pub async fn switch_thread_rollout(
         )
         .await;
 
-    let mut config = runtime.config().as_ref().clone();
-    config.cwd = cwd;
-    let fallback_env = config.shell_environment_policy.r#set.clone();
+    let fallback_env = runtime.config().shell_environment_policy.r#set.clone();
     let env_vars = session.workspace_environment(&fallback_env).await;
-    config.shell_environment_policy.r#set = env_vars.clone();
-    let reasoning_summary = config.model_reasoning_summary;
-    let auth_manager = runtime.auth_manager().clone();
+    let reasoning_summary = runtime.config().model_reasoning_summary;
+
     let existing_conversation = runtime
         .conversation_manager()
-        .get_conversation(conv_id)
+        .get_conversation(conv_id.clone())
         .await;
 
-    let (session_configured, reasoning_summary) = match existing_conversation {
+    let (session_configured, resumed_reasoning_summary) = match existing_conversation {
         Ok(conversation) => {
-            // Conversation already active in runtime; ensure we have a subscription,
-            // but avoid replaying history from the rollout.
             let _ = events
                 .ensure_subscription(
                     fork_id.clone(),
@@ -491,17 +454,19 @@ pub async fn switch_thread_rollout(
             (None, None)
         }
         Err(_) => {
-            let new_conversation = runtime
-                .conversation_manager()
-                .resume_conversation_from_rollout(config, rollout_path.clone(), auth_manager)
-                .await
-                .map_err(|e| AppError::Codex(format!("Failed to resume conversation: {}", e)))?;
-
-            let session_configured = new_conversation.session_configured.clone();
+            let (_, new_conversation) = thread_service
+                .initialize(
+                    &workspace_path,
+                    &thread_id,
+                    rollout_path.clone(),
+                    cwd.clone(),
+                    env_vars.clone(),
+                )
+                .await?;
 
             if let Ok(conversation) = runtime
                 .conversation_manager()
-                .get_conversation(conv_id)
+                .get_conversation(conv_id.clone())
                 .await
             {
                 let _ = events
@@ -514,7 +479,10 @@ pub async fn switch_thread_rollout(
                     .await;
             }
 
-            (Some(session_configured), Some(reasoning_summary))
+            (
+                Some(new_conversation.session_configured.clone()),
+                Some(reasoning_summary),
+            )
         }
     };
 
@@ -531,16 +499,14 @@ pub async fn switch_thread_rollout(
         );
     }
 
-    let timestamp = Utc::now().to_rfc3339();
-    thread.current_conversation_id = params.conversation_id.clone();
-    thread.updated_at = timestamp;
-
-    crate::db::threads::upsert_thread(&db, workspace_path.as_str(), thread).await?;
+    let _ = thread_service
+        .switch_rollout(&workspace_path, &thread_id, &fork_id)
+        .await?;
 
     Ok(SwitchThreadRolloutResponse {
         conversation_id: conv_id,
         session_configured,
-        reasoning_summary,
+        reasoning_summary: resumed_reasoning_summary,
     })
 }
 
@@ -548,8 +514,9 @@ pub async fn switch_thread_rollout(
 #[tauri::command]
 pub async fn fork_thread(
     params: ForkThreadParams,
+    workspace_service: State<'_, WorkspaceService>,
+    thread_service: State<'_, ThreadService>,
     workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
     events: State<'_, Arc<EventRouter>>,
     review: State<'_, Arc<ReviewService>>,
@@ -569,21 +536,23 @@ pub async fn fork_thread(
         options,
     } = params;
 
-    let workspace_path = WorkspacePath::canonicalize(&workspace_path)?;
-
-    let mut thread = crate::db::threads::get_thread(&db, workspace_path.as_str(), &thread_id)
-        .await?
-        .ok_or(AppError::NotFound { entity: "thread" })?;
+    let workspace_path = workspace_service.canonicalize(&workspace_path)?;
+    let thread_id = ThreadId(thread_id);
+    let thread = thread_service.get(&workspace_path, &thread_id).await?;
 
     let base_conversation_id_parsed =
         ConversationId::from_string(&base_conversation_id).map_err(|e| AppError::Validation {
             message: format!(
                 "Invalid conversation ID for fork (thread {}): {}",
-                thread_id, e
+                thread_id.as_str(),
+                e
             ),
         })?;
 
-    let base_rollout = find_rollout_for_conversation(&thread, &base_conversation_id)
+    let base_rollout = thread
+        .forks
+        .iter()
+        .find(|fork| fork.id.as_str() == base_conversation_id)
         .ok_or(AppError::NotFound { entity: "rollout" })?;
     let rollout_path = PathBuf::from(&base_rollout.rollout_path);
 
@@ -603,55 +572,47 @@ pub async fn fork_thread(
         )
         .await;
 
-    let mut options = options.unwrap_or_default();
-    let workspace_defaults =
-        crate::db::workspace::get_workspace_defaults(&db, workspace_path.as_str()).await?;
-    apply_workspace_defaults(&mut options, &workspace_defaults);
-
-    let mut base_config = runtime.config().as_ref().clone();
-    base_config.cwd = cwd.clone();
-
-    let mut config = derive_config_from_params(options, &base_config).await?;
-
-    let fallback_env = config.shell_environment_policy.r#set.clone();
+    let fallback_env = runtime.config().shell_environment_policy.r#set.clone();
     let env_vars = session.workspace_environment(&fallback_env).await;
-    config.shell_environment_policy.r#set = env_vars.clone();
-    let reasoning_summary = config.model_reasoning_summary;
+    let reasoning_summary = runtime.config().model_reasoning_summary;
 
-    let new_conv = runtime
-        .conversation_manager()
-        .fork_conversation(nth_user_message as usize, config, rollout_path.clone())
-        .await
-        .map_err(|e| AppError::Codex(format!("Failed to fork conversation: {}", e)))?;
+    let thread_options = NewThreadOptions::from(options.unwrap_or_default());
+    let fork_point = ForkPoint {
+        fork_id: ForkId(base_conversation_id.clone()),
+        after_message: nth_user_message,
+    };
 
-    let conversation_id = new_conv.conversation_id;
+    let (updated_thread, new_conv) = thread_service
+        .fork(
+            &workspace_path,
+            &thread_id,
+            &fork_point,
+            cwd.clone(),
+            env_vars.clone(),
+            thread_options,
+        )
+        .await?;
+
+    let new_conv_id = new_conv.conversation_id.to_string();
+    let new_fork = updated_thread
+        .forks
+        .iter()
+        .find(|fork| fork.id.as_str() == new_conv_id)
+        .ok_or(AppError::NotFound { entity: "fork" })?;
+
+    let conversation_id = new_conv.conversation_id.clone();
+    let conversation_id_str = new_conv_id.clone();
     let fork_id = ForkId::from(conversation_id.clone());
-    let conversation_id_str = conversation_id.to_string();
-    let timestamp = Utc::now().to_rfc3339();
     let session_configured = new_conv.session_configured.clone();
-    let rollout_path = session_configured.rollout_path.clone();
-
-    thread.rollouts.push(ThreadRollout {
-        conversation_id: conversation_id_str.clone(),
-        rollout_path: rollout_path.to_string_lossy().to_string(),
-        created_at: timestamp.clone(),
-        label: None,
-        forked_from_conversation_id: Some(base_conversation_id.clone()),
-        forked_from_nth_user_message: Some(nth_user_message),
-    });
-    thread.current_conversation_id = conversation_id_str.clone();
-    thread.updated_at = timestamp.clone();
-
-    crate::db::threads::upsert_thread(&db, workspace_path.as_str(), thread).await?;
 
     let session = workspace_manager
         .store_active_conversation(
             conversation_id_str.clone(),
-            session_configured.rollout_path.clone(),
-            cwd,
+            new_conv.session_configured.rollout_path.clone(),
+            cwd.clone(),
         )
         .await;
-    session.set_environment_cache(env_vars).await;
+    session.set_environment_cache(env_vars.clone()).await;
 
     let review_service = review.inner().clone();
     let cwd_for_snapshot = session.cwd.clone();
@@ -682,14 +643,14 @@ pub async fn fork_thread(
     }
 
     Ok(ForkThreadResponse {
-        thread_id,
+        thread_id: thread_id.as_str().to_string(),
         base_conversation_id: base_conversation_id_parsed,
-        conversation_id,
-        rollout_path,
+        conversation_id: new_conv.conversation_id,
+        rollout_path: new_conv.session_configured.rollout_path.clone(),
         session_configured,
         reasoning_summary,
         nth_user_message,
-        created_at: timestamp,
+        created_at: new_fork.created_at.clone(),
     })
 }
 
@@ -1060,112 +1021,34 @@ pub async fn remove_conversation_listener(
     Ok(())
 }
 
-async fn derive_config_from_params(
-    params: NewConversationParams,
-    base_config: &Config,
-) -> AppResult<Config> {
-    let NewConversationParams {
-        model,
-        profile,
-        cwd,
-        approval_policy,
-        sandbox: sandbox_mode,
-        config: cli_overrides,
-        base_instructions,
-        include_apply_patch_tool,
-    } = params;
+impl From<NewConversationParams> for NewThreadOptions {
+    fn from(params: NewConversationParams) -> Self {
+        Self {
+            model: params.model,
+            profile: params.profile,
+            cwd: params.cwd,
+            approval_policy: params.approval_policy,
+            sandbox: params.sandbox,
+            config: params.config,
+            base_instructions: params.base_instructions,
+            include_apply_patch_tool: params.include_apply_patch_tool,
+        }
+    }
+}
 
-    let resolved_cwd = cwd
-        .map(PathBuf::from)
+fn resolve_thread_cwd(base_cwd: &PathBuf, options: &NewThreadOptions) -> PathBuf {
+    options
+        .cwd
+        .as_ref()
+        .map(Path::new)
         .map(|path| {
             if path.is_absolute() {
-                path
+                path.to_path_buf()
             } else {
-                base_config.cwd.join(path)
+                base_cwd.join(path)
             }
         })
-        .unwrap_or_else(|| base_config.cwd.clone());
-
-    let overrides = ConfigOverrides {
-        model,
-        review_model: None,
-        config_profile: profile,
-        cwd: Some(resolved_cwd),
-        approval_policy,
-        sandbox_mode,
-        model_provider: None,
-        codex_linux_sandbox_exe: None,
-        base_instructions,
-        include_apply_patch_tool,
-        show_raw_agent_reasoning: None,
-        tools_web_search_request: None,
-        ..Default::default()
-    };
-
-    let cli_overrides: Vec<(String, toml::Value)> = cli_overrides
-        .unwrap_or_default()
-        .into_iter()
-        .map(|(k, v)| (k, json_to_toml(v)))
-        .collect();
-
-    let mut config = Config::load_with_cli_overrides(cli_overrides, overrides)
-        .await
-        .map_err(|e| AppError::Codex(format!("Failed to load config: {}", e)))?;
-    // Preserve captured login-shell environment (PATH, etc.) from the base config.
-    config.shell_environment_policy = base_config.shell_environment_policy.clone();
-    Ok(config)
-}
-
-fn json_to_toml(value: serde_json::Value) -> toml::Value {
-    match value {
-        serde_json::Value::Null => toml::Value::String(String::new()),
-        serde_json::Value::Bool(b) => toml::Value::Boolean(b),
-        serde_json::Value::Number(n) => {
-            if let Some(i) = n.as_i64() {
-                toml::Value::Integer(i)
-            } else if let Some(f) = n.as_f64() {
-                toml::Value::Float(f)
-            } else {
-                toml::Value::String(n.to_string())
-            }
-        }
-        serde_json::Value::String(s) => toml::Value::String(s),
-        serde_json::Value::Array(arr) => {
-            toml::Value::Array(arr.into_iter().map(json_to_toml).collect())
-        }
-        serde_json::Value::Object(obj) => {
-            let mut map = toml::map::Map::new();
-            for (k, v) in obj {
-                map.insert(k, json_to_toml(v));
-            }
-            toml::Value::Table(map)
-        }
-    }
-}
-
-fn apply_workspace_defaults(
-    options: &mut NewConversationParams,
-    defaults: &WorkspaceComposerDefaults,
-) {
-    if options.model.is_none() {
-        options.model = defaults.model.clone();
-    }
-    if options.sandbox.is_none() {
-        options.sandbox = defaults.sandbox.clone();
-    }
-    if options.approval_policy.is_none() {
-        options.approval_policy = defaults.approval.clone();
-    }
-}
-
-fn find_rollout_for_conversation<'a>(
-    thread: &'a ThreadRecord,
-    conversation_id: &str,
-) -> Option<&'a ThreadRollout> {
-    thread
-        .rollouts
-        .iter()
-        .find(|rollout| rollout.conversation_id == conversation_id)
+        .unwrap_or_else(|| base_cwd.clone())
 }
 
 async fn load_rollout_cwd(
@@ -1245,51 +1128,6 @@ async fn load_rollout_cwd(
     Err(AppError::Validation {
         message: format!("Rollout {} header missing cwd", rollout_path.display()),
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn apply_workspace_defaults_prefers_workspace_values_when_missing() {
-        let mut options = NewConversationParams::default();
-        let defaults = WorkspaceComposerDefaults {
-            model: Some("gpt-5-codex".to_string()),
-            sandbox: Some(SandboxMode::DangerFullAccess),
-            approval: Some(AskForApproval::Never),
-            ..Default::default()
-        };
-
-        apply_workspace_defaults(&mut options, &defaults);
-
-        assert_eq!(options.model.as_deref(), Some("gpt-5-codex"));
-        assert_eq!(options.sandbox, Some(SandboxMode::DangerFullAccess));
-        assert_eq!(options.approval_policy, Some(AskForApproval::Never));
-    }
-
-    #[test]
-    fn apply_workspace_defaults_does_not_override_explicit_options() {
-        let mut options = NewConversationParams {
-            model: Some("custom-model".to_string()),
-            sandbox: Some(SandboxMode::WorkspaceWrite),
-            approval_policy: Some(AskForApproval::OnFailure),
-            ..Default::default()
-        };
-
-        let defaults = WorkspaceComposerDefaults {
-            model: Some("gpt-5".to_string()),
-            sandbox: Some(SandboxMode::DangerFullAccess),
-            approval: Some(AskForApproval::Never),
-            ..Default::default()
-        };
-
-        apply_workspace_defaults(&mut options, &defaults);
-
-        assert_eq!(options.model.as_deref(), Some("custom-model"));
-        assert_eq!(options.sandbox, Some(SandboxMode::WorkspaceWrite));
-        assert_eq!(options.approval_policy, Some(AskForApproval::OnFailure));
-    }
 }
 
 fn sandbox_mode_to_policy(mode: SandboxMode) -> SandboxPolicy {
