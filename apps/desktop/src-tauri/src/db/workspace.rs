@@ -62,7 +62,7 @@ pub async fn get_workspace_defaults(
     db: &DatabaseConnection,
     workspace_path: &str,
 ) -> AppResult<WorkspaceComposerDefaults> {
-    let defaults = schema::workspace_defaults::Entity::find_by_id(workspace_path.to_string())
+    let defaults = schema::workspace_settings::Entity::find_by_id(workspace_path.to_string())
         .one(db)
         .await
         .map_err(|e| db_error("Failed to load workspace defaults", e))?
@@ -78,7 +78,7 @@ pub async fn set_workspace_defaults(
     defaults: WorkspaceComposerDefaults,
 ) -> AppResult<()> {
     if defaults.is_empty() {
-        schema::workspace_defaults::Entity::delete_by_id(workspace_path.to_string())
+        schema::workspace_settings::Entity::delete_by_id(workspace_path.to_string())
             .exec(db)
             .await
             .map_err(|e| db_error("Failed to delete workspace defaults", e))?;
@@ -88,13 +88,13 @@ pub async fn set_workspace_defaults(
     upsert_workspace(db, workspace_path, None).await?;
 
     let active = schema::encode_workspace_defaults(workspace_path, &defaults)?;
-    match schema::workspace_defaults::Entity::find_by_id(workspace_path.to_string())
+    match schema::workspace_settings::Entity::find_by_id(workspace_path.to_string())
         .one(db)
         .await
         .map_err(|e| db_error("Failed to load workspace defaults for upsert", e))?
     {
         Some(existing) => {
-            let mut model: schema::workspace_defaults::ActiveModel = existing.into();
+            let mut model: schema::workspace_settings::ActiveModel = existing.into();
             model.model = active.model;
             model.reasoning_effort = active.reasoning_effort;
             model.reasoning_summary = active.reasoning_summary;

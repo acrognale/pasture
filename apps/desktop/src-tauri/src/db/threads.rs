@@ -29,9 +29,9 @@ pub async fn get_threads_for_workspace(
     let mut result = Vec::with_capacity(threads.len());
 
     for thread in threads {
-        let rollouts = schema::thread_rollouts::Entity::find()
-            .filter(schema::thread_rollouts::Column::ThreadId.eq(thread.id.clone()))
-            .order_by_asc(schema::thread_rollouts::Column::Id)
+        let rollouts = schema::forks::Entity::find()
+            .filter(schema::forks::Column::ThreadId.eq(thread.id.clone()))
+            .order_by_asc(schema::forks::Column::CreatedAt)
             .all(db)
             .await
             .map_err(|e| db_error("Failed to list thread rollouts", e))?;
@@ -56,9 +56,9 @@ pub async fn get_thread(
         return Ok(None);
     };
 
-    let rollouts = schema::thread_rollouts::Entity::find()
-        .filter(schema::thread_rollouts::Column::ThreadId.eq(thread_id))
-        .order_by_asc(schema::thread_rollouts::Column::Id)
+    let rollouts = schema::forks::Entity::find()
+        .filter(schema::forks::Column::ThreadId.eq(thread_id))
+        .order_by_asc(schema::forks::Column::CreatedAt)
         .all(db)
         .await
         .map_err(|e| db_error("Failed to load thread rollouts", e))?;
@@ -90,7 +90,7 @@ pub async fn upsert_thread(
             active.workspace_path = models.thread.workspace_path;
             active.created_at = models.thread.created_at.clone();
             active.updated_at = models.thread.updated_at.clone();
-            active.current_conversation_id = models.thread.current_conversation_id.clone();
+            active.current_fork_id = models.thread.current_fork_id.clone();
             active.title = models.thread.title.clone();
             active.preview = models.thread.preview.clone();
             active
@@ -98,8 +98,8 @@ pub async fn upsert_thread(
                 .await
                 .map_err(|e| db_error("Failed to update thread", e))?;
 
-            schema::thread_rollouts::Entity::delete_many()
-                .filter(schema::thread_rollouts::Column::ThreadId.eq(thread.thread_id.clone()))
+            schema::forks::Entity::delete_many()
+                .filter(schema::forks::Column::ThreadId.eq(thread.thread_id.clone()))
                 .exec(&txn)
                 .await
                 .map_err(|e| db_error("Failed to delete existing rollouts", e))?;
@@ -113,9 +113,8 @@ pub async fn upsert_thread(
         }
     }
 
-    for rollout in models.rollouts {
-        rollout
-            .insert(&txn)
+    for fork in models.forks {
+        fork.insert(&txn)
             .await
             .map_err(|e| db_error("Failed to insert rollout", e))?;
     }
@@ -211,13 +210,13 @@ pub async fn get_threads_for_conversation(
     conversation_id: &str,
 ) -> AppResult<Vec<schema::threads::Model>> {
     let mut targets = schema::threads::Entity::find()
-        .filter(schema::threads::Column::CurrentConversationId.eq(conversation_id))
+        .filter(schema::threads::Column::CurrentForkId.eq(conversation_id))
         .all(db)
         .await
         .map_err(|e| db_error("Failed to find threads for conversation", e))?;
 
-    let rollout_threads: Vec<String> = schema::thread_rollouts::Entity::find()
-        .filter(schema::thread_rollouts::Column::ConversationId.eq(conversation_id))
+    let rollout_threads: Vec<String> = schema::forks::Entity::find()
+        .filter(schema::forks::Column::Id.eq(conversation_id))
         .all(db)
         .await
         .map_err(|e| db_error("Failed to find rollouts for conversation", e))?
