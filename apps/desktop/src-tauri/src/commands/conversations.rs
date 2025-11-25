@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use codex_core::AuthManager;
@@ -12,8 +12,6 @@ use codex_protocol::user_input::UserInput as CoreUserInput;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, State};
-use tokio::fs::File;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -23,7 +21,8 @@ use crate::domain::{ForkId, ForkPoint, ThreadId};
 use crate::errors::{AppError, AppResult};
 use crate::events::EventRouter;
 use crate::services::{
-    NewThreadOptions, ReviewService, ThreadService, TurnOverrides, TurnService, WorkspaceService,
+    ForkThreadResult, NewThreadOptions, SwitchRolloutResult, ThreadInitialization, ThreadService,
+    TurnOverrides, TurnService, WorkspaceService,
 };
 use crate::title_generation;
 
@@ -199,10 +198,6 @@ pub async fn new_thread(
     params: NewThreadCommandParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    config: State<'_, Arc<Config>>,
-    conversation_manager: State<'_, Arc<ConversationManager>>,
-    events: State<'_, Arc<EventRouter>>,
-    review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<NewThreadResponse> {
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
@@ -210,36 +205,11 @@ pub async fn new_thread(
     let options = params.options.unwrap_or_default();
     let thread_options = NewThreadOptions::from(options);
 
-    let env_vars = config.shell_environment_policy.r#set.clone();
-
     let (thread, new_conv) = thread_service
-        .create(&workspace_path, thread_options, env_vars.clone())
+        .create(&workspace_path, thread_options, app_handle.clone())
         .await?;
 
-    let conversation_id = new_conv.conversation_id.clone();
-    let fork_id = ForkId::from(conversation_id.clone());
-    let conversation_id_str = conversation_id.to_string();
     let rollout_path = new_conv.session_configured.rollout_path.clone();
-
-    let review_service = review.inner().clone();
-    if let Err(err) = review_service.ensure_base(&fork_id).await {
-        log::debug!(
-            "Failed to capture baseline snapshot for conversation {}: {}",
-            conversation_id_str,
-            err
-        );
-    }
-
-    if let Ok(conversation) = conversation_manager.get_conversation(conversation_id).await {
-        let _ = events
-            .ensure_subscription(
-                fork_id.clone(),
-                conversation,
-                app_handle,
-                conversation_id_str.clone(),
-            )
-            .await;
-    }
 
     Ok(NewThreadResponse {
         thread_id: thread.id.as_str().to_string(),
@@ -256,67 +226,20 @@ pub async fn initialize_thread(
     params: InitializeThreadParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    config: State<'_, Arc<Config>>,
-    conversation_manager: State<'_, Arc<ConversationManager>>,
-    events: State<'_, Arc<EventRouter>>,
-    review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<InitializeThreadResponse> {
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let thread_id = ThreadId(params.thread_id);
-    let thread = thread_service.get(&workspace_path, &thread_id).await?;
-
-    let conversation_id = thread.current_fork_id.as_str().to_string();
-    let start_rollout = thread
-        .forks
-        .iter()
-        .find(|fork| fork.id.as_str() == thread.current_fork_id.as_str())
-        .ok_or(AppError::NotFound { entity: "rollout" })?;
-    let rollout_path = PathBuf::from(&start_rollout.rollout_path);
-
-    let cwd = load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?;
-    let env_vars = config.shell_environment_policy.r#set.clone();
-
-    let (_, new_conversation) = thread_service
-        .initialize(
-            &workspace_path,
-            &thread_id,
-            rollout_path.clone(),
-            cwd.clone(),
-            env_vars.clone(),
-        )
+    let ThreadInitialization {
+        conversation,
+        reasoning_summary,
+        ..
+    } = thread_service
+        .initialize(&workspace_path, &thread_id, app_handle)
         .await?;
 
-    let session_configured = new_conversation.session_configured.clone();
-    let reasoning_summary = config.model_reasoning_summary;
-    let conv_id =
-        ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
-            message: format!("Invalid conversation ID: {}", e),
-        })?;
-    let fork_id = ForkId::from(conv_id.clone());
-
-    if let Ok(conversation) = conversation_manager.get_conversation(conv_id).await {
-        let _ = events
-            .ensure_subscription(
-                fork_id.clone(),
-                conversation,
-                app_handle.clone(),
-                conversation_id.clone(),
-            )
-            .await;
-    }
-
-    let review_service = review.inner().clone();
-    if let Err(err) = review_service.ensure_base(&fork_id).await {
-        log::debug!(
-            "Failed to ensure baseline snapshot for conversation {}: {}",
-            conversation_id,
-            err
-        );
-    }
-
     Ok(InitializeThreadResponse {
-        session_configured,
+        session_configured: conversation.session_configured,
         reasoning_summary,
     })
 }
@@ -327,94 +250,28 @@ pub async fn switch_thread_rollout(
     params: SwitchThreadRolloutParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    config: State<'_, Arc<Config>>,
-    conversation_manager: State<'_, Arc<ConversationManager>>,
-    events: State<'_, Arc<EventRouter>>,
-    review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<SwitchThreadRolloutResponse> {
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let thread_id = ThreadId(params.thread_id);
-    let thread = thread_service.get(&workspace_path, &thread_id).await?;
-
     let conv_id =
         ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
         })?;
     let fork_id = ForkId::from(conv_id.clone());
 
-    let rollout = thread
-        .forks
-        .iter()
-        .find(|fork| fork.id.as_str() == params.conversation_id)
-        .ok_or(AppError::NotFound { entity: "rollout" })?;
-    let rollout_path = PathBuf::from(&rollout.rollout_path);
-
-    let cwd = load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?;
-    let env_vars = config.shell_environment_policy.r#set.clone();
-    let reasoning_summary = config.model_reasoning_summary;
-
-    let existing_conversation = conversation_manager.get_conversation(conv_id.clone()).await;
-
-    let (session_configured, resumed_reasoning_summary) = match existing_conversation {
-        Ok(conversation) => {
-            let _ = events
-                .ensure_subscription(
-                    fork_id.clone(),
-                    conversation,
-                    app_handle.clone(),
-                    params.conversation_id.clone(),
-                )
-                .await;
-
-            (None, None)
-        }
-        Err(_) => {
-            let (_, new_conversation) = thread_service
-                .initialize(
-                    &workspace_path,
-                    &thread_id,
-                    rollout_path.clone(),
-                    cwd.clone(),
-                    env_vars.clone(),
-                )
-                .await?;
-
-            if let Ok(conversation) = conversation_manager.get_conversation(conv_id.clone()).await {
-                let _ = events
-                    .ensure_subscription(
-                        fork_id.clone(),
-                        conversation,
-                        app_handle.clone(),
-                        params.conversation_id.clone(),
-                    )
-                    .await;
-            }
-
-            (
-                Some(new_conversation.session_configured.clone()),
-                Some(reasoning_summary),
-            )
-        }
-    };
-
-    let review_service = review.inner().clone();
-    if let Err(err) = review_service.ensure_base(&fork_id).await {
-        log::debug!(
-            "Failed to ensure baseline snapshot for conversation {}: {}",
-            params.conversation_id,
-            err
-        );
-    }
-
-    let _ = thread_service
-        .switch_rollout(&workspace_path, &thread_id, &fork_id)
+    let SwitchRolloutResult {
+        session_configured,
+        reasoning_summary,
+        ..
+    } = thread_service
+        .switch_rollout(&workspace_path, &thread_id, &fork_id, app_handle)
         .await?;
 
     Ok(SwitchThreadRolloutResponse {
         conversation_id: conv_id,
         session_configured,
-        reasoning_summary: resumed_reasoning_summary,
+        reasoning_summary,
     })
 }
 
@@ -424,10 +281,6 @@ pub async fn fork_thread(
     params: ForkThreadParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    config: State<'_, Arc<Config>>,
-    conversation_manager: State<'_, Arc<ConversationManager>>,
-    events: State<'_, Arc<EventRouter>>,
-    review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<ForkThreadResponse> {
     let ForkThreadParams {
@@ -440,7 +293,6 @@ pub async fn fork_thread(
 
     let workspace_path = workspace_service.canonicalize(&workspace_path)?;
     let thread_id = ThreadId(thread_id);
-    let thread = thread_service.get(&workspace_path, &thread_id).await?;
 
     let base_conversation_id_parsed =
         ConversationId::from_string(&base_conversation_id).map_err(|e| AppError::Validation {
@@ -451,31 +303,23 @@ pub async fn fork_thread(
             ),
         })?;
 
-    let base_rollout = thread
-        .forks
-        .iter()
-        .find(|fork| fork.id.as_str() == base_conversation_id)
-        .ok_or(AppError::NotFound { entity: "rollout" })?;
-    let rollout_path = PathBuf::from(&base_rollout.rollout_path);
-
-    let cwd = load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?;
-    let env_vars = config.shell_environment_policy.r#set.clone();
-    let reasoning_summary = config.model_reasoning_summary;
-
     let thread_options = NewThreadOptions::from(options.unwrap_or_default());
     let fork_point = ForkPoint {
         fork_id: ForkId(base_conversation_id.clone()),
         after_message: nth_user_message,
     };
 
-    let (updated_thread, new_conv) = thread_service
+    let ForkThreadResult {
+        thread: updated_thread,
+        conversation: new_conv,
+        reasoning_summary,
+    } = thread_service
         .fork(
             &workspace_path,
             &thread_id,
             &fork_point,
-            cwd.clone(),
-            env_vars.clone(),
             thread_options,
+            app_handle,
         )
         .await?;
 
@@ -486,30 +330,7 @@ pub async fn fork_thread(
         .find(|fork| fork.id.as_str() == new_conv_id)
         .ok_or(AppError::NotFound { entity: "fork" })?;
 
-    let conversation_id = new_conv.conversation_id.clone();
-    let conversation_id_str = new_conv_id.clone();
-    let fork_id = ForkId::from(conversation_id.clone());
     let session_configured = new_conv.session_configured.clone();
-
-    let review_service = review.inner().clone();
-    if let Err(err) = review_service.ensure_base(&fork_id).await {
-        log::debug!(
-            "Failed to ensure baseline snapshot for conversation {}: {}",
-            conversation_id_str,
-            err
-        );
-    }
-
-    if let Ok(conversation) = conversation_manager.get_conversation(conversation_id).await {
-        let _ = events
-            .ensure_subscription(
-                fork_id.clone(),
-                conversation,
-                app_handle,
-                conversation_id_str.clone(),
-            )
-            .await;
-    }
 
     Ok(ForkThreadResponse {
         thread_id: thread_id.as_str().to_string(),
@@ -809,83 +630,4 @@ impl From<NewConversationParams> for NewThreadOptions {
             include_apply_patch_tool: params.include_apply_patch_tool,
         }
     }
-}
-
-async fn load_rollout_cwd(
-    rollout_path: &Path,
-    fallback_workspace: Option<&str>,
-) -> AppResult<PathBuf> {
-    let file = match File::open(rollout_path).await {
-        Ok(file) => file,
-        Err(e) => {
-            if let Some(ws) = fallback_workspace {
-                log::debug!(
-                    "Falling back to workspace cwd {} for rollout {}: {}",
-                    ws,
-                    rollout_path.display(),
-                    e
-                );
-                return Ok(PathBuf::from(ws));
-            }
-            return Err(AppError::Io(e));
-        }
-    };
-    let mut reader = BufReader::new(file);
-    let mut first_line = String::new();
-    let bytes_read = reader
-        .read_line(&mut first_line)
-        .await
-        .map_err(AppError::Io)?;
-
-    if bytes_read == 0 {
-        if let Some(ws) = fallback_workspace {
-            log::debug!(
-                "Rollout {} did not contain a session header, falling back to workspace cwd {}",
-                rollout_path.display(),
-                ws
-            );
-            return Ok(PathBuf::from(ws));
-        }
-        return Err(AppError::Validation {
-            message: format!(
-                "Rollout {} did not contain a session header",
-                rollout_path.display()
-            ),
-        });
-    }
-
-    let value: serde_json::Value = match serde_json::from_str(&first_line) {
-        Ok(v) => v,
-        Err(e) => {
-            if let Some(ws) = fallback_workspace {
-                log::debug!(
-                    "Failed to parse rollout header {} ({}), falling back to workspace cwd {}",
-                    rollout_path.display(),
-                    e,
-                    ws
-                );
-                return Ok(PathBuf::from(ws));
-            }
-            return Err(AppError::Validation {
-                message: format!("Failed to parse rollout header: {}", e),
-            });
-        }
-    };
-
-    if let Some(cwd_str) = value.get("cwd").and_then(|v| v.as_str()) {
-        return Ok(PathBuf::from(cwd_str));
-    }
-
-    if let Some(ws) = fallback_workspace {
-        log::debug!(
-            "Rollout {} header missing cwd, falling back to workspace cwd {}",
-            rollout_path.display(),
-            ws
-        );
-        return Ok(PathBuf::from(ws));
-    }
-
-    Err(AppError::Validation {
-        message: format!("Rollout {} header missing cwd", rollout_path.display()),
-    })
 }

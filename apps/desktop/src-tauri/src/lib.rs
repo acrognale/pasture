@@ -105,6 +105,8 @@ pub fn run() {
                 auth_manager,
                 base_config,
                 config_deriver,
+                event_router,
+                review_service,
             );
             app.manage(thread_service.clone());
             log::info!("Services initialized successfully");

@@ -4,13 +4,11 @@ use std::sync::Arc;
 use anyhow::Error as AnyhowError;
 use chrono::Utc;
 use codex_git::{CreateGhostCommitOptions, create_ghost_commit};
-use serde_json::Value;
-use tokio::fs::File;
-use tokio::io::{AsyncBufReadExt, BufReader};
 
 use crate::db::{ForkSnapshotState, TurnSnapshot, TurnSnapshotRepo};
 use crate::domain::ForkId;
 use crate::errors::{AppError, AppResult};
+use crate::services::load_rollout_cwd;
 
 #[derive(Clone)]
 pub struct ReviewService {
@@ -150,18 +148,12 @@ impl ReviewService {
     }
 
     async fn resolve_snapshot_cwd(&self, state: &ForkSnapshotState) -> PathBuf {
-        match load_rollout_cwd(Path::new(&state.rollout_path)).await {
-            Ok(path) => path,
-            Err(err) => {
-                log::debug!(
-                    "Falling back to workspace cwd {} for rollout {}: {}",
-                    state.workspace_path,
-                    state.rollout_path,
-                    err
-                );
-                PathBuf::from(&state.workspace_path)
-            }
-        }
+        load_rollout_cwd(
+            Path::new(&state.rollout_path),
+            Some(Path::new(&state.workspace_path)),
+        )
+        .await
+        .unwrap_or_else(|_| PathBuf::from(&state.workspace_path))
     }
 }
 
@@ -183,35 +175,4 @@ impl GitSnapshotter {
         .map_err(|err| AppError::Internal(AnyhowError::new(err)))?;
         Ok(commit)
     }
-}
-
-async fn load_rollout_cwd(path: &Path) -> AppResult<PathBuf> {
-    let file = File::open(path).await?;
-    let mut reader = BufReader::new(file);
-    let mut first_line = String::new();
-    let bytes_read = reader.read_line(&mut first_line).await?;
-
-    if bytes_read == 0 {
-        return Err(AppError::Validation {
-            message: format!(
-                "Rollout {} did not contain a session header",
-                path.display()
-            ),
-        });
-    }
-
-    let value: Value = serde_json::from_str(&first_line).map_err(|e| AppError::Validation {
-        message: format!("Failed to parse rollout header: {}", e),
-    })?;
-
-    if let Some(cwd_str) = value.get("cwd").and_then(|v| v.as_str()) {
-        return Ok(PathBuf::from(cwd_str));
-    }
-
-    Err(AppError::Validation {
-        message: format!(
-            "Rollout {} did not specify a cwd in the session header",
-            path.display()
-        ),
-    })
 }

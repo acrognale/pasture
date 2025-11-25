@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -7,12 +6,19 @@ use codex_core::AuthManager;
 use codex_core::ConversationManager;
 use codex_core::NewConversation;
 use codex_core::config::Config;
+use codex_protocol::ConversationId;
+use codex_protocol::config_types::ReasoningSummary;
+use codex_protocol::protocol::SessionConfiguredEvent;
+use tauri::AppHandle;
 use uuid::Uuid;
 
 use crate::db::{ThreadRepo, WorkspaceRepo};
 use crate::domain::{Fork, ForkId, ForkPoint, Thread, ThreadId, WorkspacePath};
 use crate::errors::{AppError, AppResult};
-use crate::services::{ConversationConfigDeriver, NewThreadOptions};
+use crate::events::EventRouter;
+use crate::services::{
+    ConversationConfigDeriver, NewThreadOptions, ReviewService, load_rollout_cwd,
+};
 
 #[derive(Clone)]
 pub struct ThreadService {
@@ -22,6 +28,26 @@ pub struct ThreadService {
     auth_manager: Arc<AuthManager>,
     base_config: Arc<Config>,
     config_deriver: ConversationConfigDeriver,
+    events: Arc<EventRouter>,
+    review: Arc<ReviewService>,
+}
+
+pub struct ThreadInitialization {
+    pub thread: Thread,
+    pub conversation: NewConversation,
+    pub reasoning_summary: ReasoningSummary,
+}
+
+pub struct SwitchRolloutResult {
+    pub thread: Thread,
+    pub session_configured: Option<SessionConfiguredEvent>,
+    pub reasoning_summary: Option<ReasoningSummary>,
+}
+
+pub struct ForkThreadResult {
+    pub thread: Thread,
+    pub conversation: NewConversation,
+    pub reasoning_summary: ReasoningSummary,
 }
 
 impl ThreadService {
@@ -32,6 +58,8 @@ impl ThreadService {
         auth_manager: Arc<AuthManager>,
         base_config: Arc<Config>,
         config_deriver: ConversationConfigDeriver,
+        events: Arc<EventRouter>,
+        review: Arc<ReviewService>,
     ) -> Self {
         Self {
             threads,
@@ -40,6 +68,8 @@ impl ThreadService {
             auth_manager,
             base_config,
             config_deriver,
+            events,
+            review,
         }
     }
 
@@ -55,16 +85,15 @@ impl ThreadService {
         &self,
         workspace: &WorkspacePath,
         options: NewThreadOptions,
-        env_vars: HashMap<String, String>,
+        app_handle: AppHandle,
     ) -> AppResult<(Thread, NewConversation)> {
         let mut base_config = self.base_config.as_ref().clone();
         base_config.cwd = PathBuf::from(workspace.as_str());
 
-        let mut config = self
+        let config = self
             .config_deriver
             .derive_for_new_thread(&base_config, workspace, &options)
             .await?;
-        config.shell_environment_policy.r#set = env_vars;
 
         let new_conv = self
             .conversations
@@ -91,7 +120,7 @@ impl ThreadService {
 
         let thread = Thread {
             id: thread_id,
-            current_fork_id: fork_id,
+            current_fork_id: fork_id.clone(),
             forks: vec![fork],
             title: None,
             preview: Some("Untitled session".to_string()),
@@ -103,6 +132,9 @@ impl ThreadService {
         self.threads.save(workspace, &thread).await?;
         self.workspaces.touch(workspace, None).await?;
 
+        self.ensure_base_snapshot(&fork_id).await;
+        self.ensure_subscription(&fork_id, app_handle).await;
+
         Ok((thread, new_conv))
     }
 
@@ -110,15 +142,15 @@ impl ThreadService {
         &self,
         workspace: &WorkspacePath,
         thread_id: &ThreadId,
-        rollout_path: PathBuf,
-        cwd: PathBuf,
-        env_vars: HashMap<String, String>,
-    ) -> AppResult<(Thread, NewConversation)> {
+        app_handle: AppHandle,
+    ) -> AppResult<ThreadInitialization> {
         let thread = self.load_thread(workspace, thread_id).await?;
+        let rollout_path = self.current_rollout_path(&thread)?;
+        let cwd = self.resolve_rollout_cwd(&rollout_path, workspace).await?;
 
         let mut config = self.base_config.as_ref().clone();
         config.cwd = cwd;
-        config.shell_environment_policy.r#set = env_vars;
+        let reasoning_summary = config.model_reasoning_summary;
 
         let new_conv = self
             .conversations
@@ -126,7 +158,15 @@ impl ThreadService {
             .await
             .map_err(|e| AppError::Codex(format!("Failed to resume conversation: {}", e)))?;
 
-        Ok((thread, new_conv))
+        let fork_id = ForkId::from(new_conv.conversation_id.clone());
+        self.ensure_base_snapshot(&fork_id).await;
+        self.ensure_subscription(&fork_id, app_handle).await;
+
+        Ok(ThreadInitialization {
+            thread,
+            conversation: new_conv,
+            reasoning_summary,
+        })
     }
 
     pub async fn fork(
@@ -134,25 +174,25 @@ impl ThreadService {
         workspace: &WorkspacePath,
         thread_id: &ThreadId,
         fork_point: &ForkPoint,
-        cwd: PathBuf,
-        env_vars: HashMap<String, String>,
         options: NewThreadOptions,
-    ) -> AppResult<(Thread, NewConversation)> {
+        app_handle: AppHandle,
+    ) -> AppResult<ForkThreadResult> {
         let mut thread = self.load_thread(workspace, thread_id).await?;
         let base_fork = self
             .find_fork(&thread, &fork_point.fork_id)
             .ok_or(AppError::NotFound { entity: "fork" })?;
 
         let rollout_path = PathBuf::from(&base_fork.rollout_path);
+        let cwd = self.resolve_rollout_cwd(&rollout_path, workspace).await?;
 
         let mut base_config = self.base_config.as_ref().clone();
         base_config.cwd = cwd;
 
-        let mut config = self
+        let config = self
             .config_deriver
             .derive_for_fork(&base_config, workspace, &options)
             .await?;
-        config.shell_environment_policy.r#set = env_vars;
+        let reasoning_summary = config.model_reasoning_summary;
 
         let new_conv = self
             .conversations
@@ -178,13 +218,20 @@ impl ThreadService {
             fork_point: Some(fork_point.clone()),
         };
 
-        thread.forks.push(new_fork);
+        thread.forks.push(new_fork.clone());
         thread.current_fork_id = ForkId(new_conv.conversation_id.to_string());
         thread.updated_at = timestamp;
 
         self.threads.save(workspace, &thread).await?;
 
-        Ok((thread, new_conv))
+        self.ensure_base_snapshot(&new_fork.id).await;
+        self.ensure_subscription(&new_fork.id, app_handle).await;
+
+        Ok(ForkThreadResult {
+            thread,
+            conversation: new_conv,
+            reasoning_summary,
+        })
     }
 
     pub async fn switch_rollout(
@@ -192,17 +239,61 @@ impl ThreadService {
         workspace: &WorkspacePath,
         thread_id: &ThreadId,
         fork_id: &ForkId,
-    ) -> AppResult<Thread> {
+        app_handle: AppHandle,
+    ) -> AppResult<SwitchRolloutResult> {
         let mut thread = self.load_thread(workspace, thread_id).await?;
-        if self.find_fork(&thread, fork_id).is_none() {
-            return Err(AppError::NotFound { entity: "fork" });
-        }
+        let rollout = self
+            .find_fork(&thread, fork_id)
+            .ok_or(AppError::NotFound { entity: "fork" })?;
+        let rollout_path = PathBuf::from(&rollout.rollout_path);
+
+        let cwd = self.resolve_rollout_cwd(&rollout_path, workspace).await?;
+        let conv_id = ConversationId::try_from(fork_id.clone())?;
+        let existing_conversation = self.conversations.get_conversation(conv_id.clone()).await;
+
+        let (session_configured, reasoning_summary) = match existing_conversation {
+            Ok(_) => {
+                self.ensure_subscription(fork_id, app_handle.clone()).await;
+                (None, None)
+            }
+            Err(_) => {
+                let mut config = self.base_config.as_ref().clone();
+                config.cwd = cwd;
+                let reasoning_summary = config.model_reasoning_summary;
+
+                let new_conv = self
+                    .conversations
+                    .resume_conversation_from_rollout(
+                        config,
+                        rollout_path.clone(),
+                        self.auth_manager.clone(),
+                    )
+                    .await
+                    .map_err(|e| {
+                        AppError::Codex(format!("Failed to resume conversation: {}", e))
+                    })?;
+
+                self.ensure_subscription(fork_id, app_handle.clone()).await;
+
+                (
+                    Some(new_conv.session_configured.clone()),
+                    Some(reasoning_summary),
+                )
+            }
+        };
+
+        self.ensure_base_snapshot(fork_id).await;
 
         thread.current_fork_id = fork_id.clone();
         thread.updated_at = Utc::now().to_rfc3339();
 
         self.threads.save(workspace, &thread).await?;
-        Ok(thread)
+
+        Ok(SwitchRolloutResult {
+            thread,
+            session_configured,
+            reasoning_summary,
+        })
     }
 
     fn find_fork<'a>(&self, thread: &'a Thread, fork_id: &ForkId) -> Option<&'a Fork> {
@@ -218,5 +309,68 @@ impl ThreadService {
             .get(workspace, thread_id)
             .await?
             .ok_or(AppError::NotFound { entity: "thread" })
+    }
+
+    fn current_rollout_path(&self, thread: &Thread) -> AppResult<PathBuf> {
+        let rollout = thread
+            .forks
+            .iter()
+            .find(|fork| fork.id == thread.current_fork_id)
+            .ok_or(AppError::NotFound { entity: "rollout" })?;
+        Ok(PathBuf::from(&rollout.rollout_path))
+    }
+
+    async fn resolve_rollout_cwd(
+        &self,
+        rollout_path: &Path,
+        workspace: &WorkspacePath,
+    ) -> AppResult<PathBuf> {
+        load_rollout_cwd(rollout_path, Some(Path::new(workspace.as_str()))).await
+    }
+
+    async fn ensure_base_snapshot(&self, fork_id: &ForkId) {
+        let review_service = self.review.clone();
+        if let Err(err) = review_service.ensure_base(fork_id).await {
+            log::debug!(
+                "Failed to ensure baseline snapshot for conversation {}: {}",
+                fork_id,
+                err
+            );
+        }
+    }
+
+    async fn ensure_subscription(&self, fork_id: &ForkId, app_handle: AppHandle) {
+        let conv_id = match ConversationId::try_from(fork_id.clone()) {
+            Ok(conv_id) => conv_id,
+            Err(err) => {
+                log::debug!(
+                    "Unable to subscribe to conversation {}: {}",
+                    fork_id.as_str(),
+                    err
+                );
+                return;
+            }
+        };
+
+        match self.conversations.get_conversation(conv_id).await {
+            Ok(conversation) => {
+                let _ = self
+                    .events
+                    .ensure_subscription(
+                        fork_id.clone(),
+                        conversation,
+                        app_handle,
+                        fork_id.as_str().to_string(),
+                    )
+                    .await;
+            }
+            Err(err) => {
+                log::debug!(
+                    "Unable to fetch conversation {} for subscription: {}",
+                    fork_id,
+                    err
+                );
+            }
+        }
     }
 }
