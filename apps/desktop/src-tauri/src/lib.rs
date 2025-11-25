@@ -2,6 +2,7 @@ mod codex_runtime;
 mod commands;
 mod completions;
 mod db;
+mod domain;
 mod env;
 mod errors;
 mod event_listener;

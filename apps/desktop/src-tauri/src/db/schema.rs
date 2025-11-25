@@ -3,6 +3,9 @@ use sea_orm::ActiveValue::Set;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+use crate::domain::ids::WorkspacePath;
+use crate::domain::thread::Thread;
+use crate::domain::workspace::WorkspaceSettings;
 use crate::workspace_manager::ThreadRecord;
 use crate::workspace_manager::ThreadRollout;
 use crate::workspace_manager::WorkspaceComposerDefaults;
@@ -168,6 +171,18 @@ pub fn decode_workspace_defaults(
     })
 }
 
+pub fn encode_workspace_settings(
+    workspace_path: &WorkspacePath,
+    settings: &WorkspaceSettings,
+) -> Result<workspace_defaults::ActiveModel> {
+    let legacy: WorkspaceComposerDefaults = settings.clone().into();
+    encode_workspace_defaults(workspace_path.as_str(), &legacy)
+}
+
+pub fn decode_workspace_settings(model: workspace_defaults::Model) -> Result<WorkspaceSettings> {
+    decode_workspace_defaults(model).map(WorkspaceSettings::from)
+}
+
 pub struct ThreadModels {
     pub thread: threads::ActiveModel,
     pub rollouts: Vec<thread_rollouts::ActiveModel>,
@@ -231,6 +246,15 @@ pub fn decode_thread_record(
         title: thread.title,
         preview: thread.preview,
     }
+}
+
+pub fn encode_thread(thread: &Thread) -> ThreadModels {
+    encode_thread_record(&ThreadRecord::from(thread), thread.workspace_path.as_str())
+}
+
+pub fn decode_thread(thread: threads::Model, rollouts: Vec<thread_rollouts::Model>) -> Thread {
+    let workspace_path = WorkspacePath(thread.workspace_path);
+    decode_thread_record(thread, rollouts).into_domain(workspace_path)
 }
 
 fn serialize_json<T: Serialize>(value: &Option<T>) -> Result<Option<String>> {

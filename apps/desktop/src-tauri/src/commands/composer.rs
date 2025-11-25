@@ -71,7 +71,8 @@ pub async fn get_composer_config(
         });
     }
 
-    let defaults = crate::db::workspace::get_workspace_defaults(&db, &workspace_path).await?;
+    let defaults =
+        crate::db::workspace::get_workspace_defaults(&db, workspace_path.as_str()).await?;
 
     let mut payload = ComposerTurnConfigPayload::default();
     payload.model = defaults.model;
@@ -118,7 +119,7 @@ pub async fn update_composer_config(
         || approval.is_some()
     {
         let mut defaults =
-            crate::db::workspace::get_workspace_defaults(&db, &workspace_path).await?;
+            crate::db::workspace::get_workspace_defaults(&db, workspace_path.as_str()).await?;
         let mut changed = false;
 
         if let Some(value) = model {
@@ -143,7 +144,8 @@ pub async fn update_composer_config(
         }
 
         if changed {
-            crate::db::workspace::set_workspace_defaults(&db, &workspace_path, defaults).await?;
+            crate::db::workspace::set_workspace_defaults(&db, workspace_path.as_str(), defaults)
+                .await?;
         }
     }
 

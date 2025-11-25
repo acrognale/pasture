@@ -33,9 +33,9 @@ pub async fn open_workspace(
 ) -> AppResult<String> {
     let normalized = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
-    crate::db::workspace::upsert_workspace(&db, &normalized, None).await?;
+    crate::db::workspace::upsert_workspace(&db, normalized.as_str(), None).await?;
 
-    Ok(normalized)
+    Ok(normalized.into_string())
 }
 
 /// Create a new window for a workspace (used by native menu).
@@ -48,12 +48,12 @@ pub async fn create_workspace_window(
 ) -> AppResult<()> {
     let normalized = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
-    crate::db::workspace::upsert_workspace(&db, &normalized, None).await?;
+    crate::db::workspace::upsert_workspace(&db, normalized.as_str(), None).await?;
 
     let title = workspace_manager.build_workspace_title(&normalized);
 
     // Create a new window with the workspace route
-    let url = format!("/workspaces/{}", urlencoding::encode(&normalized));
+    let url = format!("/workspaces/{}", urlencoding::encode(normalized.as_str()));
 
     let mut builder = tauri::WebviewWindowBuilder::new(
         &app_handle,
@@ -119,6 +119,6 @@ pub async fn get_workspace_composer_defaults(
     db: State<'_, DatabaseConnection>,
 ) -> AppResult<WorkspaceComposerDefaults> {
     let normalized = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
-    let defaults = crate::db::workspace::get_workspace_defaults(&db, &normalized).await?;
+    let defaults = crate::db::workspace::get_workspace_defaults(&db, normalized.as_str()).await?;
     Ok(defaults)
 }

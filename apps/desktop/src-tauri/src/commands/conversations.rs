@@ -160,13 +160,15 @@ pub async fn list_threads(
 ) -> AppResult<ListThreadsResponse> {
     let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
-    let threads = crate::db::threads::get_threads_for_workspace(&db, &workspace_path).await?;
+    let workspace_path_str = workspace_path.as_str().to_string();
+    let threads =
+        crate::db::threads::get_threads_for_workspace(&db, workspace_path.as_str()).await?;
 
     let items = threads
         .into_iter()
         .map(|thread| ThreadSummary {
             thread_id: thread.thread_id.clone(),
-            workspace_path: workspace_path.clone(),
+            workspace_path: workspace_path_str.clone(),
             current_conversation_id: thread.current_conversation_id.clone(),
             title: thread.title.clone(),
             preview: thread
@@ -191,7 +193,7 @@ pub async fn list_thread_rollouts(
 ) -> AppResult<ListThreadRolloutsResponse> {
     let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
-    let thread = crate::db::threads::get_thread(&db, &workspace_path, &params.thread_id)
+    let thread = crate::db::threads::get_thread(&db, workspace_path.as_str(), &params.thread_id)
         .await?
         .ok_or(AppError::NotFound { entity: "thread" })?;
 
@@ -212,7 +214,7 @@ pub async fn new_thread(
     app_handle: AppHandle,
 ) -> AppResult<NewThreadResponse> {
     let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
-    let workspace_root_path = PathBuf::from(&workspace_path);
+    let workspace_root_path = PathBuf::from(workspace_path.as_str());
 
     if !runtime.is_initialized().await {
         return Err(AppError::Validation {
@@ -222,7 +224,7 @@ pub async fn new_thread(
 
     let mut options = params.options.unwrap_or_default();
     let workspace_defaults =
-        crate::db::workspace::get_workspace_defaults(&db, &workspace_path).await?;
+        crate::db::workspace::get_workspace_defaults(&db, workspace_path.as_str()).await?;
     apply_workspace_defaults(&mut options, &workspace_defaults);
 
     let mut base_config = runtime.config().as_ref().clone();
@@ -266,7 +268,7 @@ pub async fn new_thread(
         preview: Some("Untitled session".to_string()),
     };
 
-    crate::db::threads::upsert_thread(&db, &workspace_path, thread_record).await?;
+    crate::db::threads::upsert_thread(&db, workspace_path.as_str(), thread_record).await?;
 
     let session = workspace_manager
         .store_active_conversation(
@@ -328,7 +330,7 @@ pub async fn initialize_thread(
 
     let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
-    let thread = crate::db::threads::get_thread(&db, &workspace_path, &params.thread_id)
+    let thread = crate::db::threads::get_thread(&db, workspace_path.as_str(), &params.thread_id)
         .await?
         .ok_or(AppError::NotFound { entity: "thread" })?;
 
@@ -342,7 +344,7 @@ pub async fn initialize_thread(
         .await
     {
         Some(active) => active.cwd.clone(),
-        None => load_rollout_cwd(&rollout_path, Some(&workspace_path)).await?,
+        None => load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?,
     };
 
     let session = workspace_manager
@@ -416,9 +418,10 @@ pub async fn switch_thread_rollout(
 
     let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
 
-    let mut thread = crate::db::threads::get_thread(&db, &workspace_path, &params.thread_id)
-        .await?
-        .ok_or(AppError::NotFound { entity: "thread" })?;
+    let mut thread =
+        crate::db::threads::get_thread(&db, workspace_path.as_str(), &params.thread_id)
+            .await?
+            .ok_or(AppError::NotFound { entity: "thread" })?;
 
     let conv_id =
         ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
@@ -434,7 +437,7 @@ pub async fn switch_thread_rollout(
         .await
     {
         Some(active) => active.cwd.clone(),
-        None => load_rollout_cwd(&rollout_path, Some(&workspace_path)).await?,
+        None => load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?,
     };
 
     let session = workspace_manager
@@ -514,7 +517,7 @@ pub async fn switch_thread_rollout(
     thread.current_conversation_id = params.conversation_id.clone();
     thread.updated_at = timestamp;
 
-    crate::db::threads::upsert_thread(&db, &workspace_path, thread).await?;
+    crate::db::threads::upsert_thread(&db, workspace_path.as_str(), thread).await?;
 
     Ok(SwitchThreadRolloutResponse {
         conversation_id: conv_id,
@@ -548,7 +551,7 @@ pub async fn fork_thread(
 
     let workspace_path = workspace_manager.normalize_workspace_path(&workspace_path)?;
 
-    let mut thread = crate::db::threads::get_thread(&db, &workspace_path, &thread_id)
+    let mut thread = crate::db::threads::get_thread(&db, workspace_path.as_str(), &thread_id)
         .await?
         .ok_or(AppError::NotFound { entity: "thread" })?;
 
@@ -569,7 +572,7 @@ pub async fn fork_thread(
         .await
     {
         Some(active) => active.cwd.clone(),
-        None => load_rollout_cwd(&rollout_path, Some(&workspace_path)).await?,
+        None => load_rollout_cwd(&rollout_path, Some(workspace_path.as_str())).await?,
     };
 
     let session = workspace_manager
@@ -582,7 +585,7 @@ pub async fn fork_thread(
 
     let mut options = options.unwrap_or_default();
     let workspace_defaults =
-        crate::db::workspace::get_workspace_defaults(&db, &workspace_path).await?;
+        crate::db::workspace::get_workspace_defaults(&db, workspace_path.as_str()).await?;
     apply_workspace_defaults(&mut options, &workspace_defaults);
 
     let mut base_config = runtime.config().as_ref().clone();
@@ -618,7 +621,7 @@ pub async fn fork_thread(
     thread.current_conversation_id = conversation_id_str.clone();
     thread.updated_at = timestamp.clone();
 
-    crate::db::threads::upsert_thread(&db, &workspace_path, thread).await?;
+    crate::db::threads::upsert_thread(&db, workspace_path.as_str(), thread).await?;
 
     let session = workspace_manager
         .store_active_conversation(

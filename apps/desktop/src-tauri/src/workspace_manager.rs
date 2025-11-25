@@ -1,5 +1,3 @@
-use anyhow::Context;
-use anyhow::Result;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -14,7 +12,11 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
+use crate::domain::ids::{ForkId, ThreadId, WorkspacePath};
+use crate::domain::thread::{Fork, ForkPoint, Thread};
+use crate::domain::workspace::WorkspaceSettings;
 use crate::env;
+use crate::errors::AppResult;
 use crate::review_snapshots::ReviewSnapshots;
 
 #[derive(Debug, Clone)]
@@ -98,6 +100,30 @@ impl WorkspaceComposerDefaults {
     }
 }
 
+impl From<WorkspaceComposerDefaults> for WorkspaceSettings {
+    fn from(value: WorkspaceComposerDefaults) -> Self {
+        WorkspaceSettings {
+            model: value.model,
+            reasoning_effort: value.reasoning_effort,
+            reasoning_summary: value.reasoning_summary,
+            sandbox: value.sandbox,
+            approval: value.approval,
+        }
+    }
+}
+
+impl From<WorkspaceSettings> for WorkspaceComposerDefaults {
+    fn from(value: WorkspaceSettings) -> Self {
+        WorkspaceComposerDefaults {
+            model: value.model,
+            reasoning_effort: value.reasoning_effort,
+            reasoning_summary: value.reasoning_summary,
+            sandbox: value.sandbox,
+            approval: value.approval,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRollout {
@@ -126,6 +152,87 @@ pub struct ThreadRecord {
     pub preview: Option<String>,
 }
 
+impl ThreadRollout {
+    pub fn into_domain(self, thread_id: &ThreadId) -> Fork {
+        let fork_point = match (
+            self.forked_from_conversation_id,
+            self.forked_from_nth_user_message,
+        ) {
+            (Some(fork_id), Some(after_message)) => Some(ForkPoint {
+                fork_id: ForkId(fork_id),
+                after_message,
+            }),
+            _ => None,
+        };
+
+        Fork {
+            id: ForkId(self.conversation_id),
+            thread_id: thread_id.clone(),
+            rollout_path: self.rollout_path,
+            created_at: self.created_at,
+            label: self.label,
+            fork_point,
+        }
+    }
+}
+
+impl From<&Fork> for ThreadRollout {
+    fn from(fork: &Fork) -> Self {
+        let (forked_from_conversation_id, forked_from_nth_user_message) = match &fork.fork_point {
+            Some(point) => (
+                Some(point.fork_id.as_str().to_string()),
+                Some(point.after_message),
+            ),
+            None => (None, None),
+        };
+
+        ThreadRollout {
+            conversation_id: fork.id.as_str().to_string(),
+            rollout_path: fork.rollout_path.clone(),
+            created_at: fork.created_at.clone(),
+            label: fork.label.clone(),
+            forked_from_conversation_id,
+            forked_from_nth_user_message,
+        }
+    }
+}
+
+impl ThreadRecord {
+    pub fn into_domain(self, workspace_path: WorkspacePath) -> Thread {
+        let thread_id = ThreadId(self.thread_id);
+        let forks = self
+            .rollouts
+            .into_iter()
+            .map(|rollout| rollout.into_domain(&thread_id))
+            .collect();
+
+        Thread {
+            id: thread_id,
+            current_fork_id: ForkId(self.current_conversation_id),
+            forks,
+            title: self.title,
+            preview: self.preview,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+            workspace_path,
+        }
+    }
+}
+
+impl From<&Thread> for ThreadRecord {
+    fn from(thread: &Thread) -> Self {
+        ThreadRecord {
+            thread_id: thread.id.as_str().to_string(),
+            created_at: thread.created_at.clone(),
+            updated_at: thread.updated_at.clone(),
+            current_conversation_id: thread.current_fork_id.as_str().to_string(),
+            rollouts: thread.forks.iter().map(ThreadRollout::from).collect(),
+            title: thread.title.clone(),
+            preview: thread.preview.clone(),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct WorkspaceManager {
     active_conversations: Arc<Mutex<HashMap<String, ActiveConversation>>>,
@@ -138,16 +245,12 @@ impl WorkspaceManager {
         }
     }
 
-    pub fn normalize_workspace_path(&self, path: &str) -> Result<String> {
-        let path = Path::new(path);
-        let canonical = path
-            .canonicalize()
-            .with_context(|| format!("Failed to resolve workspace path: {}", path.display()))?;
-        Ok(canonical.to_string_lossy().to_string())
+    pub fn normalize_workspace_path(&self, path: &str) -> AppResult<WorkspacePath> {
+        WorkspacePath::canonicalize(path)
     }
 
-    pub fn build_workspace_title(&self, workspace_path: &str) -> String {
-        let path = Path::new(workspace_path);
+    pub fn build_workspace_title(&self, workspace_path: &WorkspacePath) -> String {
+        let path = Path::new(workspace_path.as_str());
         path.file_name()
             .and_then(|name| name.to_str())
             .map(|s| s.to_string())
