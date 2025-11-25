@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { ListThreadRolloutsResponse } from '~/codex.gen/ListThreadRolloutsResponse';
+import type { ListThreadForksResponse } from '~/codex.gen/ListThreadForksResponse';
 import type { WorkspaceKeys } from '~/lib/workspaceKeys';
 
 import type { WorkspaceThreadsState } from './hooks/useWorkspaceThreads';
@@ -45,7 +45,7 @@ export const updateThreadOnFork = (
       const updated = {
         ...state.items[index],
         currentConversationId: conversationId,
-        rolloutCount: (state.items[index]?.rolloutCount ?? 0) + 1,
+        forkCount: (state.items[index]?.forkCount ?? 0) + 1,
         timestamp: createdAt,
       };
       const items = [...state.items];
@@ -54,17 +54,17 @@ export const updateThreadOnFork = (
     }
   );
 
-  queryClient.setQueryData<ListThreadRolloutsResponse | undefined>(
-    keys.threadRollouts(threadId),
+  queryClient.setQueryData<ListThreadForksResponse | undefined>(
+    keys.threadForks(threadId),
     (state) => {
-      const rollouts = state?.rollouts ?? [];
-      const existingIndex = rollouts.findIndex(
+      const forks = state?.forks ?? [];
+      const existingIndex = forks.findIndex(
         (item) => item.id === conversationId
       );
-      const nextRollouts =
+      const nextForks =
         existingIndex === -1
           ? [
-              ...rollouts,
+              ...forks,
               {
                 id: conversationId,
                 threadId,
@@ -78,7 +78,7 @@ export const updateThreadOnFork = (
               },
             ]
           : [
-              ...rollouts.slice(0, existingIndex),
+              ...forks.slice(0, existingIndex),
               {
                 id: conversationId,
                 threadId,
@@ -90,13 +90,13 @@ export const updateThreadOnFork = (
                   afterMessage: forkNthUserMessage,
                 },
               },
-              ...rollouts.slice(existingIndex + 1),
+              ...forks.slice(existingIndex + 1),
             ];
 
       return {
         threadId,
         currentConversationId: conversationId,
-        rollouts: nextRollouts,
+        forks: nextForks,
       };
     }
   );
@@ -132,8 +132,8 @@ export const updateThreadOnSwitch = (
     }
   );
 
-  queryClient.setQueryData<ListThreadRolloutsResponse | undefined>(
-    keys.threadRollouts(threadId),
+  queryClient.setQueryData<ListThreadForksResponse | undefined>(
+    keys.threadForks(threadId),
     (state) =>
       state ? { ...state, currentConversationId: conversationId } : state
   );

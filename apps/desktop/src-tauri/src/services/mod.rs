@@ -8,6 +8,6 @@ pub mod workspace;
 pub use config_deriver::{ConversationConfigDeriver, NewThreadOptions};
 pub use review::{GitSnapshotter, ReviewService};
 pub(crate) use rollout::load_rollout_cwd;
-pub use threads::{ForkThreadResult, SwitchRolloutResult, ThreadInitialization, ThreadService};
+pub use threads::{ForkThreadResult, SwitchForkResult, ThreadInitialization, ThreadService};
 pub use turns::{TurnOverrides, TurnService};
 pub use workspace::{ComposerSettingsUpdate, WorkspaceService};

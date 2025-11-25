@@ -15,7 +15,7 @@ const THREAD_ID = 'f387a944-c3c2-4cc6-9f21-4fe4853100d5';
 const BASE_CONVERSATION_ID = '019ab3a1-b4cc-7812-945e-c5496d0ed6b2';
 const FORK_CONVERSATION_ID = '019ab3a1-f1a6-7601-8583-b20987cc7fa7';
 
-const buildRolloutsFixture = (): Fork[] => {
+const buildForksFixture = (): Fork[] => {
   const createdAtBase = '2025-11-24T02:11:50.617132+00:00';
   const createdAtFork = '2025-11-24T02:12:06.196488+00:00';
   return [
@@ -47,7 +47,7 @@ describe('Thread version selector integration', () => {
   test('shows version selector for edited user message after reload', async () => {
     setupConversationTest(BASE_CONVERSATION_ID);
 
-    const rollouts = buildRolloutsFixture();
+    const forks = buildForksFixture();
 
     mockCodex.stub.listThreads.mockResolvedValueOnce({
       items: [
@@ -57,8 +57,8 @@ describe('Thread version selector integration', () => {
           currentConversationId: FORK_CONVERSATION_ID,
           preview: 'test 123',
           title: null,
-          timestamp: rollouts[0]?.createdAt ?? new Date().toISOString(),
-          rolloutCount: rollouts.length,
+          timestamp: forks[0]?.createdAt ?? new Date().toISOString(),
+          forkCount: forks.length,
         },
       ],
     });
@@ -88,12 +88,12 @@ describe('Thread version selector integration', () => {
             images: null,
           },
         ],
-        rollout_path: rollouts[1]?.rolloutPath ?? '',
+        rollout_path: forks[1]?.rolloutPath ?? '',
       },
       reasoningSummary: 'auto',
     });
 
-    mockCodex.stub.switchThreadRollout
+    mockCodex.stub.switchThreadFork
       .mockResolvedValueOnce({
         conversationId: BASE_CONVERSATION_ID,
         sessionConfigured: {
@@ -119,7 +119,7 @@ describe('Thread version selector integration', () => {
               images: null,
             },
           ],
-          rollout_path: rollouts[0]?.rolloutPath ?? '',
+          rollout_path: forks[0]?.rolloutPath ?? '',
         },
         reasoningSummary: 'auto',
       })
@@ -148,15 +148,15 @@ describe('Thread version selector integration', () => {
               images: null,
             },
           ],
-          rollout_path: rollouts[1]?.rolloutPath ?? '',
+          rollout_path: forks[1]?.rolloutPath ?? '',
         },
         reasoningSummary: 'auto',
       });
 
-    mockCodex.stub.listThreadRollouts.mockResolvedValueOnce({
+    mockCodex.stub.listThreadForks.mockResolvedValueOnce({
       threadId: THREAD_ID,
       currentConversationId: FORK_CONVERSATION_ID,
-      rollouts,
+      forks,
     });
 
     const ThreadLoader = ({ threadId }: { threadId: string }) => {
@@ -206,7 +206,7 @@ describe('Thread version selector integration', () => {
             images: null,
           },
         ],
-        rollout_path: rollouts[1]?.rolloutPath ?? '',
+        rollout_path: forks[1]?.rolloutPath ?? '',
       },
       { conversationId: FORK_CONVERSATION_ID }
     );

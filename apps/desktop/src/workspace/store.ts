@@ -334,7 +334,7 @@ export const createWorkspaceStore = (
           conversationId: resolvedConversationId,
           sessionConfigured,
           reasoningSummary,
-        } = await Codex.switchThreadRollout({
+        } = await Codex.switchThreadFork({
           workspacePath: deps.workspacePath,
           threadId,
           conversationId,

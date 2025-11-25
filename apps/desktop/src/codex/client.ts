@@ -15,8 +15,8 @@ import type {
   InitializeThreadResponse,
   InterruptConversationParams,
   InterruptConversationResponse,
-  ListThreadRolloutsParams,
-  ListThreadRolloutsResponse,
+  ListThreadForksParams,
+  ListThreadForksResponse,
   ListThreadsParams,
   ListThreadsResponse,
   ListTurnSnapshotsParams,
@@ -27,8 +27,8 @@ import type {
   RespondApprovalParams,
   SendUserMessageParams,
   SetWindowTitleParams,
-  SwitchThreadRolloutParams,
-  SwitchThreadRolloutResponse,
+  SwitchThreadForkParams,
+  SwitchThreadForkResponse,
   UpdateComposerConfigParams,
   WorkspaceComposerDefaults,
   WorkspacePathParams,
@@ -41,18 +41,18 @@ export namespace Codex {
     return await invoke<ListThreadsResponse>('list_threads', { params });
   }
 
-  export async function listThreadRollouts(
-    params: ListThreadRolloutsParams
-  ): Promise<ListThreadRolloutsResponse> {
-    return await invoke<ListThreadRolloutsResponse>('list_thread_rollouts', {
+  export async function listThreadForks(
+    params: ListThreadForksParams
+  ): Promise<ListThreadForksResponse> {
+    return await invoke<ListThreadForksResponse>('list_thread_forks', {
       params,
     });
   }
 
-  export async function switchThreadRollout(
-    params: SwitchThreadRolloutParams
-  ): Promise<SwitchThreadRolloutResponse> {
-    return await invoke<SwitchThreadRolloutResponse>('switch_thread_rollout', {
+  export async function switchThreadFork(
+    params: SwitchThreadForkParams
+  ): Promise<SwitchThreadForkResponse> {
+    return await invoke<SwitchThreadForkResponse>('switch_thread_fork', {
       params,
     });
   }

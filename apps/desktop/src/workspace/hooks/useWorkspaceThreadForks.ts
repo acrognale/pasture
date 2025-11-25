@@ -5,28 +5,26 @@ import {
 } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import type { Fork } from '~/codex.gen/Fork';
-import type { ListThreadRolloutsResponse } from '~/codex.gen/ListThreadRolloutsResponse';
+import type { ListThreadForksResponse } from '~/codex.gen/ListThreadForksResponse';
 import { Codex } from '~/codex/client';
 
 import { useWorkspace, useWorkspaceKeys } from '../WorkspaceProvider';
 import type { WorkspaceThreadsState } from './useWorkspaceThreads';
 
 const computeThreadVersionGroupsInternal = (
-  rollouts: Fork[]
+  forks: Fork[]
 ): Map<number, Fork[]> => {
-  const byConversationId = new Map(
-    rollouts.map((rollout) => [rollout.id, rollout])
-  );
+  const byConversationId = new Map(forks.map((fork) => [fork.id, fork]));
   const groups = new Map<number, Fork[]>();
   const seenByNth = new Map<number, Set<string>>();
 
-  rollouts.forEach((rollout) => {
-    const nth = rollout.forkPoint?.afterMessage;
+  forks.forEach((fork) => {
+    const nth = fork.forkPoint?.afterMessage;
     if (nth == null) {
       return;
     }
 
-    let current: Fork | undefined = rollout;
+    let current: Fork | undefined = fork;
     while (current) {
       const seen = seenByNth.get(nth) ?? new Set<string>();
       const group = groups.get(nth) ?? [];
@@ -59,31 +57,31 @@ const computeThreadVersionGroupsInternal = (
 };
 
 export const computeThreadVersionGroups = (
-  rollouts: Fork[]
-): Map<number, Fork[]> => computeThreadVersionGroupsInternal(rollouts);
+  forks: Fork[]
+): Map<number, Fork[]> => computeThreadVersionGroupsInternal(forks);
 
-type ThreadRolloutsQueryResult = {
-  rollouts: Fork[];
+type ThreadForksQueryResult = {
+  forks: Fork[];
   currentConversationId: string | null;
-  query: UseQueryResult<ListThreadRolloutsResponse, Error>;
+  query: UseQueryResult<ListThreadForksResponse, Error>;
 };
 
-export const useWorkspaceThreadRollouts = (
+export const useWorkspaceThreadForks = (
   threadId: string | null
-): ThreadRolloutsQueryResult => {
+): ThreadForksQueryResult => {
   const { workspacePath } = useWorkspace();
   const keys = useWorkspaceKeys();
   const queryClient = useQueryClient();
 
-  const query = useQuery<ListThreadRolloutsResponse, Error>({
+  const query = useQuery<ListThreadForksResponse, Error>({
     queryKey: threadId
-      ? keys.threadRollouts(threadId)
-      : (['workspace', workspacePath, 'thread', 'rollouts', '__none'] as const),
+      ? keys.threadForks(threadId)
+      : (['workspace', workspacePath, 'thread', 'forks', '__none'] as const),
     queryFn: async () => {
       if (!threadId) {
-        throw new Error('threadId is required to load rollouts');
+        throw new Error('threadId is required to load forks');
       }
-      return await Codex.listThreadRollouts({
+      return await Codex.listThreadForks({
         workspacePath,
         threadId,
       });
@@ -116,7 +114,7 @@ export const useWorkspaceThreadRollouts = (
         const updated = {
           ...state.items[index],
           currentConversationId: data.currentConversationId,
-          rolloutCount: data.rollouts.length,
+          forkCount: data.forks.length,
         };
         const items = [...state.items];
         items[index] = updated;
@@ -125,11 +123,11 @@ export const useWorkspaceThreadRollouts = (
     );
   }, [keys, query.data, queryClient]);
 
-  const rollouts = query.data?.rollouts ?? [];
+  const forks = query.data?.forks ?? [];
   const currentConversationId = query.data?.currentConversationId ?? null;
 
   return {
-    rollouts,
+    forks,
     currentConversationId,
     query,
   };
@@ -137,25 +135,22 @@ export const useWorkspaceThreadRollouts = (
 
 type ThreadVersionGroupsResult = {
   groups: Map<number, Fork[]>;
-  rollouts: Fork[];
+  forks: Fork[];
   currentConversationId: string | null;
-  query: UseQueryResult<ListThreadRolloutsResponse, Error>;
+  query: UseQueryResult<ListThreadForksResponse, Error>;
 };
 
 export const useThreadVersionGroups = (
   threadId: string | null
 ): ThreadVersionGroupsResult => {
-  const { rollouts, currentConversationId, query } =
-    useWorkspaceThreadRollouts(threadId);
+  const { forks, currentConversationId, query } =
+    useWorkspaceThreadForks(threadId);
 
-  const groups = useMemo(
-    () => computeThreadVersionGroups(rollouts),
-    [rollouts]
-  );
+  const groups = useMemo(() => computeThreadVersionGroups(forks), [forks]);
 
   return {
     groups,
-    rollouts,
+    forks,
     currentConversationId,
     query,
   };

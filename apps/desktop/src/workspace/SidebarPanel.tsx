@@ -133,7 +133,7 @@ export function SidebarPanel() {
         preview: 'Untitled session',
         title: null,
         timestamp: new Date().toISOString(),
-        rolloutCount: 1,
+        forkCount: 1,
       };
 
       queryClient.setQueryData<WorkspaceThreadsState | undefined>(

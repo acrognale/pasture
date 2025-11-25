@@ -21,7 +21,7 @@ use crate::domain::{ForkId, ForkPoint, ThreadId};
 use crate::errors::{AppError, AppResult};
 use crate::events::EventRouter;
 use crate::services::{
-    ForkThreadResult, NewThreadOptions, SwitchRolloutResult, ThreadInitialization, ThreadService,
+    ForkThreadResult, NewThreadOptions, SwitchForkResult, ThreadInitialization, ThreadService,
     TurnOverrides, TurnService, WorkspaceService,
 };
 use crate::title_generation;
@@ -36,27 +36,27 @@ pub struct ThreadSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     pub timestamp: String,
-    pub rollout_count: usize,
+    pub fork_count: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct ListThreadRolloutsParams {
+pub struct ListThreadForksParams {
     pub workspace_path: String,
     pub thread_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct ListThreadRolloutsResponse {
+pub struct ListThreadForksResponse {
     pub thread_id: String,
     pub current_conversation_id: String,
-    pub rollouts: Vec<Fork>,
+    pub forks: Vec<Fork>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct SwitchThreadRolloutParams {
+pub struct SwitchThreadForkParams {
     pub workspace_path: String,
     pub thread_id: String,
     pub conversation_id: String,
@@ -64,7 +64,7 @@ pub struct SwitchThreadRolloutParams {
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct SwitchThreadRolloutResponse {
+pub struct SwitchThreadForkResponse {
     pub conversation_id: ConversationId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_configured: Option<SessionConfiguredEvent>,
@@ -165,34 +165,34 @@ pub async fn list_threads(
                 .or_else(|| thread.title.clone())
                 .unwrap_or_else(|| "Untitled session".to_string()),
             timestamp: thread.updated_at.clone(),
-            rollout_count: thread.forks.len(),
+            fork_count: thread.forks.len(),
         })
         .collect();
 
     Ok(ListThreadsResponse { items })
 }
 
-/// List all rollouts recorded for a thread.
+/// List all forks for a thread.
 #[tauri::command]
-pub async fn list_thread_rollouts(
+pub async fn list_thread_forks(
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    params: ListThreadRolloutsParams,
-) -> AppResult<ListThreadRolloutsResponse> {
+    params: ListThreadForksParams,
+) -> AppResult<ListThreadForksResponse> {
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let thread_id = ThreadId(params.thread_id);
     let thread = thread_service.get(&workspace_path, &thread_id).await?;
 
-    let rollouts = thread.forks.clone();
+    let forks = thread.forks.clone();
 
-    Ok(ListThreadRolloutsResponse {
+    Ok(ListThreadForksResponse {
         thread_id: thread.id.as_str().to_string(),
         current_conversation_id: thread.current_fork_id.as_str().to_string(),
-        rollouts,
+        forks,
     })
 }
 
-/// Create a new thread and its initial rollout.
+/// Create a new thread and its initial fork.
 #[tauri::command]
 pub async fn new_thread(
     params: NewThreadCommandParams,
@@ -220,7 +220,7 @@ pub async fn new_thread(
     })
 }
 
-/// Initialize a thread by resuming its current conversation rollout.
+/// Initialize a thread by resuming its current fork's conversation.
 #[tauri::command]
 pub async fn initialize_thread(
     params: InitializeThreadParams,
@@ -244,14 +244,14 @@ pub async fn initialize_thread(
     })
 }
 
-/// Switch a thread to a specific rollout and resume its conversation.
+/// Switch a thread to a specific fork and resume its conversation.
 #[tauri::command]
-pub async fn switch_thread_rollout(
-    params: SwitchThreadRolloutParams,
+pub async fn switch_thread_fork(
+    params: SwitchThreadForkParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
     app_handle: AppHandle,
-) -> AppResult<SwitchThreadRolloutResponse> {
+) -> AppResult<SwitchThreadForkResponse> {
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let thread_id = ThreadId(params.thread_id);
     let conv_id =
@@ -260,22 +260,22 @@ pub async fn switch_thread_rollout(
         })?;
     let fork_id = ForkId::from(conv_id.clone());
 
-    let SwitchRolloutResult {
+    let SwitchForkResult {
         session_configured,
         reasoning_summary,
         ..
     } = thread_service
-        .switch_rollout(&workspace_path, &thread_id, &fork_id, app_handle)
+        .switch_fork(&workspace_path, &thread_id, &fork_id, app_handle)
         .await?;
 
-    Ok(SwitchThreadRolloutResponse {
+    Ok(SwitchThreadForkResponse {
         conversation_id: conv_id,
         session_configured,
         reasoning_summary,
     })
 }
 
-/// Fork a thread's current conversation into a new rollout and switch the thread to it.
+/// Fork a thread's current conversation into a new fork and switch the thread to it.
 #[tauri::command]
 pub async fn fork_thread(
     params: ForkThreadParams,

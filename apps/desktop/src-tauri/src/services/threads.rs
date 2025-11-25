@@ -38,7 +38,7 @@ pub struct ThreadInitialization {
     pub reasoning_summary: ReasoningSummary,
 }
 
-pub struct SwitchRolloutResult {
+pub struct SwitchForkResult {
     pub thread: Thread,
     pub session_configured: Option<SessionConfiguredEvent>,
     pub reasoning_summary: Option<ReasoningSummary>,
@@ -145,7 +145,7 @@ impl ThreadService {
         app_handle: AppHandle,
     ) -> AppResult<ThreadInitialization> {
         let thread = self.load_thread(workspace, thread_id).await?;
-        let rollout_path = self.current_rollout_path(&thread)?;
+        let rollout_path = self.current_fork_rollout_path(&thread)?;
         let cwd = self.resolve_rollout_cwd(&rollout_path, workspace).await?;
 
         let mut config = self.base_config.as_ref().clone();
@@ -234,18 +234,18 @@ impl ThreadService {
         })
     }
 
-    pub async fn switch_rollout(
+    pub async fn switch_fork(
         &self,
         workspace: &WorkspacePath,
         thread_id: &ThreadId,
         fork_id: &ForkId,
         app_handle: AppHandle,
-    ) -> AppResult<SwitchRolloutResult> {
+    ) -> AppResult<SwitchForkResult> {
         let mut thread = self.load_thread(workspace, thread_id).await?;
-        let rollout = self
+        let fork = self
             .find_fork(&thread, fork_id)
             .ok_or(AppError::NotFound { entity: "fork" })?;
-        let rollout_path = PathBuf::from(&rollout.rollout_path);
+        let rollout_path = PathBuf::from(&fork.rollout_path);
 
         let cwd = self.resolve_rollout_cwd(&rollout_path, workspace).await?;
         let conv_id = ConversationId::try_from(fork_id.clone())?;
@@ -289,7 +289,7 @@ impl ThreadService {
 
         self.threads.save(workspace, &thread).await?;
 
-        Ok(SwitchRolloutResult {
+        Ok(SwitchForkResult {
             thread,
             session_configured,
             reasoning_summary,
@@ -311,13 +311,13 @@ impl ThreadService {
             .ok_or(AppError::NotFound { entity: "thread" })
     }
 
-    fn current_rollout_path(&self, thread: &Thread) -> AppResult<PathBuf> {
-        let rollout = thread
+    fn current_fork_rollout_path(&self, thread: &Thread) -> AppResult<PathBuf> {
+        let fork = thread
             .forks
             .iter()
-            .find(|fork| fork.id == thread.current_fork_id)
-            .ok_or(AppError::NotFound { entity: "rollout" })?;
-        Ok(PathBuf::from(&rollout.rollout_path))
+            .find(|f| f.id == thread.current_fork_id)
+            .ok_or(AppError::NotFound { entity: "fork" })?;
+        Ok(PathBuf::from(&fork.rollout_path))
     }
 
     async fn resolve_rollout_cwd(
