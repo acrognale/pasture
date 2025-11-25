@@ -174,7 +174,7 @@ PY
 # Update Cargo.lock to reflect the new version in Cargo.toml
 (cd apps/desktop/src-tauri && cargo update -p pasture --offline 2>/dev/null || cargo check --quiet)
 
-git add package.json apps/desktop/package.json apps/desktop/src-tauri/tauri.conf.json apps/desktop/src-tauri/Cargo.toml apps/desktop/src-tauri/Cargo.lock
+git add apps/desktop/package.json apps/desktop/src-tauri/tauri.conf.json apps/desktop/src-tauri/Cargo.toml Cargo.lock
 if [[ -f package-lock.json ]]; then
   git add package-lock.json
 fi
