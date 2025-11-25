@@ -1,3 +1,5 @@
+pub mod router;
+
 use serde::Deserialize;
 use serde::Serialize;
 use ts_rs::TS;
@@ -41,3 +43,5 @@ pub enum CodexEvent {
     #[serde(rename = "thread-metadata-updated")]
     ThreadMetadataUpdated { payload: ThreadMetadataPayload },
 }
+
+pub use router::EventRouter;

@@ -1,4 +1,5 @@
 use std::process::Command;
+use std::sync::Arc;
 
 use anyhow::Context;
 use anyhow::Result as AnyResult;
@@ -7,9 +8,9 @@ use serde::Serialize;
 use tauri::State;
 use ts_rs::TS;
 
-use crate::codex_runtime::CodexRuntime;
+use crate::domain::ForkId;
 use crate::errors::{AppError, AppResult};
-use crate::workspace_manager::WorkspaceManager;
+use crate::services::ReviewService;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -51,26 +52,17 @@ pub struct ListTurnSnapshotsResponse {
 #[tauri::command]
 pub async fn get_turn_diff_range(
     params: GetTurnDiffRangeParams,
-    runtime: State<'_, CodexRuntime>,
-    workspace_manager: State<'_, WorkspaceManager>,
+    review: State<'_, Arc<ReviewService>>,
 ) -> AppResult<GetTurnDiffRangeResponse> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
-    let session = workspace_manager
-        .get_active_conversation(&params.conversation_id)
-        .await
-        .ok_or(AppError::NotFound {
-            entity: "conversation",
-        })?;
-    let store = session.review_snapshots();
-    let commits = store
-        .commits_for_range(params.base_event_id.as_deref(), &params.target_event_id)
-        .await
-        .map_err(AppError::Internal)?;
+    let fork_id = ForkId::from(params.conversation_id.clone());
+    let commits = review
+        .inner()
+        .commits_for_range(
+            &fork_id,
+            params.base_event_id.as_deref(),
+            &params.target_event_id,
+        )
+        .await?;
 
     let (cwd, base_commit, target_commit) = commits.ok_or(AppError::Validation {
         message: "Snapshot data unavailable for requested range".to_string(),
@@ -101,34 +93,20 @@ pub async fn get_turn_diff_range(
 #[tauri::command]
 pub async fn list_turn_snapshots(
     params: ListTurnSnapshotsParams,
-    runtime: State<'_, CodexRuntime>,
-    workspace_manager: State<'_, WorkspaceManager>,
+    review: State<'_, Arc<ReviewService>>,
 ) -> AppResult<ListTurnSnapshotsResponse> {
-    if !runtime.is_initialized().await {
-        return Err(AppError::Validation {
-            message: "Runtime not initialized".to_string(),
-        });
-    }
-
-    let session = workspace_manager
-        .get_active_conversation(&params.conversation_id)
-        .await
-        .ok_or(AppError::NotFound {
-            entity: "conversation",
-        })?;
-
-    let store = session.review_snapshots();
-    let summary = store.snapshot_summary().await;
+    let fork_id = ForkId::from(params.conversation_id.clone());
+    let summary = review.inner().snapshot_summary(&fork_id).await?;
 
     let response = ListTurnSnapshotsResponse {
         disabled: summary.disabled,
         base_commit_id: summary.base_commit,
         snapshots: summary
-            .turn_commits
+            .snapshots
             .into_iter()
-            .map(|(event_id, commit_id)| TurnSnapshotDescriptor {
-                event_id,
-                commit_id,
+            .map(|snapshot| TurnSnapshotDescriptor {
+                event_id: snapshot.event_id,
+                commit_id: snapshot.commit_sha,
             })
             .collect(),
     };

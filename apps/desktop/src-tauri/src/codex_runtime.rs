@@ -6,8 +6,6 @@ use codex_core::ConversationManager;
 use codex_core::config::Config;
 use codex_protocol::protocol::SessionSource;
 
-use crate::event_listener::EventSubscriptionManager;
-
 /// Embedded Codex runtime that manages authentication, conversations, and message processing.
 #[derive(Clone)]
 pub struct CodexRuntime {
@@ -15,7 +13,6 @@ pub struct CodexRuntime {
     conversation_manager: Arc<ConversationManager>,
     config: Arc<Config>,
     initialized: Arc<Mutex<bool>>,
-    event_manager: Arc<EventSubscriptionManager>,
 }
 
 impl CodexRuntime {
@@ -37,7 +34,6 @@ impl CodexRuntime {
             conversation_manager,
             config,
             initialized: Arc::new(Mutex::new(false)),
-            event_manager: Arc::new(EventSubscriptionManager::new()),
         })
     }
 
@@ -75,10 +71,5 @@ impl CodexRuntime {
     /// Get a reference to the Config.
     pub fn config(&self) -> &Arc<Config> {
         &self.config
-    }
-
-    /// Get a reference to the EventSubscriptionManager.
-    pub fn event_manager(&self) -> &Arc<EventSubscriptionManager> {
-        &self.event_manager
     }
 }

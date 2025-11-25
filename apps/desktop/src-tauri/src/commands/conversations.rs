@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use chrono::Utc;
 use codex_core::config::Config;
@@ -28,8 +29,11 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::codex_runtime::CodexRuntime;
+use crate::domain::ForkId;
 use crate::env;
 use crate::errors::{AppError, AppResult};
+use crate::events::EventRouter;
+use crate::services::ReviewService;
 use crate::title_generation;
 use crate::workspace_manager::ThreadRecord;
 use crate::workspace_manager::ThreadRollout;
@@ -211,6 +215,8 @@ pub async fn new_thread(
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
+    events: State<'_, Arc<EventRouter>>,
+    review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<NewThreadResponse> {
     let workspace_path = workspace_manager.normalize_workspace_path(&params.workspace_path)?;
@@ -245,6 +251,7 @@ pub async fn new_thread(
         .map_err(|e| AppError::Codex(format!("Failed to create conversation: {}", e)))?;
 
     let conversation_id = new_conv.conversation_id;
+    let fork_id = ForkId::from(conversation_id.clone());
     let conversation_id_str = conversation_id.to_string();
     let rollout_path = new_conv.session_configured.rollout_path.clone();
 
@@ -280,7 +287,8 @@ pub async fn new_thread(
 
     session.set_environment_cache(env_vars).await;
 
-    if let Err(err) = session.review_snapshots().ensure_base().await {
+    let review_service = review.inner().clone();
+    if let Err(err) = review_service.ensure_base(&fork_id, cwd.as_path()).await {
         log::debug!(
             "Failed to capture baseline snapshot for conversation {}: {}",
             conversation_id_str,
@@ -293,10 +301,9 @@ pub async fn new_thread(
         .get_conversation(conversation_id)
         .await
     {
-        let _ = runtime
-            .event_manager()
-            .subscribe(
-                conversation_id,
+        let _ = events
+            .ensure_subscription(
+                fork_id.clone(),
                 conversation,
                 app_handle,
                 conversation_id.to_string(),
@@ -320,6 +327,8 @@ pub async fn initialize_thread(
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
+    events: State<'_, Arc<EventRouter>>,
+    review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<InitializeThreadResponse> {
     if !runtime.is_initialized().await {
@@ -352,7 +361,7 @@ pub async fn initialize_thread(
         .await;
 
     let mut config = runtime.config().as_ref().clone();
-    config.cwd = cwd;
+    config.cwd = cwd.clone();
     let fallback_env = config.shell_environment_policy.r#set.clone();
     let env_vars = session.workspace_environment(&fallback_env).await;
     config.shell_environment_policy.r#set = env_vars.clone();
@@ -370,16 +379,16 @@ pub async fn initialize_thread(
         ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
         })?;
+    let fork_id = ForkId::from(conv_id.clone());
 
     if let Ok(conversation) = runtime
         .conversation_manager()
         .get_conversation(conv_id)
         .await
     {
-        let _ = runtime
-            .event_manager()
-            .subscribe(
-                conv_id,
+        let _ = events
+            .ensure_subscription(
+                fork_id.clone(),
                 conversation,
                 app_handle.clone(),
                 conversation_id.clone(),
@@ -387,7 +396,12 @@ pub async fn initialize_thread(
             .await;
     }
 
-    if let Err(err) = session.review_snapshots().ensure_base().await {
+    let review_service = review.inner().clone();
+    let cwd_for_snapshot = session.cwd.clone();
+    if let Err(err) = review_service
+        .ensure_base(&fork_id, cwd_for_snapshot.as_path())
+        .await
+    {
         log::debug!(
             "Failed to ensure baseline snapshot for conversation {}: {}",
             conversation_id,
@@ -408,6 +422,8 @@ pub async fn switch_thread_rollout(
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
+    events: State<'_, Arc<EventRouter>>,
+    review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<SwitchThreadRolloutResponse> {
     if !runtime.is_initialized().await {
@@ -427,6 +443,7 @@ pub async fn switch_thread_rollout(
         ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
         })?;
+    let fork_id = ForkId::from(conv_id.clone());
 
     let rollout = find_rollout_for_conversation(&thread, &params.conversation_id)
         .ok_or(AppError::NotFound { entity: "rollout" })?;
@@ -464,10 +481,9 @@ pub async fn switch_thread_rollout(
         Ok(conversation) => {
             // Conversation already active in runtime; ensure we have a subscription,
             // but avoid replaying history from the rollout.
-            let _ = runtime
-                .event_manager()
-                .subscribe(
-                    conv_id,
+            let _ = events
+                .ensure_subscription(
+                    fork_id.clone(),
                     conversation,
                     app_handle.clone(),
                     params.conversation_id.clone(),
@@ -490,10 +506,9 @@ pub async fn switch_thread_rollout(
                 .get_conversation(conv_id)
                 .await
             {
-                let _ = runtime
-                    .event_manager()
-                    .subscribe(
-                        conv_id,
+                let _ = events
+                    .ensure_subscription(
+                        fork_id.clone(),
                         conversation,
                         app_handle.clone(),
                         params.conversation_id.clone(),
@@ -505,7 +520,12 @@ pub async fn switch_thread_rollout(
         }
     };
 
-    if let Err(err) = session.review_snapshots().ensure_base().await {
+    let review_service = review.inner().clone();
+    let cwd_for_snapshot = session.cwd.clone();
+    if let Err(err) = review_service
+        .ensure_base(&fork_id, cwd_for_snapshot.as_path())
+        .await
+    {
         log::debug!(
             "Failed to ensure baseline snapshot for conversation {}: {}",
             params.conversation_id,
@@ -533,6 +553,8 @@ pub async fn fork_thread(
     workspace_manager: State<'_, WorkspaceManager>,
     db: State<'_, DatabaseConnection>,
     runtime: State<'_, CodexRuntime>,
+    events: State<'_, Arc<EventRouter>>,
+    review: State<'_, Arc<ReviewService>>,
     app_handle: AppHandle,
 ) -> AppResult<ForkThreadResponse> {
     if !runtime.is_initialized().await {
@@ -605,6 +627,7 @@ pub async fn fork_thread(
         .map_err(|e| AppError::Codex(format!("Failed to fork conversation: {}", e)))?;
 
     let conversation_id = new_conv.conversation_id;
+    let fork_id = ForkId::from(conversation_id.clone());
     let conversation_id_str = conversation_id.to_string();
     let timestamp = Utc::now().to_rfc3339();
     let session_configured = new_conv.session_configured.clone();
@@ -632,7 +655,12 @@ pub async fn fork_thread(
         .await;
     session.set_environment_cache(env_vars).await;
 
-    if let Err(err) = session.review_snapshots().ensure_base().await {
+    let review_service = review.inner().clone();
+    let cwd_for_snapshot = session.cwd.clone();
+    if let Err(err) = review_service
+        .ensure_base(&fork_id, cwd_for_snapshot.as_path())
+        .await
+    {
         log::debug!(
             "Failed to ensure baseline snapshot for conversation {}: {}",
             conversation_id_str,
@@ -645,10 +673,9 @@ pub async fn fork_thread(
         .get_conversation(conversation_id)
         .await
     {
-        let _ = runtime
-            .event_manager()
-            .subscribe(
-                conversation_id,
+        let _ = events
+            .ensure_subscription(
+                fork_id.clone(),
                 conversation,
                 app_handle,
                 conversation_id_str.clone(),
@@ -730,6 +757,7 @@ pub struct SendUserMessageParams {
 pub async fn send_user_message(
     params: SendUserMessageParams,
     runtime: State<'_, CodexRuntime>,
+    events: State<'_, Arc<EventRouter>>,
     app_handle: AppHandle,
     db: State<'_, DatabaseConnection>,
 ) -> AppResult<()> {
@@ -764,10 +792,10 @@ pub async fn send_user_message(
             entity: "conversation",
         })?;
 
-    let _ = runtime
-        .event_manager()
-        .subscribe(
-            conv_id,
+    let fork_id = ForkId::from(conv_id.clone());
+    let _ = events
+        .ensure_subscription(
+            fork_id,
             conversation.clone(),
             app_handle_clone,
             conversation_id.clone(),
@@ -858,6 +886,7 @@ pub struct CompactConversationParams {
 pub async fn compact_conversation(
     params: CompactConversationParams,
     runtime: State<'_, CodexRuntime>,
+    events: State<'_, Arc<EventRouter>>,
     app_handle: AppHandle,
 ) -> AppResult<()> {
     if !runtime.is_initialized().await {
@@ -880,10 +909,10 @@ pub async fn compact_conversation(
             entity: "conversation",
         })?;
 
-    let _ = runtime
-        .event_manager()
-        .subscribe(
-            conv_id,
+    let fork_id = ForkId::from(conv_id.clone());
+    let _ = events
+        .ensure_subscription(
+            fork_id,
             conversation.clone(),
             app_handle,
             conversation_id.clone(),
@@ -966,6 +995,7 @@ pub struct AddConversationSubscriptionResponse {
 pub async fn add_conversation_listener(
     params: AddConversationListenerParams,
     runtime: State<'_, CodexRuntime>,
+    events: State<'_, Arc<EventRouter>>,
     app_handle: AppHandle,
 ) -> AppResult<AddConversationSubscriptionResponse> {
     if !runtime.is_initialized().await {
@@ -987,10 +1017,10 @@ pub async fn add_conversation_listener(
             entity: "conversation",
         })?;
 
-    let subscription_id = runtime
-        .event_manager()
-        .subscribe(
-            conv_id,
+    let fork_id = ForkId::from(conv_id.clone());
+    let subscription_id = events
+        .ensure_subscription(
+            fork_id,
             conversation,
             app_handle,
             params.conversation_id.clone(),
@@ -1012,13 +1042,19 @@ pub struct RemoveConversationListenerParams {
 pub async fn remove_conversation_listener(
     params: RemoveConversationListenerParams,
     runtime: State<'_, CodexRuntime>,
+    events: State<'_, Arc<EventRouter>>,
 ) -> AppResult<()> {
+    if !runtime.is_initialized().await {
+        return Err(AppError::Validation {
+            message: "Runtime not initialized".to_string(),
+        });
+    }
+
     let uuid = Uuid::parse_str(&params.subscription_id).map_err(|e| AppError::Validation {
         message: format!("Invalid subscription ID: {}", e),
     })?;
 
-    runtime
-        .event_manager()
+    events
         .unsubscribe(uuid)
         .await
         .map_err(|e| AppError::Validation { message: e })?;

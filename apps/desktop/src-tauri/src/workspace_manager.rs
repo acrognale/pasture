@@ -17,14 +17,12 @@ use crate::domain::thread::{Fork, ForkPoint, Thread};
 use crate::domain::workspace::WorkspaceSettings;
 use crate::env;
 use crate::errors::AppResult;
-use crate::review_snapshots::ReviewSnapshots;
 
 #[derive(Debug, Clone)]
 pub struct ActiveConversation {
     pub rollout_path: PathBuf,
     pub cwd: PathBuf,
     environment: Arc<Mutex<Option<HashMap<String, String>>>>,
-    review_snapshots: ReviewSnapshots,
 }
 
 impl ActiveConversation {
@@ -33,12 +31,7 @@ impl ActiveConversation {
             rollout_path,
             cwd: cwd.clone(),
             environment: Arc::new(Mutex::new(None)),
-            review_snapshots: ReviewSnapshots::new(cwd),
         }
-    }
-
-    pub fn review_snapshots(&self) -> ReviewSnapshots {
-        self.review_snapshots.clone()
     }
 
     pub async fn workspace_environment(
@@ -63,7 +56,6 @@ impl ActiveConversation {
     pub async fn refresh_paths(&mut self, rollout_path: PathBuf, cwd: PathBuf) {
         self.rollout_path = rollout_path;
         self.cwd = cwd.clone();
-        self.review_snapshots.update_cwd(cwd.as_path()).await;
         let mut env_guard = self.environment.lock().await;
         *env_guard = None;
     }

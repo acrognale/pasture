@@ -17,6 +17,14 @@ pub struct TurnSnapshot {
     pub created_at: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ForkSnapshotState {
+    pub workspace_path: String,
+    pub rollout_path: String,
+    pub base_commit: Option<String>,
+    pub snapshots_disabled: bool,
+}
+
 #[derive(Clone)]
 pub struct TurnSnapshotRepo {
     db: DatabaseConnection,
@@ -34,6 +42,33 @@ impl TurnSnapshotRepo {
             .map_err(|e| db_err("Failed to load fork base commit", e))?;
 
         Ok(fork.and_then(|f| f.base_commit))
+    }
+
+    pub async fn get_fork_snapshot_state(
+        &self,
+        fork_id: &ForkId,
+    ) -> AppResult<Option<ForkSnapshotState>> {
+        let fork = schema::forks::Entity::find_by_id(fork_id.as_str().to_string())
+            .one(&self.db)
+            .await
+            .map_err(|e| db_err("Failed to load fork snapshot state", e))?;
+
+        let Some(fork) = fork else {
+            return Ok(None);
+        };
+
+        let thread = schema::threads::Entity::find_by_id(fork.thread_id.clone())
+            .one(&self.db)
+            .await
+            .map_err(|e| db_err("Failed to load fork thread", e))?
+            .ok_or(AppError::NotFound { entity: "thread" })?;
+
+        Ok(Some(ForkSnapshotState {
+            workspace_path: thread.workspace_path,
+            rollout_path: fork.rollout_path,
+            base_commit: fork.base_commit,
+            snapshots_disabled: fork.snapshots_disabled,
+        }))
     }
 
     pub async fn set_base_commit(&self, fork_id: &ForkId, commit_sha: &str) -> AppResult<()> {
@@ -81,6 +116,25 @@ impl TurnSnapshotRepo {
             .map_err(|e| db_err("Failed to disable snapshots", e))?;
 
         Ok(())
+    }
+
+    pub async fn get_turn_snapshot(
+        &self,
+        fork_id: &ForkId,
+        event_id: &str,
+    ) -> AppResult<Option<TurnSnapshot>> {
+        let item = schema::turn_snapshots::Entity::find()
+            .filter(schema::turn_snapshots::Column::ForkId.eq(fork_id.as_str()))
+            .filter(schema::turn_snapshots::Column::EventId.eq(event_id))
+            .one(&self.db)
+            .await
+            .map_err(|e| db_err("Failed to load turn snapshot", e))?;
+
+        Ok(item.map(|model| TurnSnapshot {
+            event_id: model.event_id,
+            commit_sha: model.commit_sha,
+            created_at: model.created_at,
+        }))
     }
 
     pub async fn add_turn_snapshot(

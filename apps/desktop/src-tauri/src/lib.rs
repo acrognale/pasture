@@ -5,15 +5,17 @@ mod db;
 mod domain;
 mod env;
 mod errors;
-mod event_listener;
 mod events;
 mod menu;
-mod review_snapshots;
+mod services;
 mod title_generation;
 mod workspace_manager;
 
 pub mod ts_export;
 
+use std::sync::Arc;
+
+use services::{GitSnapshotter, ReviewService};
 use tauri::Manager;
 use workspace_manager::WorkspaceManager;
 
@@ -66,9 +68,17 @@ pub fn run() {
             })
             .map_err(|e| format!("Failed to initialize workspace database: {}", e))?;
 
-            let workspace_manager = WorkspaceManager::new();
             app.manage(workspace_db.clone());
 
+            let snapshot_repo = db::TurnSnapshotRepo::new(workspace_db.clone());
+            let git_snapshotter = Arc::new(GitSnapshotter::new());
+            let review_service = Arc::new(ReviewService::new(snapshot_repo, git_snapshotter));
+            app.manage(review_service.clone());
+
+            let event_router = Arc::new(crate::events::EventRouter::new());
+            app.manage(event_router.clone());
+
+            let workspace_manager = WorkspaceManager::new();
             app.manage(workspace_manager);
             log::info!("Workspace manager initialized successfully");
 

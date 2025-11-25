@@ -6,7 +6,7 @@ pub mod threads_repo;
 pub mod workspace;
 pub mod workspaces_repo;
 
-pub use snapshots_repo::{TurnSnapshot, TurnSnapshotRepo};
+pub use snapshots_repo::{ForkSnapshotState, TurnSnapshot, TurnSnapshotRepo};
 pub use threads_repo::ThreadRepo;
 pub use workspaces_repo::{WorkspaceRepo, WorkspaceSettingsRepo};
 
