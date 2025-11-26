@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
+use codex_core::AuthManager;
+use codex_core::ConversationManager;
 use codex_core::config::Config;
-use codex_core::{AuthManager, ConversationManager};
 use sea_orm::DatabaseConnection;
 use tokio::sync::OnceCell;
 
-use crate::domain::{WorkspacePath, WorkspaceSettings};
+use crate::domain::WorkspacePath;
+use crate::domain::WorkspaceSettings;
 use crate::errors::AppResult;
 use crate::router::EventRouter;
 use crate::state::AppState;

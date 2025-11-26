@@ -1,10 +1,13 @@
 use codex_protocol::ConversationId;
-use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, State};
+use serde::Deserialize;
+use serde::Serialize;
+use tauri::AppHandle;
+use tauri::State;
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppError;
+use crate::errors::AppResult;
 use crate::state::AppState;
 use crate::turns;
 

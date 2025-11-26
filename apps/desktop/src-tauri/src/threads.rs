@@ -1,29 +1,44 @@
 //! Thread business logic - standalone functions for thread operations.
 
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::path::Path;
+use std::path::PathBuf;
 
 use chrono::Utc;
 use codex_core::NewConversation;
 use codex_protocol::ConversationId;
-use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary};
+use codex_protocol::config_types::ReasoningEffort;
+use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::protocol::SessionConfiguredEvent;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, TransactionTrait,
-};
-use tauri::{AppHandle, Emitter};
+use sea_orm::ActiveModelTrait;
+use sea_orm::ActiveValue::Set;
+use sea_orm::ColumnTrait;
+use sea_orm::DatabaseConnection;
+use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
+use sea_orm::QueryOrder;
+use sea_orm::TransactionTrait;
+use tauri::AppHandle;
+use tauri::Emitter;
 use uuid::Uuid;
 
-use crate::codex_config::{NewThreadOptions, derive_config};
+use crate::codex_config::NewThreadOptions;
+use crate::codex_config::derive_config;
 use crate::completions;
 use crate::context::WorkspaceContext;
-use crate::db::{db_err, schema};
-use crate::domain::{Conversation, Thread, ThreadId, WorkspacePath};
-use crate::errors::{AppError, AppResult};
+use crate::db::db_err;
+use crate::db::schema;
+use crate::domain::Conversation;
+use crate::domain::Thread;
+use crate::domain::ThreadId;
+use crate::domain::WorkspacePath;
+use crate::errors::AppError;
+use crate::errors::AppResult;
 use crate::review;
 use crate::rollout::load_rollout_cwd;
-use crate::router::{CodexEvent, ThreadMetadataPayload};
+use crate::router::CodexEvent;
+use crate::router::ThreadMetadataPayload;
 use crate::title_generation;
 
 // ============================================================

@@ -8,7 +8,8 @@ use serde::Serialize;
 use tauri::State;
 use ts_rs::TS;
 
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppError;
+use crate::errors::AppResult;
 use crate::review;
 use crate::state::AppState;
 

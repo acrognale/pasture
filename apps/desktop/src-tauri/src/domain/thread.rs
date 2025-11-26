@@ -1,7 +1,9 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use ts_rs::TS;
 
-use crate::domain::ids::{ThreadId, WorkspacePath};
+use crate::domain::ids::ThreadId;
+use crate::domain::ids::WorkspacePath;
 use codex_protocol::ConversationId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]

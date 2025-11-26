@@ -1,18 +1,26 @@
 //! Review business logic - standalone functions for git snapshot operations.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 use anyhow::Error as AnyhowError;
 use chrono::Utc;
-use codex_git::{CreateGhostCommitOptions, create_ghost_commit};
+use codex_git::CreateGhostCommitOptions;
+use codex_git::create_ghost_commit;
 use codex_protocol::ConversationId;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue::NotSet, ActiveValue::Set, ColumnTrait, DatabaseConnection,
-    EntityTrait, QueryFilter, QueryOrder,
-};
+use sea_orm::ActiveModelTrait;
+use sea_orm::ActiveValue::NotSet;
+use sea_orm::ActiveValue::Set;
+use sea_orm::ColumnTrait;
+use sea_orm::DatabaseConnection;
+use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
+use sea_orm::QueryOrder;
 
-use crate::db::{db_err, schema};
-use crate::errors::{AppError, AppResult};
+use crate::db::db_err;
+use crate::db::schema;
+use crate::errors::AppError;
+use crate::errors::AppResult;
 use crate::rollout::load_rollout_cwd;
 
 // ============================================================

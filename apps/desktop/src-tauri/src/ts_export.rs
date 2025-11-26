@@ -11,7 +11,8 @@ use anyhow::anyhow;
 use ts_rs::TS;
 
 use crate::commands;
-use crate::router::{CodexEvent, ConversationEventPayload};
+use crate::router::CodexEvent;
+use crate::router::ConversationEventPayload;
 
 const HEADER: &str = "// GENERATED CODE! DO NOT MODIFY BY HAND!\n";
 

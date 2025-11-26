@@ -5,8 +5,10 @@ use tauri::State;
 use tauri::Window;
 use ts_rs::TS;
 
-use crate::domain::{WorkspacePath, WorkspaceSettings};
-use crate::errors::{AppError, AppResult};
+use crate::domain::WorkspacePath;
+use crate::domain::WorkspaceSettings;
+use crate::errors::AppError;
+use crate::errors::AppResult;
 use crate::state::AppState;
 use crate::workspace;
 

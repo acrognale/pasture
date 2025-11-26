@@ -4,15 +4,24 @@ use std::path::Path;
 
 use chrono::Utc;
 use codex_core::config::Config;
-use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMode};
+use codex_protocol::config_types::ReasoningEffort;
+use codex_protocol::config_types::ReasoningSummary;
+use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
-use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, QuerySelect,
-};
+use sea_orm::ActiveModelTrait;
+use sea_orm::ActiveValue::Set;
+use sea_orm::ColumnTrait;
+use sea_orm::DatabaseConnection;
+use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
+use sea_orm::QueryOrder;
+use sea_orm::QuerySelect;
 
-use crate::db::{db_err, schema};
-use crate::domain::{WorkspacePath, WorkspaceSettings, WorkspaceSummary};
+use crate::db::db_err;
+use crate::db::schema;
+use crate::domain::WorkspacePath;
+use crate::domain::WorkspaceSettings;
+use crate::domain::WorkspaceSummary;
 use crate::errors::AppResult;
 
 // ============================================================

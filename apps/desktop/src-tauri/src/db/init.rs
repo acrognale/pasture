@@ -7,7 +7,8 @@ use sea_orm::DbErr;
 use migration::Migrator;
 use sea_orm_migration::MigratorTrait;
 
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppError;
+use crate::errors::AppResult;
 
 /// Establish a SQLite connection and run baseline migrations.
 pub async fn connect_and_migrate(db_path: &Path) -> AppResult<DatabaseConnection> {

@@ -1,10 +1,12 @@
 use std::fmt;
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use ts_rs::TS;
 
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppError;
+use crate::errors::AppResult;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(transparent)]

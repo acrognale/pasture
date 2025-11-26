@@ -1,13 +1,16 @@
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
-use codex_core::config::{Config, ConfigOverrides};
+use codex_core::config::Config;
+use codex_core::config::ConfigOverrides;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 use serde_json::Value;
 
 use crate::domain::WorkspaceSettings;
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppError;
+use crate::errors::AppResult;
 
 /// Options provided when starting or forking a new thread.
 #[derive(Debug, Clone, PartialEq, Default)]

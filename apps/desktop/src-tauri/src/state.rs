@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
+use codex_core::AuthManager;
+use codex_core::ConversationManager;
 use codex_core::config::Config;
-use codex_core::{AuthManager, ConversationManager};
 use sea_orm::DatabaseConnection;
 
 use crate::router::EventRouter;

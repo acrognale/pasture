@@ -1,18 +1,26 @@
 use std::path::PathBuf;
 
 use codex_protocol::ConversationId;
-use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMode};
-use codex_protocol::protocol::{AskForApproval, SessionConfiguredEvent};
-use serde::{Deserialize, Serialize};
+use codex_protocol::config_types::ReasoningEffort;
+use codex_protocol::config_types::ReasoningSummary;
+use codex_protocol::config_types::SandboxMode;
+use codex_protocol::protocol::AskForApproval;
+use codex_protocol::protocol::SessionConfiguredEvent;
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use tauri::{AppHandle, State};
+use tauri::AppHandle;
+use tauri::State;
 use ts_rs::TS;
 
 use crate::codex_config::NewThreadOptions;
 use crate::context::WorkspaceContext;
-use crate::domain::{Conversation, ThreadId, WorkspacePath};
-use crate::errors::{AppError, AppResult};
+use crate::domain::Conversation;
+use crate::domain::ThreadId;
+use crate::domain::WorkspacePath;
+use crate::errors::AppError;
+use crate::errors::AppResult;
 use crate::state::AppState;
 use crate::threads;
 

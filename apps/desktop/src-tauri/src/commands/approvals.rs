@@ -6,7 +6,8 @@ use serde::Serialize;
 use tauri::State;
 use ts_rs::TS;
 
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppError;
+use crate::errors::AppResult;
 use crate::state::AppState;
 
 /// Parameters accepted when responding to an approval request.

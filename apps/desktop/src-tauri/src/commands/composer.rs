@@ -8,10 +8,12 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
-use crate::domain::{WorkspacePath, WorkspaceSettings};
+use crate::domain::WorkspacePath;
+use crate::domain::WorkspaceSettings;
 use crate::errors::AppResult;
 use crate::state::AppState;
-use crate::workspace::{self, ComposerSettingsUpdate};
+use crate::workspace::ComposerSettingsUpdate;
+use crate::workspace::{self};
 
 /// Serialized composer configuration for a conversation.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, TS)]

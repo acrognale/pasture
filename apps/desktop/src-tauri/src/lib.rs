@@ -23,7 +23,8 @@ use std::sync::Arc;
 
 use codex_core::AuthManager;
 use codex_core::ConversationManager;
-use codex_core::config::{Config, ConfigOverrides};
+use codex_core::config::Config;
+use codex_core::config::ConfigOverrides;
 use codex_protocol::protocol::SessionSource;
 use tauri::Manager;
 

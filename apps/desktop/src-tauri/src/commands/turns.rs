@@ -1,18 +1,25 @@
 use std::path::PathBuf;
 
 use codex_protocol::ConversationId;
-use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMode};
-use codex_protocol::protocol::{AskForApproval, TurnAbortReason};
+use codex_protocol::config_types::ReasoningEffort;
+use codex_protocol::config_types::ReasoningSummary;
+use codex_protocol::config_types::SandboxMode;
+use codex_protocol::protocol::AskForApproval;
+use codex_protocol::protocol::TurnAbortReason;
 use codex_protocol::user_input::UserInput as CoreUserInput;
-use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, State};
+use serde::Deserialize;
+use serde::Serialize;
+use tauri::AppHandle;
+use tauri::State;
 use ts_rs::TS;
 
 use crate::context::WorkspaceContext;
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppError;
+use crate::errors::AppResult;
 use crate::state::AppState;
 use crate::threads;
-use crate::turns::{self, TurnOverrides};
+use crate::turns::TurnOverrides;
+use crate::turns::{self};
 
 /// Wire representation of user-provided inputs.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
