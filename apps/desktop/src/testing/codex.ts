@@ -15,7 +15,7 @@ import type { ListTurnSnapshotsResponse } from '~/codex.gen/ListTurnSnapshotsRes
 import type { NewThreadResponse } from '~/codex.gen/NewThreadResponse';
 import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
 import type { SessionConfiguredEvent } from '~/codex.gen/SessionConfiguredEvent';
-import type { WorkspaceComposerDefaults } from '~/codex.gen/WorkspaceComposerDefaults';
+import type { WorkspaceSettings } from '~/codex.gen/WorkspaceSettings';
 
 type AsyncFn<TArgs extends unknown[], TResult> = (
   ...args: TArgs
@@ -126,7 +126,7 @@ const mockCodexNamespace = {
   ),
   updateComposerConfig: defineStub(async () => undefined),
   getWorkspaceComposerDefaults: defineStub(
-    async (): Promise<WorkspaceComposerDefaults> => ({
+    async (): Promise<WorkspaceSettings> => ({
       model: null,
       reasoningEffort: null,
       reasoningSummary: null,

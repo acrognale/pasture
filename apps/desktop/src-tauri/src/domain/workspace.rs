@@ -7,7 +7,8 @@ use ts_rs::TS;
 
 use crate::domain::ids::WorkspacePath;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+/// Per-workspace settings for model, reasoning, sandbox, and approval defaults.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -37,44 +38,4 @@ impl WorkspaceSettings {
 pub struct WorkspaceSummary {
     pub path: WorkspacePath,
     pub last_accessed: String,
-}
-
-/// Wire representation of per-workspace composer defaults stored for the renderer.
-#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkspaceComposerDefaults {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_effort: Option<ReasoningEffort>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_summary: Option<ReasoningSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sandbox: Option<SandboxMode>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub approval: Option<AskForApproval>,
-}
-
-impl From<WorkspaceComposerDefaults> for WorkspaceSettings {
-    fn from(value: WorkspaceComposerDefaults) -> Self {
-        WorkspaceSettings {
-            model: value.model,
-            reasoning_effort: value.reasoning_effort,
-            reasoning_summary: value.reasoning_summary,
-            sandbox: value.sandbox,
-            approval: value.approval,
-        }
-    }
-}
-
-impl From<WorkspaceSettings> for WorkspaceComposerDefaults {
-    fn from(value: WorkspaceSettings) -> Self {
-        WorkspaceComposerDefaults {
-            model: value.model,
-            reasoning_effort: value.reasoning_effort,
-            reasoning_summary: value.reasoning_summary,
-            sandbox: value.sandbox,
-            approval: value.approval,
-        }
-    }
 }

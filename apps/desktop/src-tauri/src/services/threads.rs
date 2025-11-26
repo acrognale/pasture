@@ -14,23 +14,21 @@ use tauri::Emitter;
 use uuid::Uuid;
 
 use crate::completions;
-use crate::db::{ThreadRepo, WorkspaceRepo};
+use crate::db::{ThreadRepo, WorkspaceRepo, WorkspaceSettingsRepo};
 use crate::domain::{Fork, ForkId, ForkPoint, Thread, ThreadId, WorkspacePath};
 use crate::errors::{AppError, AppResult};
 use crate::events::{CodexEvent, EventRouter, ThreadMetadataPayload};
-use crate::services::{
-    ConversationConfigDeriver, NewThreadOptions, ReviewService, load_rollout_cwd,
-};
+use crate::services::{NewThreadOptions, ReviewService, derive_config, load_rollout_cwd};
 use crate::title_generation;
 
 #[derive(Clone)]
 pub struct ThreadService {
     threads: ThreadRepo,
     workspaces: WorkspaceRepo,
+    workspace_settings: WorkspaceSettingsRepo,
     conversations: Arc<ConversationManager>,
     auth_manager: Arc<AuthManager>,
     base_config: Arc<Config>,
-    config_deriver: ConversationConfigDeriver,
     events: Arc<EventRouter>,
     review: Arc<ReviewService>,
 }
@@ -57,20 +55,20 @@ impl ThreadService {
     pub fn new(
         threads: ThreadRepo,
         workspaces: WorkspaceRepo,
+        workspace_settings: WorkspaceSettingsRepo,
         conversations: Arc<ConversationManager>,
         auth_manager: Arc<AuthManager>,
         base_config: Arc<Config>,
-        config_deriver: ConversationConfigDeriver,
         events: Arc<EventRouter>,
         review: Arc<ReviewService>,
     ) -> Self {
         Self {
             threads,
             workspaces,
+            workspace_settings,
             conversations,
             auth_manager,
             base_config,
-            config_deriver,
             events,
             review,
         }
@@ -93,10 +91,8 @@ impl ThreadService {
         let mut base_config = self.base_config.as_ref().clone();
         base_config.cwd = PathBuf::from(workspace.as_str());
 
-        let config = self
-            .config_deriver
-            .derive_for_new_thread(&base_config, workspace, &options)
-            .await?;
+        let settings = self.load_workspace_settings(workspace).await?;
+        let config = derive_config(&base_config, &settings, &options).await?;
 
         let new_conv = self
             .conversations
@@ -191,10 +187,8 @@ impl ThreadService {
         let mut base_config = self.base_config.as_ref().clone();
         base_config.cwd = cwd;
 
-        let config = self
-            .config_deriver
-            .derive_for_fork(&base_config, workspace, &options)
-            .await?;
+        let settings = self.load_workspace_settings(workspace).await?;
+        let config = derive_config(&base_config, &settings, &options).await?;
         let reasoning_summary = config.model_reasoning_summary;
 
         let new_conv = self
@@ -527,6 +521,17 @@ impl ThreadService {
             .get(workspace, thread_id)
             .await?
             .ok_or(AppError::NotFound { entity: "thread" })
+    }
+
+    async fn load_workspace_settings(
+        &self,
+        workspace: &WorkspacePath,
+    ) -> AppResult<crate::domain::WorkspaceSettings> {
+        Ok(self
+            .workspace_settings
+            .get(workspace)
+            .await?
+            .unwrap_or_default())
     }
 
     fn current_fork_rollout_path(&self, thread: &Thread) -> AppResult<PathBuf> {

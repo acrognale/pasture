@@ -17,10 +17,7 @@ use codex_core::AuthManager;
 use codex_core::ConversationManager;
 use codex_core::config::{Config, ConfigOverrides};
 use codex_protocol::protocol::SessionSource;
-use services::{
-    ConversationConfigDeriver, GitSnapshotter, ReviewService, ThreadService, TurnService,
-    WorkspaceService,
-};
+use services::{GitSnapshotter, ReviewService, ThreadService, TurnService, WorkspaceService};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -97,14 +94,13 @@ pub fn run() {
             app.manage(workspace_service.clone());
             let thread_repo = db::ThreadRepo::new(workspace_db.clone());
             app.manage(thread_repo.clone());
-            let config_deriver = ConversationConfigDeriver::new(workspace_settings_repo.clone());
             let thread_service = ThreadService::new(
                 thread_repo,
                 workspace_repo,
+                workspace_settings_repo,
                 conversation_manager,
                 auth_manager,
                 base_config,
-                config_deriver,
                 event_router,
                 review_service,
             );

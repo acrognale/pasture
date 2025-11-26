@@ -4,7 +4,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use crate::domain::ids::WorkspacePath;
-use crate::domain::workspace::{WorkspaceComposerDefaults, WorkspaceSettings};
+use crate::domain::workspace::WorkspaceSettings;
 
 pub mod workspaces {
     use sea_orm::entity::prelude::*;
@@ -184,42 +184,28 @@ pub mod turn_snapshots {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-pub fn encode_workspace_defaults(
-    workspace_path: &str,
-    defaults: &WorkspaceComposerDefaults,
+pub fn encode_workspace_settings(
+    workspace_path: &WorkspacePath,
+    settings: &WorkspaceSettings,
 ) -> Result<workspace_settings::ActiveModel> {
     Ok(workspace_settings::ActiveModel {
-        workspace_path: Set(workspace_path.to_string()),
-        model: Set(defaults.model.clone()),
-        reasoning_effort: Set(serialize_json(&defaults.reasoning_effort)?),
-        reasoning_summary: Set(serialize_json(&defaults.reasoning_summary)?),
-        sandbox: Set(serialize_json(&defaults.sandbox)?),
-        approval: Set(serialize_json(&defaults.approval)?),
+        workspace_path: Set(workspace_path.as_str().to_string()),
+        model: Set(settings.model.clone()),
+        reasoning_effort: Set(serialize_json(&settings.reasoning_effort)?),
+        reasoning_summary: Set(serialize_json(&settings.reasoning_summary)?),
+        sandbox: Set(serialize_json(&settings.sandbox)?),
+        approval: Set(serialize_json(&settings.approval)?),
     })
 }
 
-pub fn decode_workspace_defaults(
-    model: workspace_settings::Model,
-) -> Result<WorkspaceComposerDefaults> {
-    Ok(WorkspaceComposerDefaults {
+pub fn decode_workspace_settings(model: workspace_settings::Model) -> Result<WorkspaceSettings> {
+    Ok(WorkspaceSettings {
         model: model.model,
         reasoning_effort: deserialize_json(model.reasoning_effort)?,
         reasoning_summary: deserialize_json(model.reasoning_summary)?,
         sandbox: deserialize_json(model.sandbox)?,
         approval: deserialize_json(model.approval)?,
     })
-}
-
-pub fn encode_workspace_settings(
-    workspace_path: &WorkspacePath,
-    settings: &WorkspaceSettings,
-) -> Result<workspace_settings::ActiveModel> {
-    let legacy: WorkspaceComposerDefaults = settings.clone().into();
-    encode_workspace_defaults(workspace_path.as_str(), &legacy)
-}
-
-pub fn decode_workspace_settings(model: workspace_settings::Model) -> Result<WorkspaceSettings> {
-    decode_workspace_defaults(model).map(WorkspaceSettings::from)
 }
 
 fn serialize_json<T: Serialize>(value: &Option<T>) -> Result<Option<String>> {

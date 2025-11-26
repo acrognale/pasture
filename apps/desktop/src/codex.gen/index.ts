@@ -155,5 +155,5 @@ export type { WebSearchAction } from './WebSearchAction';
 export type { WebSearchBeginEvent } from './WebSearchBeginEvent';
 export type { WebSearchEndEvent } from './WebSearchEndEvent';
 export type { WebSearchItem } from './WebSearchItem';
-export type { WorkspaceComposerDefaults } from './WorkspaceComposerDefaults';
 export type { WorkspacePathParams } from './WorkspacePathParams';
+export type { WorkspaceSettings } from './WorkspaceSettings';

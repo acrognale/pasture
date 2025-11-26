@@ -10,7 +10,7 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
-use crate::domain::WorkspaceComposerDefaults;
+use crate::domain::WorkspaceSettings;
 use crate::errors::AppResult;
 use crate::services::{ComposerSettingsUpdate, WorkspaceService};
 use codex_core::config::Config;
@@ -66,7 +66,7 @@ pub async fn get_composer_config(
 ) -> AppResult<ComposerTurnConfigPayload> {
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
 
-    let defaults: WorkspaceComposerDefaults = workspace_service
+    let defaults: WorkspaceSettings = workspace_service
         .get_composer_defaults(&workspace_path, config.inner())
         .await?;
 

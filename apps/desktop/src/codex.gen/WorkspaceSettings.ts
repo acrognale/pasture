@@ -6,9 +6,9 @@ import type { ReasoningSummary } from './ReasoningSummary';
 import type { SandboxMode } from './SandboxMode';
 
 /**
- * Wire representation of per-workspace composer defaults stored for the renderer.
+ * Per-workspace settings for model, reasoning, sandbox, and approval defaults.
  */
-export type WorkspaceComposerDefaults = {
+export type WorkspaceSettings = {
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
   reasoningSummary: ReasoningSummary | null;

@@ -30,8 +30,8 @@ import type {
   SwitchThreadForkParams,
   SwitchThreadForkResponse,
   UpdateComposerConfigParams,
-  WorkspaceComposerDefaults,
   WorkspacePathParams,
+  WorkspaceSettings,
 } from '~/codex.gen';
 
 export namespace Codex {
@@ -151,11 +151,10 @@ export namespace Codex {
 
   export async function getWorkspaceComposerDefaults(
     params: WorkspacePathParams
-  ): Promise<WorkspaceComposerDefaults> {
-    return await invoke<WorkspaceComposerDefaults>(
-      'get_workspace_composer_defaults',
-      { params }
-    );
+  ): Promise<WorkspaceSettings> {
+    return await invoke<WorkspaceSettings>('get_workspace_composer_defaults', {
+      params,
+    });
   }
 
   export async function createWorkspaceWindow(

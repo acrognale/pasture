@@ -5,7 +5,7 @@ use tauri::State;
 use tauri::Window;
 use ts_rs::TS;
 
-use crate::domain::WorkspaceComposerDefaults;
+use crate::domain::WorkspaceSettings;
 use crate::errors::{AppError, AppResult};
 use crate::services::WorkspaceService;
 
@@ -116,8 +116,7 @@ pub async fn browse_for_workspace(app_handle: AppHandle) -> AppResult<Option<Str
 pub async fn get_workspace_composer_defaults(
     params: WorkspacePathParams,
     workspace_service: State<'_, WorkspaceService>,
-) -> AppResult<WorkspaceComposerDefaults> {
+) -> AppResult<WorkspaceSettings> {
     let normalized = workspace_service.canonicalize(&params.workspace_path)?;
-    let settings = workspace_service.get_settings(&normalized).await?;
-    Ok(settings.into())
+    workspace_service.get_settings(&normalized).await
 }

@@ -1,9 +1,7 @@
 use std::path::Path;
 
 use crate::db::{WorkspaceRepo, WorkspaceSettingsRepo};
-use crate::domain::{
-    WorkspaceComposerDefaults, WorkspacePath, WorkspaceSettings, WorkspaceSummary,
-};
+use crate::domain::{WorkspacePath, WorkspaceSettings, WorkspaceSummary};
 use crate::errors::AppResult;
 use codex_core::config::Config;
 
@@ -67,12 +65,12 @@ impl WorkspaceService {
         &self,
         workspace: &WorkspacePath,
         config: &Config,
-    ) -> AppResult<WorkspaceComposerDefaults> {
-        let mut defaults: WorkspaceComposerDefaults = self.get_settings(workspace).await?.into();
-        if defaults.reasoning_summary.is_none() {
-            defaults.reasoning_summary = Some(config.model_reasoning_summary);
+    ) -> AppResult<WorkspaceSettings> {
+        let mut settings = self.get_settings(workspace).await?;
+        if settings.reasoning_summary.is_none() {
+            settings.reasoning_summary = Some(config.model_reasoning_summary);
         }
-        Ok(defaults)
+        Ok(settings)
     }
 
     pub async fn update_composer_defaults(
