@@ -11,7 +11,7 @@ import {
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
-import { formatSessionPreview } from '~/lib/workspaces';
+import { resolveSessionLabel } from '~/lib/workspaces';
 
 import { useWorkspace } from './WorkspaceProvider';
 import { useWorkspaceThreads } from './hooks/useWorkspaceThreads';
@@ -79,35 +79,43 @@ export function WorkspaceConversationSwitcher() {
       <CommandList>
         <CommandEmpty>No sessions found.</CommandEmpty>
         <CommandGroup heading="Sessions">
-          {items.map((session) => (
-            <CommandItem
-              key={session.threadId}
-              value={[
-                session.title ?? '',
-                session.preview ?? '',
-                session.threadId,
-                session.workspacePath,
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              onSelect={() => {
-                handleSelectConversation(session.threadId);
-              }}
-            >
-              <div className="flex w-full items-center justify-between gap-3">
-                <span className="truncate">
-                  {formatSessionPreview(
-                    session.title ?? session.preview ?? session.threadId
-                  )}
-                </span>
-                {session.timestamp ? (
-                  <span className="text-transcript-micro text-muted-foreground">
-                    {formatSessionPreviewTimestamp(session.timestamp)}
+          {items.map((session) => {
+            const { text, source } = resolveSessionLabel(
+              session.title,
+              session.preview,
+              session.threadId
+            );
+
+            return (
+              <CommandItem
+                key={session.threadId}
+                value={[
+                  session.title ?? '',
+                  session.preview ?? '',
+                  session.threadId,
+                  session.workspacePath,
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onSelect={() => {
+                  handleSelectConversation(session.threadId);
+                }}
+              >
+                <div className="flex w-full items-center justify-between gap-3">
+                  <span
+                    className={`text-sm font-medium leading-snug ${source === 'title' ? '' : 'truncate'}`}
+                  >
+                    {text}
                   </span>
-                ) : null}
-              </div>
-            </CommandItem>
-          ))}
+                  {session.timestamp ? (
+                    <span className="shrink-0 text-transcript-micro text-muted-foreground">
+                      {formatSessionPreviewTimestamp(session.timestamp)}
+                    </span>
+                  ) : null}
+                </div>
+              </CommandItem>
+            );
+          })}
         </CommandGroup>
       </CommandList>
     </CommandDialog>

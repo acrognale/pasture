@@ -41,3 +41,29 @@ export const formatSessionPreview = (
 
   return `${value.slice(0, SESSION_PREVIEW_MAX_LENGTH - 1)}…`;
 };
+
+export const resolveSessionLabel = (
+  title: string | null | undefined,
+  preview: string | null | undefined,
+  fallback: string | null | undefined
+): { text: string; source: 'title' | 'preview' | 'fallback' } => {
+  const normalizedTitle = title?.trim() ?? '';
+  if (normalizedTitle) {
+    return { text: normalizedTitle, source: 'title' };
+  }
+
+  const normalizedPreview = preview?.trim() ?? '';
+  if (normalizedPreview) {
+    return {
+      text: formatSessionPreview(normalizedPreview),
+      source: 'preview',
+    };
+  }
+
+  const normalizedFallback = fallback?.trim() ?? '';
+  if (normalizedFallback) {
+    return { text: normalizedFallback, source: 'fallback' };
+  }
+
+  return { text: 'Untitled session', source: 'fallback' };
+};

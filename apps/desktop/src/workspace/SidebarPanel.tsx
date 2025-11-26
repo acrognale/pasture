@@ -18,11 +18,16 @@ import {
   SidebarMenuItem,
   SidebarMenuSkeleton,
 } from '~/components/ui/sidebar';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '~/components/ui/tooltip';
 import { useConversationIsRunning } from '~/conversation/store/hooks';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
-import { formatSessionPreview } from '~/lib/workspaces';
+import { resolveSessionLabel } from '~/lib/workspaces';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
 
 import { OPEN_WORKSPACE_THREAD_SWITCHER_EVENT } from './WorkspaceConversationSwitcher';
@@ -302,10 +307,11 @@ function SidebarConversationMenuItem({
   const [isHovered, setIsHovered] = useState(false);
 
   const showCloseButton = !isRunning && isHovered;
-  const label =
-    (session.title ?? '').trim() ||
-    (session.preview ?? '').trim() ||
-    session.threadId;
+  const { text: sessionLabel, source: labelSource } = resolveSessionLabel(
+    session.title,
+    session.preview,
+    session.threadId
+  );
 
   const handleBlur = useCallback((event: FocusEvent<HTMLButtonElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -313,50 +319,65 @@ function SidebarConversationMenuItem({
     }
   }, []);
 
+  const titleContent = (
+    <div className="flex w-full items-center gap-2">
+      <span className="flex w-0 flex-1 items-center gap-2 overflow-hidden">
+        {isRunning ? (
+          <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+        ) : null}
+        <span className="truncate text-sm font-medium">{sessionLabel}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
+        {session.timestamp ? (
+          <span className="text-transcript-micro text-muted-foreground whitespace-nowrap">
+            {formatSessionPreviewTimestamp(session.timestamp)}
+          </span>
+        ) : null}
+        {showCloseButton ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose(session.threadId);
+            }}
+            aria-label="Close session"
+          >
+            <span className="sr-only">Close session</span>
+            <XIcon className="h-4 w-4" />
+          </Button>
+        ) : null}
+      </span>
+    </div>
+  );
+
+  const menuButton = (
+    <SidebarMenuButton
+      type="button"
+      onClick={() => onSelect(session.threadId)}
+      isActive={isActive}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={handleBlur}
+    >
+      {titleContent}
+    </SidebarMenuButton>
+  );
+
+  if (labelSource !== 'title') {
+    return <SidebarMenuItem>{menuButton}</SidebarMenuItem>;
+  }
+
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton
-        type="button"
-        onClick={() => onSelect(session.threadId)}
-        isActive={isActive}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        onFocus={() => setIsHovered(true)}
-        onBlur={handleBlur}
-      >
-        <div className="flex flex-1 items-center justify-between gap-2">
-          <span className="flex items-center gap-2 min-w-0">
-            {isRunning ? (
-              <Loader2Icon className="size-4 shrink-0 animate-spin text-muted-foreground" />
-            ) : null}
-            <span className="truncate text-sm font-medium">
-              {formatSessionPreview(label)}
-            </span>
-          </span>
-          <span className="flex items-center">
-            {session.timestamp ? (
-              <span className="text-transcript-micro text-muted-foreground">
-                {formatSessionPreviewTimestamp(session.timestamp)}
-              </span>
-            ) : null}
-            {showCloseButton ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="ml-2 h-6 w-6 shrink-0"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onClose(session.threadId);
-                }}
-                aria-label="Close session"
-              >
-                <span className="sr-only">Close session</span>
-                <XIcon className="h-4 w-4" />
-              </Button>
-            ) : null}
-          </span>
-        </div>
-      </SidebarMenuButton>
+      <Tooltip>
+        <TooltipTrigger asChild>{menuButton}</TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          {sessionLabel}
+        </TooltipContent>
+      </Tooltip>
     </SidebarMenuItem>
   );
 }
