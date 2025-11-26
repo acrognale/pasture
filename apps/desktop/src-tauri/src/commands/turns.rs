@@ -91,7 +91,7 @@ pub async fn send_user_message(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ForkId::from(conv_id.clone());
+    let fork_id = ForkId::from(conv_id);
 
     let mapped_items: Vec<CoreUserInput> = items
         .into_iter()
@@ -149,7 +149,7 @@ pub async fn compact_conversation(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ForkId::from(conv_id.clone());
+    let fork_id = ForkId::from(conv_id);
     turn_service
         .compact(&fork_id, &conversation_id, app_handle)
         .await?;
@@ -168,7 +168,7 @@ pub async fn interrupt_conversation(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ForkId::from(conv_id.clone());
+    let fork_id = ForkId::from(conv_id);
     turn_service.interrupt(&fork_id).await?;
 
     Ok(InterruptConversationResponse {

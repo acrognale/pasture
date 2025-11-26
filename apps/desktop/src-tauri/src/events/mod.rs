@@ -37,7 +37,9 @@ pub struct ThreadMetadataPayload {
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum CodexEvent {
     #[serde(rename = "conversation-event")]
-    ConversationEvent { payload: ConversationEventPayload },
+    ConversationEvent {
+        payload: Box<ConversationEventPayload>,
+    },
     #[serde(rename = "auth-updated")]
     AuthUpdated { payload: AuthState },
     #[serde(rename = "thread-metadata-updated")]

@@ -1,11 +1,9 @@
-pub mod config_deriver;
 pub mod review;
 pub mod rollout;
 pub mod threads;
 pub mod turns;
 pub mod workspace;
 
-pub use config_deriver::{NewThreadOptions, derive_config};
 pub use review::{GitSnapshotter, ReviewService};
 pub(crate) use rollout::load_rollout_cwd;
 pub use threads::{ForkThreadResult, SwitchForkResult, ThreadInitialization, ThreadService};

@@ -43,9 +43,7 @@ pub async fn derive_config(
     let mut overrides = ConfigOverrides {
         model: options.model.clone().or_else(|| settings.model.clone()),
         config_profile: options.profile.clone(),
-        approval_policy: options
-            .approval_policy
-            .or_else(|| settings.approval.clone()),
+        approval_policy: options.approval_policy.or(settings.approval),
         sandbox_mode: options.sandbox.or(settings.sandbox),
         base_instructions: options.base_instructions.clone(),
         include_apply_patch_tool: options.include_apply_patch_tool,
@@ -79,7 +77,7 @@ pub async fn derive_config(
     if let Some(reasoning_effort) = settings.reasoning_effort {
         config.model_reasoning_effort = Some(reasoning_effort);
     }
-    if let Some(reasoning_summary) = settings.reasoning_summary.clone() {
+    if let Some(reasoning_summary) = settings.reasoning_summary {
         config.model_reasoning_summary = reasoning_summary;
     }
 

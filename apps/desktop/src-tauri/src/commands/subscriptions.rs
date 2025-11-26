@@ -41,7 +41,7 @@ pub async fn add_conversation_listener(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ForkId::from(conv_id.clone());
+    let fork_id = ForkId::from(conv_id);
     let subscription_id = turn_service
         .add_subscription(&fork_id, app_handle, params.conversation_id)
         .await?;

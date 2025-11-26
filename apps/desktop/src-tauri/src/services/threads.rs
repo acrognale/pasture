@@ -13,12 +13,13 @@ use tauri::AppHandle;
 use tauri::Emitter;
 use uuid::Uuid;
 
+use crate::codex_config::{NewThreadOptions, derive_config};
 use crate::completions;
 use crate::db::{ThreadRepo, WorkspaceRepo, WorkspaceSettingsRepo};
 use crate::domain::{Fork, ForkId, ForkPoint, Thread, ThreadId, WorkspacePath};
 use crate::errors::{AppError, AppResult};
 use crate::events::{CodexEvent, EventRouter, ThreadMetadataPayload};
-use crate::services::{NewThreadOptions, ReviewService, derive_config, load_rollout_cwd};
+use crate::services::{ReviewService, load_rollout_cwd};
 use crate::title_generation;
 
 #[derive(Clone)]
@@ -34,13 +35,11 @@ pub struct ThreadService {
 }
 
 pub struct ThreadInitialization {
-    pub thread: Thread,
     pub conversation: NewConversation,
     pub reasoning_summary: ReasoningSummary,
 }
 
 pub struct SwitchForkResult {
-    pub thread: Thread,
     pub session_configured: Option<SessionConfiguredEvent>,
     pub reasoning_summary: Option<ReasoningSummary>,
 }
@@ -157,12 +156,11 @@ impl ThreadService {
             .await
             .map_err(|e| AppError::Codex(format!("Failed to resume conversation: {}", e)))?;
 
-        let fork_id = ForkId::from(new_conv.conversation_id.clone());
+        let fork_id = ForkId::from(new_conv.conversation_id);
         self.ensure_base_snapshot(&fork_id).await;
         self.ensure_subscription(&fork_id, app_handle).await;
 
         Ok(ThreadInitialization {
-            thread,
             conversation: new_conv,
             reasoning_summary,
         })
@@ -246,7 +244,7 @@ impl ThreadService {
 
         let cwd = self.resolve_rollout_cwd(&rollout_path, workspace).await?;
         let conv_id = ConversationId::try_from(fork_id.clone())?;
-        let existing_conversation = self.conversations.get_conversation(conv_id.clone()).await;
+        let existing_conversation = self.conversations.get_conversation(conv_id).await;
 
         let (session_configured, reasoning_summary) = match existing_conversation {
             Ok(_) => {
@@ -287,7 +285,6 @@ impl ThreadService {
         self.threads.save(workspace, &thread).await?;
 
         Ok(SwitchForkResult {
-            thread,
             session_configured,
             reasoning_summary,
         })
@@ -319,7 +316,7 @@ impl ThreadService {
         }
 
         let service = self.clone();
-        let conversation_id = conversation_id.clone();
+        let conversation_id = *conversation_id;
         let fork_id = fork_id.clone();
         let user_message = trimmed_preview.to_string();
         tauri::async_runtime::spawn(async move {
@@ -402,7 +399,7 @@ impl ThreadService {
         match completions::generate_text(
             self.base_config.clone(),
             self.auth_manager.clone(),
-            conversation_id.clone(),
+            conversation_id,
             &prompt,
             Some(model),
         )

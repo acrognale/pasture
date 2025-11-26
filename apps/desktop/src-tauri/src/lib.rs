@@ -1,3 +1,4 @@
+mod codex_config;
 mod commands;
 mod completions;
 mod db;

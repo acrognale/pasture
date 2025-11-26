@@ -9,11 +9,11 @@ use serde_json::Value;
 use tauri::{AppHandle, State};
 use ts_rs::TS;
 
+use crate::codex_config::NewThreadOptions;
 use crate::domain::{Fork, ForkId, ForkPoint, ThreadId};
 use crate::errors::{AppError, AppResult};
 use crate::services::{
-    ForkThreadResult, NewThreadOptions, SwitchForkResult, ThreadInitialization, ThreadService,
-    WorkspaceService,
+    ForkThreadResult, SwitchForkResult, ThreadInitialization, ThreadService, WorkspaceService,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
@@ -269,7 +269,7 @@ pub async fn switch_thread_fork(
         ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
         })?;
-    let fork_id = ForkId::from(conv_id.clone());
+    let fork_id = ForkId::from(conv_id);
 
     let SwitchForkResult {
         session_configured,

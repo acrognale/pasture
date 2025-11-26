@@ -50,7 +50,7 @@ impl EventRouter {
         if let Some(existing_id) = { self.by_fork.lock().await.get(&fork_id).cloned() } {
             let should_reuse = {
                 let by_id = self.by_id.lock().await;
-                by_id.get(&existing_id).map_or(false, |subscription| {
+                by_id.get(&existing_id).is_some_and(|subscription| {
                     let same_window = subscription.window_label == window_label;
                     let same_conversation = subscription
                         .conversation
@@ -158,13 +158,13 @@ impl EventRouter {
                         };
 
                         let bridge_event = CodexEvent::ConversationEvent {
-                            payload: ConversationEventPayload {
+                            payload: Box::new(ConversationEventPayload {
                                 conversation_id: fork_id.to_string(),
                                 turn_id: event.id.clone(),
                                 event_id: Uuid::new_v4().to_string(),
                                 event: event.msg.clone(),
                                 timestamp: Utc::now().to_rfc3339(),
-                            },
+                            }),
                         };
 
                         tracing::debug!(

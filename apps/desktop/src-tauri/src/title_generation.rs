@@ -43,10 +43,10 @@ pub(crate) fn build_prompt(user_message: &str) -> Prompt {
 pub(crate) fn parse_title_from_text(text: &str) -> Option<String> {
     let trimmed = text.trim();
 
-    if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed) {
-        if let Some(title) = value.get("title").and_then(|t| t.as_str()) {
-            return normalize_title(title);
-        }
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(trimmed)
+        && let Some(title) = value.get("title").and_then(|t| t.as_str())
+    {
+        return normalize_title(title);
     }
 
     normalize_title(trimmed)

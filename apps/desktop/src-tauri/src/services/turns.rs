@@ -136,25 +136,13 @@ impl TurnService {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TurnOverrides {
     pub model: Option<String>,
     pub reasoning_effort: Option<ReasoningEffort>,
     pub summary: Option<ReasoningSummary>,
     pub sandbox: Option<SandboxMode>,
     pub approval_policy: Option<AskForApproval>,
-}
-
-impl Default for TurnOverrides {
-    fn default() -> Self {
-        Self {
-            model: None,
-            reasoning_effort: None,
-            summary: None,
-            sandbox: None,
-            approval_policy: None,
-        }
-    }
 }
 
 impl TurnOverrides {
