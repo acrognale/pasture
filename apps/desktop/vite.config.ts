@@ -46,5 +46,15 @@ export default defineConfig(({ command }) => {
       minify,
       sourcemap: isDebug,
     },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: ['./src/setupTests.ts'],
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'html'],
+      },
+      exclude: ['codex/**', 'node_modules/**'],
+    },
   };
 });

@@ -376,7 +376,9 @@ describe('Conversation streaming flow', () => {
     await waitFor(() =>
       expect(mockCodex.stub.sendUserMessage).toHaveBeenCalledTimes(0)
     );
-    expect(screen.queryByText('Queued draft')).toBeNull();
+    // The status indicator (which shows queued messages) should be gone
+    // after the turn is aborted. The text is still in the composer.
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   test('updates the token gauge when token_count events emit', async () => {
