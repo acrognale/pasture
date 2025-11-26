@@ -8,6 +8,7 @@ use codex_protocol::config_types::ReasoningEffort;
 use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
+use codex_protocol::protocol::SandboxPolicy;
 use sea_orm::ActiveModelTrait;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
@@ -70,8 +71,20 @@ pub async fn get_composer_defaults(
     config: &Config,
 ) -> AppResult<WorkspaceSettings> {
     let mut settings = load_settings(db, path).await?;
+    if settings.model.is_none() {
+        settings.model = Some(config.model.clone());
+    }
+    if settings.reasoning_effort.is_none() {
+        settings.reasoning_effort = config.model_reasoning_effort;
+    }
     if settings.reasoning_summary.is_none() {
         settings.reasoning_summary = Some(config.model_reasoning_summary);
+    }
+    if settings.sandbox.is_none() {
+        settings.sandbox = Some(sandbox_policy_to_mode(&config.sandbox_policy));
+    }
+    if settings.approval.is_none() {
+        settings.approval = Some(config.approval_policy.clone());
     }
     Ok(settings)
 }
@@ -238,4 +251,12 @@ pub fn build_title(workspace_path: &WorkspacePath) -> String {
         .and_then(|name| name.to_str())
         .map(|s| s.to_string())
         .unwrap_or_else(|| workspace_path.to_string())
+}
+
+fn sandbox_policy_to_mode(policy: &SandboxPolicy) -> SandboxMode {
+    match policy {
+        SandboxPolicy::ReadOnly => SandboxMode::ReadOnly,
+        SandboxPolicy::WorkspaceWrite { .. } => SandboxMode::WorkspaceWrite,
+        SandboxPolicy::DangerFullAccess => SandboxMode::DangerFullAccess,
+    }
 }
