@@ -1,14 +1,21 @@
+mod auth;
 mod codex_config;
 mod commands;
 mod completions;
+mod context;
 mod db;
 mod domain;
 mod env;
 mod errors;
-mod events;
 mod menu;
-mod services;
+mod review;
+mod rollout;
+mod router;
+mod state;
+mod threads;
 mod title_generation;
+mod turns;
+mod workspace;
 
 pub mod ts_export;
 
@@ -18,7 +25,6 @@ use codex_core::AuthManager;
 use codex_core::ConversationManager;
 use codex_core::config::{Config, ConfigOverrides};
 use codex_protocol::protocol::SessionSource;
-use services::{GitSnapshotter, ReviewService, ThreadService, TurnService, WorkspaceService};
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -55,11 +61,6 @@ pub fn run() {
                 SessionSource::VSCode,
             ));
 
-            app.manage(base_config.clone());
-            app.manage(auth_manager.clone());
-            app.manage(conversation_manager.clone());
-
-            // Initialize workspace manager
             let app_data_dir = app
                 .path()
                 .app_data_dir()
@@ -75,38 +76,18 @@ pub fn run() {
             })
             .map_err(|e| format!("Failed to initialize workspace database: {}", e))?;
 
-            app.manage(workspace_db.clone());
+            let event_router = Arc::new(router::EventRouter::new());
 
-            let snapshot_repo = db::TurnSnapshotRepo::new(workspace_db.clone());
-            let git_snapshotter = Arc::new(GitSnapshotter::new());
-            let review_service = Arc::new(ReviewService::new(snapshot_repo, git_snapshotter));
-            app.manage(review_service.clone());
-
-            let event_router = Arc::new(crate::events::EventRouter::new());
-            app.manage(event_router.clone());
-
-            let turn_service = TurnService::new(conversation_manager.clone(), event_router.clone());
-            app.manage(turn_service.clone());
-
-            let workspace_repo = db::WorkspaceRepo::new(workspace_db.clone());
-            let workspace_settings_repo = db::WorkspaceSettingsRepo::new(workspace_db.clone());
-            let workspace_service =
-                WorkspaceService::new(workspace_repo.clone(), workspace_settings_repo.clone());
-            app.manage(workspace_service.clone());
-            let thread_repo = db::ThreadRepo::new(workspace_db.clone());
-            app.manage(thread_repo.clone());
-            let thread_service = ThreadService::new(
-                thread_repo,
-                workspace_repo,
-                workspace_settings_repo,
-                conversation_manager,
-                auth_manager,
+            let app_state = state::AppState::new(
+                workspace_db,
                 base_config,
+                auth_manager,
+                conversation_manager,
                 event_router,
-                review_service,
             );
-            app.manage(thread_service.clone());
-            log::info!("Services initialized successfully");
+            app.manage(app_state);
+
+            log::info!("AppState initialized successfully");
 
             // Build and install the native menu
             let menu =

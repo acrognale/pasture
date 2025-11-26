@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use codex_core::ConversationManager;
 use codex_protocol::ConversationId;
 use codex_protocol::protocol::Op;
 use codex_protocol::protocol::ReviewDecision;
@@ -10,6 +7,7 @@ use tauri::State;
 use ts_rs::TS;
 
 use crate::errors::{AppError, AppResult};
+use crate::state::AppState;
 
 /// Parameters accepted when responding to an approval request.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
@@ -40,9 +38,10 @@ fn map_decision(decision: &str, allow_session: bool) -> AppResult<ReviewDecision
 #[tauri::command]
 pub async fn respond_approval(
     params: RespondApprovalParams,
-    conversation_manager: State<'_, Arc<ConversationManager>>,
+    app: State<'_, AppState>,
 ) -> AppResult<()> {
-    let conversation = conversation_manager
+    let conversation = app
+        .conversations
         .get_conversation(params.conversation_id)
         .await
         .map_err(|e| AppError::Codex(format!("Failed to get conversation: {}", e)))?;

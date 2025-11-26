@@ -104,6 +104,6 @@ codex_command_descriptors! {
     },
     auth::get_auth_state {
         params: (),
-        result: auth::AuthState,
+        result: crate::auth::AuthState,
     },
 }

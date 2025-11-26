@@ -7,16 +7,57 @@ use codex_core::CodexConversation;
 use codex_protocol::ConversationId;
 use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
+use serde::Deserialize;
+use serde::Serialize;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
 use tokio::sync::Mutex;
 use tokio::sync::oneshot;
+use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::events::CodexEvent;
-use crate::events::ConversationEventPayload;
-use crate::services::ReviewService;
+use crate::auth::AuthState;
+use crate::review;
+use crate::state::AppState;
+
+/// Payload emitted over the shared codex event channel.
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ConversationEventPayload {
+    pub conversation_id: String,
+    pub turn_id: String,
+    pub event_id: String,
+    pub event: EventMsg,
+    pub timestamp: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadMetadataPayload {
+    pub thread_id: String,
+    pub conversation_id: String,
+    pub workspace_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
+    pub timestamp: String,
+}
+
+/// Union of events emitted to the renderer.
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+pub enum CodexEvent {
+    #[serde(rename = "conversation-event")]
+    ConversationEvent {
+        payload: Box<ConversationEventPayload>,
+    },
+    #[serde(rename = "auth-updated")]
+    AuthUpdated { payload: AuthState },
+    #[serde(rename = "thread-metadata-updated")]
+    ThreadMetadataUpdated { payload: ThreadMetadataPayload },
+}
 
 #[derive(Debug)]
 pub struct Subscription {
@@ -120,7 +161,7 @@ impl EventRouter {
         let (cancel_tx, mut cancel_rx) = oneshot::channel();
         let subscription = Subscription {
             cancel_tx,
-            conversation_id: conversation_id.clone(),
+            conversation_id,
             window_label: window_label.clone(),
             conversation: Arc::downgrade(&conversation),
         };
@@ -132,7 +173,7 @@ impl EventRouter {
 
         {
             let mut by_fork = self.by_conversation.lock().await;
-            by_fork.insert(conversation_id.clone(), subscription_id);
+            by_fork.insert(conversation_id, subscription_id);
         }
 
         let router = self.clone();
@@ -214,12 +255,11 @@ impl EventRouter {
         app_handle: &AppHandle,
     ) {
         if let EventMsg::TurnDiff(_) = &event.msg {
-            let Some(review_state) = app_handle.try_state::<Arc<ReviewService>>() else {
-                tracing::debug!("ReviewService unavailable; skipping turn snapshot capture");
+            let Some(app_state) = app_handle.try_state::<AppState>() else {
+                tracing::debug!("AppState unavailable; skipping turn snapshot capture");
                 return;
             };
-            let review_service: Arc<ReviewService> = review_state.inner().clone();
-            if let Err(err) = review_service.ensure_base(conversation_id).await {
+            if let Err(err) = review::ensure_base(&app_state.db, conversation_id).await {
                 tracing::debug!(
                     "Failed to ensure baseline snapshot for fork {}: {}",
                     conversation_id,
@@ -228,9 +268,8 @@ impl EventRouter {
                 return;
             }
 
-            if let Err(err) = review_service
-                .record_turn_snapshot(conversation_id, &event.id)
-                .await
+            if let Err(err) =
+                review::record_turn_snapshot(&app_state.db, conversation_id, &event.id).await
             {
                 tracing::debug!(
                     "Failed to capture turn snapshot for fork {}: {}",

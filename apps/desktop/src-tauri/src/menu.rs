@@ -1,6 +1,7 @@
 use crate::commands::workspace::WorkspacePathParams;
 use crate::errors::AppResult;
-use crate::services::WorkspaceService;
+use crate::state::AppState;
+use crate::workspace;
 use log::warn;
 use tauri::AppHandle;
 use tauri::Manager;
@@ -18,10 +19,10 @@ const MENU_RECENT_WORKSPACE_PREFIX: &str = "recent_workspace_";
 
 /// Build the native application menu
 pub async fn build_menu(app: &AppHandle) -> Result<Menu<Wry>, tauri::Error> {
-    let workspace_service = app.state::<WorkspaceService>();
+    let app_state = app.state::<AppState>();
 
     // Get workspace state asynchronously
-    let recent_workspaces = match workspace_service.inner().clone().list_recent(10).await {
+    let recent_workspaces = match workspace::list_recent(&app_state.db, 10).await {
         Ok(items) => items,
         Err(err) => {
             warn!("Failed to load recent workspaces: {}", err);
@@ -188,8 +189,8 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
                 let app_clone = app_handle.clone();
                 tauri::async_runtime::spawn(async move {
                     let app_handle = app_clone;
-                    let workspace_service = app_handle.state::<WorkspaceService>();
-                    let recent = match workspace_service.inner().clone().list_recent(10).await {
+                    let app_state = app_handle.state::<AppState>();
+                    let recent = match workspace::list_recent(&app_state.db, 10).await {
                         Ok(items) => items,
                         Err(err) => {
                             warn!("Failed to load recent workspaces: {}", err);
@@ -222,12 +223,12 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
 }
 
 async fn open_workspace_via_menu(app_handle: &AppHandle, workspace_path: String) -> AppResult<()> {
-    let workspace_service = app_handle.state::<WorkspaceService>();
+    let app_state = app_handle.state::<AppState>();
 
     // Create a new window for the workspace
     crate::commands::workspace::create_workspace_window(
         WorkspacePathParams { workspace_path },
-        workspace_service,
+        app_state,
         app_handle.clone(),
     )
     .await?;

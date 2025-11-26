@@ -5,16 +5,15 @@ use tauri::State;
 use tauri::Window;
 use ts_rs::TS;
 
-use crate::domain::WorkspaceSettings;
+use crate::domain::{WorkspacePath, WorkspaceSettings};
 use crate::errors::{AppError, AppResult};
-use crate::services::WorkspaceService;
+use crate::state::AppState;
+use crate::workspace;
 
 /// List recently opened workspaces (most recent first).
 #[tauri::command]
-pub async fn list_recent_workspaces(
-    workspace_service: State<'_, WorkspaceService>,
-) -> AppResult<Vec<String>> {
-    let workspaces = workspace_service.list_recent(10).await?;
+pub async fn list_recent_workspaces(app: State<'_, AppState>) -> AppResult<Vec<String>> {
+    let workspaces = workspace::list_recent(&app.db, 10).await?;
     Ok(workspaces
         .into_iter()
         .map(|summary| summary.path.into_string())
@@ -32,10 +31,10 @@ pub struct WorkspacePathParams {
 #[tauri::command]
 pub async fn open_workspace(
     params: WorkspacePathParams,
-    workspace_service: State<'_, WorkspaceService>,
+    app: State<'_, AppState>,
 ) -> AppResult<String> {
-    let normalized = workspace_service.canonicalize(&params.workspace_path)?;
-    workspace_service.record_access(&normalized).await?;
+    let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
+    workspace::touch(&app.db, &normalized).await?;
 
     Ok(normalized.into_string())
 }
@@ -44,13 +43,13 @@ pub async fn open_workspace(
 #[tauri::command]
 pub async fn create_workspace_window(
     params: WorkspacePathParams,
-    workspace_service: State<'_, WorkspaceService>,
+    app: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> AppResult<()> {
-    let normalized = workspace_service.canonicalize(&params.workspace_path)?;
-    workspace_service.record_access(&normalized).await?;
+    let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
+    workspace::touch(&app.db, &normalized).await?;
 
-    let title = workspace_service.build_title(&normalized);
+    let title = workspace::build_title(&normalized);
 
     // Create a new window with the workspace route
     let url = format!("/workspaces/{}", urlencoding::encode(normalized.as_str()));
@@ -115,8 +114,8 @@ pub async fn browse_for_workspace(app_handle: AppHandle) -> AppResult<Option<Str
 #[tauri::command]
 pub async fn get_workspace_composer_defaults(
     params: WorkspacePathParams,
-    workspace_service: State<'_, WorkspaceService>,
+    app: State<'_, AppState>,
 ) -> AppResult<WorkspaceSettings> {
-    let normalized = workspace_service.canonicalize(&params.workspace_path)?;
-    workspace_service.get_settings(&normalized).await
+    let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
+    workspace::get_composer_defaults(&app.db, &normalized, &app.config).await
 }

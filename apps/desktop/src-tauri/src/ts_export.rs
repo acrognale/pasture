@@ -11,7 +11,7 @@ use anyhow::anyhow;
 use ts_rs::TS;
 
 use crate::commands;
-use crate::events;
+use crate::router::{CodexEvent, ConversationEventPayload};
 
 const HEADER: &str = "// GENERATED CODE! DO NOT MODIFY BY HAND!\n";
 
@@ -75,8 +75,8 @@ fn export_additional_types(out_dir: &Path) -> std::result::Result<(), ts_rs::Exp
     export_type::<McpInvocation>(out_dir)?;
     export_type::<ParsedCommand>(out_dir)?;
     export_type::<StepStatus>(out_dir)?;
-    export_type::<events::ConversationEventPayload>(out_dir)?;
-    export_type::<events::CodexEvent>(out_dir)?;
+    export_type::<ConversationEventPayload>(out_dir)?;
+    export_type::<CodexEvent>(out_dir)?;
     Ok(())
 }
 

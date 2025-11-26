@@ -1,5 +1,4 @@
 use std::process::Command;
-use std::sync::Arc;
 
 use anyhow::Context;
 use anyhow::Result as AnyResult;
@@ -10,7 +9,8 @@ use tauri::State;
 use ts_rs::TS;
 
 use crate::errors::{AppError, AppResult};
-use crate::services::ReviewService;
+use crate::review;
+use crate::state::AppState;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -52,16 +52,15 @@ pub struct ListTurnSnapshotsResponse {
 #[tauri::command]
 pub async fn get_turn_diff_range(
     params: GetTurnDiffRangeParams,
-    review: State<'_, Arc<ReviewService>>,
+    app: State<'_, AppState>,
 ) -> AppResult<GetTurnDiffRangeResponse> {
-    let commits = review
-        .inner()
-        .commits_for_range(
-            &params.conversation_id,
-            params.base_event_id.as_deref(),
-            &params.target_event_id,
-        )
-        .await?;
+    let commits = review::commits_for_range(
+        &app.db,
+        &params.conversation_id,
+        params.base_event_id.as_deref(),
+        &params.target_event_id,
+    )
+    .await?;
 
     let (cwd, base_commit, target_commit) = commits.ok_or(AppError::Validation {
         message: "Snapshot data unavailable for requested range".to_string(),
@@ -92,10 +91,10 @@ pub async fn get_turn_diff_range(
 #[tauri::command]
 pub async fn list_turn_snapshots(
     params: ListTurnSnapshotsParams,
-    review: State<'_, Arc<ReviewService>>,
+    app: State<'_, AppState>,
 ) -> AppResult<ListTurnSnapshotsResponse> {
-    let conversation_id = ConversationId::from(params.conversation_id);
-    let summary = review.inner().snapshot_summary(&conversation_id).await?;
+    let conversation_id = params.conversation_id;
+    let summary = review::snapshot_summary(&app.db, &conversation_id).await?;
 
     let response = ListTurnSnapshotsResponse {
         disabled: summary.disabled,

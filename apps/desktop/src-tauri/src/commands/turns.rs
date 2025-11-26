@@ -8,8 +8,12 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use ts_rs::TS;
 
+use crate::context::WorkspaceContext;
+use crate::domain::WorkspacePath;
 use crate::errors::{AppError, AppResult};
-use crate::services::{ThreadService, TurnOverrides, TurnService};
+use crate::state::AppState;
+use crate::threads;
+use crate::turns::{self, TurnOverrides};
 
 /// Wire representation of user-provided inputs.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
@@ -44,6 +48,8 @@ pub struct SendUserMessageParams {
     pub sandbox: Option<SandboxMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approval_policy: Option<AskForApproval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_path: Option<String>,
 }
 
 /// Parameters accepted when compacting a conversation.
@@ -71,8 +77,7 @@ pub struct InterruptConversationResponse {
 #[tauri::command]
 pub async fn send_user_message(
     params: SendUserMessageParams,
-    thread_service: State<'_, ThreadService>,
-    turn_service: State<'_, TurnService>,
+    app: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> AppResult<()> {
     let SendUserMessageParams {
@@ -83,6 +88,7 @@ pub async fn send_user_message(
         summary,
         sandbox,
         approval_policy,
+        workspace_path,
     } = params;
 
     let conversation_id =
@@ -99,17 +105,25 @@ pub async fn send_user_message(
         })
         .collect();
 
-    if let Some(preview) = mapped_items
-        .iter()
-        .find_map(|item| match item {
-            CoreUserInput::Text { text } => Some(text.trim()),
-            _ => None,
-        })
-        .filter(|text| !text.is_empty())
+    // Handle preview and title generation if we have a workspace path
+    if let Some(ref ws_path) = workspace_path
+        && let Some(preview) = mapped_items
+            .iter()
+            .find_map(|item| match item {
+                CoreUserInput::Text { text } => Some(text.trim()),
+                _ => None,
+            })
+            .filter(|text| !text.is_empty())
+        && let Ok(normalized_path) = WorkspacePath::canonicalize(ws_path)
     {
-        thread_service
-            .handle_preview_and_title(&conversation_id, preview.to_string(), app_handle.clone())
-            .await;
+        let ctx = WorkspaceContext::new(normalized_path, &app);
+        threads::handle_preview_and_title(
+            &ctx,
+            &conversation_id,
+            preview.to_string(),
+            app_handle.clone(),
+        )
+        .await;
     }
 
     let overrides = TurnOverrides {
@@ -120,15 +134,16 @@ pub async fn send_user_message(
         approval_policy,
     };
 
-    turn_service
-        .send(
-            &conversation_id,
-            mapped_items,
-            overrides,
-            &conversation_id.to_string(),
-            app_handle.clone(),
-        )
-        .await?;
+    turns::send(
+        &app.conversations,
+        &app.events,
+        &conversation_id,
+        mapped_items,
+        overrides,
+        &conversation_id.to_string(),
+        app_handle,
+    )
+    .await?;
 
     Ok(())
 }
@@ -137,7 +152,7 @@ pub async fn send_user_message(
 #[tauri::command]
 pub async fn compact_conversation(
     params: CompactConversationParams,
-    turn_service: State<'_, TurnService>,
+    app: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> AppResult<()> {
     let conversation_id = params.conversation_id;
@@ -146,10 +161,14 @@ pub async fn compact_conversation(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ConversationId::from(conv_id);
-    turn_service
-        .compact(&fork_id, &conversation_id, app_handle)
-        .await?;
+    turns::compact(
+        &app.conversations,
+        &app.events,
+        &conv_id,
+        &conversation_id,
+        app_handle,
+    )
+    .await?;
 
     Ok(())
 }
@@ -158,15 +177,14 @@ pub async fn compact_conversation(
 #[tauri::command]
 pub async fn interrupt_conversation(
     params: InterruptConversationParams,
-    turn_service: State<'_, TurnService>,
+    app: State<'_, AppState>,
 ) -> AppResult<InterruptConversationResponse> {
     let conv_id =
         ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ConversationId::from(conv_id);
-    turn_service.interrupt(&fork_id).await?;
+    turns::interrupt(&app.conversations, &conv_id).await?;
 
     Ok(InterruptConversationResponse {
         abort_reason: TurnAbortReason::Interrupted,

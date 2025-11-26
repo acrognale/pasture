@@ -5,7 +5,8 @@ use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::errors::{AppError, AppResult};
-use crate::services::TurnService;
+use crate::state::AppState;
+use crate::turns;
 
 /// Parameters accepted when adding a conversation listener.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
@@ -32,7 +33,7 @@ pub struct RemoveConversationListenerParams {
 #[tauri::command]
 pub async fn add_conversation_listener(
     params: AddConversationListenerParams,
-    turn_service: State<'_, TurnService>,
+    app: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> AppResult<AddConversationSubscriptionResponse> {
     let conv_id =
@@ -40,10 +41,14 @@ pub async fn add_conversation_listener(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ConversationId::from(conv_id);
-    let subscription_id = turn_service
-        .add_subscription(&fork_id, app_handle, params.conversation_id)
-        .await?;
+    let subscription_id = turns::add_subscription(
+        &app.conversations,
+        &app.events,
+        &conv_id,
+        app_handle,
+        params.conversation_id,
+    )
+    .await?;
 
     Ok(AddConversationSubscriptionResponse { subscription_id })
 }
@@ -52,11 +57,11 @@ pub async fn add_conversation_listener(
 #[tauri::command]
 pub async fn remove_conversation_listener(
     params: RemoveConversationListenerParams,
-    turn_service: State<'_, TurnService>,
+    app: State<'_, AppState>,
 ) -> AppResult<()> {
     let uuid = Uuid::parse_str(&params.subscription_id).map_err(|e| AppError::Validation {
         message: format!("Invalid subscription ID: {}", e),
     })?;
 
-    turn_service.remove_subscription(uuid).await
+    turns::remove_subscription(&app.events, uuid).await
 }

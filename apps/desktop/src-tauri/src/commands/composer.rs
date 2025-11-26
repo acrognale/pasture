@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::State;
@@ -10,10 +8,10 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::protocol::AskForApproval;
 
-use crate::domain::WorkspaceSettings;
+use crate::domain::{WorkspacePath, WorkspaceSettings};
 use crate::errors::AppResult;
-use crate::services::{ComposerSettingsUpdate, WorkspaceService};
-use codex_core::config::Config;
+use crate::state::AppState;
+use crate::workspace::{self, ComposerSettingsUpdate};
 
 /// Serialized composer configuration for a conversation.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, TS)]
@@ -61,14 +59,12 @@ pub struct UpdateComposerConfigParams {
 #[tauri::command]
 pub async fn get_composer_config(
     params: GetComposerConfigParams,
-    workspace_service: State<'_, WorkspaceService>,
-    config: State<'_, Arc<Config>>,
+    app: State<'_, AppState>,
 ) -> AppResult<ComposerTurnConfigPayload> {
-    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
 
-    let defaults: WorkspaceSettings = workspace_service
-        .get_composer_defaults(&workspace_path, config.inner())
-        .await?;
+    let defaults: WorkspaceSettings =
+        workspace::get_composer_defaults(&app.db, &workspace_path, &app.config).await?;
 
     Ok(ComposerTurnConfigPayload {
         model: defaults.model,
@@ -83,9 +79,9 @@ pub async fn get_composer_config(
 #[tauri::command]
 pub async fn update_composer_config(
     params: UpdateComposerConfigParams,
-    workspace_service: State<'_, WorkspaceService>,
+    app: State<'_, AppState>,
 ) -> AppResult<()> {
-    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
+    let workspace_path = WorkspacePath::canonicalize(&params.workspace_path)?;
 
     let UpdateComposerConfigParams {
         workspace_path: _,
@@ -97,18 +93,18 @@ pub async fn update_composer_config(
         approval,
     } = params;
 
-    workspace_service
-        .update_composer_defaults(
-            &workspace_path,
-            ComposerSettingsUpdate {
-                model,
-                reasoning_effort,
-                reasoning_summary: summary,
-                sandbox,
-                approval,
-            },
-        )
-        .await?;
+    workspace::update_composer_defaults(
+        &app.db,
+        &workspace_path,
+        ComposerSettingsUpdate {
+            model,
+            reasoning_effort,
+            reasoning_summary: summary,
+            sandbox,
+            approval,
+        },
+    )
+    .await?;
 
     Ok(())
 }

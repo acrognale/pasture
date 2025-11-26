@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use codex_protocol::ConversationId;
@@ -6,16 +5,16 @@ use codex_protocol::config_types::{ReasoningEffort, ReasoningSummary, SandboxMod
 use codex_protocol::protocol::{AskForApproval, SessionConfiguredEvent};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 use tauri::{AppHandle, State};
 use ts_rs::TS;
 
 use crate::codex_config::NewThreadOptions;
-use crate::domain::{Conversation, ThreadId};
+use crate::context::WorkspaceContext;
+use crate::domain::{Conversation, ThreadId, WorkspacePath};
 use crate::errors::{AppError, AppResult};
-use crate::services::{
-    ForkConversationResult, SwitchConversationResult, ThreadInitialization, ThreadService,
-    WorkspaceService,
-};
+use crate::state::AppState;
+use crate::threads;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -156,15 +155,15 @@ pub struct NewConversationParams {
 /// List all threads for a workspace from Pasture persistence.
 #[tauri::command]
 pub async fn list_threads(
-    workspace_service: State<'_, WorkspaceService>,
-    thread_service: State<'_, ThreadService>,
+    app: State<'_, AppState>,
     params: ListThreadsParams,
 ) -> AppResult<ListThreadsResponse> {
-    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
-    let workspace_path_str = workspace_path.as_str().to_string();
-    let threads = thread_service.list(&workspace_path).await?;
+    let ctx = WorkspaceContext::new(WorkspacePath::canonicalize(&params.workspace_path)?, &app);
 
-    let items = threads
+    let workspace_path_str = ctx.path.as_str().to_string();
+    let items = threads::list(&ctx).await?;
+
+    let items = items
         .into_iter()
         .map(|thread| ThreadSummary {
             thread_id: thread.id.as_str().to_string(),
@@ -187,20 +186,17 @@ pub async fn list_threads(
 /// List all conversations for a thread.
 #[tauri::command]
 pub async fn list_thread_conversations(
-    workspace_service: State<'_, WorkspaceService>,
-    thread_service: State<'_, ThreadService>,
+    app: State<'_, AppState>,
     params: ListThreadConversationsParams,
 ) -> AppResult<ListThreadConversationsResponse> {
-    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
+    let ctx = WorkspaceContext::new(WorkspacePath::canonicalize(&params.workspace_path)?, &app);
     let thread_id = ThreadId(params.thread_id);
-    let thread = thread_service.get(&workspace_path, &thread_id).await?;
-
-    let conversations = thread.conversations.clone();
+    let thread = threads::get(&ctx, &thread_id).await?;
 
     Ok(ListThreadConversationsResponse {
         thread_id: thread.id.as_str().to_string(),
         current_conversation_id: thread.current_conversation_id.to_string(),
-        conversations,
+        conversations: thread.conversations,
     })
 }
 
@@ -208,18 +204,15 @@ pub async fn list_thread_conversations(
 #[tauri::command]
 pub async fn new_thread(
     params: NewThreadCommandParams,
-    workspace_service: State<'_, WorkspaceService>,
-    thread_service: State<'_, ThreadService>,
+    app: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> AppResult<NewThreadResponse> {
-    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
+    let ctx = WorkspaceContext::new(WorkspacePath::canonicalize(&params.workspace_path)?, &app);
 
     let options = params.options.unwrap_or_default();
     let thread_options = NewThreadOptions::from(options);
 
-    let (thread, new_conv) = thread_service
-        .create(&workspace_path, thread_options, app_handle.clone())
-        .await?;
+    let (thread, new_conv) = threads::create(&ctx, thread_options, app_handle).await?;
 
     let rollout_path = new_conv.session_configured.rollout_path.clone();
 
@@ -236,19 +229,17 @@ pub async fn new_thread(
 #[tauri::command]
 pub async fn initialize_thread(
     params: InitializeThreadParams,
-    workspace_service: State<'_, WorkspaceService>,
-    thread_service: State<'_, ThreadService>,
+    app: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> AppResult<InitializeThreadResponse> {
-    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
+    let ctx = WorkspaceContext::new(WorkspacePath::canonicalize(&params.workspace_path)?, &app);
     let thread_id = ThreadId(params.thread_id);
-    let ThreadInitialization {
+
+    let threads::ThreadInitialization {
         conversation,
         reasoning_summary,
         ..
-    } = thread_service
-        .initialize(&workspace_path, &thread_id, app_handle)
-        .await?;
+    } = threads::initialize(&ctx, &thread_id, app_handle).await?;
 
     Ok(InitializeThreadResponse {
         session_configured: conversation.session_configured,
@@ -260,21 +251,18 @@ pub async fn initialize_thread(
 #[tauri::command]
 pub async fn switch_conversation(
     params: SwitchConversationParams,
-    workspace_service: State<'_, WorkspaceService>,
-    thread_service: State<'_, ThreadService>,
+    app: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> AppResult<SwitchConversationResponse> {
-    let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
+    let ctx = WorkspaceContext::new(WorkspacePath::canonicalize(&params.workspace_path)?, &app);
     let thread_id = ThreadId(params.thread_id);
     let conversation_id = params.conversation_id;
 
-    let SwitchConversationResult {
+    let threads::SwitchConversationResult {
         session_configured,
         reasoning_summary,
         ..
-    } = thread_service
-        .switch_conversation(&workspace_path, &thread_id, &conversation_id, app_handle)
-        .await?;
+    } = threads::switch_conversation(&ctx, &thread_id, &conversation_id, app_handle).await?;
 
     Ok(SwitchConversationResponse {
         conversation_id,
@@ -287,8 +275,7 @@ pub async fn switch_conversation(
 #[tauri::command]
 pub async fn fork_conversation(
     params: ForkConversationParams,
-    workspace_service: State<'_, WorkspaceService>,
-    thread_service: State<'_, ThreadService>,
+    app: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> AppResult<ForkConversationResponse> {
     let ForkConversationParams {
@@ -299,25 +286,23 @@ pub async fn fork_conversation(
         options,
     } = params;
 
-    let workspace_path = workspace_service.canonicalize(&workspace_path)?;
+    let ctx = WorkspaceContext::new(WorkspacePath::canonicalize(&workspace_path)?, &app);
     let thread_id = ThreadId(thread_id);
-
     let thread_options = NewThreadOptions::from(options.unwrap_or_default());
 
-    let ForkConversationResult {
+    let threads::ForkConversationResult {
         thread: updated_thread,
         conversation: new_conv,
         reasoning_summary,
-    } = thread_service
-        .fork(
-            &workspace_path,
-            &thread_id,
-            &base_conversation_id,
-            nth_user_message,
-            thread_options,
-            app_handle,
-        )
-        .await?;
+    } = threads::fork(
+        &ctx,
+        &thread_id,
+        &base_conversation_id,
+        nth_user_message,
+        thread_options,
+        app_handle,
+    )
+    .await?;
 
     let new_conv_id = new_conv.conversation_id.to_string();
     let new_conversation = updated_thread
