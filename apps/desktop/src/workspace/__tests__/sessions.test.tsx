@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import type { InitializeThreadResponse } from '~/codex.gen/InitializeThreadResponse';
 import type { ListThreadsResponse } from '~/codex.gen/ListThreadsResponse';
 import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import { encodeWorkspaceId } from '~/lib/routing';
@@ -263,5 +264,91 @@ describe('SidebarPanel sessions', () => {
     await markThreadOpenInTest('thread-02');
 
     await screen.findByRole('button', { name: /Session 2/i });
+  });
+
+  test('reorders sessions when an older thread receives a new user message', async () => {
+    const newestTimestamp = new Date('2024-01-02T00:00:00.000Z').toISOString();
+    const olderTimestamp = new Date('2024-01-01T00:00:00.000Z').toISOString();
+
+    const newestThread: ThreadSummary = {
+      threadId: 'thread-newest',
+      workspacePath: WORKSPACE,
+      currentConversationId: 'conversation-newest',
+      preview: 'Newest session',
+      title: null,
+      timestamp: newestTimestamp,
+      conversationCount: 1,
+    };
+
+    const olderThread: ThreadSummary = {
+      threadId: 'thread-older',
+      workspacePath: WORKSPACE,
+      currentConversationId: 'conversation-older',
+      preview: 'Older session',
+      title: null,
+      timestamp: olderTimestamp,
+      conversationCount: 1,
+    };
+
+    mockCodex.stub.listThreads.mockResolvedValue({
+      items: [newestThread, olderThread],
+    });
+
+    const createInitializeThreadResponse = (
+      thread: ThreadSummary
+    ): InitializeThreadResponse => ({
+      sessionConfigured: {
+        session_id: thread.currentConversationId,
+        model: 'gpt-5-codex',
+        model_provider_id: 'openai',
+        approval_policy: 'on-request',
+        sandbox_policy: { type: 'danger-full-access' },
+        cwd: WORKSPACE,
+        reasoning_effort: null,
+        history_log_id: BigInt(0),
+        history_entry_count: 0,
+        initial_messages: [],
+        rollout_path: `${WORKSPACE}/sessions/${thread.threadId}.json`,
+      },
+      reasoningSummary: 'auto',
+    });
+
+    mockCodex.stub.initializeThread
+      .mockResolvedValueOnce(createInitializeThreadResponse(newestThread))
+      .mockResolvedValueOnce(createInitializeThreadResponse(olderThread));
+
+    renderSidebarPanel({
+      openThreadIds: [newestThread.threadId, olderThread.threadId],
+    });
+
+    const newestSessionButton = await screen.findByRole('button', {
+      name: /Newest session/i,
+    });
+    const olderSessionButton = await screen.findByRole('button', {
+      name: /Older session/i,
+    });
+
+    expect(
+      newestSessionButton.compareDocumentPosition(olderSessionButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+
+    act(() => {
+      mockEvents.emitConversation(
+        {
+          type: 'user_message',
+          message: 'Ping',
+          images: null,
+        },
+        { conversationId: olderThread.currentConversationId }
+      );
+    });
+
+    await waitFor(() => {
+      expect(
+        olderSessionButton.compareDocumentPosition(newestSessionButton) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    });
   });
 });

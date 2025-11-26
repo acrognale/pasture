@@ -206,7 +206,7 @@ export const updateThreadPreview = (
       const items = [...state.items];
       items[index] = updated;
 
-      return { ...state, items };
+      return { ...state, items: sortThreadsByTimestamp(items) };
     }
   );
 };
@@ -241,7 +241,7 @@ export const updateThreadTitle = (
       const items = [...state.items];
       items[index] = updated;
 
-      return { ...state, items };
+      return { ...state, items: sortThreadsByTimestamp(items) };
     }
   );
 };
@@ -274,7 +274,7 @@ export const updateThreadTimestamp = (
       const items = [...state.items];
       items[index] = updated;
 
-      return { ...state, items };
+      return { ...state, items: sortThreadsByTimestamp(items) };
     }
   );
 };
