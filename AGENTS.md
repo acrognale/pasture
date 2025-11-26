@@ -41,7 +41,7 @@ Important: always run `npm run lint` and `npm run typecheck` when you finish mak
 - `apps/desktop/src-tauri/src/menu.rs` – Native menu bar construction with dynamic workspace menus.
 - `apps/desktop/src-tauri/src/codex_runtime.rs` – Embedded Codex runtime wrapping AuthManager and ConversationManager from codex_core.
 - `apps/desktop/src-tauri/src/event_listener.rs` – Event subscription manager for streaming conversation events to the front-end.
-- `apps/desktop/src-tauri/src/workspace_manager.rs` – Workspace state persistence and window context management.
+- `apps/desktop/src-tauri/src/services/workspace.rs` – Workspace path handling, persistence, and composer defaults.
 - `apps/desktop/src-tauri/tauri.conf.json` – Tauri configuration (window settings, permissions, build config).
 - `apps/desktop/src-tauri/tauri.dev.conf.json` – Dev-mode overrides (dev icons, window settings).
 - `apps/desktop/src/app/` – Global providers (`CodexProvider`), hooks, and shared utilities.

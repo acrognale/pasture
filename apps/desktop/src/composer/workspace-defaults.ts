@@ -2,7 +2,7 @@ import type { AskForApproval } from '~/codex.gen/AskForApproval';
 import type { ReasoningEffort } from '~/codex.gen/ReasoningEffort';
 import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
 import type { SandboxMode } from '~/codex.gen/SandboxMode';
-import type { WorkspaceComposerDefaults } from '~/codex.gen/WorkspaceComposerDefaults';
+import type { WorkspaceSettings } from '~/codex.gen/WorkspaceSettings';
 
 export type WorkspaceComposerDefaultsState = {
   model: string | null;
@@ -21,7 +21,7 @@ export const emptyWorkspaceComposerDefaults: WorkspaceComposerDefaultsState = {
 };
 
 export const normalizeWorkspaceComposerDefaults = (
-  payload: WorkspaceComposerDefaults | null | undefined
+  payload: WorkspaceSettings | null | undefined
 ): WorkspaceComposerDefaultsState => ({
   model: payload?.model ?? null,
   reasoningEffort: payload?.reasoningEffort ?? null,

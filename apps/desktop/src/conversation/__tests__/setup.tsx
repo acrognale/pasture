@@ -22,7 +22,7 @@ export const setupConversationTest = (
         preview: '',
         title: null,
         timestamp,
-        rolloutCount: 1,
+        conversationCount: 1,
       },
     ],
   });

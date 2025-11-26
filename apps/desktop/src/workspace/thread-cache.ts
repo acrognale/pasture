@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { ListThreadRolloutsResponse } from '~/codex.gen/ListThreadRolloutsResponse';
+import type { ListThreadConversationsResponse } from '~/codex.gen/ListThreadConversationsResponse';
 import type { WorkspaceKeys } from '~/lib/workspaceKeys';
 
 import type { WorkspaceThreadsState } from './hooks/useWorkspaceThreads';
@@ -32,7 +32,7 @@ export const updateThreadOnFork = (
 ) => {
   queryClient.setQueryData<WorkspaceThreadsState | undefined>(
     keys.threads(),
-    (state) => {
+    (state: WorkspaceThreadsState | undefined) => {
       if (!state) {
         return state;
       }
@@ -45,7 +45,7 @@ export const updateThreadOnFork = (
       const updated = {
         ...state.items[index],
         currentConversationId: conversationId,
-        rolloutCount: (state.items[index]?.rolloutCount ?? 0) + 1,
+        conversationCount: (state.items[index]?.conversationCount ?? 0) + 1,
         timestamp: createdAt,
       };
       const items = [...state.items];
@@ -54,43 +54,45 @@ export const updateThreadOnFork = (
     }
   );
 
-  queryClient.setQueryData<ListThreadRolloutsResponse | undefined>(
-    keys.threadRollouts(threadId),
-    (state) => {
-      const rollouts = state?.rollouts ?? [];
-      const existingIndex = rollouts.findIndex(
-        (item) => item.conversationId === conversationId
+  queryClient.setQueryData<ListThreadConversationsResponse | undefined>(
+    keys.threadConversations(threadId),
+    (state: ListThreadConversationsResponse | undefined) => {
+      const conversations = state?.conversations ?? [];
+      const existingIndex = conversations.findIndex(
+        (item) => item.id === conversationId
       );
-      const nextRollouts =
+      const nextConversations =
         existingIndex === -1
           ? [
-              ...rollouts,
+              ...conversations,
               {
-                conversationId,
+                id: conversationId,
+                threadId,
                 rolloutPath,
                 createdAt,
                 label: null,
-                forkedFromConversationId: forkBaseConversationId,
-                forkedFromNthUserMessage: forkNthUserMessage,
+                parentConversationId: forkBaseConversationId,
+                forkedAtNthUserMessage: forkNthUserMessage,
               },
             ]
           : [
-              ...rollouts.slice(0, existingIndex),
+              ...conversations.slice(0, existingIndex),
               {
-                conversationId,
+                id: conversationId,
+                threadId,
                 rolloutPath,
                 createdAt,
                 label: null,
-                forkedFromConversationId: forkBaseConversationId,
-                forkedFromNthUserMessage: forkNthUserMessage,
+                parentConversationId: forkBaseConversationId,
+                forkedAtNthUserMessage: forkNthUserMessage,
               },
-              ...rollouts.slice(existingIndex + 1),
+              ...conversations.slice(existingIndex + 1),
             ];
 
       return {
         threadId,
         currentConversationId: conversationId,
-        rollouts: nextRollouts,
+        conversations: nextConversations,
       };
     }
   );
@@ -105,7 +107,7 @@ export const updateThreadOnSwitch = (
 
   queryClient.setQueryData<WorkspaceThreadsState | undefined>(
     keys.threads(),
-    (state) => {
+    (state: WorkspaceThreadsState | undefined) => {
       if (!state) {
         return state;
       }
@@ -126,9 +128,9 @@ export const updateThreadOnSwitch = (
     }
   );
 
-  queryClient.setQueryData<ListThreadRolloutsResponse | undefined>(
-    keys.threadRollouts(threadId),
-    (state) =>
+  queryClient.setQueryData<ListThreadConversationsResponse | undefined>(
+    keys.threadConversations(threadId),
+    (state: ListThreadConversationsResponse | undefined) =>
       state ? { ...state, currentConversationId: conversationId } : state
   );
 };

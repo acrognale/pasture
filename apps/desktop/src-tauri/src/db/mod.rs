@@ -1,4 +1,10 @@
 pub mod init;
 pub mod schema;
-pub mod threads;
-pub mod workspace;
+
+use sea_orm::DbErr;
+
+use crate::errors::AppError;
+
+pub(crate) fn db_err(context: &str, err: DbErr) -> AppError {
+    AppError::Database(DbErr::Custom(format!("{context}: {err}")))
+}

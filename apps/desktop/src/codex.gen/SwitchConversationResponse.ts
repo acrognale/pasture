@@ -4,7 +4,7 @@ import type { ConversationId } from './ConversationId';
 import type { ReasoningSummary } from './ReasoningSummary';
 import type { SessionConfiguredEvent } from './SessionConfiguredEvent';
 
-export type SwitchThreadRolloutResponse = {
+export type SwitchConversationResponse = {
   conversationId: ConversationId;
   sessionConfigured: SessionConfiguredEvent | null;
   reasoningSummary: ReasoningSummary | null;

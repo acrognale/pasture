@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::Context;
+use codex_core::AuthManager;
 use codex_core::ModelClient;
 use codex_core::Prompt;
 use codex_core::ResponseEvent;
+use codex_core::auth::CodexAuth;
+use codex_core::config::Config;
 use codex_core::content_items_to_text;
 use codex_core::model_family::find_family_for_model;
 use codex_otel::otel_event_manager::OtelEventManager;
@@ -11,8 +14,6 @@ use codex_protocol::ConversationId;
 use codex_protocol::config_types::ReasoningEffort;
 use codex_protocol::protocol::SessionSource;
 use futures::StreamExt;
-
-use crate::codex_runtime::CodexRuntime;
 
 const TERMINAL_TYPE: &str = "pasture-desktop";
 
@@ -25,13 +26,14 @@ pub struct ModelConfig {
 /// Stream a prompt and return the aggregated text content, if any, from the assistant.
 /// The model can be overridden per call.
 pub async fn generate_text(
-    runtime: &CodexRuntime,
+    base_config: Arc<Config>,
+    auth_manager: Arc<AuthManager>,
     conversation_id: ConversationId,
     prompt: &Prompt,
     model_config: Option<ModelConfig>,
 ) -> anyhow::Result<Option<String>> {
     // Clone config so we can safely override the model without mutating runtime state.
-    let mut config = runtime.config().as_ref().clone();
+    let mut config = base_config.as_ref().clone();
     if let Some(model_config) = model_config {
         config.model = model_config.model;
         config.model_reasoning_effort = model_config.reasoning_effort;
@@ -41,8 +43,8 @@ pub async fn generate_text(
     }
     let config = Arc::new(config);
 
-    let auth_manager = runtime.auth_manager().clone();
-    let otel_event_manager = build_otel_event_manager(runtime, conversation_id);
+    let auth = auth_manager.auth();
+    let otel_event_manager = build_otel_event_manager(&config, auth.clone(), conversation_id);
 
     let client = ModelClient::new(
         Arc::clone(&config),
@@ -92,12 +94,10 @@ pub async fn generate_text(
 }
 
 fn build_otel_event_manager(
-    runtime: &CodexRuntime,
+    config: &Config,
+    auth: Option<CodexAuth>,
     conversation_id: ConversationId,
 ) -> OtelEventManager {
-    let config = runtime.config();
-    let auth = runtime.auth_manager().auth();
-
     OtelEventManager::new(
         conversation_id,
         config.model.as_str(),

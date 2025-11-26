@@ -1,19 +1,32 @@
-mod codex_runtime;
+mod auth;
+mod codex_config;
 mod commands;
 mod completions;
+mod context;
 mod db;
+mod domain;
 mod env;
-mod event_listener;
-mod events;
+mod errors;
 mod menu;
-mod review_snapshots;
+mod review;
+mod rollout;
+mod router;
+mod state;
+mod threads;
 mod title_generation;
-mod workspace_manager;
+mod turns;
+mod workspace;
 
 pub mod ts_export;
 
+use std::sync::Arc;
+
+use codex_core::AuthManager;
+use codex_core::ConversationManager;
+use codex_core::config::Config;
+use codex_core::config::ConfigOverrides;
+use codex_protocol::protocol::SessionSource;
 use tauri::Manager;
-use workspace_manager::WorkspaceManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -30,25 +43,25 @@ pub fn run() {
                 }
             }
 
-            let codex_runtime = tauri::async_runtime::block_on(async {
-                use codex_core::config::Config;
-                use codex_core::config::ConfigOverrides;
+            let base_config: Arc<Config> = tauri::async_runtime::block_on(async {
                 let mut cfg = Config::load_with_cli_overrides(vec![], ConfigOverrides::default())
                     .await
                     .map_err(|e| format!("Failed to load config: {}", e))?;
                 env::apply_shell_environment_defaults(&mut cfg).await;
-                let runtime = crate::codex_runtime::CodexRuntime::with_config(cfg)
-                    .await
-                    .map_err(|e| format!("Failed to construct runtime: {}", e))?;
-                runtime
-                    .initialize("Tauri Codex Client".to_string(), "0.1.0".to_string())
-                    .await
-                    .map_err(|e| format!("Failed to initialize Codex runtime: {}", e))?;
-                Ok::<_, String>(runtime)
+                Ok::<_, String>(Arc::new(cfg))
             })?;
-            app.manage(codex_runtime);
 
-            // Initialize workspace manager
+            let auth_manager = AuthManager::shared(
+                base_config.codex_home.clone(),
+                false,
+                base_config.cli_auth_credentials_store_mode,
+            );
+
+            let conversation_manager = Arc::new(ConversationManager::new(
+                auth_manager.clone(),
+                SessionSource::VSCode,
+            ));
+
             let app_data_dir = app
                 .path()
                 .app_data_dir()
@@ -64,11 +77,18 @@ pub fn run() {
             })
             .map_err(|e| format!("Failed to initialize workspace database: {}", e))?;
 
-            let workspace_manager = WorkspaceManager::new();
-            app.manage(workspace_db.clone());
+            let event_router = Arc::new(router::EventRouter::new());
 
-            app.manage(workspace_manager);
-            log::info!("Workspace manager initialized successfully");
+            let app_state = state::AppState::new(
+                workspace_db,
+                base_config,
+                auth_manager,
+                conversation_manager,
+                event_router,
+            );
+            app.manage(app_state);
+
+            log::info!("AppState initialized successfully");
 
             // Build and install the native menu
             let menu =
@@ -81,21 +101,21 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::conversations::list_threads,
-            commands::conversations::list_thread_rollouts,
-            commands::conversations::switch_thread_rollout,
-            commands::conversations::new_thread,
-            commands::conversations::initialize_thread,
-            commands::conversations::fork_thread,
-            commands::conversations::send_user_message,
-            commands::conversations::interrupt_conversation,
-            commands::conversations::compact_conversation,
+            commands::threads::list_threads,
+            commands::threads::list_thread_conversations,
+            commands::threads::switch_conversation,
+            commands::threads::new_thread,
+            commands::threads::initialize_thread,
+            commands::threads::fork_conversation,
+            commands::turns::send_user_message,
+            commands::turns::interrupt_conversation,
+            commands::turns::compact_conversation,
             commands::composer::get_composer_config,
             commands::composer::update_composer_config,
             commands::review::get_turn_diff_range,
             commands::review::list_turn_snapshots,
-            commands::conversations::add_conversation_listener,
-            commands::conversations::remove_conversation_listener,
+            commands::subscriptions::add_conversation_listener,
+            commands::subscriptions::remove_conversation_listener,
             commands::approvals::respond_approval,
             commands::workspace::get_workspace_composer_defaults,
             commands::workspace::list_recent_workspaces,

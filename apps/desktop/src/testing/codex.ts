@@ -9,13 +9,13 @@ import type { EventMsg } from '~/codex.gen/EventMsg';
 import type { GetTurnDiffRangeResponse } from '~/codex.gen/GetTurnDiffRangeResponse';
 import type { InitializeThreadResponse } from '~/codex.gen/InitializeThreadResponse';
 import type { InterruptConversationResponse } from '~/codex.gen/InterruptConversationResponse';
-import type { ListThreadRolloutsResponse } from '~/codex.gen/ListThreadRolloutsResponse';
+import type { ListThreadConversationsResponse } from '~/codex.gen/ListThreadConversationsResponse';
 import type { ListThreadsResponse } from '~/codex.gen/ListThreadsResponse';
 import type { ListTurnSnapshotsResponse } from '~/codex.gen/ListTurnSnapshotsResponse';
 import type { NewThreadResponse } from '~/codex.gen/NewThreadResponse';
 import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
 import type { SessionConfiguredEvent } from '~/codex.gen/SessionConfiguredEvent';
-import type { WorkspaceComposerDefaults } from '~/codex.gen/WorkspaceComposerDefaults';
+import type { WorkspaceSettings } from '~/codex.gen/WorkspaceSettings';
 
 type AsyncFn<TArgs extends unknown[], TResult> = (
   ...args: TArgs
@@ -97,14 +97,14 @@ const mockCodexNamespace = {
     async (): Promise<InitializeThreadResponse> =>
       createDefaultInitializeThreadResponse()
   ),
-  listThreadRollouts: defineStub<[], ListThreadRolloutsResponse>(
-    async (): Promise<ListThreadRolloutsResponse> => ({
+  listThreadConversations: defineStub<[], ListThreadConversationsResponse>(
+    async (): Promise<ListThreadConversationsResponse> => ({
       threadId: 'mock-thread',
       currentConversationId: 'mock-conversation',
-      rollouts: [],
+      conversations: [],
     })
   ),
-  switchThreadRollout: defineStub(async () => ({
+  switchConversation: defineStub(async () => ({
     conversationId: 'mock-conversation',
     sessionConfigured: createDefaultSessionConfiguredEvent(),
     reasoningSummary: 'auto' satisfies ReasoningSummary,
@@ -126,7 +126,7 @@ const mockCodexNamespace = {
   ),
   updateComposerConfig: defineStub(async () => undefined),
   getWorkspaceComposerDefaults: defineStub(
-    async (): Promise<WorkspaceComposerDefaults> => ({
+    async (): Promise<WorkspaceSettings> => ({
       model: null,
       reasoningEffort: null,
       reasoningSummary: null,

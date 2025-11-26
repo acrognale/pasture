@@ -23,35 +23,35 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // workspace_defaults
+        // workspace_settings
         manager
             .create_table(
                 Table::create()
-                    .table(WorkspaceDefaults::Table)
+                    .table(WorkspaceSettings::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(WorkspaceDefaults::WorkspacePath)
+                        ColumnDef::new(WorkspaceSettings::WorkspacePath)
                             .string()
                             .not_null()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(WorkspaceDefaults::Model).string().null())
+                    .col(ColumnDef::new(WorkspaceSettings::Model).string().null())
                     .col(
-                        ColumnDef::new(WorkspaceDefaults::ReasoningEffort)
+                        ColumnDef::new(WorkspaceSettings::ReasoningEffort)
                             .string()
                             .null(),
                     )
                     .col(
-                        ColumnDef::new(WorkspaceDefaults::ReasoningSummary)
+                        ColumnDef::new(WorkspaceSettings::ReasoningSummary)
                             .string()
                             .null(),
                     )
-                    .col(ColumnDef::new(WorkspaceDefaults::Sandbox).string().null())
-                    .col(ColumnDef::new(WorkspaceDefaults::Approval).string().null())
+                    .col(ColumnDef::new(WorkspaceSettings::Sandbox).string().null())
+                    .col(ColumnDef::new(WorkspaceSettings::Approval).string().null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-workspace_defaults-workspace")
-                            .from(WorkspaceDefaults::Table, WorkspaceDefaults::WorkspacePath)
+                            .name("fk-workspace_settings-workspace")
+                            .from(WorkspaceSettings::Table, WorkspaceSettings::WorkspacePath)
                             .to(Workspaces::Table, Workspaces::Path)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
@@ -74,11 +74,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Threads::WorkspacePath).string().not_null())
                     .col(ColumnDef::new(Threads::CreatedAt).string().not_null())
                     .col(ColumnDef::new(Threads::UpdatedAt).string().not_null())
-                    .col(
-                        ColumnDef::new(Threads::CurrentConversationId)
-                            .string()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(Threads::CurrentForkId).string().not_null())
                     .col(ColumnDef::new(Threads::Title).string().null())
                     .col(ColumnDef::new(Threads::Preview).string().null())
                     .foreign_key(
@@ -92,53 +88,77 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        // thread_rollouts
+        // forks
         manager
             .create_table(
                 Table::create()
-                    .table(ThreadRollouts::Table)
+                    .table(Forks::Table)
+                    .if_not_exists()
+                    .col(ColumnDef::new(Forks::Id).string().not_null().primary_key())
+                    .col(ColumnDef::new(Forks::ThreadId).string().not_null())
+                    .col(ColumnDef::new(Forks::RolloutPath).string().not_null())
+                    .col(ColumnDef::new(Forks::CreatedAt).string().not_null())
+                    .col(ColumnDef::new(Forks::Label).string().null())
+                    .col(ColumnDef::new(Forks::ForkedFromForkId).string().null())
+                    .col(
+                        ColumnDef::new(Forks::ForkedFromAfterMessage)
+                            .integer()
+                            .null(),
+                    )
+                    .col(ColumnDef::new(Forks::BaseCommit).string().null())
+                    .col(
+                        ColumnDef::new(Forks::SnapshotsDisabled)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk-forks-thread")
+                            .from(Forks::Table, Forks::ThreadId)
+                            .to(Threads::Table, Threads::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        // turn_snapshots
+        manager
+            .create_table(
+                Table::create()
+                    .table(TurnSnapshots::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(ThreadRollouts::Id)
+                        ColumnDef::new(TurnSnapshots::Id)
                             .integer()
                             .not_null()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(ThreadRollouts::ThreadId).string().not_null())
-                    .col(
-                        ColumnDef::new(ThreadRollouts::ConversationId)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(ThreadRollouts::RolloutPath)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(
-                        ColumnDef::new(ThreadRollouts::CreatedAt)
-                            .string()
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(ThreadRollouts::Label).string().null())
-                    .col(
-                        ColumnDef::new(ThreadRollouts::ForkedFromConversationId)
-                            .string()
-                            .null(),
-                    )
-                    .col(
-                        ColumnDef::new(ThreadRollouts::ForkedFromNthUserMessage)
-                            .integer()
-                            .null(),
-                    )
+                    .col(ColumnDef::new(TurnSnapshots::ForkId).string().not_null())
+                    .col(ColumnDef::new(TurnSnapshots::EventId).string().not_null())
+                    .col(ColumnDef::new(TurnSnapshots::CommitSha).string().not_null())
+                    .col(ColumnDef::new(TurnSnapshots::CreatedAt).string().not_null())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk-thread_rollouts-thread")
-                            .from(ThreadRollouts::Table, ThreadRollouts::ThreadId)
-                            .to(Threads::Table, Threads::Id)
+                            .name("fk-turn_snapshots-fork")
+                            .from(TurnSnapshots::Table, TurnSnapshots::ForkId)
+                            .to(Forks::Table, Forks::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx-turn_snapshots-fork-event")
+                    .table(TurnSnapshots::Table)
+                    .col(TurnSnapshots::ForkId)
+                    .col(TurnSnapshots::EventId)
+                    .unique()
                     .to_owned(),
             )
             .await?;
@@ -148,13 +168,24 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(ThreadRollouts::Table).to_owned())
+            .drop_index(
+                Index::drop()
+                    .name("idx-turn_snapshots-fork-event")
+                    .table(TurnSnapshots::Table)
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_table(Table::drop().table(TurnSnapshots::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Forks::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Threads::Table).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(WorkspaceDefaults::Table).to_owned())
+            .drop_table(Table::drop().table(WorkspaceSettings::Table).to_owned())
             .await?;
         manager
             .drop_table(Table::drop().table(Workspaces::Table).to_owned())
@@ -171,7 +202,7 @@ enum Workspaces {
 }
 
 #[derive(DeriveIden)]
-enum WorkspaceDefaults {
+enum WorkspaceSettings {
     Table,
     WorkspacePath,
     Model,
@@ -188,20 +219,31 @@ enum Threads {
     WorkspacePath,
     CreatedAt,
     UpdatedAt,
-    CurrentConversationId,
+    CurrentForkId,
     Title,
     Preview,
 }
 
 #[derive(DeriveIden)]
-enum ThreadRollouts {
+enum Forks {
     Table,
     Id,
     ThreadId,
-    ConversationId,
     RolloutPath,
     CreatedAt,
     Label,
-    ForkedFromConversationId,
-    ForkedFromNthUserMessage,
+    ForkedFromForkId,
+    ForkedFromAfterMessage,
+    BaseCommit,
+    SnapshotsDisabled,
+}
+
+#[derive(DeriveIden)]
+enum TurnSnapshots {
+    Table,
+    Id,
+    ForkId,
+    EventId,
+    CommitSha,
+    CreatedAt,
 }

@@ -2,20 +2,21 @@ use std::process::Command;
 
 use anyhow::Context;
 use anyhow::Result as AnyResult;
+use codex_protocol::ConversationId;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::State;
 use ts_rs::TS;
 
-use crate::codex_runtime::CodexRuntime;
-use crate::workspace_manager::WorkspaceManager;
-
-use super::util::CommandResult;
+use crate::errors::AppError;
+use crate::errors::AppResult;
+use crate::review;
+use crate::state::AppState;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTurnDiffRangeParams {
-    pub conversation_id: String,
+    pub conversation_id: ConversationId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_event_id: Option<String>,
     pub target_event_id: String,
@@ -30,7 +31,7 @@ pub struct GetTurnDiffRangeResponse {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ListTurnSnapshotsParams {
-    pub conversation_id: String,
+    pub conversation_id: ConversationId,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
@@ -52,30 +53,19 @@ pub struct ListTurnSnapshotsResponse {
 #[tauri::command]
 pub async fn get_turn_diff_range(
     params: GetTurnDiffRangeParams,
-    runtime: State<'_, CodexRuntime>,
-    workspace_manager: State<'_, WorkspaceManager>,
-) -> CommandResult<GetTurnDiffRangeResponse> {
-    if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
-    }
+    app: State<'_, AppState>,
+) -> AppResult<GetTurnDiffRangeResponse> {
+    let commits = review::commits_for_range(
+        &app.db,
+        &params.conversation_id,
+        params.base_event_id.as_deref(),
+        &params.target_event_id,
+    )
+    .await?;
 
-    let session = workspace_manager
-        .get_active_conversation(&params.conversation_id)
-        .await
-        .ok_or_else(|| {
-            format!(
-                "Unknown conversation for review diff: {}",
-                params.conversation_id
-            )
-        })?;
-    let store = session.review_snapshots();
-    let commits = store
-        .commits_for_range(params.base_event_id.as_deref(), &params.target_event_id)
-        .await
-        .map_err(|err| format!("Failed to resolve snapshots: {}", err))?;
-
-    let (cwd, base_commit, target_commit) =
-        commits.ok_or_else(|| "Snapshot data unavailable for requested range".to_string())?;
+    let (cwd, base_commit, target_commit) = commits.ok_or(AppError::Validation {
+        message: "Snapshot data unavailable for requested range".to_string(),
+    })?;
 
     let diff = tokio::task::spawn_blocking(move || -> AnyResult<String> {
         let output = Command::new("git")
@@ -93,9 +83,8 @@ pub async fn get_turn_diff_range(
 
         String::from_utf8(output.stdout).context("git diff produced invalid UTF-8")
     })
-    .await
-    .map_err(|err| format!("Failed to join git diff task: {}", err))?
-    .map_err(|err| format!("Failed to compute diff: {}", err))?;
+    .await?
+    .map_err(AppError::Internal)?;
 
     Ok(GetTurnDiffRangeResponse { unified_diff: diff })
 }
@@ -103,35 +92,20 @@ pub async fn get_turn_diff_range(
 #[tauri::command]
 pub async fn list_turn_snapshots(
     params: ListTurnSnapshotsParams,
-    runtime: State<'_, CodexRuntime>,
-    workspace_manager: State<'_, WorkspaceManager>,
-) -> CommandResult<ListTurnSnapshotsResponse> {
-    if !runtime.is_initialized().await {
-        return Err("Runtime not initialized".to_string());
-    }
-
-    let session = workspace_manager
-        .get_active_conversation(&params.conversation_id)
-        .await
-        .ok_or_else(|| {
-            format!(
-                "Unknown conversation for snapshot listing: {}",
-                params.conversation_id
-            )
-        })?;
-
-    let store = session.review_snapshots();
-    let summary = store.snapshot_summary().await;
+    app: State<'_, AppState>,
+) -> AppResult<ListTurnSnapshotsResponse> {
+    let conversation_id = params.conversation_id;
+    let summary = review::snapshot_summary(&app.db, &conversation_id).await?;
 
     let response = ListTurnSnapshotsResponse {
         disabled: summary.disabled,
         base_commit_id: summary.base_commit,
         snapshots: summary
-            .turn_commits
+            .snapshots
             .into_iter()
-            .map(|(event_id, commit_id)| TurnSnapshotDescriptor {
-                event_id,
-                commit_id,
+            .map(|snapshot| TurnSnapshotDescriptor {
+                event_id: snapshot.event_id,
+                commit_id: snapshot.commit_sha,
             })
             .collect(),
     };

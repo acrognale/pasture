@@ -56,7 +56,10 @@ const shouldBypassStreamingQueue = (
   const eventType = payload.event.type;
   return (
     eventType === 'exec_approval_request' ||
-    eventType === 'apply_patch_approval_request'
+    eventType === 'apply_patch_approval_request' ||
+    eventType === 'task_started' ||
+    eventType === 'task_complete' ||
+    eventType === 'turn_aborted'
   );
 };
 

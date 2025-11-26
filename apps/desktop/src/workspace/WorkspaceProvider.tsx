@@ -106,7 +106,7 @@ export const useWorkspaceThreadConversationId = (threadId: string | null) => {
   const store = useWorkspaceStore();
   return useStore(
     store,
-    (state) => (threadId ? state.threadConversationIds[threadId] : null) ?? null
+    (state) => (threadId ? state.threadForkIds[threadId] : null) ?? null
   );
 };
 

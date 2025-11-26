@@ -6,8 +6,8 @@ import type {
   AuthState,
   CompactConversationParams,
   ComposerTurnConfigPayload,
-  ForkThreadParams,
-  ForkThreadResponse,
+  ForkConversationParams,
+  ForkConversationResponse,
   GetComposerConfigParams,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
@@ -15,8 +15,8 @@ import type {
   InitializeThreadResponse,
   InterruptConversationParams,
   InterruptConversationResponse,
-  ListThreadRolloutsParams,
-  ListThreadRolloutsResponse,
+  ListThreadConversationsParams,
+  ListThreadConversationsResponse,
   ListThreadsParams,
   ListThreadsResponse,
   ListTurnSnapshotsParams,
@@ -27,11 +27,11 @@ import type {
   RespondApprovalParams,
   SendUserMessageParams,
   SetWindowTitleParams,
-  SwitchThreadRolloutParams,
-  SwitchThreadRolloutResponse,
+  SwitchConversationParams,
+  SwitchConversationResponse,
   UpdateComposerConfigParams,
-  WorkspaceComposerDefaults,
   WorkspacePathParams,
+  WorkspaceSettings,
 } from '~/codex.gen';
 
 export namespace Codex {
@@ -41,18 +41,19 @@ export namespace Codex {
     return await invoke<ListThreadsResponse>('list_threads', { params });
   }
 
-  export async function listThreadRollouts(
-    params: ListThreadRolloutsParams
-  ): Promise<ListThreadRolloutsResponse> {
-    return await invoke<ListThreadRolloutsResponse>('list_thread_rollouts', {
-      params,
-    });
+  export async function listThreadConversations(
+    params: ListThreadConversationsParams
+  ): Promise<ListThreadConversationsResponse> {
+    return await invoke<ListThreadConversationsResponse>(
+      'list_thread_conversations',
+      { params }
+    );
   }
 
-  export async function switchThreadRollout(
-    params: SwitchThreadRolloutParams
-  ): Promise<SwitchThreadRolloutResponse> {
-    return await invoke<SwitchThreadRolloutResponse>('switch_thread_rollout', {
+  export async function switchConversation(
+    params: SwitchConversationParams
+  ): Promise<SwitchConversationResponse> {
+    return await invoke<SwitchConversationResponse>('switch_conversation', {
       params,
     });
   }
@@ -71,10 +72,12 @@ export namespace Codex {
     });
   }
 
-  export async function forkThread(
-    params: ForkThreadParams
-  ): Promise<ForkThreadResponse> {
-    return await invoke<ForkThreadResponse>('fork_thread', { params });
+  export async function forkConversation(
+    params: ForkConversationParams
+  ): Promise<ForkConversationResponse> {
+    return await invoke<ForkConversationResponse>('fork_conversation', {
+      params,
+    });
   }
 
   export async function sendUserMessage(
@@ -151,11 +154,10 @@ export namespace Codex {
 
   export async function getWorkspaceComposerDefaults(
     params: WorkspacePathParams
-  ): Promise<WorkspaceComposerDefaults> {
-    return await invoke<WorkspaceComposerDefaults>(
-      'get_workspace_composer_defaults',
-      { params }
-    );
+  ): Promise<WorkspaceSettings> {
+    return await invoke<WorkspaceSettings>('get_workspace_composer_defaults', {
+      params,
+    });
   }
 
   export async function createWorkspaceWindow(

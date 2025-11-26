@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { describe, expect, test } from 'vitest';
-import type { ThreadRollout } from '~/codex.gen/ThreadRollout';
+import type { Conversation } from '~/codex.gen/Conversation';
 import { ConversationPane } from '~/conversation/ConversationPane';
 import { ConversationProvider } from '~/conversation/store';
 import { mockCodex, mockEvents } from '~/testing/codex';
@@ -15,27 +15,29 @@ const THREAD_ID = 'f387a944-c3c2-4cc6-9f21-4fe4853100d5';
 const BASE_CONVERSATION_ID = '019ab3a1-b4cc-7812-945e-c5496d0ed6b2';
 const FORK_CONVERSATION_ID = '019ab3a1-f1a6-7601-8583-b20987cc7fa7';
 
-const buildRolloutsFixture = (): ThreadRollout[] => {
+const buildConversationsFixture = (): Conversation[] => {
   const createdAtBase = '2025-11-24T02:11:50.617132+00:00';
   const createdAtFork = '2025-11-24T02:12:06.196488+00:00';
   return [
     {
-      conversationId: BASE_CONVERSATION_ID,
+      id: BASE_CONVERSATION_ID,
+      threadId: THREAD_ID,
       rolloutPath:
         '/Users/anthony/.codex/sessions/2025/11/23/rollout-2025-11-23T21-11-50-019ab3a1-b4cc-7812-945e-c5496d0ed6b2.jsonl',
       createdAt: createdAtBase,
       label: null,
-      forkedFromConversationId: null,
-      forkedFromNthUserMessage: null,
+      parentConversationId: null,
+      forkedAtNthUserMessage: null,
     },
     {
-      conversationId: FORK_CONVERSATION_ID,
+      id: FORK_CONVERSATION_ID,
+      threadId: THREAD_ID,
       rolloutPath:
         '/Users/anthony/.codex/sessions/2025/11/23/rollout-2025-11-23T21-12-06-019ab3a1-f1a6-7601-8583-b20987cc7fa7.jsonl',
       createdAt: createdAtFork,
       label: null,
-      forkedFromConversationId: BASE_CONVERSATION_ID,
-      forkedFromNthUserMessage: 1,
+      parentConversationId: BASE_CONVERSATION_ID,
+      forkedAtNthUserMessage: 1,
     },
   ];
 };
@@ -44,7 +46,7 @@ describe('Thread version selector integration', () => {
   test('shows version selector for edited user message after reload', async () => {
     setupConversationTest(BASE_CONVERSATION_ID);
 
-    const rollouts = buildRolloutsFixture();
+    const conversations = buildConversationsFixture();
 
     mockCodex.stub.listThreads.mockResolvedValueOnce({
       items: [
@@ -54,8 +56,8 @@ describe('Thread version selector integration', () => {
           currentConversationId: FORK_CONVERSATION_ID,
           preview: 'test 123',
           title: null,
-          timestamp: rollouts[0]?.createdAt ?? new Date().toISOString(),
-          rolloutCount: rollouts.length,
+          timestamp: conversations[0]?.createdAt ?? new Date().toISOString(),
+          conversationCount: conversations.length,
         },
       ],
     });
@@ -85,12 +87,12 @@ describe('Thread version selector integration', () => {
             images: null,
           },
         ],
-        rollout_path: rollouts[1]?.rolloutPath ?? '',
+        rollout_path: conversations[1]?.rolloutPath ?? '',
       },
       reasoningSummary: 'auto',
     });
 
-    mockCodex.stub.switchThreadRollout
+    mockCodex.stub.switchConversation
       .mockResolvedValueOnce({
         conversationId: BASE_CONVERSATION_ID,
         sessionConfigured: {
@@ -116,7 +118,7 @@ describe('Thread version selector integration', () => {
               images: null,
             },
           ],
-          rollout_path: rollouts[0]?.rolloutPath ?? '',
+          rollout_path: conversations[0]?.rolloutPath ?? '',
         },
         reasoningSummary: 'auto',
       })
@@ -145,15 +147,15 @@ describe('Thread version selector integration', () => {
               images: null,
             },
           ],
-          rollout_path: rollouts[1]?.rolloutPath ?? '',
+          rollout_path: conversations[1]?.rolloutPath ?? '',
         },
         reasoningSummary: 'auto',
       });
 
-    mockCodex.stub.listThreadRollouts.mockResolvedValueOnce({
+    mockCodex.stub.listThreadConversations.mockResolvedValueOnce({
       threadId: THREAD_ID,
       currentConversationId: FORK_CONVERSATION_ID,
-      rollouts,
+      conversations,
     });
 
     const ThreadLoader = ({ threadId }: { threadId: string }) => {
@@ -203,7 +205,7 @@ describe('Thread version selector integration', () => {
             images: null,
           },
         ],
-        rollout_path: rollouts[1]?.rolloutPath ?? '',
+        rollout_path: conversations[1]?.rolloutPath ?? '',
       },
       { conversationId: FORK_CONVERSATION_ID }
     );

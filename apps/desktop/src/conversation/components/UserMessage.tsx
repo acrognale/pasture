@@ -36,7 +36,8 @@ export function UserMessage({
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(message);
   const [isSaving, setIsSaving] = useState(false);
-  const { forkThread, getThreadIdForConversation } = useWorkspaceActions();
+  const { forkConversation, getThreadIdForConversation } =
+    useWorkspaceActions();
   const {
     versions,
     activeConversationId,
@@ -75,7 +76,7 @@ export function UserMessage({
         nthUserMessage,
         text: message,
       });
-      const forkedConversationId = await forkThread(
+      const forkedConversationId = await forkConversation(
         threadId,
         conversationId,
         nthUserMessage
@@ -132,7 +133,7 @@ export function UserMessage({
         nthUserMessage,
         text: trimmed,
       });
-      const forkedConversationId = await forkThread(
+      const forkedConversationId = await forkConversation(
         threadId,
         conversationId,
         nthUserMessage

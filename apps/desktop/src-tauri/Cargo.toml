@@ -48,6 +48,7 @@ sea-orm-migration = { version = "1.1", features = [
   "runtime-tokio-rustls",
 ] }
 migration = { path = "migration" }
+thiserror = "1"
 
 # Codex dependencies
 codex-core = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }

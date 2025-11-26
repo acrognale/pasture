@@ -1,4 +1,3 @@
-use sea_orm::DatabaseConnection;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::AppHandle;
@@ -6,19 +5,21 @@ use tauri::State;
 use tauri::Window;
 use ts_rs::TS;
 
-use crate::workspace_manager::WorkspaceComposerDefaults;
-use crate::workspace_manager::WorkspaceManager;
-
-use super::util::CommandResult;
+use crate::domain::WorkspacePath;
+use crate::domain::WorkspaceSettings;
+use crate::errors::AppError;
+use crate::errors::AppResult;
+use crate::state::AppState;
+use crate::workspace;
 
 /// List recently opened workspaces (most recent first).
 #[tauri::command]
-pub async fn list_recent_workspaces(
-    db: State<'_, DatabaseConnection>,
-) -> CommandResult<Vec<String>> {
-    Ok(crate::db::workspace::list_recent_workspaces(&db, 10)
-        .await
-        .unwrap_or_default())
+pub async fn list_recent_workspaces(app: State<'_, AppState>) -> AppResult<Vec<String>> {
+    let workspaces = workspace::list_recent(&app.db, 10).await?;
+    Ok(workspaces
+        .into_iter()
+        .map(|summary| summary.path.into_string())
+        .collect())
 }
 
 /// Parameters accepted by workspace navigation commands.
@@ -32,40 +33,28 @@ pub struct WorkspacePathParams {
 #[tauri::command]
 pub async fn open_workspace(
     params: WorkspacePathParams,
-    workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
-) -> CommandResult<String> {
-    let normalized = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+    app: State<'_, AppState>,
+) -> AppResult<String> {
+    let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
+    workspace::touch(&app.db, &normalized).await?;
 
-    crate::db::workspace::upsert_workspace(&db, &normalized, None)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    Ok(normalized)
+    Ok(normalized.into_string())
 }
 
 /// Create a new window for a workspace (used by native menu).
 #[tauri::command]
 pub async fn create_workspace_window(
     params: WorkspacePathParams,
-    workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
+    app: State<'_, AppState>,
     app_handle: AppHandle,
-) -> CommandResult<()> {
-    let normalized = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
+) -> AppResult<()> {
+    let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
+    workspace::touch(&app.db, &normalized).await?;
 
-    crate::db::workspace::upsert_workspace(&db, &normalized, None)
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let title = workspace_manager.build_workspace_title(&normalized);
+    let title = workspace::build_title(&normalized);
 
     // Create a new window with the workspace route
-    let url = format!("/workspaces/{}", urlencoding::encode(&normalized));
+    let url = format!("/workspaces/{}", urlencoding::encode(normalized.as_str()));
 
     let mut builder = tauri::WebviewWindowBuilder::new(
         &app_handle,
@@ -87,7 +76,9 @@ pub async fn create_workspace_window(
             .hidden_title(true);
     }
 
-    builder.build().map_err(|e| e.to_string())?;
+    builder
+        .build()
+        .map_err(|e| AppError::Internal(anyhow::Error::new(e)))?;
 
     Ok(())
 }
@@ -100,14 +91,16 @@ pub struct SetWindowTitleParams {
 
 /// Set the current window's title.
 #[tauri::command]
-pub async fn set_window_title(params: SetWindowTitleParams, window: Window) -> CommandResult<()> {
-    window.set_title(&params.title).map_err(|e| e.to_string())?;
+pub async fn set_window_title(params: SetWindowTitleParams, window: Window) -> AppResult<()> {
+    window
+        .set_title(&params.title)
+        .map_err(|e| AppError::Internal(anyhow::Error::new(e)))?;
     Ok(())
 }
 
 /// Browse for a workspace directory using the system file dialog.
 #[tauri::command]
-pub async fn browse_for_workspace(app_handle: AppHandle) -> CommandResult<Option<String>> {
+pub async fn browse_for_workspace(app_handle: AppHandle) -> AppResult<Option<String>> {
     use tauri_plugin_dialog::DialogExt;
 
     let folder_path = app_handle
@@ -123,15 +116,8 @@ pub async fn browse_for_workspace(app_handle: AppHandle) -> CommandResult<Option
 #[tauri::command]
 pub async fn get_workspace_composer_defaults(
     params: WorkspacePathParams,
-    workspace_manager: State<'_, WorkspaceManager>,
-    db: State<'_, DatabaseConnection>,
-) -> CommandResult<WorkspaceComposerDefaults> {
-    let normalized = workspace_manager
-        .normalize_workspace_path(&params.workspace_path)
-        .map_err(|e| e.to_string())?;
-    Ok(
-        crate::db::workspace::get_workspace_defaults(&db, &normalized)
-            .await
-            .unwrap_or_default(),
-    )
+    app: State<'_, AppState>,
+) -> AppResult<WorkspaceSettings> {
+    let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
+    workspace::get_composer_defaults(&app.db, &normalized, &app.config).await
 }

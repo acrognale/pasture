@@ -41,7 +41,7 @@ export function ConversationPane({
   conversationId,
   onConversationForked,
 }: ConversationPaneProps) {
-  const { loadConversation, getConversationStore } = useWorkspaceActions();
+  const { getConversationStore } = useWorkspaceActions();
   const { interruptConversation, isPending: interruptPending } =
     useInterruptConversation(conversationId);
   const [expandedTurnsByConversation, setExpandedTurnsByConversation] =
@@ -271,7 +271,6 @@ export function ConversationPane({
           <ConversationTranscriptSection
             ref={transcriptHandleRef}
             conversationId={conversationId}
-            loadConversation={loadConversation}
             expandedTurns={expandedTurns}
             onToggleTurn={toggleTurn}
             onConversationForked={onConversationForked}

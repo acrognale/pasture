@@ -4,7 +4,7 @@ import type { ConversationId } from './ConversationId';
 import type { ReasoningSummary } from './ReasoningSummary';
 import type { SessionConfiguredEvent } from './SessionConfiguredEvent';
 
-export type ForkThreadResponse = {
+export type ForkConversationResponse = {
   threadId: string;
   baseConversationId: ConversationId;
   conversationId: ConversationId;

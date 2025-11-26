@@ -22,10 +22,10 @@ export {
   useOpenWorkspaceThreads,
 } from './hooks/useWorkspaceThreads';
 export {
-  useWorkspaceThreadRollouts,
+  useWorkspaceThreadConversations,
   useThreadVersionGroups,
   computeThreadVersionGroups,
-} from './hooks/useWorkspaceThreadRollouts';
+} from './hooks/useWorkspaceThreadConversations';
 export type {
   WorkspaceThreadsState,
   WorkspaceOpenThreadsState,

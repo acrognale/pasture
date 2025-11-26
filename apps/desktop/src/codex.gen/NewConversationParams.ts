@@ -4,9 +4,6 @@ import type { AskForApproval } from './AskForApproval';
 import type { SandboxMode } from './SandboxMode';
 import type { JsonValue } from './serde_json/JsonValue';
 
-/**
- * Options accepted when creating a new conversation.
- */
 export type NewConversationParams = {
   model: string | null;
   profile: string | null;
