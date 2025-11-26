@@ -46,33 +46,6 @@ const shouldUpdatePreview = (event: EventMsg): boolean => {
   }
 };
 
-const STREAMING_FPS = 24;
-const STREAMING_FRAME_MS = 1000 / STREAMING_FPS;
-const STREAMING_RELEASE_RATIO = 0.35;
-
-const shouldBypassStreamingQueue = (
-  payload: ConversationEventPayload
-): boolean => {
-  const eventType = payload.event.type;
-  return (
-    eventType === 'exec_approval_request' ||
-    eventType === 'apply_patch_approval_request' ||
-    eventType === 'task_started' ||
-    eventType === 'task_complete' ||
-    eventType === 'turn_aborted'
-  );
-};
-
-const now = () => {
-  if (
-    typeof performance !== 'undefined' &&
-    typeof performance.now === 'function'
-  ) {
-    return performance.now();
-  }
-  return Date.now();
-};
-
 export function ConversationProvider({
   workspacePath,
   children,
@@ -86,11 +59,6 @@ export function ConversationProvider({
     [workspacePath]
   );
   const lastAuthErrorRef = useRef<string | null>(null);
-  const deltaQueueRef = useRef<ConversationEventPayload[]>([]);
-  const deltaFlushHandleRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-  const lastDeltaFlushRef = useRef<number>(now());
 
   useEffect(() => {
     if (!workspacePath || !isTauriEnvironment()) {
@@ -128,13 +96,6 @@ export function ConversationProvider({
       }
 
       return true;
-    };
-
-    const clearScheduledFlush = () => {
-      if (deltaFlushHandleRef.current) {
-        clearTimeout(deltaFlushHandleRef.current);
-        deltaFlushHandleRef.current = null;
-      }
     };
 
     const processPayload = (payload: ConversationEventPayload) => {
@@ -200,64 +161,12 @@ export function ConversationProvider({
       startTransition(applyPayload);
     };
 
-    const flushDeltaEvents = () => {
-      deltaFlushHandleRef.current = null;
-      const queue = deltaQueueRef.current;
-      if (queue.length === 0) {
-        return;
-      }
-
-      const currentTime = now();
-      const elapsed = currentTime - lastDeltaFlushRef.current;
-      const framesElapsed = Math.max(
-        1,
-        Math.round(elapsed / STREAMING_FRAME_MS)
-      );
-      lastDeltaFlushRef.current = currentTime;
-
-      const interpolateCount = Math.max(
-        1,
-        Math.round(queue.length * STREAMING_RELEASE_RATIO)
-      );
-      const eventsToProcess = Math.min(
-        queue.length,
-        Math.max(framesElapsed, interpolateCount)
-      );
-      const batch = queue.splice(0, eventsToProcess);
-      batch.forEach((payload) => {
-        processPayload(payload);
-      });
-
-      if (queue.length > 0) {
-        deltaFlushHandleRef.current = setTimeout(
-          flushDeltaEvents,
-          STREAMING_FRAME_MS
-        );
-      }
-    };
-
-    const enqueueDeltaPayload = (payload: ConversationEventPayload) => {
-      if (shouldBypassStreamingQueue(payload)) {
-        processPayload(payload);
-        return;
-      }
-
-      deltaQueueRef.current.push(payload);
-      if (!deltaFlushHandleRef.current) {
-        lastDeltaFlushRef.current = now();
-        deltaFlushHandleRef.current = setTimeout(
-          flushDeltaEvents,
-          STREAMING_FRAME_MS
-        );
-      }
-    };
-
     const handleConversationEvent = (
       event: CodexEvent & { kind: 'conversation-event' }
     ) => {
       const payload: ConversationEventPayload = event.payload;
 
-      enqueueDeltaPayload(payload);
+      processPayload(payload);
     };
 
     const handleThreadMetadataUpdated = (
@@ -325,8 +234,6 @@ export function ConversationProvider({
     return () => {
       unsubscribe?.();
       lastAuthErrorRef.current = null;
-      clearScheduledFlush();
-      deltaQueueRef.current = [];
     };
   }, [
     applyConversationEvent,

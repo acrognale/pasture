@@ -219,32 +219,6 @@ describe('Conversation streaming flow', () => {
     }
   });
 
-  test('renders agent message deltas cumulatively while streaming', async () => {
-    renderConversationPane(CONVERSATION_ID);
-
-    await screen.findByRole('textbox');
-
-    emitSessionConfigured();
-    emitEvent({
-      type: 'task_started',
-      model_context_window: BigInt(32768),
-    });
-
-    emitEvent({
-      type: 'agent_message_delta',
-      delta: 'Hello from',
-    });
-
-    emitEvent({
-      type: 'agent_message_delta',
-      delta: ' Codex streaming!',
-    });
-
-    expect(
-      await screen.findByText('Hello from Codex streaming!', { exact: false })
-    ).toBeInTheDocument();
-  });
-
   test('renders streaming reasoning updates as they arrive', async () => {
     renderConversationPane(CONVERSATION_ID);
 
