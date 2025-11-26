@@ -3,19 +3,19 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use anyhow::Result as AnyResult;
+use codex_protocol::ConversationId;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::State;
 use ts_rs::TS;
 
-use crate::domain::ForkId;
 use crate::errors::{AppError, AppResult};
 use crate::services::ReviewService;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTurnDiffRangeParams {
-    pub conversation_id: String,
+    pub conversation_id: ConversationId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_event_id: Option<String>,
     pub target_event_id: String,
@@ -30,7 +30,7 @@ pub struct GetTurnDiffRangeResponse {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct ListTurnSnapshotsParams {
-    pub conversation_id: String,
+    pub conversation_id: ConversationId,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
@@ -54,11 +54,10 @@ pub async fn get_turn_diff_range(
     params: GetTurnDiffRangeParams,
     review: State<'_, Arc<ReviewService>>,
 ) -> AppResult<GetTurnDiffRangeResponse> {
-    let fork_id = ForkId::from(params.conversation_id.clone());
     let commits = review
         .inner()
         .commits_for_range(
-            &fork_id,
+            &params.conversation_id,
             params.base_event_id.as_deref(),
             &params.target_event_id,
         )
@@ -95,8 +94,8 @@ pub async fn list_turn_snapshots(
     params: ListTurnSnapshotsParams,
     review: State<'_, Arc<ReviewService>>,
 ) -> AppResult<ListTurnSnapshotsResponse> {
-    let fork_id = ForkId::from(params.conversation_id.clone());
-    let summary = review.inner().snapshot_summary(&fork_id).await?;
+    let conversation_id = ConversationId::from(params.conversation_id);
+    let summary = review.inner().snapshot_summary(&conversation_id).await?;
 
     let response = ListTurnSnapshotsResponse {
         disabled: summary.disabled,

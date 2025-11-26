@@ -8,7 +8,6 @@ use codex_protocol::user_input::UserInput as CoreUserInput;
 use tauri::AppHandle;
 use uuid::Uuid;
 
-use crate::domain::ForkId;
 use crate::errors::{AppError, AppResult};
 use crate::events::EventRouter;
 
@@ -28,7 +27,7 @@ impl TurnService {
 
     pub async fn send(
         &self,
-        fork_id: &ForkId,
+        fork_id: &ConversationId,
         items: Vec<CoreUserInput>,
         overrides: TurnOverrides,
         window_label: &str,
@@ -68,7 +67,7 @@ impl TurnService {
             .map(|_| ())
     }
 
-    pub async fn interrupt(&self, fork_id: &ForkId) -> AppResult<()> {
+    pub async fn interrupt(&self, fork_id: &ConversationId) -> AppResult<()> {
         let conversation = self.resolve_conversation(fork_id).await?;
         conversation
             .submit(Op::Interrupt)
@@ -79,7 +78,7 @@ impl TurnService {
 
     pub async fn compact(
         &self,
-        fork_id: &ForkId,
+        fork_id: &ConversationId,
         window_label: &str,
         app_handle: AppHandle,
     ) -> AppResult<()> {
@@ -103,7 +102,7 @@ impl TurnService {
 
     pub async fn add_subscription(
         &self,
-        fork_id: &ForkId,
+        fork_id: &ConversationId,
         app_handle: AppHandle,
         window_label: String,
     ) -> AppResult<Uuid> {
@@ -121,14 +120,12 @@ impl TurnService {
             .map_err(|e| AppError::Validation { message: e })
     }
 
-    async fn resolve_conversation(&self, fork_id: &ForkId) -> AppResult<Arc<CodexConversation>> {
-        let conversation_id =
-            ConversationId::from_string(fork_id.as_str()).map_err(|e| AppError::Validation {
-                message: format!("Invalid fork id: {}", e),
-            })?;
-
+    async fn resolve_conversation(
+        &self,
+        fork_id: &ConversationId,
+    ) -> AppResult<Arc<CodexConversation>> {
         self.conversations
-            .get_conversation(conversation_id)
+            .get_conversation(fork_id.clone())
             .await
             .map_err(|_| AppError::NotFound {
                 entity: "conversation",

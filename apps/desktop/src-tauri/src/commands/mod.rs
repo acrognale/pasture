@@ -18,13 +18,13 @@ codex_command_descriptors! {
         params: threads::ListThreadsParams,
         result: threads::ListThreadsResponse,
     },
-    threads::list_thread_forks {
-        params: threads::ListThreadForksParams,
-        result: threads::ListThreadForksResponse,
+    threads::list_thread_conversations {
+        params: threads::ListThreadConversationsParams,
+        result: threads::ListThreadConversationsResponse,
     },
-    threads::switch_thread_fork {
-        params: threads::SwitchThreadForkParams,
-        result: threads::SwitchThreadForkResponse,
+    threads::switch_conversation {
+        params: threads::SwitchConversationParams,
+        result: threads::SwitchConversationResponse,
     },
     threads::new_thread {
         params: threads::NewThreadCommandParams,
@@ -34,9 +34,9 @@ codex_command_descriptors! {
         params: threads::InitializeThreadParams,
         result: threads::InitializeThreadResponse,
     },
-    threads::fork_thread {
-        params: threads::ForkThreadParams,
-        result: threads::ForkThreadResponse,
+    threads::fork_conversation {
+        params: threads::ForkConversationParams,
+        result: threads::ForkConversationResponse,
     },
     turns::send_user_message {
         params: turns::SendUserMessageParams,

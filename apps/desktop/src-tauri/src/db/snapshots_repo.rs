@@ -1,3 +1,4 @@
+use codex_protocol::ConversationId;
 use sea_orm::ActiveModelTrait;
 use sea_orm::ActiveValue::{NotSet, Set};
 use sea_orm::ColumnTrait;
@@ -7,7 +8,6 @@ use sea_orm::QueryFilter;
 use sea_orm::QueryOrder;
 
 use crate::db::{db_err, schema};
-use crate::domain::ForkId;
 use crate::errors::{AppError, AppResult};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,7 +18,7 @@ pub struct TurnSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ForkSnapshotState {
+pub struct ConversationSnapshotState {
     pub workspace_path: String,
     pub rollout_path: String,
     pub base_commit: Option<String>,
@@ -35,43 +35,49 @@ impl TurnSnapshotRepo {
         Self { db }
     }
 
-    pub async fn get_fork_snapshot_state(
+    pub async fn get_conversation_snapshot_state(
         &self,
-        fork_id: &ForkId,
-    ) -> AppResult<Option<ForkSnapshotState>> {
-        let fork = schema::forks::Entity::find_by_id(fork_id.as_str().to_string())
+        conversation_id: &ConversationId,
+    ) -> AppResult<Option<ConversationSnapshotState>> {
+        let conversation = schema::conversations::Entity::find_by_id(conversation_id.to_string())
             .one(&self.db)
             .await
-            .map_err(|e| db_err("Failed to load fork snapshot state", e))?;
+            .map_err(|e| db_err("Failed to load conversation snapshot state", e))?;
 
-        let Some(fork) = fork else {
+        let Some(conversation) = conversation else {
             return Ok(None);
         };
 
-        let thread = schema::threads::Entity::find_by_id(fork.thread_id.clone())
+        let thread = schema::threads::Entity::find_by_id(conversation.thread_id.clone())
             .one(&self.db)
             .await
-            .map_err(|e| db_err("Failed to load fork thread", e))?
+            .map_err(|e| db_err("Failed to load conversation thread", e))?
             .ok_or(AppError::NotFound { entity: "thread" })?;
 
-        Ok(Some(ForkSnapshotState {
+        Ok(Some(ConversationSnapshotState {
             workspace_path: thread.workspace_path,
-            rollout_path: fork.rollout_path,
-            base_commit: fork.base_commit,
-            snapshots_disabled: fork.snapshots_disabled,
+            rollout_path: conversation.rollout_path,
+            base_commit: conversation.base_commit,
+            snapshots_disabled: conversation.snapshots_disabled,
         }))
     }
 
-    pub async fn set_base_commit(&self, fork_id: &ForkId, commit_sha: &str) -> AppResult<()> {
-        let Some(existing) = schema::forks::Entity::find_by_id(fork_id.as_str().to_string())
+    pub async fn set_base_commit(
+        &self,
+        conversation_id: &ConversationId,
+        commit_sha: &str,
+    ) -> AppResult<()> {
+        let Some(existing) = schema::conversations::Entity::find_by_id(conversation_id.to_string())
             .one(&self.db)
             .await
-            .map_err(|e| db_err("Failed to load fork for base commit update", e))?
+            .map_err(|e| db_err("Failed to load conversation for base commit update", e))?
         else {
-            return Err(AppError::NotFound { entity: "fork" });
+            return Err(AppError::NotFound {
+                entity: "conversation",
+            });
         };
 
-        let mut active: schema::forks::ActiveModel = existing.into();
+        let mut active: schema::conversations::ActiveModel = existing.into();
         active.base_commit = Set(Some(commit_sha.to_string()));
         active
             .update(&self.db)
@@ -81,16 +87,18 @@ impl TurnSnapshotRepo {
         Ok(())
     }
 
-    pub async fn disable_snapshots(&self, fork_id: &ForkId) -> AppResult<()> {
-        let Some(existing) = schema::forks::Entity::find_by_id(fork_id.as_str().to_string())
+    pub async fn disable_snapshots(&self, conversation_id: &ConversationId) -> AppResult<()> {
+        let Some(existing) = schema::conversations::Entity::find_by_id(conversation_id.to_string())
             .one(&self.db)
             .await
-            .map_err(|e| db_err("Failed to load fork for snapshot disable", e))?
+            .map_err(|e| db_err("Failed to load conversation for snapshot disable", e))?
         else {
-            return Err(AppError::NotFound { entity: "fork" });
+            return Err(AppError::NotFound {
+                entity: "conversation",
+            });
         };
 
-        let mut active: schema::forks::ActiveModel = existing.into();
+        let mut active: schema::conversations::ActiveModel = existing.into();
         active.snapshots_disabled = Set(true);
         active
             .update(&self.db)
@@ -102,11 +110,11 @@ impl TurnSnapshotRepo {
 
     pub async fn get_turn_snapshot(
         &self,
-        fork_id: &ForkId,
+        conversation_id: &ConversationId,
         event_id: &str,
     ) -> AppResult<Option<TurnSnapshot>> {
         let item = schema::turn_snapshots::Entity::find()
-            .filter(schema::turn_snapshots::Column::ForkId.eq(fork_id.as_str()))
+            .filter(schema::turn_snapshots::Column::ConversationId.eq(conversation_id.to_string()))
             .filter(schema::turn_snapshots::Column::EventId.eq(event_id))
             .one(&self.db)
             .await
@@ -121,11 +129,11 @@ impl TurnSnapshotRepo {
 
     pub async fn add_turn_snapshot(
         &self,
-        fork_id: &ForkId,
+        conversation_id: &ConversationId,
         snapshot: TurnSnapshot,
     ) -> AppResult<()> {
         let existing = schema::turn_snapshots::Entity::find()
-            .filter(schema::turn_snapshots::Column::ForkId.eq(fork_id.as_str()))
+            .filter(schema::turn_snapshots::Column::ConversationId.eq(conversation_id.to_string()))
             .filter(schema::turn_snapshots::Column::EventId.eq(snapshot.event_id.clone()))
             .one(&self.db)
             .await
@@ -141,7 +149,7 @@ impl TurnSnapshotRepo {
             }
             None => schema::turn_snapshots::ActiveModel {
                 id: NotSet,
-                fork_id: Set(fork_id.as_str().to_string()),
+                conversation_id: Set(conversation_id.to_string()),
                 event_id: Set(snapshot.event_id),
                 commit_sha: Set(snapshot.commit_sha),
                 created_at: Set(snapshot.created_at),
@@ -163,9 +171,12 @@ impl TurnSnapshotRepo {
         Ok(())
     }
 
-    pub async fn list_for_fork(&self, fork_id: &ForkId) -> AppResult<Vec<TurnSnapshot>> {
+    pub async fn list_for_conversation(
+        &self,
+        conversation_id: &ConversationId,
+    ) -> AppResult<Vec<TurnSnapshot>> {
         let items = schema::turn_snapshots::Entity::find()
-            .filter(schema::turn_snapshots::Column::ForkId.eq(fork_id.as_str()))
+            .filter(schema::turn_snapshots::Column::ConversationId.eq(conversation_id.to_string()))
             .order_by_asc(schema::turn_snapshots::Column::CreatedAt)
             .all(&self.db)
             .await

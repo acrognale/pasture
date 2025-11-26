@@ -120,11 +120,11 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::threads::list_threads,
-            commands::threads::list_thread_forks,
-            commands::threads::switch_thread_fork,
+            commands::threads::list_thread_conversations,
+            commands::threads::switch_conversation,
             commands::threads::new_thread,
             commands::threads::initialize_thread,
-            commands::threads::fork_thread,
+            commands::threads::fork_conversation,
             commands::turns::send_user_message,
             commands::turns::interrupt_conversation,
             commands::turns::compact_conversation,

@@ -9,7 +9,7 @@ import type { EventMsg } from '~/codex.gen/EventMsg';
 import type { GetTurnDiffRangeResponse } from '~/codex.gen/GetTurnDiffRangeResponse';
 import type { InitializeThreadResponse } from '~/codex.gen/InitializeThreadResponse';
 import type { InterruptConversationResponse } from '~/codex.gen/InterruptConversationResponse';
-import type { ListThreadForksResponse } from '~/codex.gen/ListThreadForksResponse';
+import type { ListThreadConversationsResponse } from '~/codex.gen/ListThreadConversationsResponse';
 import type { ListThreadsResponse } from '~/codex.gen/ListThreadsResponse';
 import type { ListTurnSnapshotsResponse } from '~/codex.gen/ListTurnSnapshotsResponse';
 import type { NewThreadResponse } from '~/codex.gen/NewThreadResponse';
@@ -97,14 +97,14 @@ const mockCodexNamespace = {
     async (): Promise<InitializeThreadResponse> =>
       createDefaultInitializeThreadResponse()
   ),
-  listThreadForks: defineStub<[], ListThreadForksResponse>(
-    async (): Promise<ListThreadForksResponse> => ({
+  listThreadConversations: defineStub<[], ListThreadConversationsResponse>(
+    async (): Promise<ListThreadConversationsResponse> => ({
       threadId: 'mock-thread',
       currentConversationId: 'mock-conversation',
-      forks: [],
+      conversations: [],
     })
   ),
-  switchThreadFork: defineStub(async () => ({
+  switchConversation: defineStub(async () => ({
     conversationId: 'mock-conversation',
     sessionConfigured: createDefaultSessionConfiguredEvent(),
     reasoningSummary: 'auto' satisfies ReasoningSummary,

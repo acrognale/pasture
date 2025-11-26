@@ -6,8 +6,8 @@ import type {
   AuthState,
   CompactConversationParams,
   ComposerTurnConfigPayload,
-  ForkThreadParams,
-  ForkThreadResponse,
+  ForkConversationParams,
+  ForkConversationResponse,
   GetComposerConfigParams,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
@@ -15,8 +15,8 @@ import type {
   InitializeThreadResponse,
   InterruptConversationParams,
   InterruptConversationResponse,
-  ListThreadForksParams,
-  ListThreadForksResponse,
+  ListThreadConversationsParams,
+  ListThreadConversationsResponse,
   ListThreadsParams,
   ListThreadsResponse,
   ListTurnSnapshotsParams,
@@ -27,8 +27,8 @@ import type {
   RespondApprovalParams,
   SendUserMessageParams,
   SetWindowTitleParams,
-  SwitchThreadForkParams,
-  SwitchThreadForkResponse,
+  SwitchConversationParams,
+  SwitchConversationResponse,
   UpdateComposerConfigParams,
   WorkspacePathParams,
   WorkspaceSettings,
@@ -41,18 +41,19 @@ export namespace Codex {
     return await invoke<ListThreadsResponse>('list_threads', { params });
   }
 
-  export async function listThreadForks(
-    params: ListThreadForksParams
-  ): Promise<ListThreadForksResponse> {
-    return await invoke<ListThreadForksResponse>('list_thread_forks', {
-      params,
-    });
+  export async function listThreadConversations(
+    params: ListThreadConversationsParams
+  ): Promise<ListThreadConversationsResponse> {
+    return await invoke<ListThreadConversationsResponse>(
+      'list_thread_conversations',
+      { params }
+    );
   }
 
-  export async function switchThreadFork(
-    params: SwitchThreadForkParams
-  ): Promise<SwitchThreadForkResponse> {
-    return await invoke<SwitchThreadForkResponse>('switch_thread_fork', {
+  export async function switchConversation(
+    params: SwitchConversationParams
+  ): Promise<SwitchConversationResponse> {
+    return await invoke<SwitchConversationResponse>('switch_conversation', {
       params,
     });
   }
@@ -71,10 +72,12 @@ export namespace Codex {
     });
   }
 
-  export async function forkThread(
-    params: ForkThreadParams
-  ): Promise<ForkThreadResponse> {
-    return await invoke<ForkThreadResponse>('fork_thread', { params });
+  export async function forkConversation(
+    params: ForkConversationParams
+  ): Promise<ForkConversationResponse> {
+    return await invoke<ForkConversationResponse>('fork_conversation', {
+      params,
+    });
   }
 
   export async function sendUserMessage(

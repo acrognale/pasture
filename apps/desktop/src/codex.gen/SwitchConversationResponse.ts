@@ -4,13 +4,8 @@ import type { ConversationId } from './ConversationId';
 import type { ReasoningSummary } from './ReasoningSummary';
 import type { SessionConfiguredEvent } from './SessionConfiguredEvent';
 
-export type ForkThreadResponse = {
-  threadId: string;
-  baseConversationId: ConversationId;
+export type SwitchConversationResponse = {
   conversationId: ConversationId;
-  rolloutPath: string;
-  sessionConfigured: SessionConfiguredEvent;
-  reasoningSummary: ReasoningSummary;
-  nthUserMessage: number;
-  createdAt: string;
+  sessionConfigured: SessionConfiguredEvent | null;
+  reasoningSummary: ReasoningSummary | null;
 };

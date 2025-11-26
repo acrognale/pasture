@@ -10,10 +10,11 @@ use tauri::{AppHandle, State};
 use ts_rs::TS;
 
 use crate::codex_config::NewThreadOptions;
-use crate::domain::{Fork, ForkId, ForkPoint, ThreadId};
+use crate::domain::{Conversation, ThreadId};
 use crate::errors::{AppError, AppResult};
 use crate::services::{
-    ForkThreadResult, SwitchForkResult, ThreadInitialization, ThreadService, WorkspaceService,
+    ForkConversationResult, SwitchConversationResult, ThreadInitialization, ThreadService,
+    WorkspaceService,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
@@ -26,35 +27,35 @@ pub struct ThreadSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     pub timestamp: String,
-    pub fork_count: usize,
+    pub conversation_count: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct ListThreadForksParams {
+pub struct ListThreadConversationsParams {
     pub workspace_path: String,
     pub thread_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct ListThreadForksResponse {
+pub struct ListThreadConversationsResponse {
     pub thread_id: String,
     pub current_conversation_id: String,
-    pub forks: Vec<Fork>,
+    pub conversations: Vec<Conversation>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct SwitchThreadForkParams {
+pub struct SwitchConversationParams {
     pub workspace_path: String,
     pub thread_id: String,
-    pub conversation_id: String,
+    pub conversation_id: ConversationId,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct SwitchThreadForkResponse {
+pub struct SwitchConversationResponse {
     pub conversation_id: ConversationId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_configured: Option<SessionConfiguredEvent>,
@@ -64,17 +65,17 @@ pub struct SwitchThreadForkResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct ForkThreadParams {
+pub struct ForkConversationParams {
     pub workspace_path: String,
     pub thread_id: String,
-    pub base_conversation_id: String,
+    pub base_conversation_id: ConversationId,
     pub nth_user_message: u32,
     pub options: Option<NewConversationParams>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct ForkThreadResponse {
+pub struct ForkConversationResponse {
     pub thread_id: String,
     pub base_conversation_id: ConversationId,
     pub conversation_id: ConversationId,
@@ -168,7 +169,7 @@ pub async fn list_threads(
         .map(|thread| ThreadSummary {
             thread_id: thread.id.as_str().to_string(),
             workspace_path: workspace_path_str.clone(),
-            current_conversation_id: thread.current_fork_id.as_str().to_string(),
+            current_conversation_id: thread.current_conversation_id.to_string(),
             title: thread.title.clone(),
             preview: thread
                 .preview
@@ -176,30 +177,30 @@ pub async fn list_threads(
                 .or_else(|| thread.title.clone())
                 .unwrap_or_else(|| "Untitled session".to_string()),
             timestamp: thread.updated_at.clone(),
-            fork_count: thread.forks.len(),
+            conversation_count: thread.conversations.len(),
         })
         .collect();
 
     Ok(ListThreadsResponse { items })
 }
 
-/// List all forks for a thread.
+/// List all conversations for a thread.
 #[tauri::command]
-pub async fn list_thread_forks(
+pub async fn list_thread_conversations(
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
-    params: ListThreadForksParams,
-) -> AppResult<ListThreadForksResponse> {
+    params: ListThreadConversationsParams,
+) -> AppResult<ListThreadConversationsResponse> {
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let thread_id = ThreadId(params.thread_id);
     let thread = thread_service.get(&workspace_path, &thread_id).await?;
 
-    let forks = thread.forks.clone();
+    let conversations = thread.conversations.clone();
 
-    Ok(ListThreadForksResponse {
+    Ok(ListThreadConversationsResponse {
         thread_id: thread.id.as_str().to_string(),
-        current_conversation_id: thread.current_fork_id.as_str().to_string(),
-        forks,
+        current_conversation_id: thread.current_conversation_id.to_string(),
+        conversations,
     })
 }
 
@@ -255,46 +256,42 @@ pub async fn initialize_thread(
     })
 }
 
-/// Switch a thread to a specific fork and resume its conversation.
+/// Switch a thread to a specific conversation and resume it.
 #[tauri::command]
-pub async fn switch_thread_fork(
-    params: SwitchThreadForkParams,
+pub async fn switch_conversation(
+    params: SwitchConversationParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
     app_handle: AppHandle,
-) -> AppResult<SwitchThreadForkResponse> {
+) -> AppResult<SwitchConversationResponse> {
     let workspace_path = workspace_service.canonicalize(&params.workspace_path)?;
     let thread_id = ThreadId(params.thread_id);
-    let conv_id =
-        ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
-            message: format!("Invalid conversation ID: {}", e),
-        })?;
-    let fork_id = ForkId::from(conv_id);
+    let conversation_id = params.conversation_id;
 
-    let SwitchForkResult {
+    let SwitchConversationResult {
         session_configured,
         reasoning_summary,
         ..
     } = thread_service
-        .switch_fork(&workspace_path, &thread_id, &fork_id, app_handle)
+        .switch_conversation(&workspace_path, &thread_id, &conversation_id, app_handle)
         .await?;
 
-    Ok(SwitchThreadForkResponse {
-        conversation_id: conv_id,
+    Ok(SwitchConversationResponse {
+        conversation_id,
         session_configured,
         reasoning_summary,
     })
 }
 
-/// Fork a thread's current conversation into a new fork and switch the thread to it.
+/// Fork a conversation within a thread into a new conversation and switch to it.
 #[tauri::command]
-pub async fn fork_thread(
-    params: ForkThreadParams,
+pub async fn fork_conversation(
+    params: ForkConversationParams,
     workspace_service: State<'_, WorkspaceService>,
     thread_service: State<'_, ThreadService>,
     app_handle: AppHandle,
-) -> AppResult<ForkThreadResponse> {
-    let ForkThreadParams {
+) -> AppResult<ForkConversationResponse> {
+    let ForkConversationParams {
         workspace_path,
         thread_id,
         base_conversation_id,
@@ -305,22 +302,9 @@ pub async fn fork_thread(
     let workspace_path = workspace_service.canonicalize(&workspace_path)?;
     let thread_id = ThreadId(thread_id);
 
-    let base_conversation_id_parsed =
-        ConversationId::from_string(&base_conversation_id).map_err(|e| AppError::Validation {
-            message: format!(
-                "Invalid conversation ID for fork (thread {}): {}",
-                thread_id.as_str(),
-                e
-            ),
-        })?;
-
     let thread_options = NewThreadOptions::from(options.unwrap_or_default());
-    let fork_point = ForkPoint {
-        fork_id: ForkId(base_conversation_id.clone()),
-        after_message: nth_user_message,
-    };
 
-    let ForkThreadResult {
+    let ForkConversationResult {
         thread: updated_thread,
         conversation: new_conv,
         reasoning_summary,
@@ -328,30 +312,33 @@ pub async fn fork_thread(
         .fork(
             &workspace_path,
             &thread_id,
-            &fork_point,
+            &base_conversation_id,
+            nth_user_message,
             thread_options,
             app_handle,
         )
         .await?;
 
     let new_conv_id = new_conv.conversation_id.to_string();
-    let new_fork = updated_thread
-        .forks
+    let new_conversation = updated_thread
+        .conversations
         .iter()
-        .find(|fork| fork.id.as_str() == new_conv_id)
-        .ok_or(AppError::NotFound { entity: "fork" })?;
+        .find(|conv| conv.id.to_string() == new_conv_id)
+        .ok_or(AppError::NotFound {
+            entity: "conversation",
+        })?;
 
     let session_configured = new_conv.session_configured.clone();
 
-    Ok(ForkThreadResponse {
+    Ok(ForkConversationResponse {
         thread_id: thread_id.as_str().to_string(),
-        base_conversation_id: base_conversation_id_parsed,
+        base_conversation_id,
         conversation_id: new_conv.conversation_id,
         rollout_path: new_conv.session_configured.rollout_path.clone(),
         session_configured,
         reasoning_summary,
         nth_user_message,
-        created_at: new_fork.created_at.clone(),
+        created_at: new_conversation.created_at.clone(),
     })
 }
 

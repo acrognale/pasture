@@ -2,8 +2,8 @@ export const createWorkspaceKeys = (workspacePath: string) => ({
   workspace: () => ['workspace', workspacePath] as const,
   conversations: () => ['workspace', workspacePath, 'conversations'] as const,
   threads: () => ['workspace', workspacePath, 'threads'] as const,
-  threadForks: (threadId: string) =>
-    ['workspace', workspacePath, 'thread', threadId, 'forks'] as const,
+  threadConversations: (threadId: string) =>
+    ['workspace', workspacePath, 'thread', threadId, 'conversations'] as const,
   composer: (conversationId: string) =>
     [
       'workspace',

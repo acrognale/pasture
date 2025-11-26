@@ -27,7 +27,7 @@ export const useMessageVersions = ({
   const {
     getThreadIdForConversation,
     getThreadConversationId,
-    switchThreadConversation,
+    switchConversation,
   } = useWorkspaceActions();
   const [threadId, setThreadId] = useState<string | null>(() =>
     getThreadIdForConversation(conversationId)
@@ -45,11 +45,11 @@ export const useMessageVersions = ({
       return [];
     }
     const items = groups.get(nthUserMessage) ?? [];
-    return items.map((rollout) => ({
-      conversationId: rollout.id,
-      createdAt: rollout.createdAt,
-      forkedFromConversationId: rollout.forkPoint?.forkId ?? null,
-      forkedFromNthUserMessage: rollout.forkPoint?.afterMessage ?? null,
+    return items.map((conversation) => ({
+      conversationId: conversation.id,
+      createdAt: conversation.createdAt,
+      forkedFromConversationId: conversation.parentConversationId ?? null,
+      forkedFromNthUserMessage: conversation.forkedAtNthUserMessage ?? null,
     }));
   }, [groups, nthUserMessage, threadId]);
 
@@ -65,7 +65,7 @@ export const useMessageVersions = ({
     }
     try {
       setIsSwitching(true);
-      const resolvedConversationId = await switchThreadConversation(
+      const resolvedConversationId = await switchConversation(
         threadId,
         targetConversationId
       );

@@ -4,7 +4,6 @@ use tauri::{AppHandle, State};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::domain::ForkId;
 use crate::errors::{AppError, AppResult};
 use crate::services::TurnService;
 
@@ -41,7 +40,7 @@ pub async fn add_conversation_listener(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ForkId::from(conv_id);
+    let fork_id = ConversationId::from(conv_id);
     let subscription_id = turn_service
         .add_subscription(&fork_id, app_handle, params.conversation_id)
         .await?;

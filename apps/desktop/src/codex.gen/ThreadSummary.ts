@@ -8,5 +8,5 @@ export type ThreadSummary = {
   preview: string;
   title: string | null;
   timestamp: string;
-  forkCount: number;
+  conversationCount: number;
 };

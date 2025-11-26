@@ -4,27 +4,29 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import type { Fork } from '~/codex.gen/Fork';
-import type { ListThreadForksResponse } from '~/codex.gen/ListThreadForksResponse';
+import type { Conversation } from '~/codex.gen/Conversation';
+import type { ListThreadConversationsResponse } from '~/codex.gen/ListThreadConversationsResponse';
 import { Codex } from '~/codex/client';
 
 import { useWorkspace, useWorkspaceKeys } from '../WorkspaceProvider';
 import type { WorkspaceThreadsState } from './useWorkspaceThreads';
 
 const computeThreadVersionGroupsInternal = (
-  forks: Fork[]
-): Map<number, Fork[]> => {
-  const byConversationId = new Map(forks.map((fork) => [fork.id, fork]));
-  const groups = new Map<number, Fork[]>();
+  conversations: Conversation[]
+): Map<number, Conversation[]> => {
+  const byConversationId = new Map(
+    conversations.map((conv) => [conv.id, conv])
+  );
+  const groups = new Map<number, Conversation[]>();
   const seenByNth = new Map<number, Set<string>>();
 
-  forks.forEach((fork) => {
-    const nth = fork.forkPoint?.afterMessage;
+  conversations.forEach((conv) => {
+    const nth = conv.forkedAtNthUserMessage;
     if (nth == null) {
       return;
     }
 
-    let current: Fork | undefined = fork;
+    let current: Conversation | undefined = conv;
     while (current) {
       const seen = seenByNth.get(nth) ?? new Set<string>();
       const group = groups.get(nth) ?? [];
@@ -35,10 +37,10 @@ const computeThreadVersionGroupsInternal = (
         seenByNth.set(nth, seen);
       }
 
-      if (!current.forkPoint?.forkId) {
+      if (!current.parentConversationId) {
         break;
       }
-      current = byConversationId.get(current.forkPoint.forkId);
+      current = byConversationId.get(current.parentConversationId);
     }
   });
 
@@ -57,31 +59,38 @@ const computeThreadVersionGroupsInternal = (
 };
 
 export const computeThreadVersionGroups = (
-  forks: Fork[]
-): Map<number, Fork[]> => computeThreadVersionGroupsInternal(forks);
+  conversations: Conversation[]
+): Map<number, Conversation[]> =>
+  computeThreadVersionGroupsInternal(conversations);
 
-type ThreadForksQueryResult = {
-  forks: Fork[];
+type ThreadConversationsQueryResult = {
+  conversations: Conversation[];
   currentConversationId: string | null;
-  query: UseQueryResult<ListThreadForksResponse, Error>;
+  query: UseQueryResult<ListThreadConversationsResponse, Error>;
 };
 
-export const useWorkspaceThreadForks = (
+export const useWorkspaceThreadConversations = (
   threadId: string | null
-): ThreadForksQueryResult => {
+): ThreadConversationsQueryResult => {
   const { workspacePath } = useWorkspace();
   const keys = useWorkspaceKeys();
   const queryClient = useQueryClient();
 
-  const query = useQuery<ListThreadForksResponse, Error>({
+  const query = useQuery<ListThreadConversationsResponse, Error>({
     queryKey: threadId
-      ? keys.threadForks(threadId)
-      : (['workspace', workspacePath, 'thread', 'forks', '__none'] as const),
+      ? keys.threadConversations(threadId)
+      : ([
+          'workspace',
+          workspacePath,
+          'thread',
+          'conversations',
+          '__none',
+        ] as const),
     queryFn: async () => {
       if (!threadId) {
-        throw new Error('threadId is required to load forks');
+        throw new Error('threadId is required to load conversations');
       }
-      return await Codex.listThreadForks({
+      return await Codex.listThreadConversations({
         workspacePath,
         threadId,
       });
@@ -114,7 +123,7 @@ export const useWorkspaceThreadForks = (
         const updated = {
           ...state.items[index],
           currentConversationId: data.currentConversationId,
-          forkCount: data.forks.length,
+          conversationCount: data.conversations.length,
         };
         const items = [...state.items];
         items[index] = updated;
@@ -123,34 +132,37 @@ export const useWorkspaceThreadForks = (
     );
   }, [keys, query.data, queryClient]);
 
-  const forks = query.data?.forks ?? [];
+  const conversations = query.data?.conversations ?? [];
   const currentConversationId = query.data?.currentConversationId ?? null;
 
   return {
-    forks,
+    conversations,
     currentConversationId,
     query,
   };
 };
 
 type ThreadVersionGroupsResult = {
-  groups: Map<number, Fork[]>;
-  forks: Fork[];
+  groups: Map<number, Conversation[]>;
+  conversations: Conversation[];
   currentConversationId: string | null;
-  query: UseQueryResult<ListThreadForksResponse, Error>;
+  query: UseQueryResult<ListThreadConversationsResponse, Error>;
 };
 
 export const useThreadVersionGroups = (
   threadId: string | null
 ): ThreadVersionGroupsResult => {
-  const { forks, currentConversationId, query } =
-    useWorkspaceThreadForks(threadId);
+  const { conversations, currentConversationId, query } =
+    useWorkspaceThreadConversations(threadId);
 
-  const groups = useMemo(() => computeThreadVersionGroups(forks), [forks]);
+  const groups = useMemo(
+    () => computeThreadVersionGroups(conversations),
+    [conversations]
+  );
 
   return {
     groups,
-    forks,
+    conversations,
     currentConversationId,
     query,
   };

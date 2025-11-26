@@ -64,7 +64,7 @@ describe('SidebarPanel sessions', () => {
           preview: 'Existing session',
           title: null,
           timestamp: now,
-          forkCount: 1,
+          conversationCount: 1,
         },
       ],
     };
@@ -137,7 +137,7 @@ describe('SidebarPanel sessions', () => {
           preview: 'Existing session',
           title: null,
           timestamp: now,
-          forkCount: 1,
+          conversationCount: 1,
         },
       ],
     };
@@ -225,7 +225,7 @@ describe('SidebarPanel sessions', () => {
           preview: `Session ${index}`,
           title: null,
           timestamp: now,
-          forkCount: 1,
+          conversationCount: 1,
         };
       }
     );

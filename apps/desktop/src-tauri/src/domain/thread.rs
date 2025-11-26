@@ -1,33 +1,28 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::domain::ids::{ForkId, ThreadId, WorkspacePath};
+use crate::domain::ids::{ThreadId, WorkspacePath};
+use codex_protocol::ConversationId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
-pub struct ForkPoint {
-    pub fork_id: ForkId,
-    pub after_message: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-pub struct Fork {
-    pub id: ForkId,
+pub struct Conversation {
+    pub id: ConversationId,
     pub thread_id: ThreadId,
     pub rollout_path: String,
     pub created_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub fork_point: Option<ForkPoint>,
+    pub parent_conversation_id: Option<ConversationId>,
+    pub forked_at_nth_user_message: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Thread {
     pub id: ThreadId,
-    pub current_fork_id: ForkId,
-    pub forks: Vec<Fork>,
+    pub current_conversation_id: ConversationId,
+    pub conversations: Vec<Conversation>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

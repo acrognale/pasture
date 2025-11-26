@@ -73,7 +73,7 @@ pub mod threads {
         pub workspace_path: String,
         pub created_at: String,
         pub updated_at: String,
-        pub current_fork_id: String,
+        pub current_conversation_id: String,
         pub title: Option<String>,
         pub preview: Option<String>,
     }
@@ -86,8 +86,8 @@ pub mod threads {
             to = "super::workspaces::Column::Path"
         )]
         Workspaces,
-        #[sea_orm(has_many = "super::forks::Entity")]
-        Forks,
+        #[sea_orm(has_many = "super::conversations::Entity")]
+        Conversations,
     }
 
     impl Related<super::workspaces::Entity> for Entity {
@@ -96,20 +96,20 @@ pub mod threads {
         }
     }
 
-    impl Related<super::forks::Entity> for Entity {
+    impl Related<super::conversations::Entity> for Entity {
         fn to() -> RelationDef {
-            Relation::Forks.def()
+            Relation::Conversations.def()
         }
     }
 
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-pub mod forks {
+pub mod conversations {
     use sea_orm::entity::prelude::*;
 
     #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[sea_orm(table_name = "forks")]
+    #[sea_orm(table_name = "conversations")]
     pub struct Model {
         #[sea_orm(primary_key, auto_increment = false)]
         pub id: String,
@@ -117,8 +117,8 @@ pub mod forks {
         pub rollout_path: String,
         pub created_at: String,
         pub label: Option<String>,
-        pub forked_from_fork_id: Option<String>,
-        pub forked_from_after_message: Option<i32>,
+        pub parent_conversation_id: Option<String>,
+        pub forked_at_nth_user_message: Option<i32>,
         pub base_commit: Option<String>,
         #[sea_orm(column_type = "Integer", default_value = 0)]
         pub snapshots_disabled: bool,
@@ -159,7 +159,7 @@ pub mod turn_snapshots {
     pub struct Model {
         #[sea_orm(primary_key)]
         pub id: i32,
-        pub fork_id: String,
+        pub conversation_id: String,
         pub event_id: String,
         pub commit_sha: String,
         pub created_at: String,
@@ -168,16 +168,16 @@ pub mod turn_snapshots {
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
     pub enum Relation {
         #[sea_orm(
-            belongs_to = "super::forks::Entity",
-            from = "Column::ForkId",
-            to = "super::forks::Column::Id"
+            belongs_to = "super::conversations::Entity",
+            from = "Column::ConversationId",
+            to = "super::conversations::Column::Id"
         )]
-        Forks,
+        Conversations,
     }
 
-    impl Related<super::forks::Entity> for Entity {
+    impl Related<super::conversations::Entity> for Entity {
         fn to() -> RelationDef {
-            Relation::Forks.def()
+            Relation::Conversations.def()
         }
     }
 

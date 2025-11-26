@@ -22,7 +22,7 @@ export const setupConversationTest = (
         preview: '',
         title: null,
         timestamp,
-        forkCount: 1,
+        conversationCount: 1,
       },
     ],
   });

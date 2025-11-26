@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use ts_rs::TS;
 
-use crate::domain::ForkId;
 use crate::errors::{AppError, AppResult};
 use crate::services::{ThreadService, TurnOverrides, TurnService};
 
@@ -86,12 +85,10 @@ pub async fn send_user_message(
         approval_policy,
     } = params;
 
-    let conv_id =
+    let conversation_id =
         ConversationId::from_string(&conversation_id).map_err(|e| AppError::Validation {
             message: format!("Invalid conversation ID: {}", e),
         })?;
-
-    let fork_id = ForkId::from(conv_id);
 
     let mapped_items: Vec<CoreUserInput> = items
         .into_iter()
@@ -111,7 +108,7 @@ pub async fn send_user_message(
         .filter(|text| !text.is_empty())
     {
         thread_service
-            .handle_preview_and_title(&conv_id, &fork_id, preview.to_string(), app_handle.clone())
+            .handle_preview_and_title(&conversation_id, preview.to_string(), app_handle.clone())
             .await;
     }
 
@@ -125,10 +122,10 @@ pub async fn send_user_message(
 
     turn_service
         .send(
-            &fork_id,
+            &conversation_id,
             mapped_items,
             overrides,
-            &conversation_id,
+            &conversation_id.to_string(),
             app_handle.clone(),
         )
         .await?;
@@ -149,7 +146,7 @@ pub async fn compact_conversation(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ForkId::from(conv_id);
+    let fork_id = ConversationId::from(conv_id);
     turn_service
         .compact(&fork_id, &conversation_id, app_handle)
         .await?;
@@ -168,7 +165,7 @@ pub async fn interrupt_conversation(
             message: format!("Invalid conversation ID: {}", e),
         })?;
 
-    let fork_id = ForkId::from(conv_id);
+    let fork_id = ConversationId::from(conv_id);
     turn_service.interrupt(&fork_id).await?;
 
     Ok(InterruptConversationResponse {

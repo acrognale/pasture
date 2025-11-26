@@ -16,10 +16,6 @@ export type ConversationTranscriptHandle = {
 
 export type ConversationTranscriptSectionProps = {
   conversationId: string;
-  loadConversation: (
-    conversationId: string,
-    options?: { force?: boolean }
-  ) => Promise<void>;
   expandedTurns: Record<string, boolean>;
   onToggleTurn: (turnId: string) => void;
   onConversationForked?: (conversationId: string) => void;
@@ -34,7 +30,6 @@ export const ConversationTranscriptSection = forwardRef<
   (
     {
       conversationId,
-      loadConversation,
       expandedTurns,
       onToggleTurn,
       onConversationForked,
@@ -104,16 +99,6 @@ export const ConversationTranscriptSection = forwardRef<
             <p className="text-sm text-destructive">
               Failed to load conversation: {error.message}
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                void loadConversation(conversationId, { force: true });
-              }}
-            >
-              Retry
-            </Button>
           </div>
         );
       }

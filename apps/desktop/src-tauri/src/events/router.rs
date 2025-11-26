@@ -4,6 +4,7 @@ use std::sync::Weak;
 
 use chrono::Utc;
 use codex_core::CodexConversation;
+use codex_protocol::ConversationId;
 use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
 use tauri::AppHandle;
@@ -13,7 +14,6 @@ use tokio::sync::Mutex;
 use tokio::sync::oneshot;
 use uuid::Uuid;
 
-use crate::domain::ForkId;
 use crate::events::CodexEvent;
 use crate::events::ConversationEventPayload;
 use crate::services::ReviewService;
@@ -21,7 +21,7 @@ use crate::services::ReviewService;
 #[derive(Debug)]
 pub struct Subscription {
     pub cancel_tx: oneshot::Sender<()>,
-    pub fork_id: ForkId,
+    pub conversation_id: ConversationId,
     pub window_label: String,
     pub conversation: Weak<CodexConversation>,
 }
@@ -29,25 +29,31 @@ pub struct Subscription {
 #[derive(Clone, Default)]
 pub struct EventRouter {
     by_id: Arc<Mutex<HashMap<Uuid, Subscription>>>,
-    by_fork: Arc<Mutex<HashMap<ForkId, Uuid>>>,
+    by_conversation: Arc<Mutex<HashMap<ConversationId, Uuid>>>,
 }
 
 impl EventRouter {
     pub fn new() -> Self {
         Self {
             by_id: Arc::new(Mutex::new(HashMap::new())),
-            by_fork: Arc::new(Mutex::new(HashMap::new())),
+            by_conversation: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub async fn ensure_subscription(
         &self,
-        fork_id: ForkId,
+        conversation_id: ConversationId,
         conversation: Arc<CodexConversation>,
         app_handle: AppHandle,
         window_label: String,
     ) -> Uuid {
-        if let Some(existing_id) = { self.by_fork.lock().await.get(&fork_id).cloned() } {
+        if let Some(existing_id) = {
+            self.by_conversation
+                .lock()
+                .await
+                .get(&conversation_id)
+                .cloned()
+        } {
             let should_reuse = {
                 let by_id = self.by_id.lock().await;
                 by_id.get(&existing_id).is_some_and(|subscription| {
@@ -64,7 +70,7 @@ impl EventRouter {
             if should_reuse {
                 tracing::debug!(
                     "Fork {} already subscribed via {}; window={}",
-                    fork_id,
+                    conversation_id,
                     existing_id,
                     window_label
                 );
@@ -74,13 +80,13 @@ impl EventRouter {
             tracing::info!(
                 "Replacing stale subscription {} for fork {} (window={})",
                 existing_id,
-                fork_id,
+                conversation_id,
                 window_label
             );
             let _ = self.unsubscribe(existing_id).await;
         }
 
-        self.subscribe(fork_id, conversation, app_handle, window_label)
+        self.subscribe(conversation_id, conversation, app_handle, window_label)
             .await
     }
 
@@ -93,8 +99,8 @@ impl EventRouter {
         match removed {
             Some(subscription) => {
                 {
-                    let mut by_fork = self.by_fork.lock().await;
-                    by_fork.remove(&subscription.fork_id);
+                    let mut by_fork = self.by_conversation.lock().await;
+                    by_fork.remove(&subscription.conversation_id);
                 }
                 let _ = subscription.cancel_tx.send(());
                 Ok(())
@@ -105,7 +111,7 @@ impl EventRouter {
 
     async fn subscribe(
         &self,
-        fork_id: ForkId,
+        conversation_id: ConversationId,
         conversation: Arc<CodexConversation>,
         app_handle: AppHandle,
         window_label: String,
@@ -114,7 +120,7 @@ impl EventRouter {
         let (cancel_tx, mut cancel_rx) = oneshot::channel();
         let subscription = Subscription {
             cancel_tx,
-            fork_id: fork_id.clone(),
+            conversation_id: conversation_id.clone(),
             window_label: window_label.clone(),
             conversation: Arc::downgrade(&conversation),
         };
@@ -125,8 +131,8 @@ impl EventRouter {
         }
 
         {
-            let mut by_fork = self.by_fork.lock().await;
-            by_fork.insert(fork_id.clone(), subscription_id);
+            let mut by_fork = self.by_conversation.lock().await;
+            by_fork.insert(conversation_id.clone(), subscription_id);
         }
 
         let router = self.clone();
@@ -137,7 +143,7 @@ impl EventRouter {
                         tracing::info!(
                             "Subscription {} for fork {} cancelled",
                             subscription_id,
-                            fork_id
+                            conversation_id
                         );
                         router.cleanup_subscription(&subscription_id).await;
                         break;
@@ -148,7 +154,7 @@ impl EventRouter {
                             Err(err) => {
                                 tracing::warn!(
                                     "next_event failed for fork {} ({}): {}",
-                                    fork_id,
+                                    conversation_id,
                                     subscription_id,
                                     err
                                 );
@@ -159,7 +165,7 @@ impl EventRouter {
 
                         let bridge_event = CodexEvent::ConversationEvent {
                             payload: Box::new(ConversationEventPayload {
-                                conversation_id: fork_id.to_string(),
+                                conversation_id: conversation_id.to_string(),
                                 turn_id: event.id.clone(),
                                 event_id: Uuid::new_v4().to_string(),
                                 event: event.msg.clone(),
@@ -169,7 +175,7 @@ impl EventRouter {
 
                         tracing::debug!(
                             "Emitting event for fork {}: {:?}",
-                            fork_id,
+                            conversation_id,
                             event.msg
                         );
 
@@ -178,7 +184,7 @@ impl EventRouter {
                         }
 
                         router
-                            .handle_special_events(&fork_id, &event, &app_handle)
+                            .handle_special_events(&conversation_id, &event, &app_handle)
                             .await;
                     }
                 }
@@ -193,37 +199,42 @@ impl EventRouter {
             let mut by_id = self.by_id.lock().await;
             by_id.remove(subscription_id)
         } {
-            let mut by_fork = self.by_fork.lock().await;
-            by_fork.remove(&subscription.fork_id);
+            let mut by_fork = self.by_conversation.lock().await;
+            by_fork.remove(&subscription.conversation_id);
         } else {
-            let mut by_fork = self.by_fork.lock().await;
+            let mut by_fork = self.by_conversation.lock().await;
             by_fork.retain(|_, id| id != subscription_id);
         }
     }
 
-    async fn handle_special_events(&self, fork_id: &ForkId, event: &Event, app_handle: &AppHandle) {
+    async fn handle_special_events(
+        &self,
+        conversation_id: &ConversationId,
+        event: &Event,
+        app_handle: &AppHandle,
+    ) {
         if let EventMsg::TurnDiff(_) = &event.msg {
             let Some(review_state) = app_handle.try_state::<Arc<ReviewService>>() else {
                 tracing::debug!("ReviewService unavailable; skipping turn snapshot capture");
                 return;
             };
             let review_service: Arc<ReviewService> = review_state.inner().clone();
-            if let Err(err) = review_service.ensure_base(fork_id).await {
+            if let Err(err) = review_service.ensure_base(conversation_id).await {
                 tracing::debug!(
                     "Failed to ensure baseline snapshot for fork {}: {}",
-                    fork_id,
+                    conversation_id,
                     err
                 );
                 return;
             }
 
             if let Err(err) = review_service
-                .record_turn_snapshot(fork_id, &event.id)
+                .record_turn_snapshot(conversation_id, &event.id)
                 .await
             {
                 tracing::debug!(
                     "Failed to capture turn snapshot for fork {}: {}",
-                    fork_id,
+                    conversation_id,
                     err
                 );
             }
