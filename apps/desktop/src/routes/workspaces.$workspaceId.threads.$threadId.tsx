@@ -16,8 +16,7 @@ function RouteComponent() {
     () => decodeWorkspaceId(workspaceId),
     [workspaceId]
   );
-  const { loadThread } = useWorkspaceActions();
-  const { getThreadConversationId } = useWorkspaceActions();
+  const { loadThread, getThreadConversationId } = useWorkspaceActions();
   const [conversationId, setConversationId] = useState<string | null>(() =>
     getThreadConversationId(threadId)
   );
@@ -28,9 +27,14 @@ function RouteComponent() {
     const run = async () => {
       try {
         setError(null);
-        const resolved = await loadThread(threadId, { force: true });
-        if (!cancelled && resolved) {
-          setConversationId(resolved);
+        const existing = getThreadConversationId(threadId);
+        const resolved = await loadThread(threadId, {
+          force: !existing,
+        });
+        const nextConversationId =
+          resolved ?? getThreadConversationId(threadId);
+        if (!cancelled && nextConversationId) {
+          setConversationId(nextConversationId);
         }
       } catch (err) {
         if (cancelled) {
@@ -45,7 +49,7 @@ function RouteComponent() {
     return () => {
       cancelled = true;
     };
-  }, [loadThread, threadId]);
+  }, [getThreadConversationId, loadThread, threadId]);
 
   if (error) {
     return (
