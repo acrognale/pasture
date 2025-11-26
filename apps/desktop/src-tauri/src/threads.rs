@@ -50,6 +50,28 @@ pub struct ForkConversationResult {
 // Queries
 // ============================================================
 
+/// Get the workspace path for a conversation.
+pub async fn workspace_path_for_conversation(
+    db: &DatabaseConnection,
+    conversation_id: &ConversationId,
+) -> AppResult<Option<WorkspacePath>> {
+    let conversation = schema::conversations::Entity::find_by_id(conversation_id.to_string())
+        .one(db)
+        .await
+        .map_err(|e| db_err("find conversation", e))?;
+
+    let Some(conversation) = conversation else {
+        return Ok(None);
+    };
+
+    let thread = schema::threads::Entity::find_by_id(conversation.thread_id)
+        .one(db)
+        .await
+        .map_err(|e| db_err("find thread for conversation", e))?;
+
+    Ok(thread.map(|t| WorkspacePath(t.workspace_path)))
+}
+
 /// List all threads for the workspace.
 pub async fn list(ctx: &WorkspaceContext) -> AppResult<Vec<Thread>> {
     let threads = schema::threads::Entity::find()
