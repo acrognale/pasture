@@ -21,11 +21,8 @@ export {
   useWorkspaceThreads,
   useOpenWorkspaceThreads,
 } from './hooks/useWorkspaceThreads';
-export {
-  useWorkspaceThreadConversations,
-  useThreadVersionGroups,
-  computeThreadVersionGroups,
-} from './hooks/useWorkspaceThreadConversations';
+export { useWorkspaceThreadConversations } from './hooks/useWorkspaceThreadConversations';
+export { getForksAtMessage } from './getForksAtMessage';
 export type {
   WorkspaceThreadsState,
   WorkspaceOpenThreadsState,

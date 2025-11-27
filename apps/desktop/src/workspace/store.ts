@@ -40,7 +40,7 @@ export type WorkspaceStoreActions = {
 
 export type WorkspaceStoreState = {
   openThreadIds: string[];
-  threadForkIds: Record<string, string>;
+  threadConversationIds: Record<string, string>;
   actions: WorkspaceStoreActions;
 };
 
@@ -60,8 +60,8 @@ export const createWorkspaceStore = (
   const fallbackConversationStore = createConversationStore();
   const conversationLoading = new Map<string, LoadingState>();
   const threadLoading = new Map<string, LoadingState>();
-  const threadForkMap = new Map<string, string>();
-  const forkToThreadMap = new Map<string, string>();
+  const threadConversationMap = new Map<string, string>();
+  const conversationToThreadMap = new Map<string, string>();
   const openThreadIdsSet = new Set<string>();
 
   return createStore<WorkspaceStoreState>((set) => {
@@ -69,12 +69,12 @@ export const createWorkspaceStore = (
       set({ openThreadIds: Array.from(openThreadIdsSet) });
 
     const syncThreadConversationIds = () => {
-      const entries = Array.from(threadForkMap.entries());
+      const entries = Array.from(threadConversationMap.entries());
       const next: Record<string, string> = {};
       for (const [threadId, conversationId] of entries) {
         next[threadId] = conversationId;
       }
-      set({ threadForkIds: next });
+      set({ threadConversationIds: next });
     };
 
     const ensureConversationStore = (conversationId: string) => {
@@ -92,7 +92,7 @@ export const createWorkspaceStore = (
     const clearConversationStore = (conversationId: string) => {
       conversationStores.delete(conversationId);
       conversationLoading.delete(conversationId);
-      forkToThreadMap.delete(conversationId);
+      conversationToThreadMap.delete(conversationId);
     };
 
     const markThreadOpen = (threadId: string) => {
@@ -107,10 +107,10 @@ export const createWorkspaceStore = (
       if (!threadId) {
         return;
       }
-      const conversationId = threadForkMap.get(threadId);
-      threadForkMap.delete(threadId);
+      const conversationId = threadConversationMap.get(threadId);
+      threadConversationMap.delete(threadId);
       if (conversationId) {
-        forkToThreadMap.delete(conversationId);
+        conversationToThreadMap.delete(conversationId);
       }
       if (openThreadIdsSet.has(threadId)) {
         openThreadIdsSet.delete(threadId);
@@ -180,7 +180,7 @@ export const createWorkspaceStore = (
       markThreadOpen(threadId);
 
       const status = threadLoading.get(threadId);
-      const mappedConversation = threadForkMap.get(threadId);
+      const mappedConversation = threadConversationMap.get(threadId);
       if (!options?.force && status === 'loading') {
         return mappedConversation ?? null;
       }
@@ -198,8 +198,8 @@ export const createWorkspaceStore = (
           });
 
         const conversationId = sessionConfigured.session_id;
-        threadForkMap.set(threadId, conversationId);
-        forkToThreadMap.set(conversationId, threadId);
+        threadConversationMap.set(threadId, conversationId);
+        conversationToThreadMap.set(conversationId, threadId);
         conversationLoading.set(conversationId, 'loaded');
 
         const store = hydrateConversationStore(
@@ -235,8 +235,8 @@ export const createWorkspaceStore = (
           sessionConfigured,
           reasoningSummary,
           rolloutPath,
-          baseConversationId: forkBaseConversationId,
-          nthUserMessage: forkNthUserMessage,
+          baseConversationId: parentConversationId,
+          nthUserMessage: forkedAtNthUserMessage,
           createdAt,
         } = await Codex.forkConversation({
           workspacePath: deps.workspacePath,
@@ -246,8 +246,8 @@ export const createWorkspaceStore = (
           options: null,
         });
 
-        threadForkMap.set(threadId, conversationId);
-        forkToThreadMap.set(conversationId, threadId);
+        threadConversationMap.set(threadId, conversationId);
+        conversationToThreadMap.set(conversationId, threadId);
         conversationLoading.set(conversationId, 'loaded');
         const store = hydrateConversationStore(
           conversationId,
@@ -261,8 +261,8 @@ export const createWorkspaceStore = (
           conversationId,
           rolloutPath,
           createdAt,
-          forkBaseConversationId,
-          forkNthUserMessage,
+          parentConversationId,
+          forkedAtNthUserMessage,
         });
         syncThreadConversationIds();
         return conversationId;
@@ -295,8 +295,8 @@ export const createWorkspaceStore = (
         });
 
         const conversationIdStr = resolvedConversationId;
-        threadForkMap.set(threadId, conversationIdStr);
-        forkToThreadMap.set(conversationIdStr, threadId);
+        threadConversationMap.set(threadId, conversationIdStr);
+        conversationToThreadMap.set(conversationIdStr, threadId);
         const hasLoadedStore =
           !!conversationStores.get(conversationIdStr) &&
           conversationLoading.get(conversationIdStr) === 'loaded';
@@ -350,9 +350,9 @@ export const createWorkspaceStore = (
       clearConversationStore,
       applyConversationEvent,
       getThreadConversationId: (threadId: string) =>
-        threadForkMap.get(threadId) ?? null,
+        threadConversationMap.get(threadId) ?? null,
       getThreadIdForConversation: (conversationId: string) =>
-        forkToThreadMap.get(conversationId) ?? null,
+        conversationToThreadMap.get(conversationId) ?? null,
       loadThread,
       forkConversation: forkThread,
       switchConversation: switchThreadConversation,
@@ -362,7 +362,7 @@ export const createWorkspaceStore = (
 
     return {
       openThreadIds: Array.from(openThreadIdsSet),
-      threadForkIds: {},
+      threadConversationIds: {},
       actions,
     };
   });

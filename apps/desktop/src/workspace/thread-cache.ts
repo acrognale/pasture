@@ -9,8 +9,8 @@ type UpdateThreadOnForkArgs = {
   conversationId: string;
   rolloutPath: string;
   createdAt: string;
-  forkBaseConversationId: string;
-  forkNthUserMessage: number;
+  parentConversationId: string;
+  forkedAtNthUserMessage: number;
 };
 
 type UpdateThreadOnSwitchArgs = {
@@ -26,8 +26,8 @@ export const updateThreadOnFork = (
     conversationId,
     rolloutPath,
     createdAt,
-    forkBaseConversationId,
-    forkNthUserMessage,
+    parentConversationId,
+    forkedAtNthUserMessage,
   }: UpdateThreadOnForkArgs
 ) => {
   queryClient.setQueryData<WorkspaceThreadsState | undefined>(
@@ -71,8 +71,8 @@ export const updateThreadOnFork = (
                 rolloutPath,
                 createdAt,
                 label: null,
-                parentConversationId: forkBaseConversationId,
-                forkedAtNthUserMessage: forkNthUserMessage,
+                parentConversationId,
+                forkedAtNthUserMessage,
               },
             ]
           : [
@@ -83,8 +83,8 @@ export const updateThreadOnFork = (
                 rolloutPath,
                 createdAt,
                 label: null,
-                parentConversationId: forkBaseConversationId,
-                forkedAtNthUserMessage: forkNthUserMessage,
+                parentConversationId,
+                forkedAtNthUserMessage,
               },
               ...conversations.slice(existingIndex + 1),
             ];

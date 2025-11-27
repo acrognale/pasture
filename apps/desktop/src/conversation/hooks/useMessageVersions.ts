@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useThreadVersionGroups, useWorkspaceActions } from '~/workspace';
+import {
+  getForksAtMessage,
+  useWorkspaceActions,
+  useWorkspaceThreadConversations,
+} from '~/workspace';
 
 export type MessageVersionEntry = {
   conversationId: string;
   createdAt: string;
-  forkedFromConversationId: string | null;
-  forkedFromNthUserMessage: number | null;
+  parentConversationId: string | null;
+  forkedAtNthUserMessage: number | null;
 };
 
 type UseMessageVersionsParams = {
@@ -36,22 +40,31 @@ export const useMessageVersions = ({
     setThreadId(getThreadIdForConversation(conversationId));
   }, [conversationId, getThreadIdForConversation]);
   const [isSwitching, setIsSwitching] = useState(false);
-  const { groups, currentConversationId, query } = useThreadVersionGroups(
-    threadId ?? null
-  );
+  const { conversations, currentConversationId, query } =
+    useWorkspaceThreadConversations(threadId ?? null);
 
   const versions = useMemo(() => {
     if (!threadId || nthUserMessage == null) {
       return [];
     }
-    const items = groups.get(nthUserMessage) ?? [];
-    return items.map((conversation) => ({
+    const currentConversation = conversations.find(
+      (c) => c.id === conversationId
+    );
+    if (!currentConversation) {
+      return [];
+    }
+    const forks = getForksAtMessage(
+      currentConversation,
+      nthUserMessage,
+      conversations
+    );
+    return forks.map((conversation) => ({
       conversationId: conversation.id,
       createdAt: conversation.createdAt,
-      forkedFromConversationId: conversation.parentConversationId ?? null,
-      forkedFromNthUserMessage: conversation.forkedAtNthUserMessage ?? null,
+      parentConversationId: conversation.parentConversationId ?? null,
+      forkedAtNthUserMessage: conversation.forkedAtNthUserMessage ?? null,
     }));
-  }, [groups, nthUserMessage, threadId]);
+  }, [conversationId, conversations, nthUserMessage, threadId]);
 
   const activeConversationId = useMemo(
     () =>
