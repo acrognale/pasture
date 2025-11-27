@@ -8,6 +8,7 @@ export type ParsedTurnDiffFile = {
   newPath: string | null;
   displayPath: string;
   hunks: ParsedTurnDiffHunk[];
+  language: string;
 };
 
 export type ParsedTurnDiffHunk = {

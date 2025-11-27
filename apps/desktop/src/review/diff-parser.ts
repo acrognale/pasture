@@ -1,3 +1,4 @@
+import { detectLanguage } from './syntax-highlighter';
 import type {
   DiffRange,
   ParsedTurnDiff,
@@ -63,12 +64,14 @@ export const parseUnifiedDiff = (input: string): ParsedTurnDiff => {
   let lineCounter = 0;
 
   const startFile = (oldPath: string | null, newPath: string | null) => {
+    const displayPath = deriveDisplayPath(oldPath, newPath);
     const file: ParsedTurnDiffFile = {
       id: `file-${fileCounter}`,
       oldPath,
       newPath,
-      displayPath: deriveDisplayPath(oldPath, newPath),
+      displayPath,
       hunks: [],
+      language: detectLanguage(displayPath),
     };
     files.push(file);
     currentFile = file;
@@ -176,6 +179,7 @@ export const parseUnifiedDiff = (input: string): ParsedTurnDiff => {
       const file = ensureFile();
       file.oldPath = normalizePath(rawLine.slice(4));
       file.displayPath = deriveDisplayPath(file.oldPath, file.newPath);
+      file.language = detectLanguage(file.displayPath);
       continue;
     }
 
@@ -183,6 +187,7 @@ export const parseUnifiedDiff = (input: string): ParsedTurnDiff => {
       const file = ensureFile();
       file.newPath = normalizePath(rawLine.slice(4));
       file.displayPath = deriveDisplayPath(file.oldPath, file.newPath);
+      file.language = detectLanguage(file.displayPath);
       continue;
     }
 

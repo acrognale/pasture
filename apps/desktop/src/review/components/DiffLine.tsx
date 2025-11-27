@@ -1,9 +1,11 @@
+import type { HighlightedLine } from '../syntax-highlighter';
 import type { ParsedTurnDiffLine, TurnReviewComment } from '../types';
 import { CommentThread } from './CommentThread';
 import { DiffLineCell } from './DiffLineCell';
 
 export type DiffLineProps = {
   line: ParsedTurnDiffLine;
+  tokens?: HighlightedLine;
   comments: TurnReviewComment[];
   isDraftOpen: boolean;
   draftText: string;
@@ -16,6 +18,7 @@ export type DiffLineProps = {
 
 export function DiffLine({
   line,
+  tokens,
   comments,
   isDraftOpen,
   draftText,
@@ -31,6 +34,7 @@ export function DiffLine({
     <div className="pl-4">
       <DiffLineCell
         line={line}
+        tokens={tokens}
         primaryLineNumber={line.oldNumber ?? null}
         secondaryLineNumber={line.newNumber ?? null}
         allowComment={allowComment}

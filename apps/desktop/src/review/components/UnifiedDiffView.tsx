@@ -1,12 +1,14 @@
 import { useMemo } from 'react';
 import { cn } from '~/lib/utils';
 
+import type { FileHighlighting } from '../hooks';
 import type { ParsedTurnDiffHunk, TurnReviewComment } from '../types';
 import { DiffLine } from './DiffLine';
 import { VirtualizedHunk } from './VirtualizedHunk';
 
 export type UnifiedDiffViewProps = {
   hunks: ParsedTurnDiffHunk[];
+  highlighting: FileHighlighting;
   commentsByLine: Map<string, TurnReviewComment[]>;
   draftTargetId: string | null;
   draftText: string;
@@ -19,6 +21,7 @@ export type UnifiedDiffViewProps = {
 
 export function UnifiedDiffView({
   hunks,
+  highlighting,
   commentsByLine,
   draftTargetId,
   draftText,
@@ -55,6 +58,7 @@ export function UnifiedDiffView({
             renderRow={(line) => (
               <DiffLine
                 line={line}
+                tokens={highlighting.get(line.id)}
                 comments={commentsByLine.get(line.id) ?? []}
                 isDraftOpen={draftTargetId === line.id}
                 draftText={draftText}

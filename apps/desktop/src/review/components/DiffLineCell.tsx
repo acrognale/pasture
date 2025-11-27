@@ -2,7 +2,9 @@ import { useMemo } from 'react';
 import { cn } from '~/lib/utils';
 
 import { getDiffLineTheme } from '../diff-utils';
+import type { HighlightedLine } from '../syntax-highlighter';
 import type { ParsedTurnDiffLine } from '../types';
+import { HighlightedCode } from './HighlightedCode';
 
 export type DiffLineCellProps = {
   line: ParsedTurnDiffLine | null;
@@ -10,6 +12,7 @@ export type DiffLineCellProps = {
   secondaryLineNumber?: number | null;
   prefix?: string | null;
   text?: string | null;
+  tokens?: HighlightedLine;
   allowComment: boolean;
   onOpenDraft: (lineId: string) => void;
   cellClass?: string;
@@ -21,6 +24,7 @@ export function DiffLineCell({
   secondaryLineNumber,
   prefix,
   text,
+  tokens,
   allowComment,
   onOpenDraft,
   cellClass,
@@ -91,7 +95,7 @@ export function DiffLineCell({
           style={{ userSelect: 'contain' }}
           aria-label={ariaLabel}
         >
-          {resolvedText}
+          <HighlightedCode text={resolvedText} tokens={tokens} />
         </pre>
 
         {allowComment && line ? (

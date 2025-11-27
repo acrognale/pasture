@@ -1,5 +1,6 @@
 import { cn, makePathRelative } from '~/lib/utils';
 
+import { useFileHighlighting } from '../hooks';
 import type { ParsedTurnDiffFile, TurnReviewComment } from '../types';
 import { FileDiffHeader } from './FileDiffHeader';
 import { SplitDiffView } from './SplitDiffView';
@@ -43,6 +44,7 @@ export function FileDiffSection({
   registerRef,
 }: FileDiffSectionProps) {
   const relativePath = makePathRelative(workspacePath, file.displayPath);
+  const highlighting = useFileHighlighting(file);
 
   return (
     <div
@@ -61,6 +63,7 @@ export function FileDiffSection({
         viewMode === 'split' ? (
           <SplitDiffView
             hunks={file.hunks}
+            highlighting={highlighting}
             commentsByLine={commentsByLine}
             draftTargetId={draftTargetId}
             draftText={draftText}
@@ -73,6 +76,7 @@ export function FileDiffSection({
         ) : (
           <UnifiedDiffView
             hunks={file.hunks}
+            highlighting={highlighting}
             commentsByLine={commentsByLine}
             draftTargetId={draftTargetId}
             draftText={draftText}

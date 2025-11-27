@@ -2,12 +2,14 @@ import { useMemo } from 'react';
 import { cn } from '~/lib/utils';
 
 import { buildSplitDiffRows } from '../diff-utils';
+import type { FileHighlighting } from '../hooks';
 import type { ParsedTurnDiffHunk, TurnReviewComment } from '../types';
 import { SplitDiffLine } from './SplitDiffLine';
 import { VirtualizedHunk } from './VirtualizedHunk';
 
 export type SplitDiffViewProps = {
   hunks: ParsedTurnDiffHunk[];
+  highlighting: FileHighlighting;
   commentsByLine: Map<string, TurnReviewComment[]>;
   draftTargetId: string | null;
   draftText: string;
@@ -20,6 +22,7 @@ export type SplitDiffViewProps = {
 
 export function SplitDiffView({
   hunks,
+  highlighting,
   commentsByLine,
   draftTargetId,
   draftText,
@@ -56,6 +59,7 @@ export function SplitDiffView({
             renderRow={(row) => (
               <SplitDiffLine
                 row={row}
+                highlighting={highlighting}
                 commentsByLine={commentsByLine}
                 draftTargetId={draftTargetId}
                 draftText={draftText}

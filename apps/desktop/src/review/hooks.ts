@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TranscriptTurnDiff } from '~/conversation/transcript/types';
 
 import { useTurnReview } from './TurnReviewContext';
+import { type HighlightedLine, highlightLines } from './syntax-highlighter';
+import type { ParsedTurnDiffFile } from './types';
 
 export const useBaseCandidates = (): TranscriptTurnDiff[] => {
   const { history, targetTurnId, turnSnapshots } = useTurnReview();
@@ -277,4 +279,51 @@ export const useDiffRangeSelection = () => {
     patchsetOptions,
     rangeKey,
   };
+};
+
+export type FileHighlighting = Map<string, HighlightedLine>;
+
+export const useFileHighlighting = (
+  file: ParsedTurnDiffFile
+): FileHighlighting => {
+  const [highlighting, setHighlighting] = useState<FileHighlighting>(new Map());
+  const requestCounter = useRef(0);
+
+  useEffect(() => {
+    const requestId = requestCounter.current + 1;
+    requestCounter.current = requestId;
+
+    const lines: string[] = [];
+    const lineIds: string[] = [];
+
+    for (const hunk of file.hunks) {
+      for (const line of hunk.lines) {
+        if (line.kind !== 'metadata') {
+          lines.push(line.text);
+          lineIds.push(line.id);
+        }
+      }
+    }
+
+    highlightLines(lines, file.language)
+      .then((highlighted) => {
+        // Check if we're still on the latest request for this file
+        if (requestCounter.current !== requestId) {
+          return;
+        }
+        const map = new Map<string, HighlightedLine>();
+        for (let i = 0; i < lineIds.length; i++) {
+          const tokens = highlighted[i];
+          if (tokens) {
+            map.set(lineIds[i], tokens);
+          }
+        }
+        setHighlighting(map);
+      })
+      .catch((err) => {
+        console.error('[syntax] Error highlighting', file.displayPath, err);
+      });
+  }, [file.id, file.displayPath, file.language, file.hunks]);
+
+  return highlighting;
 };
