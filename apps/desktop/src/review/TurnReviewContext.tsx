@@ -9,11 +9,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type {
-  GetTurnDiffRangeParams,
-  ListTurnSnapshotsResponse,
-} from '~/codex.gen';
-import { Codex } from '~/codex/client';
+import type { GetTurnDiffRangeParams } from '~/codex.gen';
 import type { TranscriptTurnDiff } from '~/conversation/transcript/types';
 
 import { parseUnifiedDiff } from './diff-parser';
@@ -25,23 +21,8 @@ import type {
   TurnReviewComment,
   TurnReviewCommentInput,
 } from './types';
-
-type DiffCacheEntry = {
-  raw: string;
-  parsed: ParsedTurnDiff | null;
-  resolved: boolean;
-};
-
-type RangeDiffFetchResult =
-  | {
-      kind: 'success';
-      diff: string;
-    }
-  | {
-      kind: 'error';
-      message: string;
-      retryable: boolean;
-    };
+import { useTurnDiffRange } from './use-turn-diff-range';
+import { useTurnSnapshots } from './use-turn-snapshots';
 
 type TurnReviewContextValue = {
   diff: ParsedTurnDiff | null;
@@ -77,16 +58,6 @@ type TurnReviewProviderProps = {
   latestDiff: TranscriptTurnDiff | null;
   history: readonly TranscriptTurnDiff[];
   children: ReactNode;
-};
-
-const RANGE_DIFF_RETRY_DELAY_MS = 1500;
-
-const hashString = (input: string): string => {
-  let hash = 0;
-  for (let index = 0; index < input.length; index += 1) {
-    hash = (hash * 31 + input.charCodeAt(index)) | 0;
-  }
-  return hash.toString();
 };
 
 const makeCommentId = () => {
@@ -155,59 +126,23 @@ export function TurnReviewProvider({
   const [commentState, setCommentState] = useState<
     Record<string, TurnReviewComment[]>
   >({});
-  const [diffCache, setDiffCache] = useState<Record<string, DiffCacheEntry>>(
-    {}
-  );
-  const [snapshotData, setSnapshotData] =
-    useState<ListTurnSnapshotsResponse | null>(null);
-  const [rangeDiffResult, setRangeDiffResult] =
-    useState<RangeDiffFetchResult | null>(null);
-  const [rangeDiffReloadKey, setRangeDiffReloadKey] = useState(0);
 
-  const snapshotRequestRef = useRef(0);
-  const lastSnapshotRefreshKeyRef = useRef<string | null>(null);
-  const lastSnapshotRefreshRawRef = useRef<string | null>(null);
   const autoFollowingTurnNumber = useRef<number | null>(null);
 
-  const refreshSnapshots = useCallback(async () => {
-    if (!conversationId) {
-      setSnapshotData(null);
-      return;
-    }
-    const requestId = snapshotRequestRef.current + 1;
-    snapshotRequestRef.current = requestId;
-    try {
-      const response = await Codex.listTurnSnapshots({ conversationId });
-      if (snapshotRequestRef.current === requestId) {
-        setSnapshotData(response);
-      }
-    } catch (error) {
-      console.debug('[TurnReview] Failed to load snapshot metadata', error);
-      if (snapshotRequestRef.current === requestId) {
-        setSnapshotData({
-          disabled: true,
-          baseCommitId: null,
-          snapshots: [],
-        });
-      }
-    }
-  }, [conversationId]);
+  // Server state via react-query
+  const { snapshotDisabled, baselineSnapshotId, turnSnapshots } =
+    useTurnSnapshots(conversationId);
 
-  useEffect(() => {
-    void refreshSnapshots();
-  }, [refreshSnapshots, history.length]);
-
+  // Reset local state when conversation changes
   useEffect(() => {
     setCommentState({});
-    setDiffCache({});
     setBaseTurnIdState(null);
     setTargetTurnId(null);
     setSelectedFileId(null);
-    lastSnapshotRefreshKeyRef.current = null;
-    lastSnapshotRefreshRawRef.current = null;
     autoFollowingTurnNumber.current = null;
   }, [conversationId]);
 
+  // Auto-follow latest turn
   useEffect(() => {
     if (!history.length) {
       setTargetTurnId(null);
@@ -241,6 +176,7 @@ export function TurnReviewProvider({
     autoFollowingTurnNumber.current = null;
   }, [history, targetTurnId]);
 
+  // Validate baseTurnId against targetTurnId
   useEffect(() => {
     if (!history.length || !targetTurnId) {
       if (baseTurnId !== null) {
@@ -281,14 +217,6 @@ export function TurnReviewProvider({
     );
   }, [history, latestDiff, targetTurnId]);
 
-  const selectedDiffRevision = useMemo(() => {
-    if (!selectedDiff) {
-      return null;
-    }
-    const unified = selectedDiff.unifiedDiff ?? '';
-    return `${selectedDiff.eventId ?? 'event'}::${selectedDiff.timestamp ?? ''}::${hashString(unified)}`;
-  }, [selectedDiff]);
-
   const fallbackParsedDiff = useMemo<ParsedTurnDiff | null>(() => {
     if (!selectedDiff) {
       return null;
@@ -300,21 +228,7 @@ export function TurnReviewProvider({
     return parseUnifiedDiff(unified);
   }, [selectedDiff]);
 
-  const turnSnapshots = useMemo<ReadonlyMap<string, string>>(() => {
-    if (!snapshotData) {
-      return new Map();
-    }
-    const entries = new Map<string, string>();
-    for (const descriptor of snapshotData.snapshots) {
-      entries.set(descriptor.eventId, descriptor.commitId);
-    }
-    return entries;
-  }, [snapshotData]);
-
-  const baselineSnapshotId = snapshotData?.baseCommitId ?? null;
-  const snapshotDisabled = snapshotData?.disabled ?? false;
-
-  const diffRangeInput = useMemo<GetTurnDiffRangeParams | null>(() => {
+  const diffRangeParams = useMemo<GetTurnDiffRangeParams | null>(() => {
     if (!conversationId || !targetTurnId || snapshotDisabled) {
       return null;
     }
@@ -335,75 +249,10 @@ export function TurnReviewProvider({
     };
   }, [baseTurnId, conversationId, historyById, snapshotDisabled, targetTurnId]);
 
-  const extractErrorMessage = (error: unknown): string => {
-    if (error instanceof Error) {
-      return error.message;
-    }
-    if (typeof error === 'string') {
-      return error;
-    }
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return 'Unknown error';
-    }
-  };
+  const { parsedDiff: rangeParsedDiff } = useTurnDiffRange(diffRangeParams);
 
-  const isSnapshotUnavailableError = (message: string): boolean =>
-    message.toLowerCase().includes('snapshot data unavailable');
-
-  useEffect(() => {
-    if (!diffRangeInput) {
-      setRangeDiffResult(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await Codex.getTurnDiffRange(diffRangeInput);
-        if (!cancelled) {
-          setRangeDiffResult({
-            kind: 'success',
-            diff: response.unifiedDiff ?? '',
-          });
-        }
-      } catch (error) {
-        console.debug('[TurnReview] Failed to load diff range', error);
-        const message = extractErrorMessage(error);
-        if (!cancelled) {
-          setRangeDiffResult({
-            kind: 'error',
-            message,
-            retryable: isSnapshotUnavailableError(message),
-          });
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    diffRangeInput,
-    selectedDiffRevision,
-    snapshotDisabled,
-    rangeDiffReloadKey,
-  ]);
-
-  useEffect(() => {
-    if (
-      !rangeDiffResult ||
-      rangeDiffResult.kind !== 'error' ||
-      !rangeDiffResult.retryable
-    ) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setRangeDiffReloadKey((value) => value + 1);
-    }, RANGE_DIFF_RETRY_DELAY_MS);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [rangeDiffResult]);
+  // Use range diff if available, otherwise fall back to the selected diff's unified diff
+  const parsedDiff = rangeParsedDiff ?? fallbackParsedDiff;
 
   const rangeKey = useMemo(() => {
     if (!targetTurnId) {
@@ -411,72 +260,6 @@ export function TurnReviewProvider({
     }
     return `${baseTurnId ?? '__BASELINE__'}::${targetTurnId}`;
   }, [baseTurnId, targetTurnId]);
-
-  const diffRevisionKey = useMemo(() => {
-    if (!targetTurnId || !selectedDiffRevision) {
-      return null;
-    }
-    return `${targetTurnId}::${selectedDiffRevision}`;
-  }, [selectedDiffRevision, targetTurnId]);
-
-  useEffect(() => {
-    if (!diffRevisionKey) {
-      return;
-    }
-    if (!rangeDiffResult || rangeDiffResult.kind !== 'success') {
-      return;
-    }
-    setDiffCache((prev) => {
-      const existing = prev[diffRevisionKey];
-      if (
-        existing &&
-        existing.resolved &&
-        existing.raw === rangeDiffResult.diff
-      ) {
-        return prev;
-      }
-      const parsed =
-        rangeDiffResult.diff.trim().length > 0
-          ? parseUnifiedDiff(rangeDiffResult.diff)
-          : null;
-      return {
-        ...prev,
-        [diffRevisionKey]: {
-          raw: rangeDiffResult.diff,
-          parsed,
-          resolved: true,
-        },
-      };
-    });
-  }, [diffRevisionKey, rangeDiffResult]);
-
-  useEffect(() => {
-    if (!rangeKey || snapshotDisabled) {
-      return;
-    }
-    if (!rangeDiffResult || rangeDiffResult.kind !== 'success') {
-      return;
-    }
-    if (
-      lastSnapshotRefreshKeyRef.current === rangeKey &&
-      lastSnapshotRefreshRawRef.current === rangeDiffResult.diff
-    ) {
-      return;
-    }
-    lastSnapshotRefreshKeyRef.current = rangeKey;
-    lastSnapshotRefreshRawRef.current = rangeDiffResult.diff;
-    void refreshSnapshots();
-  }, [rangeDiffResult, rangeKey, refreshSnapshots, snapshotDisabled]);
-
-  const parsedDiff = useMemo<ParsedTurnDiff | null>(() => {
-    if (diffRevisionKey) {
-      const cache = diffCache[diffRevisionKey];
-      if (cache && cache.resolved) {
-        return cache.parsed;
-      }
-    }
-    return fallbackParsedDiff;
-  }, [diffCache, diffRevisionKey, fallbackParsedDiff]);
 
   const lineLookup = useMemo(() => buildLineLookup(parsedDiff), [parsedDiff]);
 
@@ -487,6 +270,7 @@ export function TurnReviewProvider({
     return commentState[rangeKey] ?? [];
   }, [commentState, rangeKey]);
 
+  // Initialize comment state for new ranges
   useEffect(() => {
     if (!rangeKey) {
       return;
@@ -502,9 +286,10 @@ export function TurnReviewProvider({
     });
   }, [rangeKey]);
 
+  // Reset selected file when diff changes
   useEffect(() => {
     setSelectedFileId(null);
-  }, [diffRevisionKey]);
+  }, [parsedDiff]);
 
   const addComment = useCallback(
     (input: TurnReviewCommentInput): TurnReviewComment | null => {
