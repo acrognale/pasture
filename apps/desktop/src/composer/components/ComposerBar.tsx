@@ -138,6 +138,14 @@ export function ComposerBar({
     draftRef.current = draft;
   }, [draft]);
 
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [draft]);
+
   const pendingSlashCommand = useMemo(
     () => parseSlashCommand(draft.trim()),
     [draft]
@@ -308,9 +316,8 @@ export function ComposerBar({
             onChange={(e) => setDraft(e.target.value)}
             disabled={isMutationPending || disabled}
             onKeyDown={handleComposerKeyDown}
-            rows={3}
             aria-busy={isMutationPending}
-            className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none p-0 bg-transparent"
+            className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none p-0 bg-transparent min-h-[72px] max-h-[200px] overflow-y-auto"
           />
         </div>
         <div className="flex items-center justify-between gap-2">
