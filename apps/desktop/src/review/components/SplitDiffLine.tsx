@@ -1,10 +1,12 @@
 import type { SplitDiffRow } from '../diff-utils';
+import type { FileHighlighting } from '../hooks';
 import type { TurnReviewComment } from '../types';
 import { CommentThread } from './CommentThread';
 import { DiffLineCell } from './DiffLineCell';
 
 export type SplitDiffLineProps = {
   row: SplitDiffRow;
+  highlighting: FileHighlighting;
   commentsByLine: Map<string, TurnReviewComment[]>;
   draftTargetId: string | null;
   draftText: string;
@@ -17,6 +19,7 @@ export type SplitDiffLineProps = {
 
 export function SplitDiffLine({
   row,
+  highlighting,
   commentsByLine,
   draftTargetId,
   draftText,
@@ -60,17 +63,11 @@ export function SplitDiffLine({
     : 'bg-muted text-muted-foreground';
 
   const leftPrefix = leftLine?.prefix ?? null;
-  const leftText = leftLine
-    ? leftLine.kind === 'addition'
-      ? ''
-      : leftLine.text || '\u00A0'
-    : '\u00A0';
+  const leftIsEmpty = !leftLine || leftLine.kind === 'addition';
+  const leftText = leftIsEmpty ? '\u00A0' : leftLine.text || '\u00A0';
   const rightPrefix = rightLine?.prefix ?? null;
-  const rightText = rightLine
-    ? rightLine.kind === 'removal'
-      ? ''
-      : rightLine.text || '\u00A0'
-    : '\u00A0';
+  const rightIsEmpty = !rightLine || rightLine.kind === 'removal';
+  const rightText = rightIsEmpty ? '\u00A0' : rightLine.text || '\u00A0';
 
   const showLeftThread =
     !!leftLine && (leftComments.length > 0 || isLeftDraftOpen);
@@ -87,6 +84,7 @@ export function SplitDiffLine({
             cellClass={oldCellClass}
             prefix={leftPrefix}
             text={leftText}
+            tokens={leftIsEmpty ? undefined : highlighting.get(leftLine.id)}
             allowComment={leftAllowComment}
             onOpenDraft={onOpenDraft}
           />
@@ -98,6 +96,7 @@ export function SplitDiffLine({
             cellClass={newCellClass}
             prefix={rightPrefix}
             text={rightText}
+            tokens={rightIsEmpty ? undefined : highlighting.get(rightLine.id)}
             allowComment={rightAllowComment}
             onOpenDraft={onOpenDraft}
           />
