@@ -36,6 +36,7 @@ type TranscriptListProps = {
   onConversationForked?: (conversationId: string) => void;
   bottomAnchorRef?: MutableRefObject<HTMLDivElement | null>;
   contentRef?: MutableRefObject<HTMLDivElement | null>;
+  shouldAnimateInitial?: boolean;
 };
 
 type TranscriptTurnProps = {
@@ -181,6 +182,7 @@ export const TranscriptList = ({
   onConversationForked,
   bottomAnchorRef,
   contentRef,
+  shouldAnimateInitial = false,
 }: TranscriptListProps) => {
   const nthUserMessageMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -214,7 +216,7 @@ export const TranscriptList = ({
 
   return (
     <div ref={contentRef} className="px-6 pt-4 pb-4">
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={shouldAnimateInitial}>
         {turnEntries.map(({ turnId, turn }, index) => (
           <TranscriptTurnGroup
             key={`turn-${index}`}

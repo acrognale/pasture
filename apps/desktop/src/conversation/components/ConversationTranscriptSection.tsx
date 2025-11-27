@@ -1,4 +1,10 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 
@@ -41,6 +47,7 @@ export const ConversationTranscriptSection = forwardRef<
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
     const bottomAnchorRef = useRef<HTMLDivElement | null>(null);
     const transcriptContentRef = useRef<HTMLDivElement | null>(null);
+    const previousConversationIdRef = useRef<string | null>(null);
     const { isLoading, error } = useConversationLoadState(conversationId);
     const { turns, turnOrder } = useConversationTranscriptTurns(conversationId);
     const countCells = (order: string[], lookup: typeof turns) =>
@@ -50,6 +57,23 @@ export const ConversationTranscriptSection = forwardRef<
       }, 0);
 
     const hasTranscript = countCells(turnOrder, turns) > 0;
+    const [shouldAnimateInitial, setShouldAnimateInitial] = useState(
+      !isLoading && !hasTranscript
+    );
+    useEffect(() => {
+      const initialValue = !isLoading && !hasTranscript;
+      const previousConversationId = previousConversationIdRef.current;
+      previousConversationIdRef.current = conversationId;
+      setShouldAnimateInitial((current) => {
+        if (previousConversationId !== conversationId) {
+          return initialValue;
+        }
+        if (current) {
+          return current;
+        }
+        return initialValue;
+      });
+    }, [conversationId, hasTranscript, isLoading]);
     const lastVisibleCellEventKey = (() => {
       for (let idx = turnOrder.length - 1; idx >= 0; idx -= 1) {
         const turn = turns[turnOrder[idx]];
@@ -113,6 +137,7 @@ export const ConversationTranscriptSection = forwardRef<
             onConversationForked={onConversationForked}
             bottomAnchorRef={bottomAnchorRef}
             contentRef={transcriptContentRef}
+            shouldAnimateInitial={shouldAnimateInitial}
           />
         );
       }
