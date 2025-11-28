@@ -25,6 +25,7 @@ import {
 } from '~/components/ui/tooltip';
 import { useConversationIsRunning } from '~/conversation/store/hooks';
 import { useNamedShortcut } from '~/keyboard/hooks';
+import { useNow } from '~/lib/hooks/useNow';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { resolveSessionLabel } from '~/lib/workspaces';
@@ -48,6 +49,7 @@ export function SidebarPanel() {
   const keys = useWorkspaceKeys();
   const threads = useOpenWorkspaceThreads();
   const { closeThread } = useWorkspaceActions();
+  const now = useNow();
   const threadMatch = useRouterState({
     select: (state) =>
       state.matches.find(
@@ -269,6 +271,7 @@ export function SidebarPanel() {
                       key={session.threadId}
                       session={session}
                       isActive={session.threadId === activeThreadId}
+                      now={now}
                       onSelect={handleThreadClick}
                       onClose={handleCloseThread}
                     />
@@ -293,6 +296,7 @@ export function SidebarPanel() {
 type SidebarConversationMenuItemProps = {
   session: ThreadSummary;
   isActive: boolean;
+  now: Date;
   onSelect: (threadId: string) => void;
   onClose: (threadId: string) => void;
 };
@@ -300,6 +304,7 @@ type SidebarConversationMenuItemProps = {
 function SidebarConversationMenuItem({
   session,
   isActive,
+  now,
   onSelect,
   onClose,
 }: SidebarConversationMenuItemProps) {
@@ -330,7 +335,7 @@ function SidebarConversationMenuItem({
       <span className="flex shrink-0 items-center gap-2">
         {session.timestamp ? (
           <span className="text-transcript-micro text-muted-foreground whitespace-nowrap">
-            {formatSessionPreviewTimestamp(session.timestamp)}
+            {formatSessionPreviewTimestamp(session.timestamp, now)}
           </span>
         ) : null}
         {showCloseButton ? (

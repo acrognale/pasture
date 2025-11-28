@@ -9,6 +9,7 @@ import {
   CommandList,
 } from '~/components/ui/command';
 import { useNamedShortcut } from '~/keyboard/hooks';
+import { useNow } from '~/lib/hooks/useNow';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { resolveSessionLabel } from '~/lib/workspaces';
@@ -24,6 +25,7 @@ export function WorkspaceConversationSwitcher() {
   const router = useRouter();
   const { workspacePath } = useWorkspace();
   const threads = useWorkspaceThreads();
+  const now = useNow();
 
   const items = useMemo(() => threads.items ?? [], [threads.items]);
 
@@ -109,7 +111,7 @@ export function WorkspaceConversationSwitcher() {
                   </span>
                   {session.timestamp ? (
                     <span className="shrink-0 text-transcript-micro text-muted-foreground">
-                      {formatSessionPreviewTimestamp(session.timestamp)}
+                      {formatSessionPreviewTimestamp(session.timestamp, now)}
                     </span>
                   ) : null}
                 </div>
