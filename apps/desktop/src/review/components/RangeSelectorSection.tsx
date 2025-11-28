@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import type { TranscriptTurnDiff } from '~/conversation/transcript/types';
 
-import { useTurnSnapshots } from '../queries';
 import { useTurnReview } from '../TurnReviewContext';
+import { useTurnSnapshots } from '../queries';
 import { RangeSelector } from './RangeSelector';
 
 export function RangeSelectorSection() {
