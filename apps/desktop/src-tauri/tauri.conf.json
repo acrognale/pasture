@@ -3,6 +3,17 @@
   "productName": "Pasture",
   "version": "0.4.0",
   "identifier": "com.acrognale.pasture",
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEMxMEE5MTM4RUYxMTFERDcKUldUWEhSSHZPSkVLd1Zlc0hVWHJIK0lmeTMrbTZ3WmdlTFhWNGlNQyt4SlZndERhaXRwSzR4RWEK",
+      "endpoints": [
+        "https://github.com/acrognale/pasture/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:5173",
@@ -49,7 +60,8 @@
               "options": {
                 "events": [
                   "codex-event",
-                  "codex:window:contextUpdated"
+                  "codex:window:contextUpdated",
+                  "update:check-requested"
                 ]
               }
             },
@@ -58,7 +70,8 @@
               "options": {
                 "events": [
                   "codex-event",
-                  "codex:window:contextUpdated"
+                  "codex:window:contextUpdated",
+                  "update:check-requested"
                 ]
               }
             }
@@ -72,12 +85,31 @@
           "permissions": [
             "core:window:allow-close"
           ]
+        },
+        {
+          "identifier": "updater",
+          "windows": [
+            "*"
+          ],
+          "permissions": [
+            "updater:default"
+          ]
+        },
+        {
+          "identifier": "process",
+          "windows": [
+            "*"
+          ],
+          "permissions": [
+            "process:allow-restart"
+          ]
         }
       ]
     }
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",

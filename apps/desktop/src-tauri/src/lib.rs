@@ -33,6 +33,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_decorum::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             // Set traffic light positioning to match the legacy Electron app (x: 20, y: 22)
             #[cfg(target_os = "macos")]
@@ -124,6 +126,8 @@ pub fn run() {
             commands::workspace::set_window_title,
             commands::workspace::browse_for_workspace,
             commands::auth::get_auth_state,
+            commands::update::check_for_update,
+            commands::update::install_update,
         ])
         .on_menu_event(|app, event| {
             menu::handle_menu_event(app, event);

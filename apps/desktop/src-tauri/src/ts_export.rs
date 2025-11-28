@@ -47,6 +47,7 @@ fn export_type<T: TS + 'static>(out_dir: &Path) -> std::result::Result<(), ts_rs
 }
 
 fn export_additional_types(out_dir: &Path) -> std::result::Result<(), ts_rs::ExportError> {
+    use crate::commands::update::UpdateInfo;
     use codex_protocol::parse_command::ParsedCommand;
     use codex_protocol::plan_tool::StepStatus;
     use codex_protocol::protocol::ApplyPatchApprovalRequestEvent;
@@ -78,6 +79,7 @@ fn export_additional_types(out_dir: &Path) -> std::result::Result<(), ts_rs::Exp
     export_type::<StepStatus>(out_dir)?;
     export_type::<ConversationEventPayload>(out_dir)?;
     export_type::<CodexEvent>(out_dir)?;
+    export_type::<UpdateInfo>(out_dir)?;
     Ok(())
 }
 
@@ -150,17 +152,50 @@ fn generate_client_file(out_dir: &Path) -> Result<PathBuf> {
     let client_path = codex_dir.join("client.ts");
     let definitions = commands::command_definitions();
 
+    const WORKSPACE_COMMANDS: &[&str] = &[
+        "listOpenWorkspaces",
+        "listRecentWorkspaces",
+        "openWorkspace",
+        "focusWorkspace",
+        "browseForWorkspace",
+    ];
+
+    let definitions_ref: Vec<&commands::CommandDescriptor> = definitions.iter().collect();
+
+    let (workspace_defs, root_defs): (Vec<_>, Vec<_>) = definitions_ref
+        .into_iter()
+        .partition(|definition| WORKSPACE_COMMANDS.contains(&definition.property_name.as_str()));
+
+    let mut body = String::new();
+    body.push_str("export namespace Codex {\n");
+
+    for definition in root_defs {
+        write_command_function(&mut body, definition, 2)?;
+    }
+
+    if !workspace_defs.is_empty() {
+        body.push_str("  export namespace workspace {\n");
+        for definition in workspace_defs {
+            write_command_function(&mut body, definition, 4)?;
+        }
+        body.push_str("  }\n");
+    }
+
+    body.push_str("}\n");
+
+    // Collect all potential imports from command type metadata.
     let mut import_types: BTreeSet<String> = BTreeSet::new();
     for definition in definitions.iter() {
         import_types.extend(definition.params.imports().iter().cloned());
         import_types.extend(definition.result.imports().iter().cloned());
     }
 
-    // Remove primitive/builtin types if they slipped through.
+    // Remove primitive/builtin types and any types not referenced in the body.
     const BUILTIN_TYPES: &[&str] = &["Record", "Array"];
     let mut sorted_imports: Vec<String> = import_types
         .into_iter()
         .filter(|ty| !BUILTIN_TYPES.contains(&ty.as_str()))
+        .filter(|ty| body.contains(ty))
         .collect();
 
     let mut content = String::new();
@@ -177,35 +212,7 @@ fn generate_client_file(out_dir: &Path) -> Result<PathBuf> {
 
     content.push('\n');
     content.push('\n');
-    content.push_str("export namespace Codex {\n");
-
-    const WORKSPACE_COMMANDS: &[&str] = &[
-        "listOpenWorkspaces",
-        "listRecentWorkspaces",
-        "openWorkspace",
-        "focusWorkspace",
-        "browseForWorkspace",
-    ];
-
-    let definitions_ref: Vec<&commands::CommandDescriptor> = definitions.iter().collect();
-
-    let (workspace_defs, root_defs): (Vec<_>, Vec<_>) = definitions_ref
-        .into_iter()
-        .partition(|definition| WORKSPACE_COMMANDS.contains(&definition.property_name.as_str()));
-
-    for definition in root_defs {
-        write_command_function(&mut content, definition, 2)?;
-    }
-
-    if !workspace_defs.is_empty() {
-        content.push_str("  export namespace workspace {\n");
-        for definition in workspace_defs {
-            write_command_function(&mut content, definition, 4)?;
-        }
-        content.push_str("  }\n");
-    }
-
-    content.push_str("}\n");
+    content.push_str(&body);
 
     fs::write(&client_path, content)
         .with_context(|| format!("Failed to write {}", client_path.display()))?;

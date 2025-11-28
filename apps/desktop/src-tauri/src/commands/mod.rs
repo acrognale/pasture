@@ -7,6 +7,7 @@ pub mod review;
 pub mod subscriptions;
 pub mod threads;
 pub mod turns;
+pub mod update;
 pub mod workspace;
 
 pub use registry::CommandDescriptor;
@@ -105,5 +106,13 @@ codex_command_descriptors! {
     auth::get_auth_state {
         params: (),
         result: crate::auth::AuthState,
+    },
+    update::check_for_update {
+        params: (),
+        result: Option<update::UpdateInfo>,
+    },
+    update::install_update {
+        params: (),
+        result: (),
     },
 }
