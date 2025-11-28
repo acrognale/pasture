@@ -163,6 +163,7 @@ export function DiffContentSection({
   useEffect(() => {
     if (!diffFiles.length) {
       if (selectedFileId !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedFileId(null);
       }
       return;

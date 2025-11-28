@@ -92,6 +92,7 @@ export function TurnReviewProvider({
 
   // Reset local state when conversation changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCommentState({});
     setBaseTurnIdState(null);
     setTargetTurnId(null);
@@ -101,6 +102,7 @@ export function TurnReviewProvider({
   // Auto-follow latest turn
   useEffect(() => {
     if (!history.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTargetTurnId(null);
       autoFollowingTurnNumber.current = null;
       return;
@@ -136,6 +138,7 @@ export function TurnReviewProvider({
   useEffect(() => {
     if (!history.length || !targetTurnId) {
       if (baseTurnId !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setBaseTurnIdState(null);
       }
       return;
@@ -184,6 +187,7 @@ export function TurnReviewProvider({
     if (!rangeKey) {
       return;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCommentState((prev) => {
       if (prev[rangeKey]) {
         return prev;

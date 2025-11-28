@@ -29,6 +29,12 @@ if (typeof window !== 'undefined') {
       writable: true,
     });
   }
+  if (!Element.prototype.scrollIntoView) {
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      value: (): void => undefined,
+      writable: true,
+    });
+  }
   Object.defineProperty(window, 'scrollTo', {
     value: () => undefined,
     writable: true,
