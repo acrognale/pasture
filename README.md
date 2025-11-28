@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-<img src="screenshots/pasture-screenshot.png" width="100%" />
+<img src="screenshots/main-051.png" width="100%" />
 </p>
 
 ## Overview
@@ -34,8 +34,24 @@ brew install --cask codex
 
 Run `codex` once and log in with your API key or ChatGPT account. After that, you're all set.
 
+### Message Editing & Conversation Branching
+
+Edit any message to fork the conversation into a new branch. Pasture maintains a tree of conversation versions, letting you explore different approaches without losing the previous conversation. Use the version selector below each edited message to navigate between branches.
+
+<img src="screenshots/branching.png" width="100%" />
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| ⌘B | Toggle sidebar |
+| ⌘N | New thread |
+| ⌘P | Quick thread switcher |
+| Escape | Interrupt active turn / Close overlay |
+
 ### The Less-Obvious Stuff
 
+- **Session management**: The sidebar only displays active/loaded sessions. You may resume a previous session by clicking "Open" or using the ⌘P quick switcher.
 - **Compacting**: You *can* send `/compact` to clean up long conversations. No slash command menu yet, but it's on my list.
 - **Parallel conversations**: You *can* run multiple conversations at once. They'll keep going in the background while you switch between them. A spinner will appear on the sidebar to indicate each active conversation.
 - **Tool calls in history**: You might notice tool calls disappear when resuming a conversation. That's expected - Codex only saves certain items (user messages, reasoning blocks, agent messages) to the rollout history. Don't worry, they're still in the context window.
@@ -46,7 +62,6 @@ Here's what's not built yet:
 
 - **MCP servers**: If you have them configured via codex-cli, they *might* work? I don't use MCPs myself, so I haven't tested this.
 - **Images**: No support for pasting images into the composer yet.
-- **Editing messages**: Not implemented.
 - **Custom models/APIs**: Codex supports various models and providers, but I haven't exposed that in the UI yet.
 
 If you hit weird behavior, please file a bug report with your `config.toml` so I can see what needs to be implemented.
