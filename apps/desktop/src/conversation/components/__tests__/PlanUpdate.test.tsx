@@ -18,17 +18,36 @@ const createPlanCell = (): TranscriptPlanCell => ({
 });
 
 describe('PlanUpdate', () => {
-  test('renders explanation and plan steps', () => {
+  test('renders only the first in-progress step', () => {
     const cell = createPlanCell();
 
     render(<PlanUpdate cell={cell} timestamp="12:00" />);
 
     expect(
-      screen.getByText('Review outstanding bug reports')
+      screen.getByText('Starting: Draft release announcement')
     ).toBeInTheDocument();
-    expect(screen.getByText('Draft release announcement')).toBeInTheDocument();
     expect(
-      screen.getByText('Schedule post-release follow-up')
-    ).toBeInTheDocument();
+      screen.queryByText('Review outstanding bug reports')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Schedule post-release follow-up')
+    ).not.toBeInTheDocument();
+  });
+
+  test('renders nothing when there is no in-progress step', () => {
+    const completedCell: TranscriptPlanCell = {
+      ...createPlanCell(),
+      steps: [
+        { step: 'Review outstanding bug reports', status: 'completed' },
+        { step: 'Draft release announcement', status: 'completed' },
+        { step: 'Schedule post-release follow-up', status: 'completed' },
+      ],
+    };
+
+    const { container } = render(
+      <PlanUpdate cell={completedCell} timestamp="12:00" />
+    );
+
+    expect(container.firstChild).toBeNull();
   });
 });
