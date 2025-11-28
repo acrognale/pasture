@@ -51,6 +51,7 @@ Edit any message to fork the conversation into a new branch. Pasture maintains a
 
 ### The Less-Obvious Stuff
 
+- **Generated session titles**: Pasture will generate a title for each session based on the first user message. I've found this useful to identify sessions instead of each beginning with my usual "explore the code ..." pre-amble.
 - **Session management**: The sidebar only displays active/loaded sessions. You may resume a previous session by clicking "Open" or using the ⌘P quick switcher.
 - **Compacting**: You *can* send `/compact` to clean up long conversations. No slash command menu yet, but it's on my list.
 - **Parallel conversations**: You *can* run multiple conversations at once. They'll keep going in the background while you switch between them. A spinner will appear on the sidebar to indicate each active conversation.
