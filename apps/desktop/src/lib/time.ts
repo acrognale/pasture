@@ -68,14 +68,14 @@ export const formatTimestampClock = (value?: string | null): string => {
 };
 
 export const formatSessionPreviewTimestamp = (
-  value?: string | null
+  value?: string | null,
+  now: Date = new Date()
 ): string => {
   const date = parseTimestamp(value);
   if (!date) {
     return '';
   }
 
-  const now = new Date();
   return isSameDay(date, now)
     ? previewTimeFormatter.format(date)
     : previewDateFormatter.format(date);
