@@ -13,6 +13,7 @@ import {
   useConversationLoadState,
   useConversationTranscriptTurns,
 } from '../store/hooks';
+import { FloatingPlanPanel } from './FloatingPlanPanel';
 import { TranscriptList } from './TranscriptList';
 
 export type ConversationTranscriptHandle = {
@@ -160,6 +161,8 @@ export const ConversationTranscriptSection = forwardRef<
         >
           {content}
         </div>
+
+        <FloatingPlanPanel conversationId={conversationId} />
 
         {!isPinnedToBottom && hasTranscript ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
