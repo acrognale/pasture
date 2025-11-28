@@ -143,6 +143,7 @@ export type { TurnSnapshotDescriptor } from './TurnSnapshotDescriptor';
 export type { UndoCompletedEvent } from './UndoCompletedEvent';
 export type { UndoStartedEvent } from './UndoStartedEvent';
 export type { UpdateComposerConfigParams } from './UpdateComposerConfigParams';
+export type { UpdateInfo } from './UpdateInfo';
 export type { UpdatePlanArgs } from './UpdatePlanArgs';
 export type { UserInput } from './UserInput';
 export type { UserMessageEvent } from './UserMessageEvent';

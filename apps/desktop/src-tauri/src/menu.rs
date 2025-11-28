@@ -4,6 +4,7 @@ use crate::state::AppState;
 use crate::workspace;
 use log::warn;
 use tauri::AppHandle;
+use tauri::Emitter;
 use tauri::Manager;
 use tauri::Wry;
 use tauri::menu::Menu;
@@ -16,6 +17,7 @@ use tauri::menu::SubmenuBuilder;
 
 const MENU_OPEN_WORKSPACE: &str = "open_workspace";
 const MENU_RECENT_WORKSPACE_PREFIX: &str = "recent_workspace_";
+const MENU_CHECK_FOR_UPDATES: &str = "check_for_updates";
 
 /// Build the native application menu
 pub async fn build_menu(app: &AppHandle) -> Result<Menu<Wry>, tauri::Error> {
@@ -53,6 +55,13 @@ fn build_app_menu(app: &AppHandle) -> Result<Submenu<Wry>, tauri::Error> {
 
     SubmenuBuilder::new(app, app_name)
         .item(&PredefinedMenuItem::about(app, None, None)?)
+        .item(&MenuItem::with_id(
+            app,
+            MENU_CHECK_FOR_UPDATES,
+            "Check for Updates…",
+            true,
+            None::<&str>,
+        )?)
         .separator()
         .item(&PredefinedMenuItem::services(app, None)?)
         .separator()
@@ -164,6 +173,12 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
     let app_handle = app.clone();
 
     match event_id {
+        MENU_CHECK_FOR_UPDATES => {
+            // Emit event for frontend to handle update check
+            if let Err(e) = app_handle.emit("update:check-requested", ()) {
+                log::error!("Failed to emit update check event: {}", e);
+            }
+        }
         MENU_OPEN_WORKSPACE => {
             tauri::async_runtime::spawn(async move {
                 match crate::commands::workspace::browse_for_workspace(app_handle.clone()).await {

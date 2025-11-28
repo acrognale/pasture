@@ -176,6 +176,24 @@ export namespace Codex {
     return await invoke<AuthState>('get_auth_state');
   }
 
+  export async function checkForUpdate(): Promise<{
+    version: string;
+    current_version: string;
+    body: string | null;
+    date: string | null;
+  } | null> {
+    return await invoke<{
+      version: string;
+      current_version: string;
+      body: string | null;
+      date: string | null;
+    } | null>('check_for_update');
+  }
+
+  export async function installUpdate(): Promise<void> {
+    return await invoke<void>('install_update');
+  }
+
   export namespace workspace {
     export async function listRecentWorkspaces(): Promise<Array<string>> {
       return await invoke<Array<string>>('list_recent_workspaces');
