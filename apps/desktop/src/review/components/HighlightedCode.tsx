@@ -1,4 +1,4 @@
-import type { HighlightedLine } from '../syntax-highlighter';
+import type { HighlightedLine } from '../useFileHighlighting';
 
 type HighlightedCodeProps = {
   text: string;

@@ -1,110 +1,20 @@
+import { useEffect, useRef, useState } from 'react';
 import type { BundledLanguage, HighlighterGeneric } from 'shiki';
+
+import type { ParsedTurnDiffFile } from './types';
+
+// Types
 
 export type Token = {
   content: string;
   color: string | undefined;
 };
 
-const EXTENSION_TO_LANGUAGE: Record<string, BundledLanguage> = {
-  ts: 'typescript',
-  tsx: 'tsx',
-  js: 'javascript',
-  jsx: 'jsx',
-  mjs: 'javascript',
-  cjs: 'javascript',
-  mts: 'typescript',
-  cts: 'typescript',
-  json: 'json',
-  jsonc: 'jsonc',
-  css: 'css',
-  scss: 'scss',
-  less: 'less',
-  html: 'html',
-  htm: 'html',
-  vue: 'vue',
-  svelte: 'svelte',
-  py: 'python',
-  rs: 'rust',
-  go: 'go',
-  java: 'java',
-  kt: 'kotlin',
-  swift: 'swift',
-  c: 'c',
-  cpp: 'cpp',
-  h: 'c',
-  hpp: 'cpp',
-  cs: 'csharp',
-  rb: 'ruby',
-  php: 'php',
-  sh: 'bash',
-  bash: 'bash',
-  zsh: 'bash',
-  fish: 'fish',
-  sql: 'sql',
-  md: 'markdown',
-  mdx: 'mdx',
-  yaml: 'yaml',
-  yml: 'yaml',
-  toml: 'toml',
-  xml: 'xml',
-  svg: 'xml',
-  graphql: 'graphql',
-  gql: 'graphql',
-  dockerfile: 'dockerfile',
-  makefile: 'makefile',
-  lua: 'lua',
-  r: 'r',
-  scala: 'scala',
-  clj: 'clojure',
-  ex: 'elixir',
-  exs: 'elixir',
-  erl: 'erlang',
-  hs: 'haskell',
-  ml: 'ocaml',
-  nim: 'nim',
-  zig: 'zig',
-  v: 'v',
-  d: 'd',
-  groovy: 'groovy',
-  gradle: 'groovy',
-  tf: 'hcl',
-  hcl: 'hcl',
-  prisma: 'prisma',
-  astro: 'astro',
-};
-
-const FILENAME_TO_LANGUAGE: Record<string, BundledLanguage> = {
-  Dockerfile: 'dockerfile',
-  Makefile: 'makefile',
-  Gemfile: 'ruby',
-  Rakefile: 'ruby',
-  Vagrantfile: 'ruby',
-  Podfile: 'ruby',
-  Fastfile: 'ruby',
-  Brewfile: 'ruby',
-  Procfile: 'yaml',
-  '.editorconfig': 'ini',
-  'package.json': 'json',
-  'tsconfig.json': 'jsonc',
-  'jsconfig.json': 'jsonc',
-};
-
 export type HighlightedLine = Token[];
 
-export const detectLanguage = (filePath: string): string => {
-  const filename = filePath.split('/').pop() ?? '';
+export type FileHighlighting = Map<string, HighlightedLine>;
 
-  if (FILENAME_TO_LANGUAGE[filename]) {
-    return FILENAME_TO_LANGUAGE[filename];
-  }
-
-  const ext = filename.split('.').pop()?.toLowerCase();
-  if (ext && EXTENSION_TO_LANGUAGE[ext]) {
-    return EXTENSION_TO_LANGUAGE[ext];
-  }
-
-  return 'text';
-};
+// Shiki highlighter singleton
 
 type ShikiHighlighter = HighlighterGeneric<BundledLanguage, string>;
 
@@ -129,7 +39,7 @@ const PRELOADED_LANGUAGES: BundledLanguage[] = [
 
 const THEME = 'github-light';
 
-export const getHighlighter = async (): Promise<ShikiHighlighter> => {
+const getHighlighter = async (): Promise<ShikiHighlighter> => {
   if (!highlighterPromise) {
     console.log('[shiki] Initializing highlighter...');
     highlighterPromise = import('shiki')
@@ -253,4 +163,51 @@ export const highlightLines = async (
       text ? [{ content: text, color: undefined }] : []
     );
   }
+};
+
+// Hook
+
+export const useFileHighlighting = (
+  file: ParsedTurnDiffFile
+): FileHighlighting => {
+  const [highlighting, setHighlighting] = useState<FileHighlighting>(new Map());
+  const requestCounter = useRef(0);
+
+  useEffect(() => {
+    const requestId = requestCounter.current + 1;
+    requestCounter.current = requestId;
+
+    const lines: string[] = [];
+    const lineIds: string[] = [];
+
+    for (const hunk of file.hunks) {
+      for (const line of hunk.lines) {
+        if (line.kind !== 'metadata') {
+          lines.push(line.text);
+          lineIds.push(line.id);
+        }
+      }
+    }
+
+    highlightLines(lines, file.language)
+      .then((highlighted) => {
+        // Check if we're still on the latest request for this file
+        if (requestCounter.current !== requestId) {
+          return;
+        }
+        const map = new Map<string, HighlightedLine>();
+        for (let i = 0; i < lineIds.length; i++) {
+          const tokens = highlighted[i];
+          if (tokens) {
+            map.set(lineIds[i], tokens);
+          }
+        }
+        setHighlighting(map);
+      })
+      .catch((err) => {
+        console.error('[syntax] Error highlighting', file.displayPath, err);
+      });
+  }, [file.id, file.displayPath, file.language, file.hunks]);
+
+  return highlighting;
 };

@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { cn, makePathRelative } from '~/lib/utils';
 
-import { useFileHighlighting } from '../hooks';
 import type { ParsedTurnDiffFile, TurnReviewComment } from '../types';
+import { useFileHighlighting } from '../useFileHighlighting';
 import { FileDiffHeader } from './FileDiffHeader';
 import { SplitDiffView } from './SplitDiffView';
 import { UnifiedDiffView } from './UnifiedDiffView';
@@ -13,15 +14,7 @@ export type FileDiffSectionProps = {
   file: ParsedTurnDiffFile;
   viewMode: DiffViewMode;
   commentsByLine: Map<string, TurnReviewComment[]>;
-  draftTargetId: string | null;
-  draftText: string;
-  onStartDraft: (lineId: string) => void;
-  onCancelDraft: () => void;
-  onSubmitDraft: (lineId: string) => void;
-  setDraftText: (value: string) => void;
   onDeleteComment: (id: string) => void;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
   isActive: boolean;
   registerRef: (el: HTMLDivElement | null) => void;
 };
@@ -31,20 +24,17 @@ export function FileDiffSection({
   file,
   viewMode,
   commentsByLine,
-  draftTargetId,
-  draftText,
-  onStartDraft,
-  onCancelDraft,
-  onSubmitDraft,
-  setDraftText,
   onDeleteComment,
-  isCollapsed,
-  onToggleCollapse,
   isActive,
   registerRef,
 }: FileDiffSectionProps) {
+  // Collapse state is local - resets when component remounts via key
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   const relativePath = makePathRelative(workspacePath, file.displayPath);
   const highlighting = useFileHighlighting(file);
+
+  const toggleCollapse = () => setIsCollapsed((prev) => !prev);
 
   return (
     <div
@@ -57,33 +47,25 @@ export function FileDiffSection({
       <FileDiffHeader
         filePath={relativePath}
         isCollapsed={isCollapsed}
-        onToggleCollapse={onToggleCollapse}
+        onToggleCollapse={toggleCollapse}
       />
       {!isCollapsed ? (
         viewMode === 'split' ? (
           <SplitDiffView
+            fileId={file.id}
+            filePath={file.displayPath}
             hunks={file.hunks}
             highlighting={highlighting}
             commentsByLine={commentsByLine}
-            draftTargetId={draftTargetId}
-            draftText={draftText}
-            onStartDraft={onStartDraft}
-            onCancelDraft={onCancelDraft}
-            onSubmitDraft={onSubmitDraft}
-            setDraftText={setDraftText}
             onDeleteComment={onDeleteComment}
           />
         ) : (
           <UnifiedDiffView
+            fileId={file.id}
+            filePath={file.displayPath}
             hunks={file.hunks}
             highlighting={highlighting}
             commentsByLine={commentsByLine}
-            draftTargetId={draftTargetId}
-            draftText={draftText}
-            onStartDraft={onStartDraft}
-            onCancelDraft={onCancelDraft}
-            onSubmitDraft={onSubmitDraft}
-            setDraftText={setDraftText}
             onDeleteComment={onDeleteComment}
           />
         )

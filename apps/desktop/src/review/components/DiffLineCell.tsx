@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { cn } from '~/lib/utils';
 
-import { getDiffLineTheme } from '../diff-utils';
-import type { HighlightedLine } from '../syntax-highlighter';
+import { getDiffLineTheme } from '../diff';
 import type { ParsedTurnDiffLine } from '../types';
+import type { HighlightedLine } from '../useFileHighlighting';
 import { HighlightedCode } from './HighlightedCode';
 
 export type DiffLineCellProps = {
@@ -14,7 +14,7 @@ export type DiffLineCellProps = {
   text?: string | null;
   tokens?: HighlightedLine;
   allowComment: boolean;
-  onOpenDraft: (lineId: string) => void;
+  onOpenDraft: () => void;
   cellClass?: string;
 };
 
@@ -63,7 +63,7 @@ export function DiffLineCell({
 
   const handleOpen = () => {
     if (line) {
-      onOpenDraft(line.id);
+      onOpenDraft();
     }
   };
 

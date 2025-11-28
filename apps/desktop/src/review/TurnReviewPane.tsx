@@ -1,23 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useTurnReview } from './TurnReviewContext';
-import { EmptyReviewState } from './components/EmptyReviewState';
+import { DiffContentSection } from './components/DiffContentSection';
 import type { DiffViewMode } from './components/FileDiffSection';
-import { FileDiffSection } from './components/FileDiffSection';
-import { FileSidebar } from './components/FileSidebar';
-import { RangeSelector } from './components/RangeSelector';
+import { RangeSelectorSection } from './components/RangeSelectorSection';
 import { TurnReviewHeader } from './components/TurnReviewHeader';
-import {
-  buildFileDiffStats,
-  groupCommentsByFile,
-  groupCommentsByLine,
-} from './diff-utils';
-import {
-  useDiffRangeSelection,
-  useDraftComment,
-  useFileCollapse,
-  useFileNavigation,
-} from './hooks';
 
 type TurnReviewPaneProps = {
   workspacePath: string;
@@ -39,93 +26,13 @@ export function TurnReviewPane({
   disabled,
   onClose,
 }: TurnReviewPaneProps) {
-  const review = useTurnReview();
-  const {
-    diff,
-    comments,
-    selectedDiff,
-    baselineSnapshotId,
-    baseTurnId,
-    setBaseTurnId,
-    targetTurnId,
-    selectDiffByEventId,
-    snapshotDisabled,
-    selectedFileId,
-    setSelectedFileId,
-    removeComment,
-    addComment,
-    buildFeedbackPrompt,
-  } = review;
-  const diffFiles = useMemo(() => diff?.files ?? [], [diff]);
+  const { comments, selectedDiff } = useTurnReview();
   const commentCount = comments.length;
+
   const [viewMode, setViewMode] = useState<DiffViewMode>(getInitialViewMode);
   const [userSetViewMode, setUserSetViewMode] = useState(false);
 
-  const fileDiffStats = useMemo(
-    () => buildFileDiffStats(diffFiles),
-    [diffFiles]
-  );
-  const commentsByLine = useMemo(
-    () => groupCommentsByLine(comments),
-    [comments]
-  );
-  const commentsByFile = useMemo(
-    () => groupCommentsByFile(comments),
-    [comments]
-  );
-
-  const { collapsedFiles, toggleFileCollapse, resetCollapsedFiles } =
-    useFileCollapse();
-  const {
-    draftTargetId,
-    draftText,
-    setDraftText,
-    startDraft,
-    resetDraft,
-    submitDraft,
-  } = useDraftComment();
-  const {
-    baseCandidates,
-    baseDropdownDisabled,
-    hasBaseChoices,
-    baseSelectionLabel,
-    baseSelectionTimestamp,
-    patchsetSelectionLabel,
-    patchsetSelectionTimestamp,
-    patchsetOptions,
-    rangeKey,
-  } = useDiffRangeSelection();
-  const { registerRef, scrollToFile, handleFileSelect, resetScrollTracking } =
-    useFileNavigation(selectedFileId);
-
-  useEffect(() => {
-    resetDraft();
-    resetCollapsedFiles();
-    resetScrollTracking();
-  }, [rangeKey, resetCollapsedFiles, resetDraft, resetScrollTracking]);
-
-  useEffect(() => {
-    if (!diffFiles.length) {
-      if (selectedFileId !== null) {
-        setSelectedFileId(null);
-      }
-      return;
-    }
-    if (
-      !selectedFileId ||
-      !diffFiles.some((file) => file.id === selectedFileId)
-    ) {
-      const firstFile = diffFiles[0];
-      if (firstFile) {
-        setSelectedFileId(firstFile.id);
-      }
-    }
-  }, [diffFiles, selectedFileId, setSelectedFileId]);
-
-  useEffect(() => {
-    scrollToFile(selectedFileId);
-  }, [selectedFileId, scrollToFile]);
-
+  // Auto-toggle view mode on resize (unless user manually set it)
   useEffect(() => {
     if (userSetViewMode) {
       return;
@@ -150,11 +57,32 @@ export function TurnReviewPane({
     setUserSetViewMode(true);
   };
 
-  const handleSubmitDraft = (lineId: string) => {
-    submitDraft(lineId, addComment);
-  };
+  const buildFeedbackPrompt = useCallback((): string | null => {
+    if (!comments.length) {
+      return null;
+    }
+    const segments = comments.map((comment) => {
+      const lineLabel = (() => {
+        if (comment.newLineNumber != null) {
+          return `line ${comment.newLineNumber}`;
+        }
+        if (comment.oldLineNumber != null) {
+          return `removed line ${comment.oldLineNumber}`;
+        }
+        return 'unspecified line';
+      })();
+      const snippet =
+        comment.lineKind !== 'metadata' && comment.lineText.trim().length
+          ? `\n    Context: ${comment.linePrefix}${comment.lineText}`
+          : '';
+      return `- ${comment.filePath} (${lineLabel}): ${comment.text}${snippet}`;
+    });
+    const turnLabel = selectedDiff
+      ? `turn ${selectedDiff.turnNumber}`
+      : 'this turn';
+    return `Here is my consolidated review of ${turnLabel}:\n${segments.join('\n')}\n\nPlease address each comment before continuing.`;
+  }, [comments, selectedDiff]);
 
-  const showPane = diffFiles.length > 0;
   const canBuildFeedback = commentCount > 0;
   const turnNumber = selectedDiff?.turnNumber;
 
@@ -162,7 +90,7 @@ export function TurnReviewPane({
     <div className="flex h-full w-full flex-col bg-background text-foreground text-transcript-code leading-transcript-code">
       <div className="border-b border-border/60 px-6 py-4">
         <TurnReviewHeader
-          showPane={showPane}
+          showPane={true}
           commentCount={commentCount}
           turnNumber={turnNumber}
           viewMode={viewMode}
@@ -178,63 +106,9 @@ export function TurnReviewPane({
           }}
           onClose={onClose}
         />
-        <RangeSelector
-          baseSelectionLabel={baseSelectionLabel}
-          baseSelectionTimestamp={baseSelectionTimestamp}
-          baseDropdownDisabled={baseDropdownDisabled}
-          hasBaseChoices={hasBaseChoices}
-          baselineSnapshotId={baselineSnapshotId}
-          baseTurnId={baseTurnId}
-          setBaseTurnId={setBaseTurnId}
-          baseCandidates={baseCandidates}
-          patchsetSelectionLabel={patchsetSelectionLabel}
-          patchsetSelectionTimestamp={patchsetSelectionTimestamp}
-          patchsetOptions={patchsetOptions}
-          targetTurnId={targetTurnId}
-          selectDiffByEventId={selectDiffByEventId}
-          snapshotDisabled={snapshotDisabled}
-        />
+        <RangeSelectorSection />
       </div>
-      <div className="flex min-h-0 flex-1">
-        <FileSidebar
-          workspacePath={workspacePath}
-          files={diffFiles}
-          selectedFileId={selectedFileId}
-          fileDiffStats={fileDiffStats}
-          commentsByFile={commentsByFile}
-          onFileSelect={(fileId) => handleFileSelect(fileId, setSelectedFileId)}
-        />
-        {showPane ? (
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
-            <div className="flex flex-col gap-4">
-              {diffFiles.map((file) => (
-                <FileDiffSection
-                  key={file.id}
-                  workspacePath={workspacePath}
-                  file={file}
-                  viewMode={viewMode}
-                  commentsByLine={commentsByLine}
-                  draftTargetId={draftTargetId}
-                  draftText={draftText}
-                  onStartDraft={startDraft}
-                  onCancelDraft={resetDraft}
-                  onSubmitDraft={handleSubmitDraft}
-                  setDraftText={setDraftText}
-                  onDeleteComment={removeComment}
-                  isCollapsed={
-                    collapsedFiles.has(file.id) && selectedFileId !== file.id
-                  }
-                  onToggleCollapse={() => toggleFileCollapse(file.id)}
-                  isActive={selectedFileId === file.id}
-                  registerRef={registerRef(file.id)}
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <EmptyReviewState />
-        )}
-      </div>
+      <DiffContentSection workspacePath={workspacePath} viewMode={viewMode} />
     </div>
   );
 }

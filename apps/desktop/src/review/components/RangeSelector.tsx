@@ -10,7 +10,7 @@ import {
 } from '~/components/ui/dropdown-menu';
 import { cn } from '~/lib/utils';
 
-import { formatTurnLabel, formatTurnTimestamp } from '../diff-utils';
+import { formatTurnLabel, formatTurnTimestamp } from '../diff';
 
 export type TurnOption = {
   eventId: string;

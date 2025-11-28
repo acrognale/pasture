@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 import {
   type ReactNode,
   createContext,
@@ -9,48 +8,33 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { GetTurnDiffRangeParams } from '~/codex.gen';
 import type { TranscriptTurnDiff } from '~/conversation/transcript/types';
 
-import { parseUnifiedDiff } from './diff-parser';
-import type {
-  ParsedTurnDiff,
-  ParsedTurnDiffFile,
-  ParsedTurnDiffHunk,
-  ParsedTurnDiffLine,
-  TurnReviewComment,
-  TurnReviewCommentInput,
-} from './types';
-import { useTurnDiffRange } from './use-turn-diff-range';
-import { useTurnSnapshots } from './use-turn-snapshots';
+import type { TurnReviewComment } from './types';
 
 type TurnReviewContextValue = {
-  diff: ParsedTurnDiff | null;
-  diffEventId: string | null;
-  selectedDiff: TranscriptTurnDiff | null;
+  // Pass-through data
+  conversationId: string | null;
   history: readonly TranscriptTurnDiff[];
-  selectDiffByEventId: (eventId: string) => void;
+  latestDiff: TranscriptTurnDiff | null;
+
+  // Selection state
   baseTurnId: string | null;
-  setBaseTurnId: (eventId: string | null) => void;
+  setBaseTurnId: (id: string | null) => void;
   targetTurnId: string | null;
-  snapshotDisabled: boolean;
-  baselineSnapshotId: string | null;
-  turnSnapshots: ReadonlyMap<string, string>;
-  selectedFileId: string | null;
-  setSelectedFileId: (id: string | null) => void;
+  selectDiffByEventId: (eventId: string) => void;
+
+  // Computed
+  rangeKey: string | null;
+  selectedDiff: TranscriptTurnDiff | null;
+
+  // Comments
   comments: readonly TurnReviewComment[];
-  addComment: (input: TurnReviewCommentInput) => TurnReviewComment | null;
+  addComment: (
+    comment: Omit<TurnReviewComment, 'id' | 'createdAt'>
+  ) => TurnReviewComment;
   updateComment: (id: string, text: string) => void;
   removeComment: (id: string) => void;
-  getLineReference: (lineId: string) => DiffLineReference | undefined;
-  conversationId: string | null;
-  buildFeedbackPrompt: () => string | null;
-};
-
-type DiffLineReference = {
-  file: ParsedTurnDiffFile;
-  hunk: ParsedTurnDiffHunk;
-  line: ParsedTurnDiffLine;
 };
 
 type TurnReviewProviderProps = {
@@ -71,48 +55,26 @@ const makeCommentId = () => {
 };
 
 const defaultTurnReviewContext: TurnReviewContextValue = {
-  diff: null,
-  diffEventId: null,
-  selectedDiff: null,
+  conversationId: null,
   history: [],
-  selectDiffByEventId: () => undefined,
+  latestDiff: null,
   baseTurnId: null,
   setBaseTurnId: () => undefined,
   targetTurnId: null,
-  snapshotDisabled: true,
-  baselineSnapshotId: null,
-  turnSnapshots: new Map(),
-  selectedFileId: null,
-  setSelectedFileId: () => undefined,
+  selectDiffByEventId: () => undefined,
+  rangeKey: null,
+  selectedDiff: null,
   comments: [],
-  addComment: () => null,
+  addComment: () => {
+    throw new Error('TurnReviewProvider not mounted');
+  },
   updateComment: () => undefined,
   removeComment: () => undefined,
-  getLineReference: () => undefined,
-  conversationId: null,
-  buildFeedbackPrompt: () => null,
 };
 
 const TurnReviewContext = createContext<TurnReviewContextValue>(
   defaultTurnReviewContext
 );
-
-const buildLineLookup = (
-  diff: ParsedTurnDiff | null
-): Map<string, DiffLineReference> => {
-  const lookup = new Map<string, DiffLineReference>();
-  if (!diff) {
-    return lookup;
-  }
-  for (const file of diff.files) {
-    for (const hunk of file.hunks) {
-      for (const line of hunk.lines) {
-        lookup.set(line.id, { file, hunk, line });
-      }
-    }
-  }
-  return lookup;
-};
 
 export function TurnReviewProvider({
   conversationId,
@@ -122,23 +84,17 @@ export function TurnReviewProvider({
 }: TurnReviewProviderProps) {
   const [baseTurnId, setBaseTurnIdState] = useState<string | null>(null);
   const [targetTurnId, setTargetTurnId] = useState<string | null>(null);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [commentState, setCommentState] = useState<
     Record<string, TurnReviewComment[]>
   >({});
 
   const autoFollowingTurnNumber = useRef<number | null>(null);
 
-  // Server state via react-query
-  const { snapshotDisabled, baselineSnapshotId, turnSnapshots } =
-    useTurnSnapshots(conversationId);
-
   // Reset local state when conversation changes
   useEffect(() => {
     setCommentState({});
     setBaseTurnIdState(null);
     setTargetTurnId(null);
-    setSelectedFileId(null);
     autoFollowingTurnNumber.current = null;
   }, [conversationId]);
 
@@ -198,14 +154,6 @@ export function TurnReviewProvider({
     }
   }, [baseTurnId, history, targetTurnId]);
 
-  const historyById = useMemo(() => {
-    const map = new Map<string, TranscriptTurnDiff>();
-    for (const entry of history) {
-      map.set(entry.eventId, entry);
-    }
-    return map;
-  }, [history]);
-
   const selectedDiff = useMemo<TranscriptTurnDiff | null>(() => {
     if (!targetTurnId) {
       return latestDiff ?? null;
@@ -217,51 +165,12 @@ export function TurnReviewProvider({
     );
   }, [history, latestDiff, targetTurnId]);
 
-  const fallbackParsedDiff = useMemo<ParsedTurnDiff | null>(() => {
-    if (!selectedDiff) {
-      return null;
-    }
-    const unified = selectedDiff.unifiedDiff ?? '';
-    if (!unified.trim()) {
-      return null;
-    }
-    return parseUnifiedDiff(unified);
-  }, [selectedDiff]);
-
-  const diffRangeParams = useMemo<GetTurnDiffRangeParams | null>(() => {
-    if (!conversationId || !targetTurnId || snapshotDisabled) {
-      return null;
-    }
-    const targetEntry = historyById.get(targetTurnId);
-    const targetSnapshotEventId = targetEntry?.turnId ?? null;
-    if (!targetSnapshotEventId) {
-      return null;
-    }
-    const baseSnapshotEventId =
-      baseTurnId === null
-        ? null
-        : (historyById.get(baseTurnId)?.turnId ?? null);
-
-    return {
-      conversationId,
-      baseEventId: baseSnapshotEventId,
-      targetEventId: targetSnapshotEventId,
-    };
-  }, [baseTurnId, conversationId, historyById, snapshotDisabled, targetTurnId]);
-
-  const { parsedDiff: rangeParsedDiff } = useTurnDiffRange(diffRangeParams);
-
-  // Use range diff if available, otherwise fall back to the selected diff's unified diff
-  const parsedDiff = rangeParsedDiff ?? fallbackParsedDiff;
-
   const rangeKey = useMemo(() => {
     if (!targetTurnId) {
       return null;
     }
     return `${baseTurnId ?? '__BASELINE__'}::${targetTurnId}`;
   }, [baseTurnId, targetTurnId]);
-
-  const lineLookup = useMemo(() => buildLineLookup(parsedDiff), [parsedDiff]);
 
   const comments = useMemo<readonly TurnReviewComment[]>(() => {
     if (!rangeKey) {
@@ -286,46 +195,25 @@ export function TurnReviewProvider({
     });
   }, [rangeKey]);
 
-  // Reset selected file when diff changes
-  useEffect(() => {
-    setSelectedFileId(null);
-  }, [parsedDiff]);
-
   const addComment = useCallback(
-    (input: TurnReviewCommentInput): TurnReviewComment | null => {
-      if (!rangeKey || !parsedDiff) {
-        return null;
-      }
-      const reference = lineLookup.get(input.lineId);
-      if (!reference) {
-        return null;
-      }
-      const trimmed = input.text.trim();
-      if (!trimmed.length) {
-        return null;
-      }
+    (input: Omit<TurnReviewComment, 'id' | 'createdAt'>): TurnReviewComment => {
       const comment: TurnReviewComment = {
+        ...input,
         id: makeCommentId(),
-        fileId: reference.file.id,
-        hunkId: reference.hunk.id,
-        lineId: reference.line.id,
-        filePath: reference.file.displayPath,
-        lineKind: reference.line.kind,
-        oldLineNumber: reference.line.oldNumber,
-        newLineNumber: reference.line.newNumber,
-        text: trimmed,
         createdAt: new Date().toISOString(),
       };
-      setCommentState((prev) => {
-        const current = prev[rangeKey] ?? [];
-        return {
-          ...prev,
-          [rangeKey]: [...current, comment],
-        };
-      });
+      if (rangeKey) {
+        setCommentState((prev) => {
+          const current = prev[rangeKey] ?? [];
+          return {
+            ...prev,
+            [rangeKey]: [...current, comment],
+          };
+        });
+      }
       return comment;
     },
-    [lineLookup, parsedDiff, rangeKey]
+    [rangeKey]
   );
 
   const updateComment = useCallback(
@@ -368,86 +256,42 @@ export function TurnReviewProvider({
     [rangeKey]
   );
 
-  const diffEventId = targetTurnId;
-
-  const buildFeedbackPrompt = useCallback((): string | null => {
-    if (!comments.length) {
-      return null;
-    }
-    const segments = comments.map((comment) => {
-      const reference = lineLookup.get(comment.lineId);
-      const line = reference?.line;
-      const lineLabel = (() => {
-        if (comment.newLineNumber != null) {
-          return `line ${comment.newLineNumber}`;
-        }
-        if (comment.oldLineNumber != null) {
-          return `removed line ${comment.oldLineNumber}`;
-        }
-        return 'unspecified line';
-      })();
-      const snippet =
-        line && line.kind !== 'metadata' && line.text.trim().length
-          ? `\n    Context: ${line.prefix}${line.text}`
-          : '';
-      return `- ${comment.filePath} (${lineLabel}): ${comment.text}${snippet}`;
-    });
-    const turnLabel = selectedDiff
-      ? `turn ${selectedDiff.turnNumber}`
-      : 'this turn';
-    return `Here is my consolidated review of ${turnLabel}:\n${segments.join('\n')}\n\nPlease address each comment before continuing.`;
-  }, [comments, lineLookup, selectedDiff]);
-
   const selectDiffByEventId = useCallback((eventId: string) => {
     setTargetTurnId(eventId);
   }, []);
 
-  const handleSetBaseTurnId = useCallback((eventId: string | null) => {
+  const setBaseTurnId = useCallback((eventId: string | null) => {
     setBaseTurnIdState(eventId);
   }, []);
 
   const contextValue = useMemo<TurnReviewContextValue>(
     () => ({
-      diff: parsedDiff,
-      diffEventId,
-      selectedDiff,
+      conversationId,
       history,
-      selectDiffByEventId,
+      latestDiff,
       baseTurnId,
-      setBaseTurnId: handleSetBaseTurnId,
+      setBaseTurnId,
       targetTurnId,
-      snapshotDisabled,
-      baselineSnapshotId,
-      turnSnapshots,
-      selectedFileId,
-      setSelectedFileId,
+      selectDiffByEventId,
+      rangeKey,
+      selectedDiff,
       comments,
       addComment,
       updateComment,
       removeComment,
-      getLineReference: (lineId) => lineLookup.get(lineId),
-      conversationId,
-      buildFeedbackPrompt,
     }),
     [
-      addComment,
-      baselineSnapshotId,
-      baseTurnId,
-      buildFeedbackPrompt,
-      comments,
       conversationId,
-      diffEventId,
-      handleSetBaseTurnId,
       history,
-      lineLookup,
-      parsedDiff,
-      selectedDiff,
-      selectedFileId,
-      setSelectedFileId,
-      snapshotDisabled,
+      latestDiff,
+      baseTurnId,
+      setBaseTurnId,
       targetTurnId,
-      turnSnapshots,
       selectDiffByEventId,
+      rangeKey,
+      selectedDiff,
+      comments,
+      addComment,
       updateComment,
       removeComment,
     ]
