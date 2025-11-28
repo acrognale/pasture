@@ -4,18 +4,16 @@ import { Textarea } from '~/components/ui/textarea';
 import type { TurnReviewComment } from '../types';
 
 export type CommentThreadProps = {
-  lineId: string;
   comments: TurnReviewComment[];
   isDraftOpen: boolean;
   draftText: string;
   onCancelDraft: () => void;
-  onSubmitDraft: (lineId: string) => void;
+  onSubmitDraft: () => boolean;
   setDraftText: (value: string) => void;
   onDeleteComment: (id: string) => void;
 };
 
 export function CommentThread({
-  lineId,
   comments,
   isDraftOpen,
   draftText,
@@ -24,6 +22,18 @@ export function CommentThread({
   setDraftText,
   onDeleteComment,
 }: CommentThreadProps) {
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    onSubmitDraft();
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      onSubmitDraft();
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2 border border-border/70 bg-background px-6 py-4 text-xs">
       {comments.length > 0 ? (
@@ -55,24 +65,13 @@ export function CommentThread({
         </div>
       ) : null}
       {isDraftOpen ? (
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSubmitDraft(lineId);
-          }}
-        >
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <Textarea
             value={draftText}
             rows={3}
             className="resize-none"
             onChange={(event) => setDraftText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-                event.preventDefault();
-                onSubmitDraft(lineId);
-              }
-            }}
+            onKeyDown={handleKeyDown}
           />
           <div className="flex items-center justify-end gap-2 text-xs">
             <Button

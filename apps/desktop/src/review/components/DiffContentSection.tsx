@@ -1,0 +1,223 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { GetTurnDiffRangeParams } from '~/codex.gen';
+import type { TranscriptTurnDiff } from '~/conversation/transcript/types';
+
+import { DraftCommentProvider } from '../DraftCommentContext';
+import { useTurnReview } from '../TurnReviewContext';
+import {
+  buildFileDiffStats,
+  groupCommentsByFile,
+  groupCommentsByLine,
+  parseUnifiedDiff,
+} from '../diff';
+import { useTurnDiffRange, useTurnSnapshots } from '../queries';
+import type { ParsedTurnDiff } from '../types';
+import { EmptyReviewState } from './EmptyReviewState';
+import type { DiffViewMode } from './FileDiffSection';
+import { FileDiffSection } from './FileDiffSection';
+import { FileSidebar } from './FileSidebar';
+
+export type DiffContentSectionProps = {
+  workspacePath: string;
+  viewMode: DiffViewMode;
+};
+
+export function DiffContentSection({
+  workspacePath,
+  viewMode,
+}: DiffContentSectionProps) {
+  const {
+    conversationId,
+    history,
+    baseTurnId,
+    targetTurnId,
+    rangeKey,
+    comments,
+    removeComment,
+    selectedDiff,
+  } = useTurnReview();
+
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+
+  // Server state
+  const { snapshotDisabled } = useTurnSnapshots(conversationId);
+
+  // Build history lookup for diff params
+  const historyById = useMemo(() => {
+    const map = new Map<string, TranscriptTurnDiff>();
+    for (const entry of history) {
+      map.set(entry.eventId, entry);
+    }
+    return map;
+  }, [history]);
+
+  // Compute diff range params
+  const diffRangeParams = useMemo<GetTurnDiffRangeParams | null>(() => {
+    if (!conversationId || !targetTurnId || snapshotDisabled) {
+      return null;
+    }
+    const targetEntry = historyById.get(targetTurnId);
+    const targetSnapshotEventId = targetEntry?.turnId ?? null;
+    if (!targetSnapshotEventId) {
+      return null;
+    }
+    const baseSnapshotEventId =
+      baseTurnId === null
+        ? null
+        : (historyById.get(baseTurnId)?.turnId ?? null);
+
+    return {
+      conversationId,
+      baseEventId: baseSnapshotEventId,
+      targetEventId: targetSnapshotEventId,
+    };
+  }, [baseTurnId, conversationId, historyById, snapshotDisabled, targetTurnId]);
+
+  // Fetch range diff
+  const { parsedDiff: rangeParsedDiff } = useTurnDiffRange(diffRangeParams);
+
+  // Fallback to selectedDiff's unifiedDiff if range diff not available
+  const fallbackParsedDiff = useMemo<ParsedTurnDiff | null>(() => {
+    if (!selectedDiff) {
+      return null;
+    }
+    const unified = selectedDiff.unifiedDiff ?? '';
+    if (!unified.trim()) {
+      return null;
+    }
+    return parseUnifiedDiff(unified);
+  }, [selectedDiff]);
+
+  const parsedDiff = rangeParsedDiff ?? fallbackParsedDiff;
+  const diffFiles = useMemo(() => parsedDiff?.files ?? [], [parsedDiff]);
+
+  // Computed values
+  const fileDiffStats = useMemo(
+    () => buildFileDiffStats(diffFiles),
+    [diffFiles]
+  );
+  const commentsByLine = useMemo(
+    () => groupCommentsByLine(comments),
+    [comments]
+  );
+  const commentsByFile = useMemo(
+    () => groupCommentsByFile(comments),
+    [comments]
+  );
+
+  // File navigation
+  const fileRefs = useRef(new Map<string, HTMLDivElement>());
+  const lastScrolledFile = useRef<string | null>(null);
+
+  const registerRef = useCallback(
+    (fileId: string) => (element: HTMLDivElement | null) => {
+      if (element) {
+        fileRefs.current.set(fileId, element);
+      } else {
+        fileRefs.current.delete(fileId);
+      }
+    },
+    []
+  );
+
+  const scrollToFile = useCallback((fileId: string | null) => {
+    if (!fileId) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      const node = fileRefs.current.get(fileId);
+      if (!node) {
+        return;
+      }
+      if (lastScrolledFile.current === fileId) {
+        return;
+      }
+      lastScrolledFile.current = fileId;
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
+
+  const handleFileSelect = useCallback(
+    (fileId: string) => {
+      if (selectedFileId !== fileId) {
+        setSelectedFileId(fileId);
+      }
+      requestAnimationFrame(() => {
+        const node = fileRefs.current.get(fileId);
+        if (!node) {
+          return;
+        }
+        lastScrolledFile.current = fileId;
+        node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    },
+    [selectedFileId]
+  );
+
+  // Reset scroll tracking when range changes
+  useEffect(() => {
+    lastScrolledFile.current = null;
+  }, [rangeKey]);
+
+  // Auto-select first file when diff changes
+  useEffect(() => {
+    if (!diffFiles.length) {
+      if (selectedFileId !== null) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelectedFileId(null);
+      }
+      return;
+    }
+    if (
+      !selectedFileId ||
+      !diffFiles.some((file) => file.id === selectedFileId)
+    ) {
+      const firstFile = diffFiles[0];
+      if (firstFile) {
+        setSelectedFileId(firstFile.id);
+      }
+    }
+  }, [diffFiles, selectedFileId]);
+
+  // Scroll to selected file
+  useEffect(() => {
+    scrollToFile(selectedFileId);
+  }, [selectedFileId, scrollToFile]);
+
+  const showPane = diffFiles.length > 0;
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      <FileSidebar
+        workspacePath={workspacePath}
+        files={diffFiles}
+        selectedFileId={selectedFileId}
+        fileDiffStats={fileDiffStats}
+        commentsByFile={commentsByFile}
+        onFileSelect={handleFileSelect}
+      />
+      {showPane ? (
+        <DraftCommentProvider>
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+            <div className="flex flex-col gap-4">
+              {diffFiles.map((file) => (
+                <FileDiffSection
+                  key={`${rangeKey}:${file.id}`}
+                  workspacePath={workspacePath}
+                  file={file}
+                  viewMode={viewMode}
+                  commentsByLine={commentsByLine}
+                  onDeleteComment={removeComment}
+                  isActive={selectedFileId === file.id}
+                  registerRef={registerRef(file.id)}
+                />
+              ))}
+            </div>
+          </div>
+        </DraftCommentProvider>
+      ) : (
+        <EmptyReviewState />
+      )}
+    </div>
+  );
+}

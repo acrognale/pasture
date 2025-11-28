@@ -1,36 +1,38 @@
 import { useMemo } from 'react';
 import { cn } from '~/lib/utils';
 
-import type { FileHighlighting } from '../hooks';
+import { useDraftComment } from '../DraftCommentContext';
 import type { ParsedTurnDiffHunk, TurnReviewComment } from '../types';
+import type { FileHighlighting } from '../useFileHighlighting';
 import { DiffLine } from './DiffLine';
 import { VirtualizedHunk } from './VirtualizedHunk';
 
 export type UnifiedDiffViewProps = {
+  fileId: string;
+  filePath: string;
   hunks: ParsedTurnDiffHunk[];
   highlighting: FileHighlighting;
   commentsByLine: Map<string, TurnReviewComment[]>;
-  draftTargetId: string | null;
-  draftText: string;
-  onStartDraft: (lineId: string) => void;
-  onCancelDraft: () => void;
-  onSubmitDraft: (lineId: string) => void;
-  setDraftText: (value: string) => void;
   onDeleteComment: (id: string) => void;
 };
 
 export function UnifiedDiffView({
+  fileId,
+  filePath,
   hunks,
   highlighting,
   commentsByLine,
-  draftTargetId,
-  draftText,
-  onStartDraft,
-  onCancelDraft,
-  onSubmitDraft,
-  setDraftText,
   onDeleteComment,
 }: UnifiedDiffViewProps) {
+  const {
+    draftTargetId,
+    draftText,
+    setDraftText,
+    startDraft,
+    cancelDraft,
+    submitDraft,
+  } = useDraftComment();
+
   const processedHunks = useMemo(
     () =>
       hunks.map((hunk) => {
@@ -57,15 +59,18 @@ export function UnifiedDiffView({
             rows={hunk.lines}
             renderRow={(line) => (
               <DiffLine
+                fileId={fileId}
+                filePath={filePath}
+                hunkId={hunk.id}
                 line={line}
                 tokens={highlighting.get(line.id)}
                 comments={commentsByLine.get(line.id) ?? []}
                 isDraftOpen={draftTargetId === line.id}
                 draftText={draftText}
-                onOpenDraft={onStartDraft}
-                onCancelDraft={onCancelDraft}
-                onSubmitDraft={onSubmitDraft}
                 setDraftText={setDraftText}
+                onStartDraft={startDraft}
+                onCancelDraft={cancelDraft}
+                onSubmitDraft={submitDraft}
                 onDeleteComment={onDeleteComment}
               />
             )}

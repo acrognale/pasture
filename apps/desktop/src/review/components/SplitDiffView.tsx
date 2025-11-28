@@ -1,37 +1,39 @@
 import { useMemo } from 'react';
 import { cn } from '~/lib/utils';
 
-import { buildSplitDiffRows } from '../diff-utils';
-import type { FileHighlighting } from '../hooks';
+import { useDraftComment } from '../DraftCommentContext';
+import { buildSplitDiffRows } from '../diff';
 import type { ParsedTurnDiffHunk, TurnReviewComment } from '../types';
+import type { FileHighlighting } from '../useFileHighlighting';
 import { SplitDiffLine } from './SplitDiffLine';
 import { VirtualizedHunk } from './VirtualizedHunk';
 
 export type SplitDiffViewProps = {
+  fileId: string;
+  filePath: string;
   hunks: ParsedTurnDiffHunk[];
   highlighting: FileHighlighting;
   commentsByLine: Map<string, TurnReviewComment[]>;
-  draftTargetId: string | null;
-  draftText: string;
-  onStartDraft: (lineId: string) => void;
-  onCancelDraft: () => void;
-  onSubmitDraft: (lineId: string) => void;
-  setDraftText: (value: string) => void;
   onDeleteComment: (id: string) => void;
 };
 
 export function SplitDiffView({
+  fileId,
+  filePath,
   hunks,
   highlighting,
   commentsByLine,
-  draftTargetId,
-  draftText,
-  onStartDraft,
-  onCancelDraft,
-  onSubmitDraft,
-  setDraftText,
   onDeleteComment,
 }: SplitDiffViewProps) {
+  const {
+    draftTargetId,
+    draftText,
+    setDraftText,
+    startDraft,
+    cancelDraft,
+    submitDraft,
+  } = useDraftComment();
+
   const processedHunks = useMemo(
     () =>
       hunks.map((hunk) => {
@@ -58,15 +60,18 @@ export function SplitDiffView({
             rows={hunk.rows}
             renderRow={(row) => (
               <SplitDiffLine
+                fileId={fileId}
+                filePath={filePath}
+                hunkId={hunk.id}
                 row={row}
                 highlighting={highlighting}
                 commentsByLine={commentsByLine}
                 draftTargetId={draftTargetId}
                 draftText={draftText}
-                onOpenDraft={onStartDraft}
-                onCancelDraft={onCancelDraft}
-                onSubmitDraft={onSubmitDraft}
                 setDraftText={setDraftText}
+                onStartDraft={startDraft}
+                onCancelDraft={cancelDraft}
+                onSubmitDraft={submitDraft}
                 onDeleteComment={onDeleteComment}
               />
             )}

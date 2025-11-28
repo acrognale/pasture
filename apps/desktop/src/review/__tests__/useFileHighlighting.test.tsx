@@ -1,10 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { parseUnifiedDiff } from '../diff-parser';
-import { useFileHighlighting } from '../hooks';
-import { highlightLines } from '../syntax-highlighter';
+import { parseUnifiedDiff } from '../diff';
 import type { ParsedTurnDiffFile, ParsedTurnDiffLine } from '../types';
+import { useFileHighlighting } from '../useFileHighlighting';
+import { highlightLines } from '../useFileHighlighting';
 
 const PYTHON_SAMPLE_LINES = [
   '#!/usr/bin/env python3',

@@ -1,32 +1,45 @@
-import type { SplitDiffRow } from '../diff-utils';
-import type { FileHighlighting } from '../hooks';
-import type { TurnReviewComment } from '../types';
+import type { SplitDiffRow } from '../diff';
+import type { ParsedTurnDiffLine, TurnReviewComment } from '../types';
+import type { FileHighlighting } from '../useFileHighlighting';
 import { CommentThread } from './CommentThread';
 import { DiffLineCell } from './DiffLineCell';
 
+type DraftLineContext = {
+  fileId: string;
+  hunkId: string;
+  filePath: string;
+  line: ParsedTurnDiffLine;
+};
+
 export type SplitDiffLineProps = {
+  fileId: string;
+  filePath: string;
+  hunkId: string;
   row: SplitDiffRow;
   highlighting: FileHighlighting;
   commentsByLine: Map<string, TurnReviewComment[]>;
   draftTargetId: string | null;
   draftText: string;
-  onOpenDraft: (lineId: string) => void;
-  onCancelDraft: () => void;
-  onSubmitDraft: (lineId: string) => void;
   setDraftText: (value: string) => void;
+  onStartDraft: (context: DraftLineContext) => void;
+  onCancelDraft: () => void;
+  onSubmitDraft: () => boolean;
   onDeleteComment: (id: string) => void;
 };
 
 export function SplitDiffLine({
+  fileId,
+  filePath,
+  hunkId,
   row,
   highlighting,
   commentsByLine,
   draftTargetId,
   draftText,
-  onOpenDraft,
+  setDraftText,
+  onStartDraft,
   onCancelDraft,
   onSubmitDraft,
-  setDraftText,
   onDeleteComment,
 }: SplitDiffLineProps) {
   const leftLine = row.left;
@@ -74,6 +87,18 @@ export function SplitDiffLine({
   const showRightThread =
     !!rightLine && (rightComments.length > 0 || isRightDraftOpen);
 
+  const handleOpenLeftDraft = () => {
+    if (leftLine) {
+      onStartDraft({ fileId, hunkId, filePath, line: leftLine });
+    }
+  };
+
+  const handleOpenRightDraft = () => {
+    if (rightLine) {
+      onStartDraft({ fileId, hunkId, filePath, line: rightLine });
+    }
+  };
+
   return (
     <div>
       <div className="flex gap-6 pl-4">
@@ -86,7 +111,7 @@ export function SplitDiffLine({
             text={leftText}
             tokens={leftIsEmpty ? undefined : highlighting.get(leftLine.id)}
             allowComment={leftAllowComment}
-            onOpenDraft={onOpenDraft}
+            onOpenDraft={handleOpenLeftDraft}
           />
         </div>
         <div className="flex-1 isolate">
@@ -98,7 +123,7 @@ export function SplitDiffLine({
             text={rightText}
             tokens={rightIsEmpty ? undefined : highlighting.get(rightLine.id)}
             allowComment={rightAllowComment}
-            onOpenDraft={onOpenDraft}
+            onOpenDraft={handleOpenRightDraft}
           />
         </div>
       </div>
@@ -112,7 +137,6 @@ export function SplitDiffLine({
                 <div>
                   {leftLine ? (
                     <CommentThread
-                      lineId={leftLine.id}
                       comments={leftComments}
                       isDraftOpen={isLeftDraftOpen}
                       draftText={draftText}
@@ -134,7 +158,6 @@ export function SplitDiffLine({
                 <div>
                   {rightLine ? (
                     <CommentThread
-                      lineId={rightLine.id}
                       comments={rightComments}
                       isDraftOpen={isRightDraftOpen}
                       draftText={draftText}

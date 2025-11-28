@@ -40,13 +40,10 @@ export type TurnReviewComment = {
   lineId: string;
   filePath: string;
   lineKind: ParsedTurnDiffLine['kind'];
+  lineText: string;
+  linePrefix: string;
   oldLineNumber: number | null;
   newLineNumber: number | null;
   text: string;
   createdAt: string;
-};
-
-export type TurnReviewCommentInput = {
-  lineId: string;
-  text: string;
 };
