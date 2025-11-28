@@ -2,6 +2,7 @@ import { shallow } from 'zustand/shallow';
 import { useStoreWithEqualityFn } from 'zustand/traditional';
 import { useWorkspaceActions } from '~/workspace';
 
+import type { TranscriptPlanCell } from '../transcript/types';
 import type { ConversationStoreState } from './store';
 
 const useConversationSelector = <T>(
@@ -128,3 +129,26 @@ export const useConversationSendMessageActions = (
   useConversationSelector(conversationId, (state) => ({
     setSendingUserMessage: state.setSendingUserMessage,
   }));
+
+export const useLatestPlan = (conversationId: string | null) =>
+  useConversationSelector(
+    conversationId,
+    (state): { plan: TranscriptPlanCell; turnId: string } | null => {
+      const { turnOrder, turns } = state.conversation.transcript;
+      // Search from most recent turn backwards
+      for (let i = turnOrder.length - 1; i >= 0; i--) {
+        const turnId = turnOrder[i];
+        const turn = turns[turnId];
+        if (!turn) continue;
+        const planCells = turn.cells.filter((c) => c.kind === 'plan');
+        if (planCells.length > 0) {
+          return {
+            plan: planCells[planCells.length - 1],
+            turnId,
+          };
+        }
+      }
+      return null;
+    },
+    shallow
+  );
