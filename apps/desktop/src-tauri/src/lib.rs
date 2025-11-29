@@ -112,6 +112,7 @@ pub fn run() {
             commands::turns::send_user_message,
             commands::turns::interrupt_conversation,
             commands::turns::compact_conversation,
+            commands::images::save_pasted_image,
             commands::composer::get_composer_config,
             commands::composer::update_composer_config,
             commands::review::get_turn_diff_range,

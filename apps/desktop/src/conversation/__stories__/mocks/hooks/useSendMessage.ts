@@ -2,9 +2,11 @@ import {
   mockCodexControls,
   useMockCodexStore,
 } from '~/conversation/__stories__/mocks/state';
+import type { MessageAttachment } from '~/conversation/types';
 
 type SendMessagePayload = {
   text: string;
+  attachments?: MessageAttachment[];
   turnConfig?: Record<string, unknown>;
 };
 
@@ -18,7 +20,11 @@ export const useSendMessage = (
     if (!conversationId) {
       return Promise.resolve();
     }
-    mockCodexControls.appendUserMessage(conversationId, payload.text);
+    mockCodexControls.appendUserMessage(
+      conversationId,
+      payload.text,
+      payload.attachments
+    );
     return Promise.resolve();
   };
 

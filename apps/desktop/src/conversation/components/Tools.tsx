@@ -2,6 +2,7 @@ import type { TranscriptToolCell } from '~/conversation/transcript/types';
 
 import { Cell } from './Cell';
 import { CellIcon } from './CellIcon';
+import { ImagePreview } from './ImagePreview';
 
 type ToolsProps = {
   cell: TranscriptToolCell;
@@ -69,11 +70,19 @@ export function Tools({ cell }: ToolsProps) {
   if (cell.toolType === 'view-image') {
     return (
       <Cell icon={<CellIcon status={getIconStatus()} />}>
-        <div className="space-y-1">
-          <div className="text-muted-foreground">
-            {cell.path ?? '(unknown path)'}
+        {cell.path ? (
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground">View image tool</div>
+            <ImagePreview path={cell.path} alt="View image tool output" />
+            <div className="text-xs text-muted-foreground truncate max-w-[260px]">
+              {cell.path}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="text-muted-foreground text-xs">
+            (unknown image path)
+          </div>
+        )}
       </Cell>
     );
   }

@@ -3,6 +3,7 @@ mod registry;
 pub mod approvals;
 pub mod auth;
 pub mod composer;
+pub mod images;
 pub mod review;
 pub mod subscriptions;
 pub mod threads;
@@ -42,6 +43,10 @@ codex_command_descriptors! {
     turns::send_user_message {
         params: turns::SendUserMessageParams,
         result: (),
+    },
+    images::save_pasted_image {
+        params: images::SavePastedImageParams,
+        result: images::SavePastedImageResponse,
     },
     review::get_turn_diff_range {
         params: review::GetTurnDiffRangeParams,

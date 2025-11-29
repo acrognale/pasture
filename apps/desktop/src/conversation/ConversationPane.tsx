@@ -121,7 +121,13 @@ export function ConversationPane({
   }, [conversationId, getConversationStore]);
 
   const handleInterrupt = useCallback(() => {
-    const queuedText = queuedUserMessages.join('\n');
+    const queuedText = queuedUserMessages
+      .map((message) => message.text)
+      .filter((value) => value.trim().length > 0)
+      .join('\n');
+    const queuedAttachments = queuedUserMessages.flatMap(
+      (message) => message.attachments ?? []
+    );
     const existingDraft = composerControls?.getDraft().trim() ?? '';
     let combinedDraft = existingDraft;
 
@@ -134,6 +140,9 @@ export function ConversationPane({
     if (combinedDraft) {
       composerControls?.setDraft(combinedDraft);
       composerControls?.focus();
+    }
+    if (queuedAttachments.length > 0) {
+      composerControls?.appendAttachments(queuedAttachments);
     }
 
     clearQueuedUserMessages();

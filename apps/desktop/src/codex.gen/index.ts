@@ -114,6 +114,8 @@ export type { SandboxCommandAssessment } from './SandboxCommandAssessment';
 export type { SandboxMode } from './SandboxMode';
 export type { SandboxPolicy } from './SandboxPolicy';
 export type { SandboxRiskLevel } from './SandboxRiskLevel';
+export type { SavePastedImageParams } from './SavePastedImageParams';
+export type { SavePastedImageResponse } from './SavePastedImageResponse';
 export type { SendUserMessageParams } from './SendUserMessageParams';
 export type { SessionConfiguredEvent } from './SessionConfiguredEvent';
 export type { SetWindowTitleParams } from './SetWindowTitleParams';

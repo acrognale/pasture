@@ -74,6 +74,7 @@ import {
   stripReasoningHeader,
 } from '../transcript/utils/reasoning';
 import { decodeBase64ToUint8Array } from '../transcript/utils/streams';
+import type { QueuedUserMessage } from '../types';
 import { DEFAULT_STATUS_HEADER } from './constants';
 
 /**
@@ -113,7 +114,7 @@ export type ConversationControllerState = {
   tokenInfo: TokenUsageInfo | null;
   rateLimitSnapshot: RateLimitSnapshot | null;
   ingestedEvents: ConversationEventPayload[];
-  queuedUserMessages: string[];
+  queuedUserMessages: QueuedUserMessage[];
   isSendingUserMessage: boolean;
 };
 

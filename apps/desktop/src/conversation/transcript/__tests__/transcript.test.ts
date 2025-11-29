@@ -1259,6 +1259,29 @@ describe('user message handling', () => {
     );
   });
 
+  it('preserves image paths on user message events', () => {
+    const controller = createTestController();
+    let state = controller.conversation.transcript;
+
+    state = applyEvent(
+      controller,
+      {
+        type: 'user_message',
+        message: 'with image',
+        images: ['/tmp/example.png'],
+      },
+      'user-images-1',
+      1
+    );
+
+    const userCells = cellsOf(state)
+      .filter((cell) => (cell as { kind?: unknown }).kind === 'user-message')
+      .map(expectUserCell);
+
+    expect(userCells).toHaveLength(1);
+    expect(userCells[0]?.images).toEqual(['/tmp/example.png']);
+  });
+
   it('creates a new user cell after the previous turn completes', () => {
     const controller = createTestController();
     let state = controller.conversation.transcript;
