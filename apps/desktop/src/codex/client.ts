@@ -25,6 +25,8 @@ import type {
   NewThreadResponse,
   RemoveConversationListenerParams,
   RespondApprovalParams,
+  SavePastedImageParams,
+  SavePastedImageResponse,
   SendUserMessageParams,
   SetWindowTitleParams,
   SwitchConversationParams,
@@ -84,6 +86,14 @@ export namespace Codex {
     params: SendUserMessageParams
   ): Promise<void> {
     return await invoke<void>('send_user_message', { params });
+  }
+
+  export async function savePastedImage(
+    params: SavePastedImageParams
+  ): Promise<SavePastedImageResponse> {
+    return await invoke<SavePastedImageResponse>('save_pasted_image', {
+      params,
+    });
   }
 
   export async function getTurnDiffRange(

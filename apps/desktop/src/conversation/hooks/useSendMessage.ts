@@ -17,8 +17,11 @@ import {
 } from '~/composer/config';
 import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
 
+import type { MessageAttachment } from '../types';
+
 export type SendMessageVariables = {
   text: string;
+  attachments?: MessageAttachment[];
   turnConfig?: TurnConfigOverrides;
 };
 
@@ -56,6 +59,43 @@ const createSendUserMessagePayload = (
   return payload;
 };
 
+export const buildInputItems = (
+  text: string,
+  attachments?: MessageAttachment[]
+): InputItem[] => {
+  const items: InputItem[] = [];
+  const trimmed = text.trim();
+
+  if (trimmed) {
+    items.push({
+      type: 'text',
+      data: { text: trimmed },
+    });
+  }
+
+  attachments?.forEach((attachment) => {
+    if (attachment.type === 'localImage') {
+      const normalized = attachment.path.trim();
+      if (normalized) {
+        items.push({
+          type: 'localImage',
+          data: { path: normalized },
+        });
+      }
+    } else if (attachment.type === 'image') {
+      const normalized = attachment.imageUrl.trim();
+      if (normalized) {
+        items.push({
+          type: 'image',
+          data: { image_url: normalized },
+        });
+      }
+    }
+  });
+
+  return items;
+};
+
 export const useSendMessage = (
   workspacePath: string,
   conversationId: string | null | undefined
@@ -70,7 +110,8 @@ export const useSendMessage = (
 
   const sendMessage = async (variables: SendMessageVariables) => {
     const trimmed = variables.text.trim();
-    if (!trimmed) {
+    const items = buildInputItems(trimmed, variables.attachments);
+    if (items.length === 0) {
       return;
     }
     if (authState.isLoading || authState.data?.requiresAuth) {
@@ -85,14 +126,6 @@ export const useSendMessage = (
     setIsPending(true);
 
     try {
-      // Build payload
-      const items: InputItem[] = [
-        {
-          type: 'text',
-          data: { text: trimmed },
-        },
-      ];
-
       const payload = createSendUserMessagePayload(
         conversationId,
         items,
@@ -103,6 +136,7 @@ export const useSendMessage = (
       console.log('[useSendMessage] Sending message to backend', {
         conversationId,
         trimmed,
+        attachmentCount: variables.attachments?.length ?? 0,
       });
 
       // Send to backend

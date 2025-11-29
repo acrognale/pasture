@@ -5,11 +5,13 @@ import {
   SaveIcon,
   XIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
+import { buildInputItems } from '~/conversation/hooks/useSendMessage';
 import type { TranscriptUserMessageCell } from '~/conversation/transcript/types';
+import type { MessageAttachment } from '~/conversation/types';
 import { copyToClipboard } from '~/lib/utils';
 import { useWorkspaceActions } from '~/workspace';
 
@@ -33,6 +35,14 @@ export function UserMessage({
   const message = cell.message ?? '';
   const hasImages = (cell.images?.length ?? 0) > 0;
   const hasMessageKind = !!cell.messageKind && cell.messageKind !== 'plain';
+  const messageAttachments: MessageAttachment[] = useMemo(
+    () =>
+      (cell.images ?? []).map((path) => ({
+        type: 'localImage' as const,
+        path,
+      })),
+    [cell.images]
+  );
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(message);
   const [isSaving, setIsSaving] = useState(false);
@@ -86,9 +96,10 @@ export function UserMessage({
           forkedConversationId,
         });
         onConversationForked?.(forkedConversationId);
+        const items = buildInputItems(message, messageAttachments);
         await Codex.sendUserMessage({
           conversationId: forkedConversationId,
-          items: [{ type: 'text', data: { text: message } }],
+          items,
           model: null,
           reasoningEffort: null,
           summary: null,
@@ -143,9 +154,10 @@ export function UserMessage({
           forkedConversationId,
         });
         onConversationForked?.(forkedConversationId);
+        const items = buildInputItems(trimmed, messageAttachments);
         await Codex.sendUserMessage({
           conversationId: forkedConversationId,
-          items: [{ type: 'text', data: { text: trimmed } }],
+          items,
           model: null,
           reasoningEffort: null,
           summary: null,

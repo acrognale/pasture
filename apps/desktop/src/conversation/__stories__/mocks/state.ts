@@ -11,6 +11,7 @@ import type {
   TranscriptTurn,
   TranscriptUserMessageCell,
 } from '~/conversation/transcript/types';
+import type { MessageAttachment } from '~/conversation/types';
 import type { ConversationSummary } from '~/workspace/conversations';
 
 import {
@@ -245,8 +246,24 @@ export const mockCodexControls = {
       interruptPending: isPending,
     }));
   },
-  appendUserMessage: (conversationId: string, text: string) => {
-    if (!text.trim()) {
+  appendUserMessage: (
+    conversationId: string,
+    text: string,
+    attachments?: MessageAttachment[]
+  ) => {
+    const trimmed = text.trim();
+    const imagePaths =
+      attachments
+        ?.filter(
+          (
+            attachment
+          ): attachment is Extract<MessageAttachment, { type: 'localImage' }> =>
+            attachment.type === 'localImage' && Boolean(attachment.path)
+        )
+        .map((attachment) => attachment.path.trim())
+        .filter((path) => path.length > 0) ?? null;
+
+    if (!trimmed && !(imagePaths && imagePaths.length > 0)) {
       return;
     }
     setTranscriptFor(conversationId, (current) => {
@@ -258,9 +275,9 @@ export const mockCodexControls = {
         timestamp,
         eventIds: [`evt-user-${timestamp}`],
         kind: 'user-message',
-        message: text.trim(),
+        message: trimmed,
         messageKind: 'plain',
-        images: null,
+        images: imagePaths && imagePaths.length > 0 ? imagePaths : null,
         itemId: null,
       };
       const nextTurn = {

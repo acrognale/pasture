@@ -31,9 +31,10 @@ export const useQueueableSendMessage = (
   const isMutationPending = mutation.isPending || isSendingUserMessage;
 
   const sendOrQueue = useCallback(
-    async ({ text, turnConfig }: SendMessageVariables) => {
+    async ({ text, attachments, turnConfig }: SendMessageVariables) => {
       const trimmed = text.trim();
-      if (!trimmed) {
+      const hasAttachments = (attachments?.length ?? 0) > 0;
+      if (!trimmed && !hasAttachments) {
         return;
       }
       if (authState.isLoading || authState.data?.requiresAuth) {
@@ -41,13 +42,13 @@ export const useQueueableSendMessage = (
       }
 
       if (isRunning || isSendingUserMessage) {
-        queueUserMessage(trimmed);
+        queueUserMessage({ text: trimmed, attachments });
         return;
       }
 
       setSendingUserMessage(true);
       try {
-        await sendMessage({ text: trimmed, turnConfig });
+        await sendMessage({ text: trimmed, attachments, turnConfig });
       } finally {
         setSendingUserMessage(false);
       }
@@ -75,7 +76,7 @@ export const useQueueableSendMessage = (
 
     setSendingUserMessage(true);
     try {
-      await sendMessage({ text: nextMessage });
+      await sendMessage(nextMessage);
     } catch (error) {
       queueUserMessage(nextMessage);
       const description =

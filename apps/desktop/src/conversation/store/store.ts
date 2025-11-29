@@ -4,6 +4,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
 
+import type { QueuedUserMessage } from '../types';
 import {
   type ConversationControllerOptions,
   type ConversationControllerState,
@@ -25,8 +26,8 @@ type ConversationStoreActions = {
   drainSideEffects: () => ConversationSideEffect[];
   getEventsAsJsonl: () => string;
   getEventCount: () => number;
-  queueUserMessage: (text: string) => void;
-  popQueuedUserMessage: () => string | null;
+  queueUserMessage: (message: QueuedUserMessage) => void;
+  popQueuedUserMessage: () => QueuedUserMessage | null;
   clearQueuedUserMessages: () => void;
   setSendingUserMessage: (isSending: boolean) => void;
 };
@@ -85,17 +86,34 @@ export const createConversationStore = (
       },
       getEventsAsJsonl: () => getConversationEventsAsJsonl(get()),
       getEventCount: () => get().ingestedEvents.length,
-      queueUserMessage: (text: string) =>
+      queueUserMessage: (message: QueuedUserMessage) =>
         updateData((draft) => {
-          const trimmed = text.trim();
-          if (trimmed) {
-            draft.queuedUserMessages.push(trimmed);
+          const trimmed = message.text.trim();
+          const hasAttachments = (message.attachments?.length ?? 0) > 0;
+          if (trimmed || hasAttachments) {
+            const attachments = message.attachments?.map((attachment) => ({
+              ...attachment,
+            }));
+            draft.queuedUserMessages.push({
+              text: trimmed,
+              attachments,
+            });
           }
         }),
       popQueuedUserMessage: () => {
-        let nextMessage: string | null = null;
+        let nextMessage: QueuedUserMessage | null = null;
         updateData((draft) => {
-          nextMessage = draft.queuedUserMessages.shift() ?? null;
+          const removed = draft.queuedUserMessages.shift();
+          if (removed) {
+            nextMessage = {
+              text: removed.text,
+              attachments: removed.attachments?.map((attachment) => ({
+                ...attachment,
+              })),
+            };
+          } else {
+            nextMessage = null;
+          }
         });
         return nextMessage;
       },

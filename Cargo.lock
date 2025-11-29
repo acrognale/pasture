@@ -214,6 +214,7 @@ name = "app"
 version = "0.5.1"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "chrono",
  "codex-apply-patch",
  "codex-core",

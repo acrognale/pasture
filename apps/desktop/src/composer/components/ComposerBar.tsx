@@ -1,7 +1,9 @@
-import { ArrowUpIcon, SquareStopIcon } from 'lucide-react';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { ArrowUpIcon, SquareStopIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuthState } from '~/auth/useAuthState';
+import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
 import { Textarea } from '~/components/ui/textarea';
 import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
@@ -12,6 +14,7 @@ import {
   useConversationIsRunning,
   useConversationIsSendingUserMessage,
 } from '~/conversation/store/hooks';
+import type { MessageAttachment } from '~/conversation/types';
 
 import {
   type ComposerTurnConfig,
@@ -25,6 +28,7 @@ export type ComposerBarControls = {
   setDraft: (value: string) => void;
   appendDraft: (value: string) => void;
   getDraft: () => string;
+  appendAttachments: (attachments: MessageAttachment[]) => void;
 };
 
 export interface ComposerBarProps {
@@ -82,6 +86,124 @@ const parseSlashCommand = (input: string): SlashCommandInvocation | null => {
   };
 };
 
+type ComposerImageAttachment = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  previewUrl: string | null;
+  width: number | null;
+  height: number | null;
+  path: string | null;
+  status: 'saving' | 'ready' | 'error';
+};
+
+const createAttachmentId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const extractFileName = (
+  value: string | null | undefined,
+  fallback = 'image'
+) => {
+  if (!value) {
+    return fallback;
+  }
+  const segments = value.split(/[/\\]/);
+  const name = segments[segments.length - 1] ?? value;
+  return name || fallback;
+};
+
+const safeConvertFileSrc = (path: string): string => {
+  try {
+    if (typeof convertFileSrc === 'function') {
+      return convertFileSrc(path);
+    }
+  } catch {
+    // Best-effort conversion only
+  }
+  return path;
+};
+
+const revokePreviewUrl = (url: string | null) => {
+  if (url && url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+  }
+};
+
+const releaseAttachments = (attachments: ComposerImageAttachment[]) => {
+  attachments.forEach((attachment) => revokePreviewUrl(attachment.previewUrl));
+};
+
+const readImageDimensions = (
+  file: File,
+  previewUrl?: string | null
+): Promise<{ width: number; height: number }> =>
+  new Promise((resolve) => {
+    const image = new Image();
+    const url = previewUrl ?? URL.createObjectURL(file);
+    image.onload = () => {
+      resolve({
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+      if (!previewUrl) {
+        URL.revokeObjectURL(url);
+      }
+    };
+    image.onerror = () => {
+      resolve({ width: 0, height: 0 });
+      if (!previewUrl) {
+        URL.revokeObjectURL(url);
+      }
+    };
+    image.src = url;
+  });
+
+const fileToBase64 = async (file: File) => {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.slice(index, index + chunkSize));
+  }
+  return btoa(binary);
+};
+
+const toComposerAttachment = (
+  attachment: MessageAttachment
+): ComposerImageAttachment | null => {
+  if (attachment.type === 'localImage') {
+    const path = attachment.path;
+    return {
+      id: createAttachmentId(),
+      fileName: extractFileName(attachment.fileName ?? path, 'attached-image'),
+      mimeType: 'image/*',
+      previewUrl: path ? safeConvertFileSrc(path) : null,
+      width: attachment.width ?? null,
+      height: attachment.height ?? null,
+      path,
+      status: path ? 'ready' : 'error',
+    };
+  }
+
+  if (attachment.type === 'image') {
+    return {
+      id: createAttachmentId(),
+      fileName: extractFileName(attachment.imageUrl, 'attached-image'),
+      mimeType: 'image/*',
+      previewUrl: attachment.imageUrl,
+      width: null,
+      height: null,
+      path: null,
+      status: 'ready',
+    };
+  }
+
+  return null;
+};
+
 export function ComposerBar({
   workspacePath,
   conversationId,
@@ -133,10 +255,25 @@ export function ComposerBar({
   const [draft, setDraft] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const draftRef = useRef(draft);
+  const [attachedImages, setAttachedImages] = useState<
+    ComposerImageAttachment[]
+  >([]);
+  const attachedImagesRef = useRef(attachedImages);
 
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
+
+  useEffect(() => {
+    attachedImagesRef.current = attachedImages;
+  }, [attachedImages]);
+
+  useEffect(
+    () => () => {
+      releaseAttachments(attachedImagesRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -151,12 +288,34 @@ export function ComposerBar({
     [draft]
   );
 
+  const sendableAttachments = useMemo(
+    () =>
+      attachedImages
+        .filter(
+          (attachment) =>
+            attachment.status === 'ready' && Boolean(attachment.path)
+        )
+        .map((attachment) => ({
+          type: 'localImage' as const,
+          path: attachment.path as string,
+          width: attachment.width,
+          height: attachment.height,
+          fileName: attachment.fileName,
+        })),
+    [attachedImages]
+  );
+
+  const hasSavingAttachments = attachedImages.some(
+    (attachment) => attachment.status === 'saving'
+  );
+  const hasReadyAttachments = sendableAttachments.length > 0;
+
   const canSend = () => {
-    if (disabled || isMutationPending) {
+    if (disabled || isMutationPending || hasSavingAttachments) {
       return false;
     }
 
-    return draft.trim().length > 0;
+    return draft.trim().length > 0 || hasReadyAttachments;
   };
 
   const handleComposerUpdate = useCallback(
@@ -196,14 +355,129 @@ export function ComposerBar({
     [conversationId, isTurnActive, slashCommands]
   );
 
+  const appendComposerAttachments = useCallback(
+    (attachments: MessageAttachment[]) => {
+      if (!attachments || attachments.length === 0) {
+        return;
+      }
+      setAttachedImages((previous) => {
+        const mapped = attachments
+          .map((attachment) => toComposerAttachment(attachment))
+          .filter(Boolean) as ComposerImageAttachment[];
+        if (mapped.length === 0) {
+          return previous;
+        }
+        return [...previous, ...mapped];
+      });
+    },
+    []
+  );
+
+  const removeAttachment = useCallback((id: string) => {
+    setAttachedImages((previous) => {
+      const existing = previous.find((attachment) => attachment.id === id);
+      if (existing) {
+        revokePreviewUrl(existing.previewUrl);
+      }
+      return previous.filter((attachment) => attachment.id !== id);
+    });
+  }, []);
+
+  const handlePaste = useCallback(
+    async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (!event.clipboardData) {
+        return;
+      }
+
+      const items = Array.from(event.clipboardData.items ?? []);
+      const files: File[] = items
+        .map((item) => (item.kind === 'file' ? item.getAsFile() : null))
+        .filter(
+          (file): file is File =>
+            file !== null && file.type.startsWith('image/')
+        );
+
+      if (files.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+
+      for (const file of files) {
+        const id = createAttachmentId();
+        const previewUrl = URL.createObjectURL(file);
+        const fileName = extractFileName(file.name, 'pasted-image');
+        const mimeType = file.type || 'image/png';
+        const { width, height } = await readImageDimensions(file, previewUrl);
+
+        setAttachedImages((previous) => [
+          ...previous,
+          {
+            id,
+            fileName,
+            mimeType,
+            previewUrl,
+            width,
+            height,
+            path: null,
+            status: 'saving',
+          },
+        ]);
+
+        try {
+          const dataBase64 = await fileToBase64(file);
+          const response = await Codex.savePastedImage({
+            workspacePath,
+            dataBase64,
+            fileName,
+            mimeType,
+            width,
+            height,
+          });
+
+          setAttachedImages((previous) =>
+            previous.map((attachment) =>
+              attachment.id === id
+                ? {
+                    ...attachment,
+                    status: 'ready',
+                    path: response.path,
+                    width: response.width || width,
+                    height: response.height || height,
+                    fileName: response.fileName ?? attachment.fileName,
+                  }
+                : attachment
+            )
+          );
+        } catch (error) {
+          setAttachedImages((previous) =>
+            previous.map((attachment) =>
+              attachment.id === id
+                ? { ...attachment, status: 'error' }
+                : attachment
+            )
+          );
+
+          const description =
+            error instanceof Error
+              ? error.message
+              : 'Unable to save pasted image.';
+          toast.error('Failed to attach image.', { description });
+        }
+      }
+    },
+    [workspacePath]
+  );
+
   const submitDraft = () => {
     const text = draft.trim();
-    if (!text) {
+    const attachmentsForSend = sendableAttachments;
+    if (!text && attachmentsForSend.length === 0) {
       return;
     }
 
     const slash = pendingSlashCommand;
-    if (slash) {
+    if (slash && attachmentsForSend.length === 0) {
       if (disabled || isMutationPending) {
         return;
       }
@@ -222,12 +496,19 @@ export function ComposerBar({
       return;
     }
 
+    const attachmentSnapshot = attachedImages;
     setDraft('');
     onScrollToBottom();
+    setAttachedImages([]);
 
-    void sendOrQueue({ text }).catch(() => {
-      setDraft(text);
-    });
+    void sendOrQueue({ text, attachments: attachmentsForSend })
+      .then(() => {
+        releaseAttachments(attachmentSnapshot);
+      })
+      .catch(() => {
+        setDraft(text);
+        setAttachedImages(attachmentSnapshot);
+      });
   };
 
   const focusComposer = useCallback(() => {
@@ -245,8 +526,11 @@ export function ComposerBar({
         setDraft((previous) => `${previous}${value}`);
       },
       getDraft: () => draftRef.current,
+      appendAttachments: (attachments: MessageAttachment[]) => {
+        appendComposerAttachments(attachments);
+      },
     }),
-    [focusComposer]
+    [appendComposerAttachments, focusComposer]
   );
 
   useEffect(() => {
@@ -316,10 +600,53 @@ export function ComposerBar({
             onChange={(e) => setDraft(e.target.value)}
             disabled={isMutationPending || disabled}
             onKeyDown={handleComposerKeyDown}
-            aria-busy={isMutationPending}
+            onPaste={(event) => {
+              void handlePaste(event);
+            }}
+            aria-busy={isMutationPending || hasSavingAttachments}
             className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none p-0 bg-transparent min-h-[72px] max-h-[200px] overflow-y-auto"
           />
         </div>
+        {attachedImages.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {attachedImages.map((attachment) => (
+              <div
+                key={attachment.id}
+                className="flex items-center gap-2 rounded-md bg-muted/60 border border-border/60 px-2 py-1"
+              >
+                {attachment.previewUrl ? (
+                  <img
+                    src={attachment.previewUrl}
+                    alt={attachment.fileName}
+                    className="h-10 w-10 rounded border border-border object-cover"
+                  />
+                ) : null}
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-foreground truncate max-w-[160px]">
+                    {attachment.fileName}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {attachment.status === 'saving'
+                      ? 'Saving...'
+                      : attachment.status === 'error'
+                        ? 'Attach failed'
+                        : `${attachment.width ?? '?'} x ${attachment.height ?? '?'}`}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => removeAttachment(attachment.id)}
+                  disabled={isMutationPending}
+                >
+                  <XIcon className="size-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ModelConfigSelector
@@ -353,7 +680,7 @@ export function ComposerBar({
                 size="icon"
                 variant="ghost"
                 className="rounded-full size-8"
-                disabled={isMutationPending || disabled || !draft.trim()}
+                disabled={!canSend()}
                 aria-busy={isMutationPending}
               >
                 <ArrowUpIcon className="size-4" />

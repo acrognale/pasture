@@ -145,15 +145,37 @@ export function StatusIndicator({
       </div>
       {queuedMessages.length > 0 ? (
         <div className="mt-2 space-y-1 text-transcript-base text-muted-foreground">
-          {queuedMessages.map((message, index) => (
-            <div
-              key={`queued-${index}`}
-              className="truncate rounded-md bg-muted/60 px-2 py-1"
-              title={message}
-            >
-              {message}
-            </div>
-          ))}
+          {queuedMessages.map((message, index) => {
+            const attachmentCount = message.attachments?.length ?? 0;
+            const trimmed = message.text.trim();
+            const titleParts = [];
+            if (trimmed) {
+              titleParts.push(trimmed);
+            }
+            if (attachmentCount > 0) {
+              titleParts.push(
+                `${attachmentCount} image${attachmentCount === 1 ? '' : 's'}`
+              );
+            }
+            const title =
+              titleParts.length > 0 ? titleParts.join(' • ') : undefined;
+            const label =
+              trimmed || (attachmentCount > 0 ? 'Image message' : '');
+            return (
+              <div
+                key={`queued-${index}`}
+                className="flex items-center justify-between gap-2 rounded-md bg-muted/60 px-2 py-1"
+                title={title}
+              >
+                <span className="truncate">{label}</span>
+                {attachmentCount > 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    {attachmentCount} image{attachmentCount === 1 ? '' : 's'}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       ) : null}
     </div>

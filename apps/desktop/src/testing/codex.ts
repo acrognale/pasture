@@ -111,6 +111,12 @@ const mockCodexNamespace = {
   })),
   compactConversation: defineStub(async () => undefined),
   sendUserMessage: defineStub(async () => undefined),
+  savePastedImage: defineStub(async () => ({
+    path: '/tmp/mock-image.png',
+    width: 0,
+    height: 0,
+    fileName: 'mock-image.png',
+  })),
   interruptConversation: defineStub(async () =>
     createDefaultInterruptResponse()
   ),
