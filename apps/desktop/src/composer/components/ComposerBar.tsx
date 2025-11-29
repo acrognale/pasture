@@ -567,6 +567,9 @@ export function ComposerBar({
             value={draft}
             onChange={setDraft}
             onSubmit={submitDraft}
+            workspacePath={workspacePath}
+            conversationId={conversationId}
+            isTurnActive={isTurnActive}
             onEscape={() => {
               if (!isTurnActive) {
                 return false;
