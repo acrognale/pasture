@@ -115,14 +115,21 @@ const extractFileName = (
 };
 
 const safeConvertFileSrc = (path: string): string => {
+  const trimmed = path.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (trimmed.startsWith('data:') || /^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
   try {
     if (typeof convertFileSrc === 'function') {
-      return convertFileSrc(path);
+      return convertFileSrc(trimmed);
     }
   } catch {
     // Best-effort conversion only
   }
-  return path;
+  return trimmed;
 };
 
 const revokePreviewUrl = (url: string | null) => {

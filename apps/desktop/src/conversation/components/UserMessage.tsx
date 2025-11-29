@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
+import { ImagePreview } from '~/conversation/components/ImagePreview';
 import { buildInputItems } from '~/conversation/hooks/useSendMessage';
 import type { TranscriptUserMessageCell } from '~/conversation/transcript/types';
 import type { MessageAttachment } from '~/conversation/types';
@@ -204,8 +205,20 @@ export function UserMessage({
                 </div>
               ) : null}
               {hasImages ? (
-                <div className="text-muted-foreground text-xs">
-                  {cell.images?.length ?? 0} image(s) attached
+                <div className="space-y-1">
+                  <div className="text-muted-foreground text-xs">
+                    {cell.images?.length ?? 0} image
+                    {(cell.images?.length ?? 0) === 1 ? '' : 's'} attached
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(cell.images ?? []).map((path) => (
+                      <ImagePreview
+                        key={path}
+                        path={path}
+                        alt={message || 'User attached image'}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : null}
             </div>
