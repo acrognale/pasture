@@ -56,13 +56,13 @@ Edit any message to fork the conversation into a new branch. Pasture maintains a
 - **Compacting**: You *can* send `/compact` to clean up long conversations. No slash command menu yet, but it's on my list.
 - **Parallel conversations**: You *can* run multiple conversations at once. They'll keep going in the background while you switch between them. A spinner will appear on the sidebar to indicate each active conversation.
 - **Tool calls in history**: You might notice tool calls disappear when resuming a conversation. That's expected - Codex only saves certain items (user messages, reasoning blocks, agent messages) to the rollout history. Don't worry, they're still in the context window.
+- **Images**: You can paste images into the composer by the standard OS clipboard mechanism.
 
 ## Current Limitations
 
 Here's what's not built yet:
 
 - **MCP servers**: If you have them configured via codex-cli, they *might* work? I don't use MCPs myself, so I haven't tested this.
-- **Images**: No support for pasting images into the composer yet.
 - **Custom models/APIs**: Codex supports various models and providers, but I haven't exposed that in the UI yet.
 
 If you hit weird behavior, please file a bug report with your `config.toml` so I can see what needs to be implemented.
