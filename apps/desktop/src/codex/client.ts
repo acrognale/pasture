@@ -27,11 +27,13 @@ import type {
   RespondApprovalParams,
   SavePastedImageParams,
   SavePastedImageResponse,
+  SearchWorkspaceFilesParams,
   SendUserMessageParams,
   SetWindowTitleParams,
   SwitchConversationParams,
   SwitchConversationResponse,
   UpdateComposerConfigParams,
+  WorkspaceFileHit,
   WorkspacePathParams,
   WorkspaceSettings,
 } from '~/codex.gen';
@@ -166,6 +168,14 @@ export namespace Codex {
     params: WorkspacePathParams
   ): Promise<WorkspaceSettings> {
     return await invoke<WorkspaceSettings>('get_workspace_composer_defaults', {
+      params,
+    });
+  }
+
+  export async function searchWorkspaceFiles(
+    params: SearchWorkspaceFilesParams
+  ): Promise<Array<WorkspaceFileHit>> {
+    return await invoke<Array<WorkspaceFileHit>>('search_workspace_files', {
       params,
     });
   }

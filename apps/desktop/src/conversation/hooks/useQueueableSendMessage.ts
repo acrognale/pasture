@@ -8,7 +8,11 @@ import {
   useConversationQueueActions,
   useConversationSendMessageActions,
 } from '../store/hooks';
-import { type SendMessageVariables, useSendMessage } from './useSendMessage';
+import {
+  type SendMessageVariables,
+  formatMessageWithMentions,
+  useSendMessage,
+} from './useSendMessage';
 
 export const useQueueableSendMessage = (
   workspacePath: string,
@@ -33,8 +37,9 @@ export const useQueueableSendMessage = (
   const sendOrQueue = useCallback(
     async ({ text, attachments, turnConfig }: SendMessageVariables) => {
       const trimmed = text.trim();
+      const formattedText = formatMessageWithMentions(trimmed, workspacePath);
       const hasAttachments = (attachments?.length ?? 0) > 0;
-      if (!trimmed && !hasAttachments) {
+      if (!formattedText && !hasAttachments) {
         return;
       }
       if (authState.isLoading || authState.data?.requiresAuth) {
@@ -42,13 +47,13 @@ export const useQueueableSendMessage = (
       }
 
       if (isRunning || isSendingUserMessage) {
-        queueUserMessage({ text: trimmed, attachments });
+        queueUserMessage({ text: formattedText, attachments });
         return;
       }
 
       setSendingUserMessage(true);
       try {
-        await sendMessage({ text: trimmed, attachments, turnConfig });
+        await sendMessage({ text: formattedText, attachments, turnConfig });
       } finally {
         setSendingUserMessage(false);
       }
@@ -61,6 +66,7 @@ export const useQueueableSendMessage = (
       queueUserMessage,
       sendMessage,
       setSendingUserMessage,
+      workspacePath,
     ]
   );
 

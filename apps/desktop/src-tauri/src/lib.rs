@@ -123,6 +123,7 @@ pub fn run() {
             commands::workspace::get_workspace_composer_defaults,
             commands::workspace::list_recent_workspaces,
             commands::workspace::open_workspace,
+            commands::files::search_workspace_files,
             commands::workspace::create_workspace_window,
             commands::workspace::set_window_title,
             commands::workspace::browse_for_workspace,

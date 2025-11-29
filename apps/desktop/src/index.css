@@ -325,6 +325,12 @@
   -webkit-app-region: no-drag;
 }
 
+@layer components {
+  .mention-file {
+    @apply inline-flex items-center gap-1 rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-transcript-micro leading-transcript font-semibold whitespace-nowrap;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

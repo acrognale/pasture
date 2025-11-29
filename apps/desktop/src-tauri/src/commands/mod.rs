@@ -3,6 +3,7 @@ mod registry;
 pub mod approvals;
 pub mod auth;
 pub mod composer;
+pub mod files;
 pub mod images;
 pub mod review;
 pub mod subscriptions;
@@ -95,6 +96,10 @@ codex_command_descriptors! {
     workspace::open_workspace {
         params: workspace::WorkspacePathParams,
         result: String,
+    },
+    files::search_workspace_files {
+        params: files::SearchWorkspaceFilesParams,
+        result: Vec<files::WorkspaceFileHit>,
     },
     workspace::create_workspace_window {
         params: workspace::WorkspacePathParams,

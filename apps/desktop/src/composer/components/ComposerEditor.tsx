@@ -15,13 +15,21 @@ import {
   type TypeaheadMenuPluginProps,
 } from '@lexical/react/LexicalTypeaheadMenuPlugin';
 import {
+  $applyNodeReplacement,
   $createParagraphNode,
   $createTextNode,
   $getRoot,
+  $getSelection,
+  $isElementNode,
+  $isRangeSelection,
   COMMAND_PRIORITY_HIGH,
+  DecoratorNode,
   type EditorState,
   KEY_DOWN_COMMAND,
   type LexicalEditor,
+  type NodeKey,
+  type SerializedLexicalNode,
+  type Spread,
   TextNode,
 } from 'lexical';
 import {
@@ -35,6 +43,7 @@ import {
 } from 'react';
 import type React from 'react';
 import { createPortal } from 'react-dom';
+import { Codex } from '~/codex/client';
 import { useSlashCommands } from '~/composer/hooks/useSlashCommands';
 import type { SlashCommandDefinition } from '~/composer/slash-commands';
 import { cn } from '~/lib/utils';
@@ -59,6 +68,133 @@ type ComposerEditorProps = {
 
 const emptyTheme = {};
 
+const FILE_MENTION_TRIGGER: RegExp = /(^|\s)@([^\s@]*)$/;
+const FILE_MENTION_TEXT_PATTERN: RegExp = /(^|[\s])@([^\s@]*\/[^\s@]+)/g;
+const FILE_MENTION_INSERTION_PATTERN: RegExp = /(^|[\s\n])@[^\s@]*$/;
+
+type FileMentionPayload = {
+  path: string;
+  label: string;
+};
+
+type SerializedFileMentionNode = Spread<
+  {
+    type: 'file-mention';
+    version: 1;
+  } & FileMentionPayload,
+  SerializedLexicalNode
+>;
+
+const buildFileLabel = (path: string): string => {
+  const segments = path.split(/[\\/]/);
+  const label = segments[segments.length - 1];
+  return label || path;
+};
+
+const FileMention = ({ path, label }: FileMentionPayload) => (
+  <span className="mention-file" title={path}>
+    @{label}
+  </span>
+);
+
+class FileMentionNode extends DecoratorNode<React.ReactElement> {
+  __path: string;
+  __label: string;
+
+  constructor(path: string, label: string, key?: NodeKey) {
+    super(key);
+    this.__path = path;
+    this.__label = label;
+  }
+
+  static getType(): string {
+    return 'file-mention';
+  }
+
+  static clone(node: FileMentionNode): FileMentionNode {
+    return new FileMentionNode(node.__path, node.__label, node.__key);
+  }
+
+  static importJSON(
+    serializedNode: SerializedFileMentionNode
+  ): FileMentionNode {
+    const { path, label } = serializedNode;
+    return new FileMentionNode(path, label);
+  }
+
+  exportJSON(): SerializedFileMentionNode {
+    return {
+      type: 'file-mention',
+      version: 1,
+      path: this.__path,
+      label: this.__label,
+    };
+  }
+
+  createDOM(): HTMLElement {
+    return document.createElement('span');
+  }
+
+  updateDOM(): false {
+    return false;
+  }
+
+  decorate(): React.ReactElement {
+    return <FileMention path={this.__path} label={this.__label} />;
+  }
+
+  isInline(): boolean {
+    return true;
+  }
+
+  isIsolated(): boolean {
+    return true;
+  }
+
+  getTextContent(): string {
+    return `@${this.__path}`;
+  }
+}
+
+const $createFileMentionNode = ({ path, label }: FileMentionPayload) =>
+  $applyNodeReplacement(new FileMentionNode(path, label));
+
+const $isFileMentionNode = (node: unknown): node is FileMentionNode =>
+  node instanceof FileMentionNode;
+
+const appendTextWithMentions = (
+  paragraph: ReturnType<typeof $createParagraphNode>,
+  line: string
+) => {
+  let lastIndex = 0;
+
+  for (const match of line.matchAll(FILE_MENTION_TEXT_PATTERN)) {
+    const matchIndex = match.index ?? 0;
+    const prefix = match[1] ?? '';
+    const path = match[2] ?? '';
+    if (!path) {
+      continue;
+    }
+
+    const mentionStart = matchIndex + prefix.length;
+    if (mentionStart > lastIndex) {
+      paragraph.append($createTextNode(line.slice(lastIndex, mentionStart)));
+    }
+
+    paragraph.append(
+      $createFileMentionNode({ path, label: buildFileLabel(path) })
+    );
+
+    lastIndex = mentionStart + path.length + 1;
+  }
+
+  if (lastIndex < line.length) {
+    paragraph.append($createTextNode(line.slice(lastIndex)));
+  } else if (line.length === 0 && lastIndex === 0) {
+    paragraph.append($createTextNode(''));
+  }
+};
+
 const updateRootText = (editor: LexicalEditor, text: string) => {
   editor.update(() => {
     const root = $getRoot();
@@ -70,16 +206,21 @@ const updateRootText = (editor: LexicalEditor, text: string) => {
     root.clear();
 
     const lines = text.split('\n');
+    const appendLine = (line: string) => {
+      const paragraph = $createParagraphNode();
+      appendTextWithMentions(paragraph, line);
+      if (paragraph.getChildrenSize() === 0) {
+        paragraph.append($createTextNode(''));
+      }
+      root.append(paragraph);
+    };
+
     if (lines.length === 0) {
-      root.append($createParagraphNode());
+      appendLine('');
       return;
     }
 
-    lines.forEach((line) => {
-      const paragraph = $createParagraphNode();
-      paragraph.append($createTextNode(line));
-      root.append(paragraph);
-    });
+    lines.forEach(appendLine);
   });
 };
 
@@ -104,6 +245,60 @@ const ComposerKeybindingsPlugin = ({
       editor.registerCommand(
         KEY_DOWN_COMMAND,
         (event: KeyboardEvent) => {
+          if (event.key === 'Backspace') {
+            let deleted = false;
+            editor.update(() => {
+              const selection = $getSelection();
+              if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+                return;
+              }
+              const anchorNode = selection.anchor.getNode();
+              const anchorOffset = selection.anchor.offset;
+
+              const findTarget = () => {
+                if ($isFileMentionNode(anchorNode)) {
+                  return anchorNode;
+                }
+                if ($isElementNode(anchorNode) && anchorOffset > 0) {
+                  // Cursor can sit on the parent element when it's placed after an isolated decorator.
+                  const previousChild = anchorNode.getChildAtIndex(
+                    anchorOffset - 1
+                  );
+                  if (previousChild && $isFileMentionNode(previousChild)) {
+                    return previousChild;
+                  }
+                }
+                if (anchorOffset > 0) {
+                  return null;
+                }
+                const previousSibling = anchorNode.getPreviousSibling();
+                if (previousSibling && $isFileMentionNode(previousSibling)) {
+                  return previousSibling;
+                }
+                const parent = anchorNode.getParent();
+                if (
+                  parent &&
+                  parent.getFirstChild() === anchorNode &&
+                  parent.getPreviousSibling() &&
+                  $isFileMentionNode(parent.getPreviousSibling())
+                ) {
+                  return parent.getPreviousSibling() as FileMentionNode;
+                }
+                return null;
+              };
+
+              const target = findTarget();
+              if (target) {
+                target.remove();
+                deleted = true;
+              }
+            });
+            if (deleted) {
+              event.preventDefault();
+              return true;
+            }
+          }
+
           if (event.key === 'Escape') {
             const handled = onEscape?.() ?? false;
             if (!handled) {
@@ -187,6 +382,19 @@ class SlashCommandOption extends MenuOption {
   }
 }
 
+class FileMentionOption extends MenuOption {
+  path: string;
+  label: string;
+  score: number;
+
+  constructor(path: string, score: number) {
+    super(path);
+    this.path = path;
+    this.label = buildFileLabel(path);
+    this.score = score;
+  }
+}
+
 const SLASH_TRIGGER: RegExp = /(^|\s)\/([a-z0-9-]*)$/i;
 
 export const ComposerEditor = forwardRef<
@@ -222,6 +430,7 @@ export const ComposerEditor = forwardRef<
           throw error;
         },
         theme: emptyTheme,
+        nodes: [FileMentionNode],
       }),
       []
     );
@@ -234,6 +443,14 @@ export const ComposerEditor = forwardRef<
     const slashCommands = useSlashCommands(workspacePath);
     const [slashQuery, setSlashQuery] = useState<string | null>(null);
     const slashMenuEnabled = !disabled && !ariaBusy && Boolean(conversationId);
+    const [fileMentionQuery, setFileMentionQuery] = useState<string | null>(
+      null
+    );
+    const [fileMentionOptions, setFileMentionOptions] = useState<
+      FileMentionOption[]
+    >([]);
+    const fileMenuEnabled =
+      !disabled && !ariaBusy && Boolean(workspacePath?.trim().length);
 
     const checkForSlashTrigger = useCallback<
       NonNullable<TypeaheadMenuPluginProps<MenuOption>['triggerFn']>
@@ -257,6 +474,32 @@ export const ComposerEditor = forwardRef<
       [slashMenuEnabled]
     );
 
+    const checkForFileMentionTrigger = useCallback<
+      NonNullable<TypeaheadMenuPluginProps<MenuOption>['triggerFn']>
+    >(
+      (text: string): MenuTextMatch | null => {
+        if (!fileMenuEnabled) {
+          return null;
+        }
+
+        if (SLASH_TRIGGER.exec(text)) {
+          return null;
+        }
+
+        const match = FILE_MENTION_TRIGGER.exec(text);
+        if (!match) {
+          return null;
+        }
+
+        return {
+          leadOffset: match.index + match[1].length,
+          matchingString: match[2],
+          replaceableString: match[0].slice(match[1].length),
+        };
+      },
+      [fileMenuEnabled]
+    );
+
     const slashOptions = useMemo(() => {
       if (!slashMenuEnabled || slashQuery === null) {
         return [];
@@ -276,6 +519,54 @@ export const ComposerEditor = forwardRef<
         })
         .map((definition) => new SlashCommandOption(definition));
     }, [slashCommands.definitions, slashMenuEnabled, slashQuery]);
+
+    useEffect(() => {
+      if (!fileMenuEnabled || fileMentionQuery === null) {
+        return;
+      }
+
+      const trimmedQuery = fileMentionQuery.trim();
+      if (!trimmedQuery || !workspacePath) {
+        return;
+      }
+
+      const activeQuery = trimmedQuery;
+
+      let isCancelled = false;
+
+      Codex.searchWorkspaceFiles({
+        workspacePath,
+        query: trimmedQuery,
+        limit: 6,
+      })
+        .then((results) => {
+          if (isCancelled) {
+            return;
+          }
+          if (activeQuery !== (fileMentionQuery?.trim() ?? '')) {
+            return;
+          }
+          setFileMentionOptions(
+            results.map(
+              (hit) => new FileMentionOption(hit.path, hit.score ?? 0)
+            )
+          );
+        })
+        .catch((error) => {
+          if (isCancelled) {
+            return;
+          }
+          console.error(
+            '[ComposerEditor] Failed to search workspace files',
+            error
+          );
+          setFileMentionOptions([]);
+        });
+
+      return () => {
+        isCancelled = true;
+      };
+    }, [fileMentionQuery, fileMenuEnabled, workspacePath]);
 
     const handleSlashSelect = useCallback<
       TypeaheadMenuPluginProps<SlashCommandOption>['onSelectOption']
@@ -307,6 +598,38 @@ export const ComposerEditor = forwardRef<
         closeMenu();
       },
       [isTurnActive, onChange, slashCommands]
+    );
+
+    const handleFileMentionSelect = useCallback<
+      TypeaheadMenuPluginProps<FileMentionOption>['onSelectOption']
+    >(
+      (option: FileMentionOption, _node: TextNode | null, closeMenu) => {
+        const current = valueRef.current ?? '';
+        const next = current.replace(
+          FILE_MENTION_INSERTION_PATTERN,
+          (_match, prefix: string) => `${prefix}@${option.path} `
+        );
+
+        const draft =
+          next === current
+            ? `${current}${
+                current.endsWith(' ') || current.length === 0 ? '' : ' '
+              }@${option.path} `
+            : next;
+
+        valueRef.current = draft;
+        onChange(draft);
+        const editor = editorRef.current;
+        if (editor) {
+          updateRootText(editor, draft);
+          editor.update(() => {
+            $getRoot().selectEnd();
+          });
+        }
+        closeMenu();
+        setFileMentionQuery(null);
+      },
+      [onChange, setFileMentionQuery]
     );
 
     const slashMenuRender: TypeaheadMenuPluginProps<SlashCommandOption>['menuRenderFn'] =
@@ -356,6 +679,54 @@ export const ComposerEditor = forwardRef<
         },
         []
       );
+
+    const fileMentionMenuRender: TypeaheadMenuPluginProps<FileMentionOption>['menuRenderFn'] =
+      useCallback(
+        (
+          anchorElementRef,
+          {
+            selectedIndex,
+            selectOptionAndCleanUp,
+            setHighlightedIndex,
+            options,
+          }
+        ) => {
+          if (!anchorElementRef.current || options.length === 0) {
+            return null;
+          }
+
+          return createPortal(
+            <div className="absolute left-0 bottom-full mb-4 -translate-y-1 transform min-w-[260px] max-w-[360px] w-max rounded-md border border-border bg-popover shadow-sm pointer-events-auto">
+              {options.map((option, index) => (
+                <button
+                  type="button"
+                  key={option.key}
+                  ref={(element) => option.setRefElement(element)}
+                  role="option"
+                  aria-selected={selectedIndex === index}
+                  className={cn(
+                    'flex w-full items-center gap-2 px-3 py-1.5 text-left text-transcript-micro leading-transcript text-foreground transition-colors whitespace-nowrap',
+                    selectedIndex === index
+                      ? 'bg-accent text-accent-foreground'
+                      : 'hover:bg-muted'
+                  )}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  onClick={() => selectOptionAndCleanUp(option)}
+                >
+                  <span className="font-semibold leading-none truncate">
+                    {option.path}
+                  </span>
+                </button>
+              ))}
+            </div>,
+            anchorElementRef.current
+          );
+        },
+        []
+      );
+
+    const activeFileMentionOptions =
+      fileMenuEnabled && fileMentionQuery ? fileMentionOptions.slice(0, 6) : [];
 
     useImperativeHandle(
       ref,
@@ -455,6 +826,17 @@ export const ComposerEditor = forwardRef<
           onChange={onChange}
           currentValue={() => valueRef.current}
         />
+        {fileMenuEnabled ? (
+          <LexicalTypeaheadMenuPlugin
+            triggerFn={checkForFileMentionTrigger}
+            onQueryChange={setFileMentionQuery}
+            onSelectOption={handleFileMentionSelect}
+            menuRenderFn={fileMentionMenuRender}
+            options={activeFileMentionOptions}
+            anchorClassName="z-50"
+            preselectFirstItem
+          />
+        ) : null}
         {slashMenuEnabled ? (
           <LexicalTypeaheadMenuPlugin
             triggerFn={checkForSlashTrigger}

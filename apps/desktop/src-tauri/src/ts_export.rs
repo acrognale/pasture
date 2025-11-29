@@ -47,6 +47,7 @@ fn export_type<T: TS + 'static>(out_dir: &Path) -> std::result::Result<(), ts_rs
 }
 
 fn export_additional_types(out_dir: &Path) -> std::result::Result<(), ts_rs::ExportError> {
+    use crate::commands::files::WorkspaceFileHit;
     use crate::commands::update::UpdateInfo;
     use codex_protocol::parse_command::ParsedCommand;
     use codex_protocol::plan_tool::StepStatus;
@@ -80,6 +81,7 @@ fn export_additional_types(out_dir: &Path) -> std::result::Result<(), ts_rs::Exp
     export_type::<ConversationEventPayload>(out_dir)?;
     export_type::<CodexEvent>(out_dir)?;
     export_type::<UpdateInfo>(out_dir)?;
+    export_type::<WorkspaceFileHit>(out_dir)?;
     Ok(())
 }
 
