@@ -1,11 +1,17 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ArrowUpIcon, SquareStopIcon, XIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 import { useAuthState } from '~/auth/useAuthState';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
-import { Textarea } from '~/components/ui/textarea';
 import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
 import { useSlashCommands } from '~/composer/hooks/useSlashCommands';
 import { useQueueableSendMessage } from '~/conversation/hooks/useQueueableSendMessage';
@@ -21,6 +27,7 @@ import {
   createDefaultComposerConfig,
 } from '../config';
 import { type SlashCommandInvocation } from '../types';
+import { ComposerEditor, type ComposerEditorHandle } from './ComposerEditor';
 import { ModelConfigSelector } from './ModelConfigSelector';
 
 export type ComposerBarControls = {
@@ -260,7 +267,7 @@ export function ComposerBar({
   const resolvedInterruptPending = interruptPendingProp ?? false;
 
   const [draft, setDraft] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<ComposerEditorHandle | null>(null);
   const draftRef = useRef(draft);
   const [attachedImages, setAttachedImages] = useState<
     ComposerImageAttachment[]
@@ -281,14 +288,6 @@ export function ComposerBar({
     },
     []
   );
-
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
-    }
-  }, [draft]);
 
   const pendingSlashCommand = useMemo(
     () => parseSlashCommand(draft.trim()),
@@ -390,26 +389,8 @@ export function ComposerBar({
     });
   }, []);
 
-  const handlePaste = useCallback(
-    async (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
-      if (!event.clipboardData) {
-        return;
-      }
-
-      const items = Array.from(event.clipboardData.items ?? []);
-      const files: File[] = items
-        .map((item) => (item.kind === 'file' ? item.getAsFile() : null))
-        .filter(
-          (file): file is File =>
-            file !== null && file.type.startsWith('image/')
-        );
-
-      if (files.length === 0) {
-        return;
-      }
-
-      event.preventDefault();
-
+  const handlePastedImages = useCallback(
+    async (files: File[]) => {
       for (const file of files) {
         const id = createAttachmentId();
         const previewUrl = URL.createObjectURL(file);
@@ -482,6 +463,7 @@ export function ComposerBar({
     if (!text && attachmentsForSend.length === 0) {
       return;
     }
+    // console.debug('submitDraft', { text, attachments: attachmentsForSend.length, isTurnActive });
 
     const slash = pendingSlashCommand;
     if (slash && attachmentsForSend.length === 0) {
@@ -519,7 +501,7 @@ export function ComposerBar({
   };
 
   const focusComposer = useCallback(() => {
-    textareaRef.current?.focus();
+    editorRef.current?.focus();
   }, []);
   const controls: ComposerBarControls = useMemo(
     () => ({
@@ -557,28 +539,7 @@ export function ComposerBar({
     };
   }, [onComposerReady, controls]);
 
-  const handleComposerKeyDown = (
-    event: React.KeyboardEvent<HTMLTextAreaElement>
-  ) => {
-    if (event.key === 'Escape') {
-      if (!isTurnActive) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      onInterrupt();
-      return;
-    }
-
-    if (event.key === 'Enter' && event.metaKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      submitDraft();
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (disabled) {
       return;
@@ -601,16 +562,23 @@ export function ComposerBar({
           </div>
         )}
         <div className="flex-1">
-          <Textarea
-            ref={textareaRef}
+          <ComposerEditor
+            ref={editorRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            disabled={isMutationPending || disabled}
-            onKeyDown={handleComposerKeyDown}
-            onPaste={(event) => {
-              void handlePaste(event);
+            onChange={setDraft}
+            onSubmit={submitDraft}
+            onEscape={() => {
+              if (!isTurnActive) {
+                return false;
+              }
+              onInterrupt();
+              return true;
             }}
-            aria-busy={isMutationPending || hasSavingAttachments}
+            onPasteImages={(files) => {
+              void handlePastedImages(files);
+            }}
+            disabled={isMutationPending || disabled}
+            ariaBusy={isMutationPending || hasSavingAttachments}
             className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none p-0 bg-transparent min-h-[72px] max-h-[200px] overflow-y-auto"
           />
         </div>
