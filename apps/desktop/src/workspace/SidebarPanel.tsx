@@ -218,6 +218,11 @@ export function SidebarPanel({
     window.dispatchEvent(new Event(OPEN_WORKSPACE_THREAD_SWITCHER_EVENT));
   }, []);
 
+  useNamedShortcut('workspace.openSettings', undefined, () => {
+    onOpenSettings?.();
+    return true;
+  });
+
   return (
     <div className="flex h-full flex-col">
       <ScrollArea className="flex min-h-0 flex-1 flex-col bg-card/60">

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
 import {
@@ -9,7 +10,10 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog';
 import { Switch } from '~/components/ui/switch';
-import { normalizeWorkspaceComposerDefaults } from '~/composer/workspace-defaults';
+import {
+  type WorkspaceComposerDefaultsState,
+  normalizeWorkspaceComposerDefaults,
+} from '~/composer/workspace-defaults';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 
 type SettingsPage = 'features';
@@ -47,8 +51,33 @@ export function SettingsModal({
         workspacePath,
         webSearchEnabled: enabled,
       }).then(normalizeWorkspaceComposerDefaults),
+    onMutate: async (enabled) => {
+      await queryClient.cancelQueries({ queryKey: keys.composerDefaults() });
+      const previous = queryClient.getQueryData<WorkspaceComposerDefaultsState>(
+        keys.composerDefaults()
+      );
+      queryClient.setQueryData<WorkspaceComposerDefaultsState>(
+        keys.composerDefaults(),
+        (current) => ({
+          ...(current ?? normalizeWorkspaceComposerDefaults(null)),
+          webSearchEnabled: enabled,
+        })
+      );
+      return { previous };
+    },
+    onError: (error, _enabled, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(keys.composerDefaults(), context.previous);
+      }
+      const description =
+        error instanceof Error ? error.message : 'Please try again.';
+      toast.error('Failed to update settings.', { description });
+    },
     onSuccess: (settings) => {
       queryClient.setQueryData(keys.composerDefaults(), settings);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.composerDefaults() });
     },
   });
 
@@ -92,8 +121,8 @@ export function SettingsModal({
                       Allow web search
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      Let Codex use it's built-in `web_search` tool. Changes to
-                      this setting will only take affect for new threads.
+                      Let Codex use its built-in web_search tool. Changes apply
+                      to new threads you start after toggling.
                     </span>
                   </div>
                   <Switch

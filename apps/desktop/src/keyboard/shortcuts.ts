@@ -23,6 +23,13 @@ export const SHORTCUTS = {
     allowInInput: true,
     when: (event) => !event.altKey && !event.shiftKey,
   },
+  'workspace.openSettings': {
+    id: 'workspace.openSettings',
+    chord: 'CmdOrCtrl+,',
+    scope: 'workspace',
+    description: 'Open settings',
+    allowInInput: true,
+  },
   'overlay.conversationReview.close': {
     id: 'overlay.conversationReview.close',
     chord: 'Escape',

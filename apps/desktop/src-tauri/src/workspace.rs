@@ -162,6 +162,7 @@ pub async fn save_settings(
             model.reasoning_summary = active.reasoning_summary;
             model.sandbox = active.sandbox;
             model.approval = active.approval;
+            model.web_search_enabled = active.web_search_enabled;
             model
                 .update(db)
                 .await
