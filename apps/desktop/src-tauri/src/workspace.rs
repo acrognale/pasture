@@ -176,7 +176,7 @@ pub async fn save_settings(
 }
 
 /// Updates to apply to composer settings.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ComposerSettingsUpdate {
     pub model: Option<String>,
     pub reasoning_effort: Option<ReasoningEffort>,

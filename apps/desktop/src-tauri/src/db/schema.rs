@@ -76,6 +76,11 @@ pub mod threads {
         pub current_conversation_id: String,
         pub title: Option<String>,
         pub preview: Option<String>,
+        pub model: Option<String>,
+        pub reasoning_effort: Option<String>,
+        pub reasoning_summary: Option<String>,
+        pub sandbox: Option<String>,
+        pub approval: Option<String>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

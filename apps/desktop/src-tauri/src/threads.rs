@@ -19,6 +19,7 @@ use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
 use sea_orm::QueryOrder;
 use sea_orm::TransactionTrait;
+use serde_json;
 use tauri::AppHandle;
 use tauri::Emitter;
 use uuid::Uuid;
@@ -33,6 +34,7 @@ use crate::domain::Conversation;
 use crate::domain::Thread;
 use crate::domain::ThreadId;
 use crate::domain::WorkspacePath;
+use crate::domain::WorkspaceSettings;
 use crate::errors::AppError;
 use crate::errors::AppResult;
 use crate::review;
@@ -40,6 +42,7 @@ use crate::rollout::load_rollout_cwd;
 use crate::router::CodexEvent;
 use crate::router::ThreadMetadataPayload;
 use crate::title_generation;
+use crate::workspace;
 
 // ============================================================
 // Result Types
@@ -85,6 +88,109 @@ pub async fn workspace_path_for_conversation(
         .map_err(|e| db_err("find thread for conversation", e))?;
 
     Ok(thread.map(|t| WorkspacePath(t.workspace_path)))
+}
+
+/// Resolve the thread that contains the given conversation, if any.
+pub async fn thread_for_conversation(
+    db: &DatabaseConnection,
+    conversation_id: &ConversationId,
+) -> AppResult<Option<ThreadId>> {
+    let threads = threads_for_conversation(db, conversation_id).await?;
+    Ok(threads.first().map(|thread| ThreadId(thread.id.clone())))
+}
+
+/// Compute effective composer settings for a thread, applying workspace defaults and thread overrides.
+pub async fn get_thread_composer_config(
+    db: &DatabaseConnection,
+    workspace: &WorkspacePath,
+    base_config: &codex_core::config::Config,
+    thread_id: &ThreadId,
+) -> AppResult<WorkspaceSettings> {
+    let mut settings = workspace::get_composer_defaults(db, workspace, base_config).await?;
+
+    if let Some(thread) = schema::threads::Entity::find_by_id(thread_id.as_str().to_string())
+        .filter(schema::threads::Column::WorkspacePath.eq(workspace.as_str()))
+        .one(db)
+        .await
+        .map_err(|e| db_err("load thread for composer config", e))?
+    {
+        if let Some(model) = thread.model {
+            settings.model = Some(model);
+        }
+        if let Some(value) = parse_json_option(thread.reasoning_effort) {
+            settings.reasoning_effort = Some(value);
+        }
+        if let Some(value) = parse_json_option(thread.reasoning_summary) {
+            settings.reasoning_summary = Some(value);
+        }
+        if let Some(value) = parse_json_option(thread.sandbox) {
+            settings.sandbox = Some(value);
+        }
+        if let Some(value) = parse_json_option(thread.approval) {
+            settings.approval = Some(value);
+        }
+    }
+
+    Ok(settings)
+}
+
+/// Persist per-thread composer settings overrides.
+pub async fn update_thread_composer_settings(
+    db: &DatabaseConnection,
+    workspace: &WorkspacePath,
+    thread_id: &ThreadId,
+    updates: crate::workspace::ComposerSettingsUpdate,
+) -> AppResult<()> {
+    if updates.model.is_none()
+        && updates.reasoning_effort.is_none()
+        && updates.reasoning_summary.is_none()
+        && updates.sandbox.is_none()
+        && updates.approval.is_none()
+    {
+        return Ok(());
+    }
+
+    let thread = schema::threads::Entity::find_by_id(thread_id.as_str().to_string())
+        .filter(schema::threads::Column::WorkspacePath.eq(workspace.as_str()))
+        .one(db)
+        .await
+        .map_err(|e| db_err("load thread for composer update", e))?
+        .ok_or(AppError::NotFound { entity: "thread" })?;
+
+    let mut active: schema::threads::ActiveModel = thread.into();
+    let mut changed = false;
+
+    if let Some(model) = updates.model {
+        active.model = Set(Some(model));
+        changed = true;
+    }
+    if let Some(value) = updates.reasoning_effort {
+        active.reasoning_effort = Set(serialize_json_option(&Some(value)));
+        changed = true;
+    }
+    if let Some(value) = updates.reasoning_summary {
+        active.reasoning_summary = Set(serialize_json_option(&Some(value)));
+        changed = true;
+    }
+    if let Some(value) = updates.sandbox {
+        active.sandbox = Set(serialize_json_option(&Some(value)));
+        changed = true;
+    }
+    if let Some(value) = updates.approval {
+        active.approval = Set(serialize_json_option(&Some(value)));
+        changed = true;
+    }
+
+    if changed {
+        active.updated_at = Set(Utc::now().to_rfc3339());
+        active
+            .update(db)
+            .await
+            .map_err(|e| db_err("update thread composer settings", e))?;
+        workspace::touch(db, workspace).await?;
+    }
+
+    Ok(())
 }
 
 /// List all threads for the workspace.
@@ -164,6 +270,11 @@ pub async fn create(
         conversations: vec![conversation],
         title: None,
         preview: Some("Untitled session".to_string()),
+        model: settings.model.clone(),
+        reasoning_effort: settings.reasoning_effort,
+        reasoning_summary: settings.reasoning_summary,
+        sandbox: settings.sandbox,
+        approval: settings.approval.clone(),
         created_at: timestamp.clone(),
         updated_at: timestamp,
         workspace_path: ctx.path.clone(),
@@ -813,6 +924,14 @@ fn is_missing_title(title: &Option<String>) -> bool {
 // Encoding/Decoding
 // ============================================================
 
+fn parse_json_option<T: serde::de::DeserializeOwned>(value: Option<String>) -> Option<T> {
+    value.and_then(|raw| serde_json::from_str(&raw).ok())
+}
+
+fn serialize_json_option<T: serde::Serialize>(value: &Option<T>) -> Option<String> {
+    value.as_ref().and_then(|v| serde_json::to_string(v).ok())
+}
+
 fn encode_thread(
     thread: &Thread,
     workspace: &WorkspacePath,
@@ -831,6 +950,11 @@ fn encode_thread(
             current_conversation_id: Set(thread.current_conversation_id.to_string()),
             title: Set(thread.title.clone()),
             preview: Set(thread.preview.clone()),
+            model: Set(thread.model.clone()),
+            reasoning_effort: Set(serialize_json_option(&thread.reasoning_effort)),
+            reasoning_summary: Set(serialize_json_option(&thread.reasoning_summary)),
+            sandbox: Set(serialize_json_option(&thread.sandbox)),
+            approval: Set(serialize_json_option(&thread.approval)),
         },
     };
 
@@ -840,6 +964,11 @@ fn encode_thread(
     active.current_conversation_id = Set(thread.current_conversation_id.to_string());
     active.title = Set(thread.title.clone());
     active.preview = Set(thread.preview.clone());
+    active.model = Set(thread.model.clone());
+    active.reasoning_effort = Set(serialize_json_option(&thread.reasoning_effort));
+    active.reasoning_summary = Set(serialize_json_option(&thread.reasoning_summary));
+    active.sandbox = Set(serialize_json_option(&thread.sandbox));
+    active.approval = Set(serialize_json_option(&thread.approval));
 
     active
 }
@@ -903,6 +1032,11 @@ fn decode_thread(
         conversations: decoded_conversations?,
         title: thread.title,
         preview: thread.preview,
+        model: thread.model,
+        reasoning_effort: parse_json_option(thread.reasoning_effort),
+        reasoning_summary: parse_json_option(thread.reasoning_summary),
+        sandbox: parse_json_option(thread.sandbox),
+        approval: parse_json_option(thread.approval),
         created_at: thread.created_at,
         updated_at: thread.updated_at,
         workspace_path,
