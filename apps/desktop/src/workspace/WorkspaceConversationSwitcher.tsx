@@ -12,7 +12,7 @@ import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
-import { resolveSessionLabel } from '~/lib/workspaces';
+import { formatSessionPreview, resolveSessionLabel } from '~/lib/workspaces';
 
 import { useWorkspace } from './WorkspaceProvider';
 import { useWorkspaceThreads } from './hooks/useWorkspaceThreads';
@@ -87,6 +87,9 @@ export function WorkspaceConversationSwitcher() {
               session.preview,
               session.threadId
             );
+            const normalizedPreview = session.preview?.trim() ?? '';
+            const shouldShowPreview =
+              normalizedPreview.length > 0 && source !== 'preview';
 
             return (
               <CommandItem
@@ -104,11 +107,18 @@ export function WorkspaceConversationSwitcher() {
                 }}
               >
                 <div className="flex w-full items-center justify-between gap-3">
-                  <span
-                    className={`text-sm font-medium leading-snug ${source === 'title' ? '' : 'truncate'}`}
-                  >
-                    {text}
-                  </span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className={`text-sm font-medium leading-snug ${source === 'title' ? '' : 'truncate'}`}
+                    >
+                      {text}
+                    </span>
+                    {shouldShowPreview ? (
+                      <span className="truncate text-sm font-normal leading-snug text-muted-foreground">
+                        {formatSessionPreview(normalizedPreview)}
+                      </span>
+                    ) : null}
+                  </div>
                   {session.timestamp ? (
                     <span className="shrink-0 text-transcript-micro text-muted-foreground">
                       {formatSessionPreviewTimestamp(session.timestamp, now)}
