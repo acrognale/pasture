@@ -15,6 +15,7 @@ import { ConversationProvider } from '~/conversation/store';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { SettingsModal } from '~/settings/SettingsModal';
 import { WorkspaceProvider } from '~/workspace';
+import { RecentConversationSwitcher } from '~/workspace/RecentConversationSwitcher';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';
 import { useWorkspaceThreadConversationId } from '~/workspace/WorkspaceProvider';
@@ -100,6 +101,7 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
         </div>
       </div>
       <WorkspaceConversationSwitcher />
+      <RecentConversationSwitcher />
       <SettingsModal
         workspacePath={workspacePath}
         open={settingsOpen}

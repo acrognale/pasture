@@ -6,6 +6,8 @@ export {
   useWorkspaceApprovalsStore,
   useWorkspaceOpenThreads,
   useWorkspaceActions,
+  useWorkspaceRecentThreads,
+  useWorkspaceThreadConversationIds,
 } from './WorkspaceProvider';
 export {
   normalizeWorkspacePath,
@@ -21,9 +23,11 @@ export {
   useWorkspaceThreads,
   useOpenWorkspaceThreads,
 } from './hooks/useWorkspaceThreads';
+export { useWorkspaceRecentConversations } from './hooks/useWorkspaceRecentConversations';
 export { useWorkspaceThreadConversations } from './hooks/useWorkspaceThreadConversations';
 export { getForksAtMessage } from './getForksAtMessage';
 export type {
   WorkspaceThreadsState,
   WorkspaceOpenThreadsState,
 } from './hooks/useWorkspaceThreads';
+export type { RecentConversationItem } from './hooks/useWorkspaceRecentConversations';

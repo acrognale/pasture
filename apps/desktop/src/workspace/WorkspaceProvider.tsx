@@ -102,12 +102,22 @@ export const useWorkspaceOpenThreads = () => {
   return useStore(store, (state) => state.openThreadIds);
 };
 
+export const useWorkspaceRecentThreads = () => {
+  const store = useWorkspaceStore();
+  return useStore(store, (state) => state.recentThreadIds);
+};
+
 export const useWorkspaceThreadConversationId = (threadId: string | null) => {
   const store = useWorkspaceStore();
   return useStore(
     store,
     (state) => (threadId ? state.threadConversationIds[threadId] : null) ?? null
   );
+};
+
+export const useWorkspaceThreadConversationIds = () => {
+  const store = useWorkspaceStore();
+  return useStore(store, (state) => state.threadConversationIds);
 };
 
 export const useWorkspace = () => {

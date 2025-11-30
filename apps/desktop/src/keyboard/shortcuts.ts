@@ -23,6 +23,20 @@ export const SHORTCUTS = {
     allowInInput: true,
     when: (event) => !event.altKey && !event.shiftKey,
   },
+  'conversation.recentNext': {
+    id: 'conversation.recentNext',
+    chord: 'Ctrl+Tab',
+    scope: 'workspace',
+    description: 'Switch to next recent conversation',
+    allowInInput: true,
+  },
+  'conversation.recentPrev': {
+    id: 'conversation.recentPrev',
+    chord: 'Ctrl+Shift+Tab',
+    scope: 'workspace',
+    description: 'Switch to previous recent conversation',
+    allowInInput: true,
+  },
   'workspace.openSettings': {
     id: 'workspace.openSettings',
     chord: 'CmdOrCtrl+,',

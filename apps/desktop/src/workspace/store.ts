@@ -41,6 +41,7 @@ export type WorkspaceStoreActions = {
 export type WorkspaceStoreState = {
   openThreadIds: string[];
   threadConversationIds: Record<string, string>;
+  recentThreadIds: string[];
   actions: WorkspaceStoreActions;
 };
 
@@ -63,6 +64,7 @@ export const createWorkspaceStore = (
   const threadConversationMap = new Map<string, string>();
   const conversationToThreadMap = new Map<string, string>();
   const openThreadIdsSet = new Set<string>();
+  const recentThreadIds: string[] = [];
 
   return createStore<WorkspaceStoreState>((set) => {
     const syncOpenThreadIds = () =>
@@ -75,6 +77,34 @@ export const createWorkspaceStore = (
         next[threadId] = conversationId;
       }
       set({ threadConversationIds: next });
+    };
+
+    const syncRecentThreadIds = () => {
+      set({ recentThreadIds: [...recentThreadIds] });
+    };
+
+    const touchRecentThread = (threadId: string) => {
+      if (!threadId) {
+        return;
+      }
+      const existingIndex = recentThreadIds.indexOf(threadId);
+      if (existingIndex !== -1) {
+        recentThreadIds.splice(existingIndex, 1);
+      }
+      recentThreadIds.unshift(threadId);
+      if (recentThreadIds.length > 30) {
+        recentThreadIds.pop();
+      }
+      syncRecentThreadIds();
+    };
+
+    const removeRecentThread = (threadId: string) => {
+      const existingIndex = recentThreadIds.indexOf(threadId);
+      if (existingIndex === -1) {
+        return;
+      }
+      recentThreadIds.splice(existingIndex, 1);
+      syncRecentThreadIds();
     };
 
     const ensureConversationStore = (conversationId: string) => {
@@ -116,6 +146,7 @@ export const createWorkspaceStore = (
         openThreadIdsSet.delete(threadId);
         syncOpenThreadIds();
       }
+      removeRecentThread(threadId);
       if (conversationId) {
         clearConversationStore(conversationId);
       }
@@ -209,6 +240,7 @@ export const createWorkspaceStore = (
         );
         store.getState().setLoading(false);
         threadLoading.set(threadId, 'loaded');
+        touchRecentThread(threadId);
         syncThreadConversationIds();
         return conversationId;
       } catch (error) {
@@ -256,6 +288,7 @@ export const createWorkspaceStore = (
         );
         store.getState().setLoading(false);
         threadLoading.set(threadId, 'loaded');
+        touchRecentThread(threadId);
         updateThreadOnFork(deps.queryClient, deps.keys, {
           threadId,
           conversationId,
@@ -327,6 +360,7 @@ export const createWorkspaceStore = (
         }
 
         threadLoading.set(threadId, 'loaded');
+        touchRecentThread(threadId);
         syncThreadConversationIds();
         updateThreadOnSwitch(deps.queryClient, deps.keys, {
           threadId,
@@ -363,6 +397,7 @@ export const createWorkspaceStore = (
     return {
       openThreadIds: Array.from(openThreadIdsSet),
       threadConversationIds: {},
+      recentThreadIds: [],
       actions,
     };
   });
