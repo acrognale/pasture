@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use tauri::AppHandle;
 use tauri::State;
+use tauri::WebviewWindowBuilder;
 use tauri::Window;
 use ts_rs::TS;
 
@@ -56,30 +57,40 @@ pub async fn create_workspace_window(
 
     // Create a new window with the workspace route
     let url = format!("/workspaces/{}", urlencoding::encode(normalized.as_str()));
+    let label = format!(
+        "workspace-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    );
 
-    let mut builder = tauri::WebviewWindowBuilder::new(
-        &app_handle,
-        format!(
-            "workspace-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis()
-        ),
-        tauri::WebviewUrl::App(url.into()),
-    )
-    .title(&title);
+    // Clone the primary window configuration so new workspace windows match
+    // the initial Tauri window (size, min size, title bar style, background, etc.).
+    let mut window_config = app_handle
+        .config()
+        .app
+        .windows
+        .first()
+        .cloned()
+        .unwrap_or_default();
+
+    window_config.label = label.clone();
+    window_config.title = title.clone();
+    window_config.url = tauri::WebviewUrl::App(url.into());
+
+    let builder = WebviewWindowBuilder::from_config(&app_handle, &window_config)
+        .map_err(|e| AppError::Internal(anyhow::Error::new(e)))?;
+
+    let window = builder
+        .build()
+        .map_err(|e| AppError::Internal(anyhow::Error::new(e)))?;
 
     #[cfg(target_os = "macos")]
     {
-        builder = builder
-            .title_bar_style(tauri::TitleBarStyle::Overlay)
-            .hidden_title(true);
+        use tauri_plugin_decorum::WebviewWindowExt;
+        let _ = window.set_traffic_lights_inset(20.0, 22.0);
     }
-
-    builder
-        .build()
-        .map_err(|e| AppError::Internal(anyhow::Error::new(e)))?;
 
     Ok(())
 }
