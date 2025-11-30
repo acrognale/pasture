@@ -5,8 +5,12 @@ use ts_rs::TS;
 use crate::domain::ids::ThreadId;
 use crate::domain::ids::WorkspacePath;
 use codex_protocol::ConversationId;
+use codex_protocol::config_types::ReasoningEffort;
+use codex_protocol::config_types::ReasoningSummary;
+use codex_protocol::config_types::SandboxMode;
+use codex_protocol::protocol::AskForApproval;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct Conversation {
     pub id: ConversationId,
@@ -20,7 +24,7 @@ pub struct Conversation {
     pub forked_at_nth_user_message: Option<u32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Thread {
     pub id: ThreadId,
     pub current_conversation_id: ConversationId,
@@ -29,6 +33,16 @@ pub struct Thread {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<ReasoningEffort>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_summary: Option<ReasoningSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<SandboxMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval: Option<AskForApproval>,
     pub created_at: String,
     pub updated_at: String,
     pub workspace_path: WorkspacePath,

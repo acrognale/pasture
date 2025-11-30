@@ -11,6 +11,7 @@ import type { SandboxMode } from './SandboxMode';
 export type UpdateComposerConfigParams = {
   workspacePath: string;
   conversationId: string;
+  threadId: string | null;
   model: string | null;
   reasoningEffort: ReasoningEffort | null;
   summary: ReasoningSummary | null;

@@ -6,6 +6,7 @@ import type { ComposerTurnConfigPayload } from '~/codex.gen/ComposerTurnConfigPa
 import type { UpdateComposerConfigParams } from '~/codex.gen/UpdateComposerConfigParams';
 import { Codex } from '~/codex/client';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
+import { useWorkspaceActions } from '~/workspace';
 
 import {
   type ComposerTurnConfig,
@@ -36,10 +37,12 @@ type ExtendedUpdateComposerConfigParams = UpdateComposerConfigParams & {
 const createUpdatePayload = (
   workspacePath: string,
   conversationId: string,
-  config: ComposerTurnConfig
+  config: ComposerTurnConfig,
+  threadId?: string | null
 ): ExtendedUpdateComposerConfigParams => ({
   workspacePath,
   conversationId,
+  threadId: threadId ?? null,
   model: config.model ?? null,
   reasoningEffort: config.reasoningEffort ?? null,
   summary: config.summary ?? null,
@@ -49,12 +52,14 @@ const createUpdatePayload = (
 
 const loadComposerConfig = async (
   workspacePath: string,
-  conversationId: string
+  conversationId: string,
+  threadId?: string | null
 ): Promise<ComposerTurnConfig> => {
   try {
     const raw = await Codex.getComposerConfig({
       workspacePath,
       conversationId,
+      threadId: threadId ?? null,
     });
     return toComposerConfig(raw);
   } catch (error) {
@@ -71,21 +76,31 @@ export const useComposerConfig = (
   conversationId: string | null | undefined
 ) => {
   const queryClient = useQueryClient();
+  const { getThreadIdForConversation } = useWorkspaceActions();
   const keys = useMemo(
     () => createWorkspaceKeys(workspacePath),
     [workspacePath]
   );
 
   const resolvedConversationId = conversationId ?? '__inactive__';
+  const threadId =
+    conversationId && getThreadIdForConversation
+      ? getThreadIdForConversation(conversationId)
+      : null;
+  const cacheKeyId = threadId ?? resolvedConversationId;
   const isEnabled = Boolean(workspacePath && conversationId);
-  const queryKey = keys.composer(resolvedConversationId);
+  const queryKey = keys.composer(cacheKeyId);
 
   const query = useQuery({
     queryKey,
     enabled: isEnabled,
     queryFn: () =>
       workspacePath && conversationId
-        ? loadComposerConfig(workspacePath, resolvedConversationId)
+        ? loadComposerConfig(
+            workspacePath,
+            resolvedConversationId,
+            threadId ?? undefined
+          )
         : createDefaultComposerConfig(),
     staleTime: Infinity,
     placeholderData: createDefaultComposerConfig,
@@ -96,7 +111,7 @@ export const useComposerConfig = (
       return;
     }
 
-    const cacheKey = keys.composer(conversationId);
+    const cacheKey = keys.composer(cacheKeyId);
     const current =
       queryClient.getQueryData<ComposerTurnConfig>(cacheKey) ??
       createDefaultComposerConfig();
@@ -141,7 +156,12 @@ export const useComposerConfig = (
       queryClient.setQueryData(defaultsKey, nextDefaults);
     }
 
-    const payload = createUpdatePayload(workspacePath, conversationId, next);
+    const payload = createUpdatePayload(
+      workspacePath,
+      conversationId,
+      next,
+      threadId ?? null
+    );
     try {
       await Codex.updateComposerConfig(payload);
     } catch (error) {

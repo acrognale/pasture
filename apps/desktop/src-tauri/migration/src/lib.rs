@@ -2,6 +2,7 @@ use sea_orm_migration::prelude::*;
 
 mod m20251124_000001_init_schema;
 mod m20251126_000001_rename_forks_to_conversations;
+mod m20251130_000001_add_thread_composer_settings;
 
 pub struct Migrator;
 
@@ -11,6 +12,7 @@ impl MigratorTrait for Migrator {
         vec![
             Box::new(m20251124_000001_init_schema::Migration),
             Box::new(m20251126_000001_rename_forks_to_conversations::Migration),
+            Box::new(m20251130_000001_add_thread_composer_settings::Migration),
         ]
     }
 }

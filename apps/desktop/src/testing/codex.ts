@@ -127,10 +127,10 @@ const mockCodexNamespace = {
       snapshots: [],
     })
   ),
-  getComposerConfig: defineStub(async () =>
+  getComposerConfig: defineStub(async (_params) =>
     createDefaultComposerConfigPayload()
   ),
-  updateComposerConfig: defineStub(async () => undefined),
+  updateComposerConfig: defineStub(async (_params) => undefined),
   getWorkspaceComposerDefaults: defineStub(
     async (): Promise<WorkspaceSettings> => ({
       model: null,

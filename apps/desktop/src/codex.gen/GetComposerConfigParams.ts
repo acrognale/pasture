@@ -7,4 +7,5 @@
 export type GetComposerConfigParams = {
   workspacePath: string;
   conversationId: string;
+  threadId: string | null;
 };
