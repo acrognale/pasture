@@ -146,32 +146,35 @@ export const appendTextWithMentions = (
 };
 
 export const updateRootText = (editor: LexicalEditor, text: string) => {
-  editor.update(() => {
-    const root = $getRoot();
-    const current = root.getTextContent();
-    if (current === text) {
-      return;
-    }
-
-    root.clear();
-
-    const lines = text.split('\n');
-    const appendLine = (line: string) => {
-      const paragraph = $createParagraphNode();
-      appendTextWithMentions(paragraph, line);
-      if (paragraph.getChildrenSize() === 0) {
-        paragraph.append($createTextNode(''));
+  editor.update(
+    () => {
+      const root = $getRoot();
+      const current = root.getTextContent();
+      if (current === text) {
+        return;
       }
-      root.append(paragraph);
-    };
 
-    if (lines.length === 0) {
-      appendLine('');
-      return;
-    }
+      root.clear();
 
-    lines.forEach(appendLine);
-  });
+      const lines = text.split('\n');
+      const appendLine = (line: string) => {
+        const paragraph = $createParagraphNode();
+        appendTextWithMentions(paragraph, line);
+        if (paragraph.getChildrenSize() === 0) {
+          paragraph.append($createTextNode(''));
+        }
+        root.append(paragraph);
+      };
+
+      if (lines.length === 0) {
+        appendLine('');
+        return;
+      }
+
+      lines.forEach(appendLine);
+    },
+    { tag: 'skip-scroll-into-view' }
+  );
 };
 
 export const getExpandedTextForSend = (

@@ -6,7 +6,7 @@ import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
-import type { LexicalEditor } from 'lexical';
+import { $getRoot, type LexicalEditor } from 'lexical';
 import {
   forwardRef,
   useCallback,
@@ -76,6 +76,33 @@ export const ComposerEditor = forwardRef<
       valueRef.current = value;
     }, [value]);
 
+    useEffect(() => {
+      if (typeof window === 'undefined' || process.env.NODE_ENV !== 'test') {
+        return;
+      }
+      const rangeProto = window.Range?.prototype;
+      if (
+        !rangeProto ||
+        typeof rangeProto.getBoundingClientRect === 'function'
+      ) {
+        return;
+      }
+      Object.defineProperty(rangeProto, 'getBoundingClientRect', {
+        value: () =>
+          ({
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            toJSON: () => ({}),
+          }) as DOMRect,
+      });
+    }, []);
+
     const initialConfig: InitialConfigType = useMemo(
       () => ({
         namespace: 'composer-editor',
@@ -117,12 +144,18 @@ export const ComposerEditor = forwardRef<
           setCurrentValue(next);
           if (editor) {
             updateRootText(editor, next);
+            editor.update(() => {
+              $getRoot().selectEnd();
+            });
           }
         } else if (isTestEnv && event.key === 'Backspace') {
           const next = valueRef.current.slice(0, -1);
           setCurrentValue(next);
           if (editor) {
             updateRootText(editor, next);
+            editor.update(() => {
+              $getRoot().selectEnd();
+            });
           }
         }
 

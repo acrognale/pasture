@@ -81,7 +81,7 @@ export const SlashTypeaheadPlugin = ({
 
     const normalizedQuery = slashQuery.toLowerCase();
 
-    return slashCommands.definitions
+    const options = slashCommands.definitions
       .filter((definition) => {
         if (!normalizedQuery) {
           return true;
@@ -92,6 +92,8 @@ export const SlashTypeaheadPlugin = ({
         );
       })
       .map((definition) => new SlashCommandOption(definition));
+
+    return options;
   }, [slashCommands.definitions, slashMenuEnabled, slashQuery]);
 
   const handleSlashSelect = useCallback<
