@@ -324,8 +324,13 @@ fn format_with_prettier(files: &[PathBuf]) -> Result<()> {
 }
 
 fn resolve_prettier(start: &Path) -> Option<PathBuf> {
-    let mut current = Some(start);
-    while let Some(dir) = current {
+    // Canonicalize the starting path so that we correctly walk actual
+    // filesystem parents instead of relative segments like `../..`.
+    // This allows us to discover the workspace root `node_modules/.bin`
+    // even when `start` is a relative path such as `../../desktop/src/codex.gen`.
+    let mut current = start.canonicalize().ok();
+
+    while let Some(dir) = current.as_deref() {
         let candidate = dir
             .join("node_modules")
             .join(".bin")
@@ -337,7 +342,7 @@ fn resolve_prettier(start: &Path) -> Option<PathBuf> {
         if candidate.exists() {
             return Some(candidate);
         }
-        current = dir.parent();
+        current = dir.parent().map(|p| p.to_path_buf());
     }
     None
 }
