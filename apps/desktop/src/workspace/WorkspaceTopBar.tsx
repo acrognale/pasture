@@ -30,7 +30,10 @@ export function WorkspaceTopBar({
       className="flex h-[var(--workspace-topbar-height)] shrink-0 items-center gap-3 border-b border-border/60 bg-card px-4"
       style={{ paddingLeft: TRAFFIC_LIGHT_OFFSET }}
     >
-      <div className="flex w-full items-center gap-3 -translate-y-[1px]">
+      <div
+        className="flex w-full items-center gap-3 -translate-y-[1px]"
+        data-tauri-drag-region="true"
+      >
         <div className="flex items-center gap-3">
           <SidebarTrigger
             className="text-muted-foreground hover:text-foreground"
@@ -50,7 +53,7 @@ export function WorkspaceTopBar({
               )}
             </span>
           </SidebarTrigger>
-          <div className="min-w-0 text-sm font-semibold text-foreground truncate">
+          <div className="min-w-0 text-sm font-semibold text-foreground truncate flex-1">
             {workspaceName}
           </div>
         </div>

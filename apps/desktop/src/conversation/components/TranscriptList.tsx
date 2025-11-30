@@ -215,7 +215,7 @@ export const TranscriptList = ({
     );
 
   return (
-    <div ref={contentRef} className="px-6 pt-4 pb-4">
+    <div ref={contentRef} className="px-6 pt-4 pb-4 select-text">
       <AnimatePresence initial={shouldAnimateInitial}>
         {turnEntries.map(({ turnId, turn }, index) => (
           <TranscriptTurnGroup
