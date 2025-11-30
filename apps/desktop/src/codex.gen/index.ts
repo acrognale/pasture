@@ -149,6 +149,7 @@ export type { UndoStartedEvent } from './UndoStartedEvent';
 export type { UpdateComposerConfigParams } from './UpdateComposerConfigParams';
 export type { UpdateInfo } from './UpdateInfo';
 export type { UpdatePlanArgs } from './UpdatePlanArgs';
+export type { UpdateWorkspaceSettingsParams } from './UpdateWorkspaceSettingsParams';
 export type { UserInput } from './UserInput';
 export type { UserMessageEvent } from './UserMessageEvent';
 export type { UserMessageItem } from './UserMessageItem';

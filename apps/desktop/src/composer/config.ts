@@ -15,6 +15,7 @@ export type ComposerTurnConfig = {
   summary: ReasoningSummary | null;
   sandbox: SandboxMode | null;
   approval: AskForApproval | null;
+  webSearchEnabled: boolean | null;
 };
 
 export const createDefaultComposerConfig = (): ComposerTurnConfig => ({
@@ -23,6 +24,7 @@ export const createDefaultComposerConfig = (): ComposerTurnConfig => ({
   summary: null,
   sandbox: null,
   approval: null,
+  webSearchEnabled: false,
 });
 
 export const mergeComposerConfig = (
@@ -34,6 +36,8 @@ export const mergeComposerConfig = (
   summary: updates.summary ?? current.summary ?? null,
   sandbox: updates.sandbox ?? current.sandbox ?? null,
   approval: updates.approval ?? current.approval ?? null,
+  webSearchEnabled:
+    updates.webSearchEnabled ?? current.webSearchEnabled ?? false,
 });
 
 export const parseEnvironmentContextSandbox = (

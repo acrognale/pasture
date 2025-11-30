@@ -11,6 +11,7 @@ use crate::errors::AppError;
 use crate::errors::AppResult;
 use crate::state::AppState;
 use crate::workspace;
+use crate::workspace::ComposerSettingsUpdate;
 
 /// List recently opened workspaces (most recent first).
 #[tauri::command]
@@ -119,5 +120,34 @@ pub async fn get_workspace_composer_defaults(
     app: State<'_, AppState>,
 ) -> AppResult<WorkspaceSettings> {
     let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
+    workspace::get_composer_defaults(&app.db, &normalized, &app.config).await
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateWorkspaceSettingsParams {
+    pub workspace_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub web_search_enabled: Option<bool>,
+}
+
+/// Update workspace-level settings (applies to new threads created after the change).
+#[tauri::command]
+pub async fn update_workspace_settings(
+    params: UpdateWorkspaceSettingsParams,
+    app: State<'_, AppState>,
+) -> AppResult<WorkspaceSettings> {
+    let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
+
+    workspace::update_composer_defaults(
+        &app.db,
+        &normalized,
+        ComposerSettingsUpdate {
+            web_search_enabled: params.web_search_enabled,
+            ..ComposerSettingsUpdate::default()
+        },
+    )
+    .await?;
+
     workspace::get_composer_defaults(&app.db, &normalized, &app.config).await
 }

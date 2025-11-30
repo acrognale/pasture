@@ -13,4 +13,5 @@ export type NewConversationParams = {
   config: { [key in string]?: JsonValue } | null;
   baseInstructions: string | null;
   includeApplyPatchTool: boolean | null;
+  webSearchEnabled: boolean | null;
 };

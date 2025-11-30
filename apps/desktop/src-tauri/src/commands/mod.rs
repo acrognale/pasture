@@ -98,6 +98,10 @@ codex_command_descriptors! {
         params: workspace::WorkspacePathParams,
         result: String,
     },
+    workspace::update_workspace_settings {
+        params: workspace::UpdateWorkspaceSettingsParams,
+        result: crate::domain::WorkspaceSettings,
+    },
     files::search_workspace_files {
         params: files::SearchWorkspaceFilesParams,
         result: Vec<files::WorkspaceFileHit>,

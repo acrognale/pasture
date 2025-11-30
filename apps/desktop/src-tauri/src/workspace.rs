@@ -86,6 +86,9 @@ pub async fn get_composer_defaults(
     if settings.approval.is_none() {
         settings.approval = Some(config.approval_policy.clone());
     }
+    if settings.web_search_enabled.is_none() {
+        settings.web_search_enabled = Some(config.tools_web_search_request);
+    }
     Ok(settings)
 }
 
@@ -183,6 +186,7 @@ pub struct ComposerSettingsUpdate {
     pub reasoning_summary: Option<ReasoningSummary>,
     pub sandbox: Option<SandboxMode>,
     pub approval: Option<AskForApproval>,
+    pub web_search_enabled: Option<bool>,
 }
 
 /// Update composer defaults for a workspace with partial updates.
@@ -197,6 +201,7 @@ pub async fn update_composer_defaults(
         reasoning_summary,
         sandbox,
         approval,
+        web_search_enabled,
     } = updates;
 
     if model.is_none()
@@ -204,6 +209,7 @@ pub async fn update_composer_defaults(
         && reasoning_summary.is_none()
         && sandbox.is_none()
         && approval.is_none()
+        && web_search_enabled.is_none()
     {
         return Ok(());
     }
@@ -229,6 +235,10 @@ pub async fn update_composer_defaults(
     }
     if let Some(value) = approval {
         settings.approval = Some(value);
+        changed = true;
+    }
+    if let Some(value) = web_search_enabled {
+        settings.web_search_enabled = Some(value);
         changed = true;
     }
 

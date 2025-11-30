@@ -41,6 +41,7 @@ pub mod workspace_settings {
         pub reasoning_summary: Option<String>,
         pub sandbox: Option<String>,
         pub approval: Option<String>,
+        pub web_search_enabled: Option<String>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -81,6 +82,7 @@ pub mod threads {
         pub reasoning_summary: Option<String>,
         pub sandbox: Option<String>,
         pub approval: Option<String>,
+        pub web_search_enabled: Option<String>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -200,6 +202,7 @@ pub fn encode_workspace_settings(
         reasoning_summary: Set(serialize_json(&settings.reasoning_summary)?),
         sandbox: Set(serialize_json(&settings.sandbox)?),
         approval: Set(serialize_json(&settings.approval)?),
+        web_search_enabled: Set(serialize_json(&settings.web_search_enabled)?),
     })
 }
 
@@ -210,6 +213,7 @@ pub fn decode_workspace_settings(model: workspace_settings::Model) -> Result<Wor
         reasoning_summary: deserialize_json(model.reasoning_summary)?,
         sandbox: deserialize_json(model.sandbox)?,
         approval: deserialize_json(model.approval)?,
+        web_search_enabled: deserialize_json(model.web_search_enabled)?,
     })
 }
 

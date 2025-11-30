@@ -68,6 +68,20 @@ pub struct ForkConversationResult {
 // Queries
 // ============================================================
 
+fn thread_options_from_thread(thread: &Thread, cwd: Option<String>) -> NewThreadOptions {
+    NewThreadOptions {
+        model: thread.model.clone(),
+        profile: None,
+        cwd,
+        approval_policy: thread.approval,
+        sandbox: thread.sandbox,
+        config: None,
+        base_instructions: None,
+        include_apply_patch_tool: None,
+        web_search_enabled: thread.web_search_enabled,
+    }
+}
+
 /// Get the workspace path for a conversation.
 pub async fn workspace_path_for_conversation(
     db: &DatabaseConnection,
@@ -129,6 +143,9 @@ pub async fn get_thread_composer_config(
         if let Some(value) = parse_json_option(thread.approval) {
             settings.approval = Some(value);
         }
+        if let Some(value) = parse_json_option(thread.web_search_enabled) {
+            settings.web_search_enabled = Some(value);
+        }
     }
 
     Ok(settings)
@@ -146,6 +163,7 @@ pub async fn update_thread_composer_settings(
         && updates.reasoning_summary.is_none()
         && updates.sandbox.is_none()
         && updates.approval.is_none()
+        && updates.web_search_enabled.is_none()
     {
         return Ok(());
     }
@@ -178,6 +196,10 @@ pub async fn update_thread_composer_settings(
     }
     if let Some(value) = updates.approval {
         active.approval = Set(serialize_json_option(&Some(value)));
+        changed = true;
+    }
+    if let Some(value) = updates.web_search_enabled {
+        active.web_search_enabled = Set(serialize_json_option(&Some(value)));
         changed = true;
     }
 
@@ -275,6 +297,7 @@ pub async fn create(
         reasoning_summary: settings.reasoning_summary,
         sandbox: settings.sandbox,
         approval: settings.approval.clone(),
+        web_search_enabled: settings.web_search_enabled,
         created_at: timestamp.clone(),
         updated_at: timestamp,
         workspace_path: ctx.path.clone(),
@@ -299,8 +322,10 @@ pub async fn initialize(
     let rollout_path = current_conversation_rollout_path(&thread)?;
     let cwd = resolve_rollout_cwd(&rollout_path, &ctx.path).await?;
 
-    let mut config = ctx.config().clone();
-    config.cwd = cwd;
+    let settings = ctx.settings().await?;
+    let cwd_str = cwd.to_string_lossy().to_string();
+    let thread_options = thread_options_from_thread(&thread, Some(cwd_str));
+    let config = derive_config(ctx.config(), settings, &thread_options).await?;
     let reasoning_summary = config.model_reasoning_summary;
 
     let new_conv = ctx
@@ -396,6 +421,10 @@ pub async fn switch_conversation(
 
     let cwd = resolve_rollout_cwd(&rollout_path, &ctx.path).await?;
     let existing_conversation = ctx.conversations().get_conversation(*conversation_id).await;
+    let settings = ctx.settings().await?;
+    let cwd_str = cwd.to_string_lossy().to_string();
+    let thread_options = thread_options_from_thread(&thread, Some(cwd_str));
+    let config = derive_config(ctx.config(), settings, &thread_options).await?;
 
     let (session_configured, reasoning_summary) = match existing_conversation {
         Ok(_) => {
@@ -403,8 +432,6 @@ pub async fn switch_conversation(
             (None, None)
         }
         Err(_) => {
-            let mut config = ctx.config().clone();
-            config.cwd = cwd;
             let reasoning_summary = config.model_reasoning_summary;
 
             let new_conv = ctx
@@ -955,6 +982,7 @@ fn encode_thread(
             reasoning_summary: Set(serialize_json_option(&thread.reasoning_summary)),
             sandbox: Set(serialize_json_option(&thread.sandbox)),
             approval: Set(serialize_json_option(&thread.approval)),
+            web_search_enabled: Set(serialize_json_option(&thread.web_search_enabled)),
         },
     };
 
@@ -969,6 +997,7 @@ fn encode_thread(
     active.reasoning_summary = Set(serialize_json_option(&thread.reasoning_summary));
     active.sandbox = Set(serialize_json_option(&thread.sandbox));
     active.approval = Set(serialize_json_option(&thread.approval));
+    active.web_search_enabled = Set(serialize_json_option(&thread.web_search_enabled));
 
     active
 }
@@ -1037,6 +1066,7 @@ fn decode_thread(
         reasoning_summary: parse_json_option(thread.reasoning_summary),
         sandbox: parse_json_option(thread.sandbox),
         approval: parse_json_option(thread.approval),
+        web_search_enabled: parse_json_option(thread.web_search_enabled),
         created_at: thread.created_at,
         updated_at: thread.updated_at,
         workspace_path,

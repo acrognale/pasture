@@ -14,4 +14,5 @@ export const createDefaultComposerConfig = (): ComposerTurnConfig => ({
   summary: null,
   sandbox: null,
   approval: null,
+  webSearchEnabled: false,
 });

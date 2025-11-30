@@ -34,6 +34,7 @@ import type {
   SwitchConversationParams,
   SwitchConversationResponse,
   UpdateComposerConfigParams,
+  UpdateWorkspaceSettingsParams,
   WorkspaceFileHit,
   WorkspacePathParams,
   WorkspaceSettings,
@@ -170,6 +171,14 @@ export namespace Codex {
     params: WorkspacePathParams
   ): Promise<WorkspaceSettings> {
     return await invoke<WorkspaceSettings>('get_workspace_composer_defaults', {
+      params,
+    });
+  }
+
+  export async function updateWorkspaceSettings(
+    params: UpdateWorkspaceSettingsParams
+  ): Promise<WorkspaceSettings> {
+    return await invoke<WorkspaceSettings>('update_workspace_settings', {
       params,
     });
   }

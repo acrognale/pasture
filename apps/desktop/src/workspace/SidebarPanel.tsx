@@ -1,6 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRouterState } from '@tanstack/react-router';
-import { Loader2Icon, PlusIcon, SearchIcon, XIcon } from 'lucide-react';
+import {
+  Loader2Icon,
+  PlusIcon,
+  SearchIcon,
+  SettingsIcon,
+  XIcon,
+} from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { FocusEvent } from 'react';
 import { toast } from 'sonner';
@@ -42,7 +48,11 @@ import {
   useOpenWorkspaceThreads,
 } from './hooks/useWorkspaceThreads';
 
-export function SidebarPanel() {
+export function SidebarPanel({
+  onOpenSettings,
+}: {
+  onOpenSettings?: () => void;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
@@ -289,6 +299,25 @@ export function SidebarPanel() {
           </SidebarGroupContent>
         </SidebarGroup>
       </ScrollArea>
+      <div className="border-t border-border/60 px-3 py-2 flex justify-end">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              className="rounded-full"
+              onClick={onOpenSettings}
+              aria-label="Open settings"
+            >
+              <SettingsIcon className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="end">
+            Settings
+          </TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   );
 }

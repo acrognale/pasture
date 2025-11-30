@@ -81,6 +81,7 @@ const createDefaultComposerConfigPayload = (): ComposerTurnConfigPayload => ({
   summary: null,
   sandbox: null,
   approval: null,
+  webSearchEnabled: false,
 });
 
 const createDefaultAddConversationSubscriptionResponse =
@@ -138,6 +139,7 @@ const mockCodexNamespace = {
       reasoningSummary: null,
       sandbox: null,
       approval: null,
+      webSearchEnabled: null,
     })
   ),
   addConversationListener: defineStub(async () =>

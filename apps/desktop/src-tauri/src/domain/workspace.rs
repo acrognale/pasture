@@ -22,6 +22,8 @@ pub struct WorkspaceSettings {
     pub sandbox: Option<SandboxMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approval: Option<AskForApproval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub web_search_enabled: Option<bool>,
 }
 
 impl WorkspaceSettings {
@@ -31,6 +33,7 @@ impl WorkspaceSettings {
             && self.reasoning_summary.is_none()
             && self.sandbox.is_none()
             && self.approval.is_none()
+            && self.web_search_enabled.is_none()
     }
 }
 

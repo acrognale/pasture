@@ -132,6 +132,7 @@ pub fn run() {
             commands::workspace::create_workspace_window,
             commands::workspace::set_window_title,
             commands::workspace::browse_for_workspace,
+            commands::workspace::update_workspace_settings,
             commands::auth::get_auth_state,
             commands::update::check_for_update,
             commands::update::install_update,

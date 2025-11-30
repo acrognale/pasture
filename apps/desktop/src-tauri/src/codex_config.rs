@@ -23,6 +23,7 @@ pub struct NewThreadOptions {
     pub config: Option<HashMap<String, Value>>,
     pub base_instructions: Option<String>,
     pub include_apply_patch_tool: Option<bool>,
+    pub web_search_enabled: Option<bool>,
 }
 
 impl NewThreadOptions {
@@ -50,6 +51,7 @@ pub async fn derive_config(
         sandbox_mode: options.sandbox.or(settings.sandbox),
         base_instructions: options.base_instructions.clone(),
         include_apply_patch_tool: options.include_apply_patch_tool,
+        tools_web_search_request: options.web_search_enabled.or(settings.web_search_enabled),
         ..ConfigOverrides::default()
     };
 

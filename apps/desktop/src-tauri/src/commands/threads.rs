@@ -158,6 +158,8 @@ pub struct NewConversationParams {
     pub base_instructions: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub include_apply_patch_tool: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub web_search_enabled: Option<bool>,
 }
 
 /// List all threads for a workspace from Pasture persistence.
@@ -346,6 +348,7 @@ impl From<NewConversationParams> for NewThreadOptions {
             config: params.config,
             base_instructions: params.base_instructions,
             include_apply_patch_tool: params.include_apply_patch_tool,
+            web_search_enabled: params.web_search_enabled,
         }
     }
 }
