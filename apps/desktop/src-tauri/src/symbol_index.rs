@@ -3,13 +3,19 @@ use std::path::Path;
 use std::sync::Arc;
 
 use ignore::WalkBuilder;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use tokio::sync::RwLock;
-use tree_sitter::{Language, Parser, Query, QueryCursor, StreamingIterator};
+use tree_sitter::Language;
+use tree_sitter::Parser;
+use tree_sitter::Query;
+use tree_sitter::QueryCursor;
+use tree_sitter::StreamingIterator;
 use ts_rs::TS;
 
 use crate::domain::WorkspacePath;
-use crate::errors::{AppError, AppResult};
+use crate::errors::AppError;
+use crate::errors::AppResult;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
