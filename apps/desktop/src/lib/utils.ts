@@ -1,19 +1,15 @@
 import { type ClassValue, clsx } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
 
-const twMerge: (...inputs: ClassValue[]) => string =
-  extendTailwindMerge<'mention'>({
-    extend: {
-      theme: {
-        leading: ['transcript', 'transcript-code', 'transcript-tight'],
-        text: ['transcript-base', 'transcript-code', 'transcript-micro'],
-        font: ['transcript', 'transcript-code'],
-      },
-      classGroups: {
-        mention: ['mention-file', 'mention-symbol'],
-      },
+const twMerge: (...inputs: ClassValue[]) => string = extendTailwindMerge({
+  extend: {
+    theme: {
+      leading: ['transcript', 'transcript-code', 'transcript-tight'],
+      text: ['transcript-base', 'transcript-code', 'transcript-micro'],
+      font: ['transcript', 'transcript-code'],
     },
-  });
+  },
+});
 
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
