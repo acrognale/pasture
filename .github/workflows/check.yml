@@ -102,19 +102,16 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: ESLint
-        working-directory: apps/desktop
-        run: pnpm exec eslint . --cache --cache-location .eslintcache
+        run: pnpm run lint
 
       - name: Format check
         run: pnpm run format:check
 
       - name: TypeScript typecheck (incremental)
-        working-directory: apps/desktop
-        run: pnpm exec tsc --noEmit --incremental --tsBuildInfoFile tsconfig.tsbuildinfo
+        run: pnpm run typecheck
 
       - name: Vitest
-        working-directory: apps/desktop
-        run: pnpm exec vitest run
+        run: pnpm run test
 
       - name: Save ESLint & TS caches
         if: always()
