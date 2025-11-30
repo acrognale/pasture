@@ -289,11 +289,6 @@ export function ComposerBar({
     []
   );
 
-  const pendingSlashCommand = useMemo(
-    () => parseSlashCommand(draft.trim()),
-    [draft]
-  );
-
   const sendableAttachments = useMemo(
     () =>
       attachedImages
@@ -458,14 +453,17 @@ export function ComposerBar({
   );
 
   const submitDraft = () => {
-    const text = draft.trim();
+    const draftSnapshot = draftRef.current;
+    const expandedDraft =
+      editorRef.current?.getExpandedTextForSend?.() ?? draftSnapshot;
+    const text = expandedDraft.trim();
     const attachmentsForSend = sendableAttachments;
     if (!text && attachmentsForSend.length === 0) {
       return;
     }
     // console.debug('submitDraft', { text, attachments: attachmentsForSend.length, isTurnActive });
 
-    const slash = pendingSlashCommand;
+    const slash = parseSlashCommand(text);
     if (slash && attachmentsForSend.length === 0) {
       if (disabled || isMutationPending) {
         return;
@@ -475,7 +473,7 @@ export function ComposerBar({
       onScrollToBottom();
 
       void handleSlashCommand(slash).catch(() => {
-        setDraft(text);
+        setDraft(draftSnapshot);
       });
 
       return;
@@ -495,7 +493,7 @@ export function ComposerBar({
         releaseAttachments(attachmentSnapshot);
       })
       .catch(() => {
-        setDraft(text);
+        setDraft(draftSnapshot);
         setAttachedImages(attachmentSnapshot);
       });
   };

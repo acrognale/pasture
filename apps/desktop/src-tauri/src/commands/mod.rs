@@ -7,6 +7,7 @@ pub mod files;
 pub mod images;
 pub mod review;
 pub mod subscriptions;
+pub mod symbols;
 pub mod threads;
 pub mod turns;
 pub mod update;
@@ -100,6 +101,10 @@ codex_command_descriptors! {
     files::search_workspace_files {
         params: files::SearchWorkspaceFilesParams,
         result: Vec<files::WorkspaceFileHit>,
+    },
+    symbols::search_workspace_symbols {
+        params: symbols::SearchWorkspaceSymbolsParams,
+        result: Vec<crate::symbol_index::WorkspaceSymbolHit>,
     },
     workspace::create_workspace_window {
         params: workspace::WorkspacePathParams,

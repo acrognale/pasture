@@ -6,6 +6,7 @@ use codex_core::config::Config;
 use sea_orm::DatabaseConnection;
 
 use crate::router::EventRouter;
+use crate::symbol_index::SymbolIndexManager;
 
 /// Central application state containing all shared dependencies.
 ///
@@ -17,6 +18,7 @@ pub struct AppState {
     pub auth: Arc<AuthManager>,
     pub conversations: Arc<ConversationManager>,
     pub events: Arc<EventRouter>,
+    pub symbol_index: Arc<SymbolIndexManager>,
 }
 
 impl AppState {
@@ -26,6 +28,7 @@ impl AppState {
         auth: Arc<AuthManager>,
         conversations: Arc<ConversationManager>,
         events: Arc<EventRouter>,
+        symbol_index: Arc<SymbolIndexManager>,
     ) -> Self {
         Self {
             db,
@@ -33,6 +36,7 @@ impl AppState {
             auth,
             conversations,
             events,
+            symbol_index,
         }
     }
 }

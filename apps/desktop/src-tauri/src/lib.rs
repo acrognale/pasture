@@ -12,6 +12,7 @@ mod review;
 mod rollout;
 mod router;
 mod state;
+mod symbol_index;
 mod threads;
 mod title_generation;
 mod turns;
@@ -26,6 +27,7 @@ use codex_core::ConversationManager;
 use codex_core::config::Config;
 use codex_core::config::ConfigOverrides;
 use codex_protocol::protocol::SessionSource;
+use symbol_index::SymbolIndexManager;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -80,6 +82,7 @@ pub fn run() {
             .map_err(|e| format!("Failed to initialize workspace database: {}", e))?;
 
             let event_router = Arc::new(router::EventRouter::new());
+            let symbol_index = Arc::new(SymbolIndexManager::new());
 
             let app_state = state::AppState::new(
                 workspace_db,
@@ -87,6 +90,7 @@ pub fn run() {
                 auth_manager,
                 conversation_manager,
                 event_router,
+                symbol_index,
             );
             app.manage(app_state);
 
@@ -124,6 +128,7 @@ pub fn run() {
             commands::workspace::list_recent_workspaces,
             commands::workspace::open_workspace,
             commands::files::search_workspace_files,
+            commands::symbols::search_workspace_symbols,
             commands::workspace::create_workspace_window,
             commands::workspace::set_window_title,
             commands::workspace::browse_for_workspace,

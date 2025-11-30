@@ -10,7 +10,7 @@ const twMerge: (...inputs: ClassValue[]) => string =
         font: ['transcript', 'transcript-code'],
       },
       classGroups: {
-        mention: ['mention-file'],
+        mention: ['mention-file', 'mention-symbol'],
       },
     },
   });

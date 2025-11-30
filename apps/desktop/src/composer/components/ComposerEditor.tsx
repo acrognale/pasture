@@ -27,6 +27,7 @@ import {
   type EditorState,
   KEY_DOWN_COMMAND,
   type LexicalEditor,
+  type LexicalNode,
   type NodeKey,
   type SerializedLexicalNode,
   type Spread,
@@ -43,6 +44,7 @@ import {
 } from 'react';
 import type React from 'react';
 import { createPortal } from 'react-dom';
+import type { WorkspaceSymbolHit } from '~/codex.gen';
 import { Codex } from '~/codex/client';
 import { useSlashCommands } from '~/composer/hooks/useSlashCommands';
 import type { SlashCommandDefinition } from '~/composer/slash-commands';
@@ -50,6 +52,7 @@ import { cn } from '~/lib/utils';
 
 export type ComposerEditorHandle = {
   focus: () => void;
+  getExpandedTextForSend: () => string;
 };
 
 type ComposerEditorProps = {
@@ -71,10 +74,20 @@ const emptyTheme = {};
 const FILE_MENTION_TRIGGER: RegExp = /(^|\s)@([^\s@]*)$/;
 const FILE_MENTION_TEXT_PATTERN: RegExp = /(^|[\s])@([^\s@]*\/[^\s@]+)/g;
 const FILE_MENTION_INSERTION_PATTERN: RegExp = /(^|[\s\n])@[^\s@]*$/;
+const SYMBOL_MENTION_TRIGGER: RegExp = /(^|\s)#([^\s#]*)$/;
+const SYMBOL_MENTION_TEXT_PATTERN: RegExp =
+  /(^|[\s])#([^\s#]+)\s+\(([^()]+):(\d+)\)/g;
 
 type FileMentionPayload = {
   path: string;
   label: string;
+};
+
+type SymbolMentionPayload = {
+  name: string;
+  filePath: string;
+  line: number;
+  kind?: string | null;
 };
 
 type SerializedFileMentionNode = Spread<
@@ -85,6 +98,14 @@ type SerializedFileMentionNode = Spread<
   SerializedLexicalNode
 >;
 
+type SerializedSymbolMentionNode = Spread<
+  {
+    type: 'symbol-mention';
+    version: 1;
+  } & SymbolMentionPayload,
+  SerializedLexicalNode
+>;
+
 const buildFileLabel = (path: string): string => {
   const segments = path.split(/[\\/]/);
   const label = segments[segments.length - 1];
@@ -92,8 +113,23 @@ const buildFileLabel = (path: string): string => {
 };
 
 const FileMention = ({ path, label }: FileMentionPayload) => (
-  <span className="mention-file" title={path}>
+  <span
+    className="inline-flex items-center gap-1 rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-transcript-micro leading-transcript font-semibold whitespace-nowrap"
+    title={path}
+  >
     @{label}
+  </span>
+);
+
+const formatSymbolLocation = (filePath: string, line: number): string =>
+  `${filePath}:${line}`;
+
+const SymbolMention = ({ name, filePath, line }: SymbolMentionPayload) => (
+  <span
+    className="inline-flex items-center gap-1 rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-transcript-micro leading-transcript font-semibold whitespace-nowrap"
+    title={`${name} (${formatSymbolLocation(filePath, line)})`}
+  >
+    <span className="font-semibold leading-none">{name}</span>
   </span>
 );
 
@@ -162,35 +198,225 @@ const $createFileMentionNode = ({ path, label }: FileMentionPayload) =>
 const $isFileMentionNode = (node: unknown): node is FileMentionNode =>
   node instanceof FileMentionNode;
 
+class SymbolMentionNode extends DecoratorNode<React.ReactElement> {
+  __name: string;
+  __filePath: string;
+  __line: number;
+  __kind?: string | null;
+
+  constructor(
+    name: string,
+    filePath: string,
+    line: number,
+    kind?: string | null,
+    key?: NodeKey
+  ) {
+    super(key);
+    this.__name = name;
+    this.__filePath = filePath;
+    this.__line = line;
+    this.__kind = kind;
+  }
+
+  static getType(): string {
+    return 'symbol-mention';
+  }
+
+  static clone(node: SymbolMentionNode): SymbolMentionNode {
+    return new SymbolMentionNode(
+      node.__name,
+      node.__filePath,
+      node.__line,
+      node.__kind,
+      node.__key
+    );
+  }
+
+  static importJSON(
+    serializedNode: SerializedSymbolMentionNode
+  ): SymbolMentionNode {
+    const { name, filePath, line, kind } = serializedNode;
+    return new SymbolMentionNode(name, filePath, line, kind);
+  }
+
+  exportJSON(): SerializedSymbolMentionNode {
+    return {
+      type: 'symbol-mention',
+      version: 1,
+      name: this.__name,
+      filePath: this.__filePath,
+      line: this.__line,
+      kind: this.__kind,
+    };
+  }
+
+  createDOM(): HTMLElement {
+    return document.createElement('span');
+  }
+
+  updateDOM(): false {
+    return false;
+  }
+
+  decorate(): React.ReactElement {
+    return (
+      <SymbolMention
+        name={this.__name}
+        filePath={this.__filePath}
+        line={this.__line}
+        kind={this.__kind}
+      />
+    );
+  }
+
+  isInline(): boolean {
+    return true;
+  }
+
+  isIsolated(): boolean {
+    return true;
+  }
+
+  getName(): string {
+    return this.__name;
+  }
+
+  getFilePath(): string {
+    return this.__filePath;
+  }
+
+  getLine(): number {
+    return this.__line;
+  }
+
+  getKind(): string | null | undefined {
+    return this.__kind;
+  }
+
+  getTextContent(): string {
+    return `#${this.__name} (${formatSymbolLocation(this.__filePath, this.__line)})`;
+  }
+}
+
+const $createSymbolMentionNode = ({
+  name,
+  filePath,
+  line,
+  kind,
+}: SymbolMentionPayload) =>
+  $applyNodeReplacement(new SymbolMentionNode(name, filePath, line, kind));
+
+const $isSymbolMentionNode = (node: unknown): node is SymbolMentionNode =>
+  node instanceof SymbolMentionNode;
+
+const isMentionNode = (
+  node: unknown
+): node is FileMentionNode | SymbolMentionNode =>
+  $isFileMentionNode(node) || $isSymbolMentionNode(node);
+
 const appendTextWithMentions = (
   paragraph: ReturnType<typeof $createParagraphNode>,
   line: string
 ) => {
-  let lastIndex = 0;
+  let cursor = 0;
 
-  for (const match of line.matchAll(FILE_MENTION_TEXT_PATTERN)) {
-    const matchIndex = match.index ?? 0;
-    const prefix = match[1] ?? '';
-    const path = match[2] ?? '';
-    if (!path) {
-      continue;
+  const findNextMention = (): null | {
+    start: number;
+    end: number;
+    render: () => void;
+  } => {
+    FILE_MENTION_TEXT_PATTERN.lastIndex = cursor;
+    SYMBOL_MENTION_TEXT_PATTERN.lastIndex = cursor;
+
+    const fileMatch = FILE_MENTION_TEXT_PATTERN.exec(line);
+    const symbolMatch = SYMBOL_MENTION_TEXT_PATTERN.exec(line);
+
+    const candidates: Array<{
+      match: RegExpExecArray;
+      type: 'file' | 'symbol';
+    }> = [];
+
+    if (fileMatch) {
+      candidates.push({ match: fileMatch, type: 'file' });
+    }
+    if (symbolMatch) {
+      candidates.push({ match: symbolMatch, type: 'symbol' });
     }
 
-    const mentionStart = matchIndex + prefix.length;
-    if (mentionStart > lastIndex) {
-      paragraph.append($createTextNode(line.slice(lastIndex, mentionStart)));
+    if (candidates.length === 0) {
+      return null;
     }
 
-    paragraph.append(
-      $createFileMentionNode({ path, label: buildFileLabel(path) })
+    const next = candidates.reduce(
+      (current, candidate) => {
+        if (!current) {
+          return candidate;
+        }
+        return (candidate.match.index ?? 0) < (current.match.index ?? 0)
+          ? candidate
+          : current;
+      },
+      null as (typeof candidates)[number] | null
     );
 
-    lastIndex = mentionStart + path.length + 1;
+    if (!next) {
+      return null;
+    }
+
+    const matchIndex = next.match.index ?? 0;
+    const prefix = next.match[1] ?? '';
+    const start = matchIndex + prefix.length;
+    const matchedText = next.match[0] ?? '';
+    const end = start + matchedText.length - prefix.length;
+
+    if (next.type === 'file') {
+      const path = next.match[2] ?? '';
+      return {
+        start,
+        end,
+        render: () =>
+          paragraph.append(
+            $createFileMentionNode({ path, label: buildFileLabel(path) })
+          ),
+      };
+    }
+
+    const name = next.match[2] ?? '';
+    const filePath = next.match[3] ?? '';
+    const lineNumber = Number.parseInt(next.match[4] ?? '', 10);
+    const lineValue = Number.isFinite(lineNumber) ? lineNumber : 1;
+
+    return {
+      start,
+      end,
+      render: () =>
+        paragraph.append(
+          $createSymbolMentionNode({
+            name,
+            filePath,
+            line: lineValue,
+          })
+        ),
+    };
+  };
+
+  while (cursor < line.length) {
+    const mention = findNextMention();
+    if (!mention) {
+      break;
+    }
+
+    if (mention.start > cursor) {
+      paragraph.append($createTextNode(line.slice(cursor, mention.start)));
+    }
+
+    mention.render();
+    cursor = mention.end;
   }
 
-  if (lastIndex < line.length) {
-    paragraph.append($createTextNode(line.slice(lastIndex)));
-  } else if (line.length === 0 && lastIndex === 0) {
+  if (cursor < line.length) {
+    paragraph.append($createTextNode(line.slice(cursor)));
+  } else if (line.length === 0 && cursor === 0) {
     paragraph.append($createTextNode(''));
   }
 };
@@ -256,7 +482,7 @@ const ComposerKeybindingsPlugin = ({
               const anchorOffset = selection.anchor.offset;
 
               const findTarget = () => {
-                if ($isFileMentionNode(anchorNode)) {
+                if (isMentionNode(anchorNode)) {
                   return anchorNode;
                 }
                 if ($isElementNode(anchorNode) && anchorOffset > 0) {
@@ -264,7 +490,7 @@ const ComposerKeybindingsPlugin = ({
                   const previousChild = anchorNode.getChildAtIndex(
                     anchorOffset - 1
                   );
-                  if (previousChild && $isFileMentionNode(previousChild)) {
+                  if (previousChild && isMentionNode(previousChild)) {
                     return previousChild;
                   }
                 }
@@ -272,7 +498,7 @@ const ComposerKeybindingsPlugin = ({
                   return null;
                 }
                 const previousSibling = anchorNode.getPreviousSibling();
-                if (previousSibling && $isFileMentionNode(previousSibling)) {
+                if (previousSibling && isMentionNode(previousSibling)) {
                   return previousSibling;
                 }
                 const parent = anchorNode.getParent();
@@ -280,9 +506,11 @@ const ComposerKeybindingsPlugin = ({
                   parent &&
                   parent.getFirstChild() === anchorNode &&
                   parent.getPreviousSibling() &&
-                  $isFileMentionNode(parent.getPreviousSibling())
+                  isMentionNode(parent.getPreviousSibling())
                 ) {
-                  return parent.getPreviousSibling() as FileMentionNode;
+                  return parent.getPreviousSibling() as
+                    | FileMentionNode
+                    | SymbolMentionNode;
                 }
                 return null;
               };
@@ -395,6 +623,19 @@ class FileMentionOption extends MenuOption {
   }
 }
 
+class SymbolMentionOption extends MenuOption {
+  hit: WorkspaceSymbolHit;
+
+  constructor(hit: WorkspaceSymbolHit) {
+    super(`${hit.name}-${hit.filePath}-${hit.line}`);
+    this.hit = hit;
+  }
+
+  get location(): string {
+    return formatSymbolLocation(this.hit.filePath, this.hit.line);
+  }
+}
+
 const SLASH_TRIGGER: RegExp = /(^|\s)\/([a-z0-9-]*)$/i;
 
 export const ComposerEditor = forwardRef<
@@ -430,7 +671,7 @@ export const ComposerEditor = forwardRef<
           throw error;
         },
         theme: emptyTheme,
-        nodes: [FileMentionNode],
+        nodes: [FileMentionNode, SymbolMentionNode],
       }),
       []
     );
@@ -450,6 +691,14 @@ export const ComposerEditor = forwardRef<
       FileMentionOption[]
     >([]);
     const fileMenuEnabled =
+      !disabled && !ariaBusy && Boolean(workspacePath?.trim().length);
+    const [symbolMentionQuery, setSymbolMentionQuery] = useState<string | null>(
+      null
+    );
+    const [symbolMentionOptions, setSymbolMentionOptions] = useState<
+      SymbolMentionOption[]
+    >([]);
+    const symbolMenuEnabled =
       !disabled && !ariaBusy && Boolean(workspacePath?.trim().length);
 
     const checkForSlashTrigger = useCallback<
@@ -498,6 +747,32 @@ export const ComposerEditor = forwardRef<
         };
       },
       [fileMenuEnabled]
+    );
+
+    const checkForSymbolMentionTrigger = useCallback<
+      NonNullable<TypeaheadMenuPluginProps<MenuOption>['triggerFn']>
+    >(
+      (text: string): MenuTextMatch | null => {
+        if (!symbolMenuEnabled) {
+          return null;
+        }
+
+        if (SLASH_TRIGGER.exec(text)) {
+          return null;
+        }
+
+        const match = SYMBOL_MENTION_TRIGGER.exec(text);
+        if (!match) {
+          return null;
+        }
+
+        return {
+          leadOffset: match.index + match[1].length,
+          matchingString: match[2],
+          replaceableString: match[0].slice(match[1].length),
+        };
+      },
+      [symbolMenuEnabled]
     );
 
     const slashOptions = useMemo(() => {
@@ -568,6 +843,51 @@ export const ComposerEditor = forwardRef<
       };
     }, [fileMentionQuery, fileMenuEnabled, workspacePath]);
 
+    useEffect(() => {
+      if (!symbolMenuEnabled || symbolMentionQuery === null) {
+        return;
+      }
+
+      const trimmedQuery = symbolMentionQuery.trim();
+      if (!trimmedQuery || !workspacePath) {
+        return;
+      }
+
+      const activeQuery = trimmedQuery;
+      let isCancelled = false;
+
+      Codex.searchWorkspaceSymbols({
+        workspacePath,
+        query: trimmedQuery,
+        limit: 6,
+      })
+        .then((results) => {
+          if (isCancelled) {
+            return;
+          }
+          if (activeQuery !== (symbolMentionQuery?.trim() ?? '')) {
+            return;
+          }
+          setSymbolMentionOptions(
+            results.map((hit) => new SymbolMentionOption(hit))
+          );
+        })
+        .catch((error) => {
+          if (isCancelled) {
+            return;
+          }
+          console.error(
+            '[ComposerEditor] Failed to search workspace symbols',
+            error
+          );
+          setSymbolMentionOptions([]);
+        });
+
+      return () => {
+        isCancelled = true;
+      };
+    }, [symbolMentionQuery, symbolMenuEnabled, workspacePath]);
+
     const handleSlashSelect = useCallback<
       TypeaheadMenuPluginProps<SlashCommandOption>['onSelectOption']
     >(
@@ -632,6 +952,49 @@ export const ComposerEditor = forwardRef<
       [onChange, setFileMentionQuery]
     );
 
+    const handleSymbolMentionSelect = useCallback<
+      TypeaheadMenuPluginProps<SymbolMentionOption>['onSelectOption']
+    >(
+      (option: SymbolMentionOption, node: TextNode | null, closeMenu) => {
+        const editor = editorRef.current;
+        if (!editor) {
+          return;
+        }
+
+        const payload: SymbolMentionPayload = {
+          name: option.hit.name,
+          filePath: option.hit.filePath,
+          line: option.hit.line,
+          kind: option.hit.kind,
+        };
+
+        editor.update(() => {
+          const selection = $getSelection();
+          const mentionNode = $createSymbolMentionNode(payload);
+          if (node) {
+            node.replace(mentionNode);
+          } else if ($isRangeSelection(selection)) {
+            selection.insertNodes([mentionNode]);
+          } else {
+            $getRoot().append(mentionNode);
+          }
+          const trailingSpace = $createTextNode(' ');
+          mentionNode.insertAfter(trailingSpace);
+          trailingSpace.select();
+        });
+
+        editor.getEditorState().read(() => {
+          const text = $getRoot().getTextContent();
+          valueRef.current = text;
+          onChange(text);
+        });
+
+        closeMenu();
+        setSymbolMentionQuery(null);
+      },
+      [onChange]
+    );
+
     const slashMenuRender: TypeaheadMenuPluginProps<SlashCommandOption>['menuRenderFn'] =
       useCallback(
         (
@@ -670,6 +1033,60 @@ export const ComposerEditor = forwardRef<
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {option.description}
+                  </span>
+                </button>
+              ))}
+            </div>,
+            anchorElementRef.current
+          );
+        },
+        []
+      );
+
+    const symbolMentionMenuRender: TypeaheadMenuPluginProps<SymbolMentionOption>['menuRenderFn'] =
+      useCallback(
+        (
+          anchorElementRef,
+          {
+            selectedIndex,
+            selectOptionAndCleanUp,
+            setHighlightedIndex,
+            options,
+          }
+        ) => {
+          if (!anchorElementRef.current || options.length === 0) {
+            return null;
+          }
+
+          return createPortal(
+            <div className="absolute left-0 bottom-full mb-4 -translate-y-1 transform min-w-[320px] max-w-[640px] w-full rounded-md border border-border bg-popover shadow-sm pointer-events-auto overflow-hidden">
+              {options.map((option, index) => (
+                <button
+                  type="button"
+                  key={option.key}
+                  ref={(element) => option.setRefElement(element)}
+                  role="option"
+                  aria-selected={selectedIndex === index}
+                  className={cn(
+                    'flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-transcript-micro leading-transcript text-foreground transition-colors whitespace-normal overflow-hidden',
+                    selectedIndex === index
+                      ? 'bg-accent text-accent-foreground'
+                      : 'hover:bg-muted'
+                  )}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                  onClick={() => selectOptionAndCleanUp(option)}
+                >
+                  <span>
+                    <span className="font-semibold leading-none w-full">
+                      {option.hit.name}
+                    </span>
+                    {option.hit.kind ? ` · ${option.hit.kind}` : ''}
+                  </span>
+                  <span
+                    className="text-muted-foreground leading-none w-full text-right text-ellipsis truncate"
+                    style={{ direction: 'rtl' }}
+                  >
+                    {option.location}
                   </span>
                 </button>
               ))}
@@ -727,6 +1144,42 @@ export const ComposerEditor = forwardRef<
 
     const activeFileMentionOptions =
       fileMenuEnabled && fileMentionQuery ? fileMentionOptions.slice(0, 6) : [];
+    const activeSymbolMentionOptions =
+      symbolMenuEnabled && symbolMentionQuery
+        ? symbolMentionOptions.slice(0, 6)
+        : [];
+
+    const getExpandedTextForSend = useCallback(() => {
+      const editor = editorRef.current;
+      if (!editor) {
+        return valueRef.current ?? '';
+      }
+
+      return editor.getEditorState().read(() => {
+        const root = $getRoot();
+        const expandNode = (node: LexicalNode): string => {
+          if ($isSymbolMentionNode(node)) {
+            return `${node.getName()} (${formatSymbolLocation(
+              node.getFilePath(),
+              node.getLine()
+            )})`;
+          }
+          if ($isFileMentionNode(node)) {
+            return node.getTextContent();
+          }
+          if ($isElementNode(node)) {
+            return node
+              .getChildren()
+              .map((child) => expandNode(child))
+              .join('');
+          }
+          return node.getTextContent();
+        };
+
+        const lines = root.getChildren().map((child) => expandNode(child));
+        return lines.join('\n');
+      });
+    }, []);
 
     useImperativeHandle(
       ref,
@@ -740,8 +1193,9 @@ export const ComposerEditor = forwardRef<
             editor.getRootElement()?.focus();
           });
         },
+        getExpandedTextForSend: () => getExpandedTextForSend(),
       }),
-      []
+      [getExpandedTextForSend]
     );
 
     const handleKeyDown = useCallback(
@@ -833,6 +1287,17 @@ export const ComposerEditor = forwardRef<
             onSelectOption={handleFileMentionSelect}
             menuRenderFn={fileMentionMenuRender}
             options={activeFileMentionOptions}
+            anchorClassName="z-50"
+            preselectFirstItem
+          />
+        ) : null}
+        {symbolMenuEnabled ? (
+          <LexicalTypeaheadMenuPlugin
+            triggerFn={checkForSymbolMentionTrigger}
+            onQueryChange={setSymbolMentionQuery}
+            onSelectOption={handleSymbolMentionSelect}
+            menuRenderFn={symbolMentionMenuRender}
+            options={activeSymbolMentionOptions}
             anchorClassName="z-50"
             preselectFirstItem
           />
