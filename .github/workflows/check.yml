@@ -38,7 +38,7 @@ jobs:
           filters: |
             frontend:
               - 'package.json'
-              - 'package-lock.json'
+              - 'pnpm-lock.yaml'
               - 'apps/desktop/src/**'
               - 'apps/desktop/vite.config.*'
               - 'apps/desktop/vitest.config.*'
@@ -76,13 +76,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js (with npm cache)
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Set up Node.js (with pnpm cache)
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
           # if lockfile is not in repo root, set this accordingly
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: pnpm-lock.yaml
 
       # Reuse ESLint/TS caches across runs
       - name: Restore ESLint & TS caches
@@ -91,27 +94,24 @@ jobs:
           path: |
             .eslintcache
             tsconfig.tsbuildinfo
-          key: ts-eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', '.eslintrc*', 'tsconfig*.json') }}
+          key: ts-eslint-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '.eslintrc*', 'tsconfig*.json') }}
           restore-keys: |
             ts-eslint-${{ runner.os }}-
 
       - name: Install front-end dependencies
-        run: npm ci --prefer-offline
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: ESLint
-        working-directory: apps/desktop
-        run: npx eslint . --cache --cache-location .eslintcache
+        run: pnpm run lint
 
       - name: Format check
-        run: npm run format:check
+        run: pnpm run format:check
 
       - name: TypeScript typecheck (incremental)
-        working-directory: apps/desktop
-        run: npx tsc --noEmit --incremental --tsBuildInfoFile tsconfig.tsbuildinfo
+        run: pnpm run typecheck
 
       - name: Vitest
-        working-directory: apps/desktop
-        run: npx vitest run
+        run: pnpm run test
 
       - name: Save ESLint & TS caches
         if: always()
@@ -120,7 +120,7 @@ jobs:
           path: |
             .eslintcache
             tsconfig.tsbuildinfo
-          key: ts-eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', '.eslintrc*', 'tsconfig*.json') }}
+          key: ts-eslint-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', '.eslintrc*', 'tsconfig*.json') }}
 
   rust:
     needs: changes

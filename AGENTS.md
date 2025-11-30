@@ -16,37 +16,18 @@ If the user instructs you to take a look at the Codex code, such as the TUI, ins
 
 ## Environment & Commands
 
-- Use Node 22+; run `npm install` at the repo root to hydrate all workspaces (including `apps/desktop`).
-- Dev mode: `npm run dev` (launches the `apps/desktop` Vite + Tauri dev window with hot reload).
-- Build/package: `npm run build` or `npm run package` (drives `tauri build` for the desktop app).
-- Lint & formatting: `npm run lint`, `npm run format:check`, `npm run format:fix`, and `npm run format:rust`.
-- Typechecking & tests: `npm run typecheck`, `npm run test`, `npm run test:watch`, `npm run test:coverage`.
-- The Tauri backend embeds the Codex runtime directly via `codex_core` crates rather than spawning a separate process.
+Node version: 22.14.0
+Package manager: pnpm 10.9.0
+Uses turborepo for monorepo management.
+
+- Dev mode: `pnpm run dev` (launches the `apps/desktop` Vite + Tauri dev window with hot reload).
+- Build/package: `pnpm run build` or `pnpm run package` (drives `tauri build` for the desktop app).
+- Lint & formatting: `turbo lint`, `turbo format:check`, `turbo format:fix`, and `npm run format:rust`.
+- Typechecking & tests: `turbo typecheck`, `turbo test`, `turbo test:watch`, `turbo test:coverage`.
 
 ## Workflow
 
-Important: always run `npm run lint` and `npm run typecheck` when you finish making changes to verify there are no errors.
-
-## Architecture Overview
-
-- **Rust backend (`apps/desktop/src-tauri/src/`)** owns Tauri lifecycle, native window management, menu bar, logging, and embeds the Codex runtime.
-- **Codex runtime** (`apps/desktop/src-tauri/src/codex_runtime.rs`) wraps `codex_core` crates (AuthManager, ConversationManager) and provides direct access without IPC overhead.
-- **Tauri commands** (`apps/desktop/src-tauri/src/commands.rs`) expose Rust functions to the front-end via `#[tauri::command]` macros with type-safe IPC.
-- **Front-end (`apps/desktop/src/`)** is a React application.
-
-## Project Structure Highlights
-
-- `apps/desktop/src-tauri/src/lib.rs` – Tauri entry point; initialize plugins, register commands, set up menu bar and window.
-- `apps/desktop/src-tauri/src/commands.rs` – Tauri command handlers for workspace operations, conversation management, and app state.
-- `apps/desktop/src-tauri/src/menu.rs` – Native menu bar construction with dynamic workspace menus.
-- `apps/desktop/src-tauri/src/codex_runtime.rs` – Embedded Codex runtime wrapping AuthManager and ConversationManager from codex_core.
-- `apps/desktop/src-tauri/src/event_listener.rs` – Event subscription manager for streaming conversation events to the front-end.
-- `apps/desktop/src-tauri/src/services/workspace.rs` – Workspace path handling, persistence, and composer defaults.
-- `apps/desktop/src-tauri/tauri.conf.json` – Tauri configuration (window settings, permissions, build config).
-- `apps/desktop/src-tauri/tauri.dev.conf.json` – Dev-mode overrides (dev icons, window settings).
-- `apps/desktop/src/app/` – Global providers (`CodexProvider`), hooks, and shared utilities.
-- `apps/desktop/src/components/` – Presentational primitives.
-- `apps/desktop/src/codex/` – Front-end Codex domain (queries, transcript reducer, runtime helpers, composer state).
+Important: always run `turbo lint` and `turbo typecheck` when you finish making changes to verify there are no errors.
 
 ## Design Tokens & Styling
 
