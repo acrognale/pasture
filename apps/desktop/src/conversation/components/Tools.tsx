@@ -1,3 +1,4 @@
+import { SearchIcon } from 'lucide-react';
 import type { TranscriptToolCell } from '~/conversation/transcript/types';
 
 import { Cell } from './Cell';
@@ -83,6 +84,19 @@ export function Tools({ cell }: ToolsProps) {
             (unknown image path)
           </div>
         )}
+      </Cell>
+    );
+  }
+
+  if (cell.toolType === 'web-search') {
+    return (
+      <Cell icon={<SearchIcon className="size-4 mb-0.5" />}>
+        <div className="space-y-1.5">
+          <div className="text-muted-foreground italic">
+            Searching the web for "{cell.query}"{' '}
+            {cell.status === 'running' ? '...' : '(done)'}
+          </div>
+        </div>
       </Cell>
     );
   }

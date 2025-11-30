@@ -179,3 +179,5 @@ CHANGELOG.ignore.md
 /target/
 
 /sample-session.jsonl
+
+/.codex-images/

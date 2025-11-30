@@ -10,6 +10,7 @@ export type WorkspaceComposerDefaultsState = {
   summary: ReasoningSummary | null;
   sandbox: SandboxMode | null;
   approval: AskForApproval | null;
+  webSearchEnabled: boolean | null;
 };
 
 export const emptyWorkspaceComposerDefaults: WorkspaceComposerDefaultsState = {
@@ -18,6 +19,7 @@ export const emptyWorkspaceComposerDefaults: WorkspaceComposerDefaultsState = {
   summary: null,
   sandbox: null,
   approval: null,
+  webSearchEnabled: null,
 };
 
 export const normalizeWorkspaceComposerDefaults = (
@@ -28,4 +30,5 @@ export const normalizeWorkspaceComposerDefaults = (
   summary: payload?.reasoningSummary ?? null,
   sandbox: payload?.sandbox ?? null,
   approval: payload?.approval ?? null,
+  webSearchEnabled: payload?.webSearchEnabled ?? null,
 });

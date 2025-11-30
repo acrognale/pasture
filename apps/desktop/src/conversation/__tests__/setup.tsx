@@ -50,6 +50,7 @@ export const setupConversationTest = (
     summary: null,
     sandbox: null,
     approval: null,
+    webSearchEnabled: false,
   });
 
   mockEvents.setDefaultConversationId(conversationId);

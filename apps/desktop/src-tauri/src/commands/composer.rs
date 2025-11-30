@@ -32,6 +32,8 @@ pub struct ComposerTurnConfigPayload {
     pub sandbox: Option<SandboxMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approval: Option<AskForApproval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub web_search_enabled: Option<bool>,
 }
 
 /// Parameters accepted when retrieving composer configuration.
@@ -62,6 +64,8 @@ pub struct UpdateComposerConfigParams {
     pub sandbox: Option<SandboxMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approval: Option<AskForApproval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub web_search_enabled: Option<bool>,
 }
 
 /// Retrieve the stored composer configuration for a conversation.
@@ -100,6 +104,7 @@ pub async fn get_composer_config(
         summary: defaults.reasoning_summary,
         sandbox: defaults.sandbox,
         approval: defaults.approval,
+        web_search_enabled: defaults.web_search_enabled,
     })
 }
 
@@ -120,6 +125,7 @@ pub async fn update_composer_config(
         summary,
         sandbox,
         approval,
+        web_search_enabled,
     } = params;
 
     let thread_id = if let Some(raw) = thread_id {
@@ -140,6 +146,7 @@ pub async fn update_composer_config(
         reasoning_summary: summary,
         sandbox,
         approval,
+        web_search_enabled,
     };
 
     threads::update_thread_composer_settings(&app.db, &workspace_path, &thread_id, updates.clone())

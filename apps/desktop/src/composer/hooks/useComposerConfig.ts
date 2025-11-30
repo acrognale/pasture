@@ -28,6 +28,7 @@ const toComposerConfig = (
     sandbox: payload.sandbox ?? null,
     approval:
       (payload as { approval?: AskForApproval | null }).approval ?? null,
+    webSearchEnabled: payload.webSearchEnabled ?? false,
   });
 
 type ExtendedUpdateComposerConfigParams = UpdateComposerConfigParams & {
@@ -48,6 +49,7 @@ const createUpdatePayload = (
   summary: config.summary ?? null,
   sandbox: config.sandbox ?? null,
   approval: config.approval ?? null,
+  webSearchEnabled: config.webSearchEnabled ?? false,
 });
 
 const loadComposerConfig = async (
@@ -124,6 +126,7 @@ export const useComposerConfig = (
     const hasSummaryUpdate = Object.hasOwn(updates, 'summary');
     const hasSandboxUpdate = Object.hasOwn(updates, 'sandbox');
     const hasApprovalUpdate = Object.hasOwn(updates, 'approval');
+    const hasWebSearchUpdate = Object.hasOwn(updates, 'webSearchEnabled');
 
     const defaultsKey = keys.composerDefaults();
     const existingDefaults =
@@ -135,7 +138,8 @@ export const useComposerConfig = (
       hasReasoningUpdate ||
       hasSummaryUpdate ||
       hasSandboxUpdate ||
-      hasApprovalUpdate
+      hasApprovalUpdate ||
+      hasWebSearchUpdate
     ) {
       const nextDefaults: WorkspaceComposerDefaultsState = {
         model: hasModelUpdate ? (next.model ?? null) : existingDefaults.model,
@@ -151,6 +155,9 @@ export const useComposerConfig = (
         approval: hasApprovalUpdate
           ? (next.approval ?? null)
           : existingDefaults.approval,
+        webSearchEnabled: hasWebSearchUpdate
+          ? (next.webSearchEnabled ?? null)
+          : existingDefaults.webSearchEnabled,
       };
 
       queryClient.setQueryData(defaultsKey, nextDefaults);
@@ -172,7 +179,8 @@ export const useComposerConfig = (
         hasReasoningUpdate ||
         hasSummaryUpdate ||
         hasSandboxUpdate ||
-        hasApprovalUpdate
+        hasApprovalUpdate ||
+        hasWebSearchUpdate
       ) {
         queryClient.setQueryData(defaultsKey, existingDefaults);
       }

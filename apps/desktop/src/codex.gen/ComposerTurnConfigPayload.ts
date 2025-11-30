@@ -14,4 +14,5 @@ export type ComposerTurnConfigPayload = {
   summary: ReasoningSummary | null;
   sandbox: SandboxMode | null;
   approval: AskForApproval | null;
+  webSearchEnabled: boolean | null;
 };

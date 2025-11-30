@@ -43,6 +43,8 @@ pub struct Thread {
     pub sandbox: Option<SandboxMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approval: Option<AskForApproval>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub web_search_enabled: Option<bool>,
     pub created_at: String,
     pub updated_at: String,
     pub workspace_path: WorkspacePath,

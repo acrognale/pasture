@@ -13,6 +13,7 @@ import {
 } from '~/components/ui/sidebar';
 import { ConversationProvider } from '~/conversation/store';
 import { decodeWorkspaceId } from '~/lib/routing';
+import { SettingsModal } from '~/settings/SettingsModal';
 import { WorkspaceProvider } from '~/workspace';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';
@@ -61,6 +62,7 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
       ? threadMatch.params.threadId
       : null;
   const activeConversationId = useWorkspaceThreadConversationId(threadId);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <SidebarProvider
@@ -87,7 +89,7 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
               } as React.CSSProperties
             }
           >
-            <SidebarPanel />
+            <SidebarPanel onOpenSettings={() => setSettingsOpen(true)} />
             {/* TODO: Add resize handle component */}
           </Sidebar>
           <SidebarInset className="h-full overflow-hidden">
@@ -98,6 +100,11 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
         </div>
       </div>
       <WorkspaceConversationSwitcher />
+      <SettingsModal
+        workspacePath={workspacePath}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+      />
     </SidebarProvider>
   );
 }
