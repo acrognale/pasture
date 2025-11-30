@@ -40,7 +40,8 @@ export default tseslint.config(
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        projectService: true,
+        // Explicit project ensures type-aware rules work consistently in CI runners.
+        project: ["./apps/desktop/tsconfig.json"],
         tsconfigRootDir: import.meta.dirname,
         ecmaFeatures: {
           jsx: true,
