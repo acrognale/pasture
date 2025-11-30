@@ -42,6 +42,7 @@ chrono = { version = "0.4", features = ["serde"] }
 time = "0.3"
 ts-rs = { version = "11", features = ["serde-json-impl"] }
 urlencoding = "2"
+num_cpus = "1.16"
 sea-orm = { version = "1.1", features = [
   "sqlx-sqlite",
   "runtime-tokio-rustls",
@@ -60,7 +61,15 @@ codex-otel = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0"
 codex-protocol = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
 codex-apply-patch = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
 codex-git = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
+codex-file-search = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
 futures = "0.3"
+ignore = "0.4"
+tree-sitter = "0.25.10"
+tree-sitter-rust = "0.24.0"
+tree-sitter-typescript = "0.23.2"
+
+[dev-dependencies]
+tempfile = "3"
 
 [[bin]]
 name = "app"

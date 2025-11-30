@@ -16,6 +16,7 @@ import {
   createDefaultComposerConfig,
 } from '~/composer/config';
 import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
+import { makePathRelative } from '~/lib/utils';
 
 import type { MessageAttachment } from '../types';
 
@@ -32,6 +33,19 @@ export type TurnConfigOverrides = {
   sandbox?: SandboxMode;
   approval?: AskForApproval;
 };
+
+const FILE_MENTION_REGEX = /(^|[\s])@([^\s@]*\/[^\s@]+)/g;
+
+export const formatMessageWithMentions = (
+  text: string,
+  workspacePath?: string
+): string =>
+  text.replace(FILE_MENTION_REGEX, (_match, prefix: string, path: string) => {
+    const normalizedPath = workspacePath
+      ? makePathRelative(workspacePath, path)
+      : path;
+    return `${prefix}@${normalizedPath}`;
+  });
 
 const createSendUserMessagePayload = (
   conversationId: string,
@@ -110,7 +124,8 @@ export const useSendMessage = (
 
   const sendMessage = async (variables: SendMessageVariables) => {
     const trimmed = variables.text.trim();
-    const items = buildInputItems(trimmed, variables.attachments);
+    const formattedText = formatMessageWithMentions(trimmed, workspacePath);
+    const items = buildInputItems(formattedText, variables.attachments);
     if (items.length === 0) {
       return;
     }
@@ -135,7 +150,7 @@ export const useSendMessage = (
 
       console.log('[useSendMessage] Sending message to backend', {
         conversationId,
-        trimmed,
+        trimmed: formattedText,
         attachmentCount: variables.attachments?.length ?? 0,
       });
 

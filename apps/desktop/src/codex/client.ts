@@ -27,13 +27,17 @@ import type {
   RespondApprovalParams,
   SavePastedImageParams,
   SavePastedImageResponse,
+  SearchWorkspaceFilesParams,
+  SearchWorkspaceSymbolsParams,
   SendUserMessageParams,
   SetWindowTitleParams,
   SwitchConversationParams,
   SwitchConversationResponse,
   UpdateComposerConfigParams,
+  WorkspaceFileHit,
   WorkspacePathParams,
   WorkspaceSettings,
+  WorkspaceSymbolHit,
 } from '~/codex.gen';
 
 export namespace Codex {
@@ -166,6 +170,22 @@ export namespace Codex {
     params: WorkspacePathParams
   ): Promise<WorkspaceSettings> {
     return await invoke<WorkspaceSettings>('get_workspace_composer_defaults', {
+      params,
+    });
+  }
+
+  export async function searchWorkspaceFiles(
+    params: SearchWorkspaceFilesParams
+  ): Promise<Array<WorkspaceFileHit>> {
+    return await invoke<Array<WorkspaceFileHit>>('search_workspace_files', {
+      params,
+    });
+  }
+
+  export async function searchWorkspaceSymbols(
+    params: SearchWorkspaceSymbolsParams
+  ): Promise<Array<WorkspaceSymbolHit>> {
+    return await invoke<Array<WorkspaceSymbolHit>>('search_workspace_symbols', {
       params,
     });
   }

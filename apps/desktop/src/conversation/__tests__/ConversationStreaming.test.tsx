@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { SendUserMessageParams } from '~/codex.gen/SendUserMessageParams';
 import { mockCodex, mockEvents } from '~/testing/codex';
@@ -256,6 +257,7 @@ describe('Conversation streaming flow', () => {
     renderConversationPane(CONVERSATION_ID);
 
     const composer = await screen.findByRole('textbox');
+    const user = userEvent.setup();
 
     emitSessionConfigured();
     emitEvent({
@@ -263,10 +265,14 @@ describe('Conversation streaming flow', () => {
       model_context_window: BigInt(32768),
     });
 
-    fireEvent.change(composer, { target: { value: 'Queued while busy' } });
-    fireEvent.keyDown(composer, { key: 'Enter', metaKey: true });
+    await user.click(composer);
+    await user.type(composer, 'Queued while busy');
+    await waitFor(() =>
+      expect(composer.textContent ?? '').toContain('Queued while busy')
+    );
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
 
-    await waitFor(() => expect(composer).toHaveValue(''));
+    await waitFor(() => expect((composer.textContent ?? '').trim()).toBe(''));
     expect(mockCodex.stub.sendUserMessage).not.toHaveBeenCalled();
     expect(
       await screen.findByText('Queued while busy', { exact: false })
@@ -277,6 +283,7 @@ describe('Conversation streaming flow', () => {
     renderConversationPane(CONVERSATION_ID);
 
     const composer = await screen.findByRole('textbox');
+    const user = userEvent.setup();
 
     emitSessionConfigured();
     emitEvent({
@@ -284,10 +291,11 @@ describe('Conversation streaming flow', () => {
       model_context_window: BigInt(32768),
     });
 
-    fireEvent.change(composer, { target: { value: 'First queued' } });
-    fireEvent.keyDown(composer, { key: 'Enter', metaKey: true });
-    fireEvent.change(composer, { target: { value: 'Second queued' } });
-    fireEvent.keyDown(composer, { key: 'Enter', metaKey: true });
+    await user.click(composer);
+    await user.type(composer, 'First queued');
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+    await user.type(composer, 'Second queued');
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
 
     expect(mockCodex.stub.sendUserMessage).not.toHaveBeenCalled();
 
@@ -324,6 +332,7 @@ describe('Conversation streaming flow', () => {
     renderConversationPane(CONVERSATION_ID);
 
     const composer = await screen.findByRole('textbox');
+    const user = userEvent.setup();
 
     emitSessionConfigured();
     emitEvent({
@@ -331,16 +340,19 @@ describe('Conversation streaming flow', () => {
       model_context_window: BigInt(32768),
     });
 
-    fireEvent.change(composer, { target: { value: 'Queued draft' } });
-    fireEvent.keyDown(composer, { key: 'Enter', metaKey: true });
+    await user.click(composer);
+    await user.type(composer, 'Queued draft');
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
 
     await screen.findByText('Queued draft', { exact: false });
 
-    fireEvent.keyDown(composer, { key: 'Escape' });
+    await user.keyboard('{Escape}');
 
     expect(mockCodex.stub.interruptConversation).toHaveBeenCalledTimes(1);
 
-    await waitFor(() => expect(composer).toHaveValue('Queued draft'));
+    await waitFor(() =>
+      expect((composer.textContent ?? '').trim()).toBe('Queued draft')
+    );
 
     emitEvent({
       type: 'turn_aborted',
@@ -590,6 +602,7 @@ describe('Conversation streaming flow', () => {
     renderConversationPane(CONVERSATION_ID);
 
     const composer = await screen.findByRole('textbox');
+    const user = userEvent.setup();
 
     const transcript = await waitFor(() => {
       const node = document.querySelector('[data-conversation-transcript]');
@@ -653,15 +666,9 @@ describe('Conversation streaming flow', () => {
       return Promise.resolve(undefined);
     });
 
-    act(() => {
-      fireEvent.change(composer, {
-        target: { value: 'New user message' },
-      });
-      fireEvent.keyDown(composer, {
-        key: 'Enter',
-        metaKey: true,
-      });
-    });
+    await user.click(composer);
+    await user.type(composer, 'New user message');
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
 
     await screen.findByText('New user message', { exact: false });
 
