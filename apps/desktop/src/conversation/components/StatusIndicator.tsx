@@ -5,6 +5,7 @@ import { formatElapsedCompact } from '~/lib/time';
 import {
   useConversationActiveTurn,
   useConversationIsRunning,
+  useConversationQueueActions,
   useConversationQueuedMessages,
 } from '../store/hooks';
 
@@ -71,6 +72,9 @@ export function StatusIndicator({
     conversationId ?? null
   );
   const queuedMessages = useConversationQueuedMessages(conversationId ?? null);
+  const { clearQueuedUserMessages } = useConversationQueueActions(
+    conversationId ?? null
+  );
   const isConversationBound = conversationId !== undefined;
   const running = isConversationBound ? conversationIsRunning : runningProp;
   const startedAt = isConversationBound
@@ -145,6 +149,18 @@ export function StatusIndicator({
       </div>
       {queuedMessages.length > 0 ? (
         <div className="mt-2 space-y-1 text-transcript-base text-muted-foreground">
+          <div className="flex items-center justify-between text-transcript-micro">
+            <span className="text-muted-foreground">Queued messages</span>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 rounded border border-border/70 px-2 py-0.5 text-transcript-micro font-medium text-error-foreground hover:bg-muted transition-colors"
+              onClick={() => {
+                clearQueuedUserMessages();
+              }}
+            >
+              Cancel queued
+            </button>
+          </div>
           {queuedMessages.map((message, index) => {
             const attachmentCount = message.attachments?.length ?? 0;
             const trimmed = message.text.trim();
