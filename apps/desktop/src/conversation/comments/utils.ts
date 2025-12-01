@@ -19,5 +19,5 @@ export const buildMessageCommentsPrompt = (
     return `- Message snippet: "${snippet}"\n  Comment: ${comment.commentText}`;
   });
 
-  return `Here is my consolidated feedback on your previous responses:\n${segments.join('\n')}\n\nPlease address each comment before continuing.`;
+  return `I have a few comments on your previous response:\n${segments.join('\n')}\n\nPlease address each comment before continuing.`;
 };
