@@ -7,6 +7,12 @@ const twMerge: (...inputs: ClassValue[]) => string = extendTailwindMerge({
       leading: ['transcript', 'transcript-code', 'transcript-tight'],
       text: ['transcript-base', 'transcript-code', 'transcript-micro'],
       font: ['transcript', 'transcript-code'],
+      colors: [
+        'comment',
+        'comment-foreground',
+        'comment-accent',
+        'comment-muted',
+      ],
     },
   },
 });

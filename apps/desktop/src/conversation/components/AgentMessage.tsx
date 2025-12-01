@@ -116,8 +116,11 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
     const containerRect = messageRef.current.getBoundingClientRect();
-    const top = rect.top - containerRect.top - 8; // small offset above selection
-    const left = rect.left - containerRect.left;
+    // Position at the end of the selection (bottom-right), clamped to container
+    const top = rect.bottom - containerRect.top + 4; // small offset below selection
+    const buttonWidth = 100; // approximate width of "Add comment" button
+    const maxLeft = containerRect.width - buttonWidth;
+    const left = Math.min(rect.right - containerRect.left, maxLeft);
 
     const selectionStart = getAbsoluteOffset(
       messageRef.current,
@@ -264,6 +267,44 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
       unwrapHighlights();
     };
   }, [commentsForCell, getTextNodeAtPosition]);
+
+  // Highlight the draft selection while the composer is open
+  useEffect(() => {
+    const root = messageRef.current;
+    if (!root || !isDraftOpen || !draftTarget) return undefined;
+
+    const start = draftTarget.selectionStartOffset;
+    const end = draftTarget.selectionEndOffset;
+    const totalLength = root.textContent?.length ?? 0;
+
+    if (start == null || end == null || start >= end || end > totalLength) {
+      return undefined;
+    }
+
+    const startLoc = getTextNodeAtPosition(root, start);
+    const endLoc = getTextNodeAtPosition(root, end);
+    if (!startLoc || !endLoc) return undefined;
+
+    const range = document.createRange();
+    range.setStart(startLoc.node, startLoc.offset);
+    range.setEnd(endLoc.node, endLoc.offset);
+
+    const wrapper = document.createElement('mark');
+    wrapper.className =
+      'message-draft-highlight bg-muted-foreground/30 text-foreground rounded-sm px-0.5 ring-1 ring-muted-foreground/50 animate-pulse';
+    wrapper.append(range.extractContents());
+    range.insertNode(wrapper);
+
+    return () => {
+      const parent = wrapper.parentNode;
+      if (parent) {
+        while (wrapper.firstChild) {
+          parent.insertBefore(wrapper.firstChild, wrapper);
+        }
+        parent.removeChild(wrapper);
+      }
+    };
+  }, [isDraftOpen, draftTarget, getTextNodeAtPosition]);
 
   return (
     <Cell className="group">

@@ -35,6 +35,12 @@
   --tool-secondary: oklch(0.95 0.06 350);
   --tool-secondary-foreground: oklch(0.68 0.17 350);
 
+  /* Comment/annotation colors - warm paper-like tones */
+  --comment: oklch(0.97 0.035 85);
+  --comment-foreground: oklch(0.35 0.06 65);
+  --comment-accent: oklch(0.78 0.12 65);
+  --comment-muted: oklch(0.55 0.04 70);
+
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -98,6 +104,12 @@
   --tool-secondary: oklch(0.32 0.09 350);
   --tool-secondary-foreground: oklch(0.72 0.17 350);
 
+  /* Comment/annotation colors - warm tones for dark mode */
+  --comment: oklch(0.25 0.03 70);
+  --comment-foreground: oklch(0.88 0.04 75);
+  --comment-accent: oklch(0.65 0.11 55);
+  --comment-muted: oklch(0.65 0.03 70);
+
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -157,6 +169,11 @@
   --color-tool-primary-foreground: var(--tool-primary-foreground);
   --color-tool-secondary: var(--tool-secondary);
   --color-tool-secondary-foreground: var(--tool-secondary-foreground);
+
+  --color-comment: var(--comment);
+  --color-comment-foreground: var(--comment-foreground);
+  --color-comment-accent: var(--comment-accent);
+  --color-comment-muted: var(--comment-muted);
 
   --color-border: var(--border);
   --color-input: var(--input);
