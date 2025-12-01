@@ -16,8 +16,9 @@
   ],
   "scripts": {
     "build": "turbo build",
-    "copy:app": "npm run copy:app --workspace=apps/desktop",
+    "copy:app": "pnpm run copy:app --workspace=apps/desktop",
     "dev": "turbo dev --filter=@pasture/desktop",
+    "dev:web": "turbo dev --filter=@pasture/web",
     "format:check": "turbo format:check",
     "format:fix": "turbo format:fix",
     "format:rust": "npm run format:rust --workspace=apps/desktop",

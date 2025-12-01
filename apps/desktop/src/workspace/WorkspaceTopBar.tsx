@@ -1,8 +1,13 @@
-import { PanelLeftCloseIcon, PanelRightOpenIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import { PanelLeftCloseIcon, PanelRightOpenIcon, Share2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { SidebarTrigger, useSidebar } from '~/components/ui/sidebar';
 import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
-import { useConversationHasTurnDiffHistory } from '~/conversation/store/hooks';
+import {
+  useConversationHasTurnDiffHistory,
+  useConversationTranscriptTurns,
+} from '~/conversation/store/hooks';
+import { copyToClipboard } from '~/lib/utils';
 import { formatWorkspaceLabel } from '~/lib/workspaces';
 
 type WorkspaceTopBarProps = {
@@ -20,10 +25,64 @@ export function WorkspaceTopBar({
   const hasReviewHistory = useConversationHasTurnDiffHistory(
     activeConversationId ?? ''
   );
+  const { turns, turnOrder } = useConversationTranscriptTurns(
+    activeConversationId ?? ''
+  );
+  const [isSharing, setIsSharing] = useState(false);
   const workspaceName = useMemo(
     () => formatWorkspaceLabel(workspacePath),
     [workspacePath]
   );
+
+  const canShare =
+    Boolean(activeConversationId) && turnOrder && turnOrder.length > 0;
+
+  const handleShare = async () => {
+    if (!canShare) {
+      return;
+    }
+    setIsSharing(true);
+    try {
+      const webBase =
+        (import.meta.env.VITE_WEB_API_URL as string) ?? 'http://localhost:3001';
+      const apiBase = webBase.replace(/\/$/, '');
+
+      const response = await fetch(`${apiBase}/api/share`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: workspaceName,
+          model: undefined,
+          transcript: { turns, turnOrder },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Share failed (${response.status})`);
+      }
+      const payload = (await response.json()) as { id: string; url: string };
+      const absoluteUrl = payload.url.startsWith('http')
+        ? payload.url
+        : `${apiBase}${payload.url}`;
+
+      const copied = await copyToClipboard(absoluteUrl);
+      toast.success('Share link created', {
+        description: copied ? 'Link copied to clipboard' : absoluteUrl,
+      });
+      if (!copied) {
+        window.open(absoluteUrl, '_blank', 'noreferrer');
+      }
+    } catch (error) {
+      toast.error('Failed to share transcript', {
+        description:
+          error instanceof Error ? error.message : 'Unexpected error',
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   return (
     <div
@@ -58,24 +117,45 @@ export function WorkspaceTopBar({
           </div>
         </div>
 
-        <div className="flex flex-1 justify-end" data-tauri-drag-region="true">
+        <div
+          className="flex flex-1 justify-end gap-2"
+          data-tauri-drag-region="true"
+        >
           {activeConversationId ? (
-            <button
-              type="button"
-              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition ${
-                hasReviewHistory
-                  ? 'font-semibold text-foreground hover:bg-accent/60'
-                  : 'text-muted-foreground hover:text-muted-foreground cursor-default'
-              }`}
-              onClick={() => {
-                if (activeConversationId) {
-                  dispatchOpenReviewOverlayEvent(activeConversationId);
-                }
-              }}
-              disabled={!hasReviewHistory}
-            >
-              Review changes
-            </button>
+            <>
+              <button
+                type="button"
+                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition ${
+                  canShare
+                    ? 'font-semibold text-foreground hover:bg-accent/60'
+                    : 'text-muted-foreground cursor-default'
+                }`}
+                onClick={() => {
+                  void handleShare();
+                }}
+                disabled={!canShare || isSharing}
+              >
+                <Share2 className="h-4 w-4" />
+                {isSharing ? 'Sharing…' : 'Share'}
+              </button>
+
+              <button
+                type="button"
+                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition ${
+                  hasReviewHistory
+                    ? 'font-semibold text-foreground hover:bg-accent/60'
+                    : 'text-muted-foreground hover:text-muted-foreground cursor-default'
+                }`}
+                onClick={() => {
+                  if (activeConversationId) {
+                    dispatchOpenReviewOverlayEvent(activeConversationId);
+                  }
+                }}
+                disabled={!hasReviewHistory}
+              >
+                Review changes
+              </button>
+            </>
           ) : null}
         </div>
       </div>

@@ -1,0 +1,16 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SharedThread {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  title      String?
+  model      String?
+  transcript Json
+}
