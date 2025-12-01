@@ -1,14 +1,15 @@
+import type { TranscriptState } from '@pasture/transcript-ui';
 import { createFileRoute } from '@tanstack/react-router';
 
 import { TranscriptView } from '@/components/transcript/TranscriptView';
-import type { SharedTranscriptState } from '@/types/sharedTranscript';
+
 import type { SharedThread } from '../../generated/prisma/client';
 
 type SharedThreadDTO = {
   id: string;
   title: string | null;
   model: string | null;
-  transcript: SharedTranscriptState;
+  transcript: TranscriptState;
   createdAt: string;
 };
 
@@ -40,7 +41,7 @@ export const Route = createFileRoute('/s/$id')({
 
 function RouteComponent() {
   const share = Route.useLoaderData() as SharedThreadDTO;
-  const transcript = share.transcript as SharedTranscriptState;
+  const transcript = share.transcript as TranscriptState;
   const turnCount = transcript.turnOrder.length;
 
   return (
@@ -60,12 +61,8 @@ function RouteComponent() {
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
             {share.model ? <Badge label={share.model} /> : null}
-            <Badge
-              label={`${turnCount} turn${turnCount === 1 ? '' : 's'}`}
-            />
-            <Badge
-              label={new Date(share.createdAt).toLocaleString()}
-            />
+            <Badge label={`${turnCount} turn${turnCount === 1 ? '' : 's'}`} />
+            <Badge label={new Date(share.createdAt).toLocaleString()} />
           </div>
         </header>
 

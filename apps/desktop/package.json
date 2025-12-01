@@ -35,6 +35,7 @@
     ]
   },
   "dependencies": {
+    "@pasture/transcript-ui": "workspace:*",
     "@lexical/history": "^0.38.2",
     "@lexical/react": "^0.38.2",
     "@radix-ui/react-dialog": "^1.1.15",

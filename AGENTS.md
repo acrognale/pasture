@@ -7,6 +7,7 @@ Pasture is a GUI for Codex.
 - `apps/desktop/` – Pasture desktop workspace that bundles the React renderer and Tauri host.
   - `apps/desktop/src/` – React front-end that talks to the embedded Codex runtime via Tauri IPC.
   - `apps/desktop/src-tauri/` – Rust backend (Tauri v2) that manages the window lifecycle, menus, and Codex runtime.
+- `apps/web/` – Web app allowing users to share threads with others.
 - `packages/` – Shared libraries and UI/mocking utilities that can be consumed by any app in the monorepo.
 - `codex/` – Vendored Codex workspace (CLI, runtime crates, SDK, docs). Reference this when you need to inspect upstream Codex behavior.
 
