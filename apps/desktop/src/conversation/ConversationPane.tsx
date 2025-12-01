@@ -4,10 +4,15 @@ import {
   ComposerBar,
   type ComposerBarControls,
 } from '~/composer/components/ComposerBar';
+import { MessageCommentProvider } from '~/conversation/comments/MessageCommentContext';
+import { useMessageComments } from '~/conversation/comments/MessageCommentContext';
+import { MessageCommentDraftProvider } from '~/conversation/comments/MessageCommentDraftContext';
+import { buildMessageCommentsPrompt } from '~/conversation/comments/utils';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { copyToClipboard } from '~/lib/utils';
 import { useWorkspaceActions } from '~/workspace';
 
+import { ConversationCommentFeedbackFooter } from './components/ConversationCommentFeedbackFooter';
 import { ConversationDevCommandMenu } from './components/ConversationDevCommandMenu';
 import { ConversationPaneHeader } from './components/ConversationPaneHeader';
 import { ConversationReviewOverlay } from './components/ConversationReviewOverlay';
@@ -36,7 +41,7 @@ type ConversationPaneProps = {
   onConversationForked?: (conversationId: string) => void;
 };
 
-export function ConversationPane({
+function ConversationPaneContent({
   workspacePath,
   conversationId,
   onConversationForked,
@@ -96,6 +101,23 @@ export function ConversationPane({
     },
     [composerControls, handleScrollToBottom]
   );
+
+  const { comments: messageComments } = useMessageComments();
+
+  const handleInsertMessageCommentsFeedback = useCallback(() => {
+    const prompt = buildMessageCommentsPrompt(messageComments);
+    if (!prompt) {
+      return;
+    }
+    if (!composerControls) {
+      return;
+    }
+    const existing = composerControls.getDraft().trim();
+    const nextDraft = existing ? `${existing}\n\n${prompt}` : prompt;
+    composerControls.setDraft(nextDraft);
+    composerControls.focus();
+    handleScrollToBottom();
+  }, [composerControls, handleScrollToBottom, messageComments]);
 
   const handleCopyEventsJsonl = useCallback(async () => {
     const store = getConversationStore(conversationId);
@@ -291,6 +313,10 @@ export function ConversationPane({
               conversationId={conversationId}
               onInterrupt={handleInterrupt}
             />
+            <ConversationCommentFeedbackFooter
+              comments={messageComments}
+              onInsertFeedback={handleInsertMessageCommentsFeedback}
+            />
             <ComposerBar
               workspacePath={workspacePath}
               conversationId={conversationId}
@@ -322,5 +348,17 @@ export function ConversationPane({
         onRequestFeedback={handleReviewFeedback}
       />
     </>
+  );
+}
+
+export function ConversationPane(props: ConversationPaneProps) {
+  const { conversationId } = props;
+
+  return (
+    <MessageCommentProvider conversationId={conversationId}>
+      <MessageCommentDraftProvider>
+        <ConversationPaneContent {...props} />
+      </MessageCommentDraftProvider>
+    </MessageCommentProvider>
   );
 }

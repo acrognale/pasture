@@ -47,7 +47,13 @@ const TranscriptCellsComponent = ({
         />
       );
     case 'agent-message':
-      return <AgentMessage cell={cell} timestamp={timestamp} />;
+      return (
+        <AgentMessage
+          cell={cell}
+          timestamp={timestamp}
+          conversationId={conversationId}
+        />
+      );
     case 'agent-reasoning':
       return cell.visible ? (
         <AgentReasoning cell={cell} timestamp={timestamp} />

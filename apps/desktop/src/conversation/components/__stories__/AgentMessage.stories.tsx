@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { MessageCommentProvider } from '~/conversation/comments/MessageCommentContext';
+import { MessageCommentDraftProvider } from '~/conversation/comments/MessageCommentDraftContext';
 import type { TranscriptAgentMessageCell } from '~/conversation/transcript/types';
 
 import { AgentMessage } from '../AgentMessage';
@@ -9,6 +11,18 @@ const meta: Meta<typeof AgentMessage> = {
   parameters: {
     layout: 'padded',
   },
+  args: {
+    conversationId: 'conversation-1',
+  },
+  decorators: [
+    (Story) => (
+      <MessageCommentProvider conversationId="conversation-1">
+        <MessageCommentDraftProvider>
+          <Story />
+        </MessageCommentDraftProvider>
+      </MessageCommentProvider>
+    ),
+  ],
 };
 
 export default meta;
@@ -229,6 +243,7 @@ export const Conversation: Story = {
           message: 'Let me search for authentication-related files.',
         })}
         timestamp={new Date().toISOString()}
+        conversationId="conversation-1"
       />
       <AgentMessage
         cell={createCell({
@@ -237,6 +252,7 @@ export const Conversation: Story = {
           streaming: true,
         })}
         timestamp={new Date().toISOString()}
+        conversationId="conversation-1"
       />
       <AgentMessage
         cell={createCell({
@@ -253,6 +269,7 @@ function verifyToken(token: string) {
 I'll fix this now.`,
         })}
         timestamp={new Date().toISOString()}
+        conversationId="conversation-1"
       />
     </div>
   ),
