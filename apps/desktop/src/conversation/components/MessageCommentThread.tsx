@@ -1,6 +1,7 @@
 import { Button } from '~/components/ui/button';
 import { Textarea } from '~/components/ui/textarea';
 import type { MessageComment } from '~/conversation/comments/types';
+import { cn } from '~/lib/utils';
 
 export type MessageCommentThreadProps = {
   comments: MessageComment[];
@@ -10,6 +11,8 @@ export type MessageCommentThreadProps = {
   onSubmitDraft: () => boolean;
   setDraftText: (value: string) => void;
   onDeleteComment: (id: string) => void;
+  activeCommentId: string | null;
+  onCommentHover: (id: string | null) => void;
 };
 
 export function MessageCommentThread({
@@ -20,6 +23,8 @@ export function MessageCommentThread({
   onSubmitDraft,
   setDraftText,
   onDeleteComment,
+  activeCommentId,
+  onCommentHover,
 }: MessageCommentThreadProps) {
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -40,7 +45,14 @@ export function MessageCommentThread({
           {comments.map((comment) => (
             <div
               key={comment.id}
-              className="rounded-md border border-border/60 bg-background px-3 py-2"
+              onMouseEnter={() => onCommentHover(comment.id)}
+              onMouseLeave={() => onCommentHover(null)}
+              className={cn(
+                'rounded-md border border-border/60 bg-background px-3 py-2 transition-all duration-200',
+                activeCommentId === comment.id
+                  ? 'ring-2 ring-warning-foreground/70 shadow-lg shadow-warning-foreground/30 translate-x-[2px]'
+                  : 'hover:bg-muted/40'
+              )}
             >
               <p className="whitespace-pre-wrap text-transcript-base text-foreground">
                 {comment.commentText}
