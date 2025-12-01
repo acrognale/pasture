@@ -40,6 +40,10 @@ Important: always run `turbo lint` and `turbo typecheck` when you finish making 
 - Use the generated Codex client (`apps/desktop/src/codex/client.ts`) in the front-end rather than calling `invoke` directly.
 - After modifying command payloads or responses in Rust, run `npm run generate:types` (ts-export) so `apps/desktop/src/codex.gen` and `apps/desktop/src/codex/client.ts` stay in sync; consume the exported types instead of hand-writing interfaces.
 
+## Notes
+
+- You **MUST** escape dollar signs in file paths when using the shell tool.
+
 ## Github Workflows
 
 - Validate changes to github workflows and actions with `actionlint`
