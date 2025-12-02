@@ -1,6 +1,7 @@
+import type { FileChange } from '@pasture/protocol';
+
 import { splitLines } from '../lib/utils';
 import type {
-  FileChange,
   TranscriptPatchApprovalCell,
   TranscriptPatchCell,
 } from '../types';

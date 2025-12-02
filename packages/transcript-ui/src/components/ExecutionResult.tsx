@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 
 import { splitLines } from '../lib/utils';
-import type { TranscriptExecCell } from '../types';
+import type { TranscriptExecCommandCell } from '../types';
 import { Cell } from './Cell';
 import { CellIcon } from './CellIcon';
 
 type ExecutionResultProps = {
-  cell: TranscriptExecCell;
+  cell: TranscriptExecCommandCell;
   timestamp?: string;
 };
 
@@ -114,4 +114,3 @@ export function ExecutionResult({ cell }: ExecutionResultProps) {
     </Cell>
   );
 }
-

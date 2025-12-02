@@ -1,9 +1,12 @@
-import type { TranscriptExecCell, TranscriptExplorationCall } from '../types';
+import type {
+  TranscriptExecCommandCell,
+  TranscriptExplorationCall,
+} from '../types';
 import { Cell } from './Cell';
 import { CellIcon } from './CellIcon';
 
 type ExplorationCellProps = {
-  cell: TranscriptExecCell;
+  cell: TranscriptExecCommandCell;
   timestamp?: string;
 };
 
@@ -103,4 +106,3 @@ export function ExplorationCell({ cell }: ExplorationCellProps) {
     </Cell>
   );
 }
-

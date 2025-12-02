@@ -379,6 +379,9 @@ importers:
 
   packages/transcript-ui:
     dependencies:
+      '@pasture/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
