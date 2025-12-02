@@ -51,7 +51,7 @@ function LoadingComponent() {
         <div className="relative">
           {/* Animated shepherd crook */}
           <svg
-            className="w-12 h-12 text-pasture-meadow animate-gentle-float"
+            className="w-12 h-12 text-brand animate-gentle-float"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -85,7 +85,7 @@ function RouteComponent() {
         <div className="max-w-4xl mx-auto px-6 pt-8 pb-16 md:pt-10 md:pb-20">
           {/* Byline */}
           <div className="animate-fade-up">
-            <p className="font-body text-sm tracking-widest uppercase text-pasture-meadow mb-3">
+            <p className="font-body text-sm tracking-widest uppercase text-brand mb-3">
               Shared Conversation
             </p>
           </div>
@@ -117,7 +117,7 @@ function RouteComponent() {
             {/* CTA */}
             <a
               href="/"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pasture-meadow text-white text-sm font-medium hover:opacity-90 transition-opacity"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand text-brand-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
               <span>Try Pasture</span>
               <span className="text-white/70">→</span>
@@ -144,7 +144,7 @@ function RouteComponent() {
           {/* Editorial decorative line */}
           <div className="flex items-center gap-4 mb-8 animate-fade-up delay-300">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
-            <SheepIcon className="w-6 h-6 text-pasture-meadow opacity-60" />
+            <SheepIcon className="w-6 h-6 text-brand opacity-60" />
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
           </div>
 
@@ -159,7 +159,7 @@ function RouteComponent() {
               <span>Shared via</span>
               <a
                 href="/"
-                className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-pasture-meadow transition-colors"
+                className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-brand transition-colors"
               >
                 <img src="/logo.png" alt="" className="w-5 h-5 rounded" />
                 <span>Pasture</span>
@@ -174,8 +174,8 @@ function RouteComponent() {
 
 function MetaPill({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-pasture-cream border border-pasture-meadow/20 text-sm font-mono text-foreground/80">
-      <span className="text-pasture-meadow">{icon}</span>
+    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-cream border border-brand/20 text-sm font-mono text-foreground/80">
+      <span className="text-brand">{icon}</span>
       {label}
     </span>
   );
@@ -285,7 +285,7 @@ function ErrorComponent({ error }: { error: unknown }) {
           </p>
           <a
             href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-pasture-meadow text-white font-medium text-sm hover:opacity-90 transition-opacity animate-fade-up delay-300"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-brand text-brand-foreground font-medium text-sm hover:opacity-90 transition-opacity animate-fade-up delay-300"
           >
             <span>Return to pasture</span>
             <span>→</span>

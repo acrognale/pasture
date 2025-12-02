@@ -7,7 +7,7 @@ export default function Header() {
         {/* Logo / Brand */}
         <Link
           to="/"
-          className="group flex items-center gap-2 text-foreground hover:text-pasture-meadow transition-colors"
+          className="group flex items-center gap-2 text-foreground hover:text-brand transition-colors"
         >
           <img
             src="/logo.png"
