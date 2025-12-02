@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { ApprovalActions } from '../ApprovalActions';
+import { ApprovalActions } from '@pasture/transcript-ui';
 
 const meta: Meta<typeof ApprovalActions> = {
   title: 'Components/Approval/ApprovalActions',
