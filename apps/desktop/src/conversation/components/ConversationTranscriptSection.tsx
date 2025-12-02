@@ -2,13 +2,13 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 import {
-  TranscriptList,
-  type TranscriptCell,
-  type TranscriptTurn as SharedTranscriptTurn,
+  TranscriptView,
+  type TranscriptState,
 } from '@pasture/transcript-ui';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
@@ -16,10 +16,10 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { useAutoscroll } from '../hooks/useAutoscroll';
 import {
   useConversationLoadState,
-  useConversationTranscriptTurns,
+  useConversationTranscript,
 } from '../store/hooks';
 import { FloatingPlanPanel } from './FloatingPlanPanel';
-import { TranscriptCells } from './TranscriptCells';
+import { createTranscriptOverrides } from './transcriptOverrides';
 
 export type ConversationTranscriptHandle = {
   scrollToBottom: () => void;
@@ -55,7 +55,16 @@ export const ConversationTranscriptSection = forwardRef<
     const transcriptContentRef = useRef<HTMLDivElement | null>(null);
     const previousConversationIdRef = useRef<string | null>(null);
     const { isLoading, error } = useConversationLoadState(conversationId);
-    const { turns, turnOrder } = useConversationTranscriptTurns(conversationId);
+    const transcript = useConversationTranscript(conversationId);
+    const { turns, turnOrder } = transcript;
+    const overrides = useMemo(
+      () =>
+        createTranscriptOverrides({
+          conversationId,
+          onConversationForked,
+        }),
+      [conversationId, onConversationForked]
+    );
     const countCells = (order: string[], lookup: typeof turns) =>
       order.reduce((sum, turnId) => {
         const turn = lookup[turnId];
@@ -134,22 +143,14 @@ export const ConversationTranscriptSection = forwardRef<
       }
       if (hasTranscript) {
         return (
-          <TranscriptList
-            turns={turns as Record<string, SharedTranscriptTurn>}
-            turnOrder={turnOrder}
+          <TranscriptView
+            transcript={transcript as TranscriptState}
             expandedTurns={expandedTurns}
             onToggleTurn={onToggleTurn}
             bottomAnchorRef={bottomAnchorRef}
             contentRef={transcriptContentRef}
             shouldAnimateInitial={shouldAnimateInitial}
-            renderCell={(cell, { nthUserMessage }) => (
-              <TranscriptCells
-                cell={cell as TranscriptCell}
-                conversationId={conversationId}
-                nthUserMessage={nthUserMessage}
-                onConversationForked={onConversationForked}
-              />
-            )}
+            overrides={overrides}
           />
         );
       }

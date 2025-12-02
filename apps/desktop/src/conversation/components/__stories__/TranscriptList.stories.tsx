@@ -1,28 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import {
-  TranscriptList,
-  type TranscriptListRenderCell,
-  type TranscriptTurn as SharedTranscriptTurn,
-} from '@pasture/transcript-ui';
+import { TranscriptView, type TranscriptState } from '@pasture/transcript-ui';
 
 import { sampleTranscript } from '../../__stories__/mocks/data';
-import type { TranscriptCell } from '@pasture/transcript-ui';
-import { TranscriptCells } from '../TranscriptCells';
+import { createTranscriptOverrides } from '../transcriptOverrides';
 
-const renderCell: TranscriptListRenderCell = (
-  cell,
-  { nthUserMessage }: { nthUserMessage?: number }
-) => (
-  <TranscriptCells
-    cell={cell as TranscriptCell}
-    conversationId="storybook"
-    nthUserMessage={nthUserMessage}
-  />
-);
+const transcript = sampleTranscript as TranscriptState;
+const overrides = createTranscriptOverrides({ conversationId: 'storybook' });
 
-const meta: Meta<typeof TranscriptList> = {
-  title: 'Components/Conversation/TranscriptList',
-  component: TranscriptList,
+const meta: Meta<typeof TranscriptView> = {
+  title: 'Components/Conversation/TranscriptView',
+  component: TranscriptView,
   parameters: {
     layout: 'padded',
   },
@@ -30,60 +17,45 @@ const meta: Meta<typeof TranscriptList> = {
 
 export default meta;
 
-type Story = StoryObj<typeof TranscriptList>;
+type Story = StoryObj<typeof TranscriptView>;
 
 export const Default: Story = {
   args: {
-    turns: sampleTranscript.turns as Record<string, SharedTranscriptTurn>,
-    turnOrder: sampleTranscript.turnOrder,
+    transcript,
     expandedTurns: {},
-    renderCell,
     onToggleTurn: () => {},
+    overrides,
   },
 };
 
 export const WithExpandedTurns: Story = {
   args: {
-    turns: sampleTranscript.turns as Record<string, SharedTranscriptTurn>,
-    turnOrder: sampleTranscript.turnOrder,
-    expandedTurns: {
-      'turn-1': true,
-    },
-    renderCell,
+    transcript,
+    expandedTurns: { 'turn-1': true },
     onToggleTurn: () => {},
+    overrides,
   },
 };
 
 export const EmptyTranscript: Story = {
   args: {
-    turns: {} as Record<string, SharedTranscriptTurn>,
-    turnOrder: [],
+    transcript: { ...transcript, turns: {}, turnOrder: [] },
     expandedTurns: {},
-    renderCell,
     onToggleTurn: () => {},
+    overrides,
   },
 };
 
 export const InScrollableContainer: Story = {
   render: (args) => (
     <div className="h-96 overflow-y-auto bg-muted/30 p-4 rounded-lg border border-border">
-      <TranscriptList
-        {...args}
-        renderCell={(cell, { nthUserMessage }) => (
-          <TranscriptCells
-            cell={cell as TranscriptCell}
-            conversationId="storybook"
-            nthUserMessage={nthUserMessage}
-          />
-        )}
-      />
+      <TranscriptView {...args} overrides={overrides} />
     </div>
   ),
   args: {
-    turns: sampleTranscript.turns as Record<string, SharedTranscriptTurn>,
-    turnOrder: sampleTranscript.turnOrder,
+    transcript,
     expandedTurns: {},
-    renderCell,
     onToggleTurn: () => {},
+    overrides,
   },
 };
