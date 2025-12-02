@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { buildInputItems } from '~/conversation/hooks/useSendMessage';
-import type { TranscriptUserMessageCell } from '~/conversation/transcript/types';
+import type { TranscriptUserMessageCell } from '@pasture/transcript-ui';
 import type { MessageAttachment } from '~/conversation/types';
 import { formatTimestampClock } from '~/lib/time';
 import { copyToClipboard } from '~/lib/utils';

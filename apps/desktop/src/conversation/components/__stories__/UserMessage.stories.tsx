@@ -1,6 +1,6 @@
 import { UserMessage } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { TranscriptUserMessageCell } from '~/conversation/transcript/types';
+import type { TranscriptUserMessageCell } from '@pasture/transcript-ui';
 
 const meta: Meta<typeof UserMessage> = {
   title: 'Components/Message/UserMessage',

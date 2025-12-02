@@ -1,4 +1,4 @@
-import type { TranscriptState } from './types';
+import type { TranscriptState } from '@pasture/transcript-ui';
 
 /**
  * Create initial transcript state.

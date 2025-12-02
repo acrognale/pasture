@@ -6,7 +6,7 @@ import {
 } from '@pasture/transcript-ui';
 
 import { sampleTranscript } from '../../__stories__/mocks/data';
-import type { TranscriptCell } from '~/conversation/transcript/types';
+import type { TranscriptCell } from '@pasture/transcript-ui';
 import { TranscriptCells } from '../TranscriptCells';
 
 const renderCell: TranscriptListRenderCell = (

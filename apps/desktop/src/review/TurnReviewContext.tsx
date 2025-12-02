@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { TranscriptTurnDiff } from '~/conversation/transcript/types';
+import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
 
 import type { TurnReviewComment } from './types';
 

@@ -1,6 +1,6 @@
 import { AgentReasoning } from '@pasture/transcript-ui';
 import { useStreamingText } from '~/conversation/hooks/useStreamingText';
-import type { TranscriptAgentReasoningCell } from '~/conversation/transcript/types';
+import type { TranscriptAgentReasoningCell } from '@pasture/transcript-ui';
 import { formatTimestampClock } from '~/lib/time';
 
 type AgentReasoningContainerProps = {

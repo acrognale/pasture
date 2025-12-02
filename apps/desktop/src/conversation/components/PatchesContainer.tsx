@@ -4,7 +4,7 @@ import { useRespondToApproval } from '~/approvals/hooks/useRespondToApproval';
 import type {
   TranscriptPatchApprovalCell,
   TranscriptPatchCell,
-} from '~/conversation/transcript/types';
+} from '@pasture/transcript-ui';
 
 type PatchesContainerProps = {
   cell: TranscriptPatchCell | TranscriptPatchApprovalCell;

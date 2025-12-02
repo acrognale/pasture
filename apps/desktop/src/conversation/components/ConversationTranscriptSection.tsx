@@ -7,6 +7,7 @@ import {
 } from 'react';
 import {
   TranscriptList,
+  type TranscriptCell,
   type TranscriptTurn as SharedTranscriptTurn,
 } from '@pasture/transcript-ui';
 import { Button } from '~/components/ui/button';
@@ -19,7 +20,6 @@ import {
 } from '../store/hooks';
 import { FloatingPlanPanel } from './FloatingPlanPanel';
 import { TranscriptCells } from './TranscriptCells';
-import type { TranscriptCell } from '../transcript/types';
 
 export type ConversationTranscriptHandle = {
   scrollToBottom: () => void;
@@ -134,7 +134,7 @@ export const ConversationTranscriptSection = forwardRef<
       }
       if (hasTranscript) {
         return (
-            <TranscriptList
+          <TranscriptList
             turns={turns as Record<string, SharedTranscriptTurn>}
             turnOrder={turnOrder}
             expandedTurns={expandedTurns}

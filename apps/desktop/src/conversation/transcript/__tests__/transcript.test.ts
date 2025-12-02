@@ -13,7 +13,7 @@ import type {
   TranscriptTaskCell,
   TranscriptToolCell,
   TranscriptUserMessageCell,
-} from '../types';
+} from '@pasture/transcript-ui';
 
 type ExecBeginEvent = Extract<EventMsg, { type: 'exec_command_begin' }>;
 type ExecEndEvent = Extract<EventMsg, { type: 'exec_command_end' }>;

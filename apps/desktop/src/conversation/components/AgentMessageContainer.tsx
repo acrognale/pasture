@@ -1,6 +1,6 @@
 import { AgentMessage } from '@pasture/transcript-ui';
 import { useStreamingText } from '~/conversation/hooks/useStreamingText';
-import type { TranscriptAgentMessageCell } from '~/conversation/transcript/types';
+import type { TranscriptAgentMessageCell } from '@pasture/transcript-ui';
 import { formatTimestampClock } from '~/lib/time';
 
 type AgentMessageContainerProps = {

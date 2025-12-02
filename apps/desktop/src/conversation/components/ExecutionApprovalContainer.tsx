@@ -1,7 +1,7 @@
 import { ExecutionApproval } from '@pasture/transcript-ui';
 import { useApprovals } from '~/approvals/hooks/useApprovals';
 import { useRespondToApproval } from '~/approvals/hooks/useRespondToApproval';
-import type { TranscriptExecApprovalCell } from '~/conversation/transcript/types';
+import type { TranscriptExecApprovalCell } from '@pasture/transcript-ui';
 
 type ExecutionApprovalContainerProps = {
   cell: TranscriptExecApprovalCell;

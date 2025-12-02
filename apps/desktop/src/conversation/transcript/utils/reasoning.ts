@@ -3,7 +3,7 @@ import { extractFirstBold } from '~/lib/markdown';
 import type {
   TranscriptReasoningItem,
   TranscriptReasoningSummaryFormat,
-} from '../types';
+} from '@pasture/transcript-ui';
 import { joinSegments } from './formatting';
 
 export const hasReasoningBody = (text: string): boolean => {

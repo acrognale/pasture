@@ -1,15 +1,12 @@
-import { screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import type {
-  TranscriptCell,
-  TranscriptTurn as DesktopTranscriptTurn,
-} from '~/conversation/transcript/types';
 import {
   TranscriptList,
-  type TranscriptTurn as SharedTranscriptTurn,
+  type TranscriptCell,
+  type TranscriptTurn,
 } from '@pasture/transcript-ui';
+import { screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { buildControllerFromFixture } from '~/conversation/__tests__/fixtures';
-import type { TranscriptAgentMessageCell } from '~/conversation/transcript/types';
+import type { TranscriptAgentMessageCell } from '@pasture/transcript-ui';
 import { renderWithProviders } from '~/testing/harness';
 import { WorkspaceProvider } from '~/workspace';
 
@@ -24,7 +21,7 @@ describe('TranscriptList', () => {
     renderWithProviders(
       <WorkspaceProvider workspacePath="/tmp/workspace">
         <TranscriptList
-          turns={turns as Record<string, SharedTranscriptTurn>}
+          turns={turns as Record<string, TranscriptTurn>}
           turnOrder={turnOrder}
           expandedTurns={expandedTurns}
           onToggleTurn={vi.fn()}
@@ -57,7 +54,7 @@ describe('TranscriptList', () => {
     renderWithProviders(
       <WorkspaceProvider workspacePath="/tmp/workspace">
         <TranscriptList
-          turns={turns as Record<string, SharedTranscriptTurn>}
+          turns={turns as Record<string, TranscriptTurn>}
           turnOrder={turnOrder}
           expandedTurns={{}}
           onToggleTurn={vi.fn()}
@@ -105,7 +102,7 @@ describe('TranscriptList', () => {
       ).toISOString(),
       streaming: false,
     };
-    const mutatedTurns: Record<string, DesktopTranscriptTurn> = {
+    const mutatedTurns: Record<string, TranscriptTurn> = {
       ...turns,
       [turnId]: {
         ...originalTurn,
@@ -120,7 +117,7 @@ describe('TranscriptList', () => {
     renderWithProviders(
       <WorkspaceProvider workspacePath="/tmp/workspace">
         <TranscriptList
-          turns={mutatedTurns as Record<string, SharedTranscriptTurn>}
+          turns={mutatedTurns as Record<string, TranscriptTurn>}
           turnOrder={turnOrder}
           expandedTurns={{}}
           onToggleTurn={vi.fn()}

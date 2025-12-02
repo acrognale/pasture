@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { TranscriptToolCell } from '~/conversation/transcript/types';
+import type { TranscriptToolCell } from '@pasture/transcript-ui';
 
 import { Tools } from '../Tools';
 

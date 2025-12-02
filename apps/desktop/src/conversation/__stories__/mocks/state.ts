@@ -10,7 +10,7 @@ import type {
   TranscriptState,
   TranscriptTurn,
   TranscriptUserMessageCell,
-} from '~/conversation/transcript/types';
+} from '@pasture/transcript-ui';
 import type { MessageAttachment } from '~/conversation/types';
 import type { ConversationSummary } from '~/workspace/conversations';
 

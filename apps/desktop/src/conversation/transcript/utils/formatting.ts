@@ -1,7 +1,7 @@
 import type {
   TranscriptAgentMessageContent,
   TranscriptUserInput,
-} from '../types';
+} from '@pasture/transcript-ui';
 
 const joinSegments = (segments: string[]): string =>
   segments.length === 0

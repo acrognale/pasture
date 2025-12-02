@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { TranscriptCell } from '@pasture/transcript-ui';
 import type { JSX } from 'react';
 import { createInitialTranscriptState } from '~/conversation/transcript/state';
-import type { TranscriptCell } from '~/conversation/transcript/types';
 
 import { ConversationPane } from '../ConversationPane';
 import {

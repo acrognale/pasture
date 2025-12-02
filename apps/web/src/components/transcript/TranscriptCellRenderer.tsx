@@ -23,7 +23,17 @@ export function renderTranscriptCell(cell: TranscriptCell) {
   switch (cell.kind) {
     case 'user-message':
       // Web share: show the text only; no actions
-      return <AgentMessage cell={{ ...cell, kind: 'agent-message', message: cell.message }} timestamp={timestamp} />;
+      return (
+        <AgentMessage
+          cell={{
+            ...cell,
+            kind: 'agent-message',
+            message: cell.message,
+            streaming: false,
+          }}
+          timestamp={timestamp}
+        />
+      );
     case 'agent-message':
       return <AgentMessage cell={cell} timestamp={timestamp} />;
     case 'agent-reasoning':

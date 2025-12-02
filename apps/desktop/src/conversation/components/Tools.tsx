@@ -1,6 +1,6 @@
 import { Cell, CellIcon, ImagePreview } from '@pasture/transcript-ui';
 import { SearchIcon } from 'lucide-react';
-import type { TranscriptToolCell } from '~/conversation/transcript/types';
+import type { TranscriptToolCell } from '@pasture/transcript-ui';
 
 type ToolsProps = {
   cell: TranscriptToolCell;

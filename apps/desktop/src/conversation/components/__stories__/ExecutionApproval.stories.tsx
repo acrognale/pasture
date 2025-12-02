@@ -1,6 +1,6 @@
 import { ExecutionApproval } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { TranscriptExecApprovalCell } from '~/conversation/transcript/types';
+import type { TranscriptExecApprovalCell } from '@pasture/transcript-ui';
 
 const meta: Meta<typeof ExecutionApproval> = {
   title: 'Components/Conversation/ExecutionApproval',

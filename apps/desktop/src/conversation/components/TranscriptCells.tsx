@@ -10,7 +10,7 @@ import {
   safeStringify,
 } from '@pasture/transcript-ui';
 import { memo } from 'react';
-import type { TranscriptCell } from '~/conversation/transcript/types';
+import type { TranscriptCell } from '@pasture/transcript-ui';
 import { formatTimestampClock } from '~/lib/time';
 
 import { AgentMessageContainer } from './AgentMessageContainer';

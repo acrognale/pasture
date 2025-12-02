@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import {
+  type TranscriptCell,
+  type TranscriptCellKind,
+} from '@pasture/transcript-ui';
 import { TranscriptCells } from '~/conversation/components/TranscriptCells';
-import type {
-  TranscriptCell,
-  TranscriptCellKind,
-} from '~/conversation/transcript/types';
 
 import { sampleTranscript } from '../../__stories__/mocks/data';
 
