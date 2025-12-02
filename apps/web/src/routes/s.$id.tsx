@@ -5,11 +5,13 @@ import { TranscriptView } from '@/components/transcript/TranscriptView';
 
 import type { SharedThread } from '../../generated/prisma/client';
 
+type SharedTranscript = Pick<TranscriptState, 'turns' | 'turnOrder'>;
+
 type SharedThreadDTO = {
   id: string;
   title: string | null;
   model: string | null;
-  transcript: TranscriptState;
+  transcript: SharedTranscript;
   createdAt: string;
 };
 
@@ -45,21 +47,21 @@ function RouteComponent() {
   const turnCount = transcript.turnOrder.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 text-slate-50">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-12">
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="container mx-auto flex flex-col gap-6 px-6 py-12">
         <header className="flex flex-col gap-3">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-slate-800 ring-1 ring-white/10" />
+            <div className="h-10 w-10 rounded-full bg-muted ring-1 ring-border" />
             <div>
-              <p className="text-sm uppercase tracking-wide text-slate-400">
+              <p className="text-sm uppercase tracking-wide text-muted-foreground">
                 Shared via Pasture
               </p>
-              <h1 className="text-2xl font-semibold text-white">
+              <h1 className="text-2xl font-semibold text-foreground">
                 {share.title ?? 'Shared thread'}
               </h1>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
             {share.model ? <Badge label={share.model} /> : null}
             <Badge label={`${turnCount} turn${turnCount === 1 ? '' : 's'}`} />
             <Badge label={new Date(share.createdAt).toLocaleString()} />
@@ -70,9 +72,9 @@ function RouteComponent() {
           <TranscriptView transcript={transcript} />
         </main>
 
-        <footer className="text-sm text-slate-400">
+        <footer className="text-sm text-muted-foreground">
           <a
-            className="underline decoration-slate-500 underline-offset-4 hover:text-white"
+            className="underline decoration-muted-foreground underline-offset-4 hover:text-foreground"
             href="/"
           >
             Learn about Pasture
@@ -85,7 +87,7 @@ function RouteComponent() {
 
 function Badge({ label }: { label: string }) {
   return (
-    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white ring-1 ring-white/10">
+    <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground ring-1 ring-border">
       {label}
     </span>
   );
@@ -94,14 +96,14 @@ function Badge({ label }: { label: string }) {
 function ErrorComponent({ error }: { error: unknown }) {
   if (error instanceof Response && error.status === 404) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 bg-slate-950 text-slate-100">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 bg-background text-foreground">
         <h2 className="text-2xl font-semibold">Thread not found</h2>
-        <p className="text-slate-400">
+        <p className="text-muted-foreground">
           This shared thread doesn&apos;t exist or may have been removed.
         </p>
         <a
           href="/"
-          className="rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/15"
+          className="rounded-full bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground ring-1 ring-border hover:bg-secondary/90"
         >
           Go home
         </a>
@@ -110,9 +112,9 @@ function ErrorComponent({ error }: { error: unknown }) {
   }
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 bg-slate-950 text-slate-100">
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 bg-background text-foreground">
       <h2 className="text-2xl font-semibold">Something went wrong</h2>
-      <pre className="text-xs text-slate-400">
+      <pre className="text-xs text-muted-foreground">
         {error instanceof Error ? error.message : 'Unknown error'}
       </pre>
     </div>

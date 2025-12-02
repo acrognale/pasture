@@ -2,16 +2,31 @@ import {
   ImagePreview,
   TranscriptProvider,
   TranscriptView as SharedTranscriptView,
-  type TranscriptState,
   type TranscriptUserMessageCell,
   type TranscriptViewOverrides,
 } from '@pasture/transcript-ui';
+import { useState } from 'react';
+
+import type { TranscriptState } from '@pasture/transcript-ui';
+
+type SharedTranscript = Pick<TranscriptState, 'turns' | 'turnOrder'>;
 
 type TranscriptViewProps = {
-  transcript: TranscriptState;
+  transcript: SharedTranscript;
 };
 
 export function TranscriptView({ transcript }: TranscriptViewProps) {
+  const [expandedTurns, setExpandedTurns] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const handleToggleTurn = (turnId: string) => {
+    setExpandedTurns((prev) => ({
+      ...prev,
+      [turnId]: !prev[turnId],
+    }));
+  };
+
   const overrides: TranscriptViewOverrides = {
     'user-message': ({ cell }) => (
       <ReadOnlyUserMessage cell={cell} />
@@ -19,12 +34,16 @@ export function TranscriptView({ transcript }: TranscriptViewProps) {
   };
 
   return (
-    <div className="rounded-3xl border border-slate-700 bg-slate-800/50 p-6 shadow-inner">
+    <div className="rounded-transcript-lg border border-transcript-border bg-transcript-background/95 p-6 shadow-sm">
       <TranscriptProvider>
         <SharedTranscriptView
-          transcript={transcript}
+          turns={transcript.turns}
+          turnOrder={transcript.turnOrder}
           className="select-text"
           overrides={overrides}
+          enableCollapsing
+          expandedTurns={expandedTurns}
+          onToggleTurn={handleToggleTurn}
         />
       </TranscriptProvider>
     </div>

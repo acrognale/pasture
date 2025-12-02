@@ -1,31 +1,19 @@
 @import "@pasture/theme/tokens.css";
+@import "@pasture/transcript-ui/styles.css";
 @import "tailwindcss";
 
-body {
-  @apply m-0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-    monospace;
-}
+  body {
+    @apply m-0 bg-background text-foreground font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-/* Map transcript color tokens to standard shadcn/ui names for compatibility */
-@theme {
-  --color-background: var(--color-transcript-background);
-  --color-foreground: var(--color-transcript-foreground);
-  --color-muted: var(--color-transcript-muted);
-  --color-muted-foreground: var(--color-transcript-muted-foreground);
-  --color-border: var(--color-transcript-border);
-  --color-info-foreground: var(--color-transcript-info-foreground);
-  --color-success-foreground: var(--color-transcript-success-foreground);
-  --color-warning-foreground: var(--color-transcript-warning-foreground);
-  --color-error-foreground: var(--color-transcript-error-foreground);
-  --color-ring: oklch(0.556 0 0);
-  --color-primary: oklch(0.922 0 0);
+  code {
+    @apply font-mono text-transcript-code leading-transcript-code;
+  }
 }

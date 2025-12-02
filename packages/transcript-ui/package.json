@@ -7,8 +7,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./styles.css": "./dist/index.css",
-    "./tokens.css": "./src/styles/tokens.css"
+    "./styles.css": "./dist/index.css"
   },
   "scripts": {
     "build": "tailwindcss -i ./src/styles.css -o ./dist/index.css",
