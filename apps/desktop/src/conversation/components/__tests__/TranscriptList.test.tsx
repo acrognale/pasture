@@ -1,11 +1,19 @@
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type {
+  TranscriptCell,
+  TranscriptTurn as DesktopTranscriptTurn,
+} from '~/conversation/transcript/types';
+import {
+  TranscriptList,
+  type TranscriptTurn as SharedTranscriptTurn,
+} from '@pasture/transcript-ui';
 import { buildControllerFromFixture } from '~/conversation/__tests__/fixtures';
 import type { TranscriptAgentMessageCell } from '~/conversation/transcript/types';
 import { renderWithProviders } from '~/testing/harness';
 import { WorkspaceProvider } from '~/workspace';
 
-import { TranscriptList } from '../TranscriptList';
+import { TranscriptCells } from '../TranscriptCells';
 
 describe('TranscriptList', () => {
   it('renders the exploration collapse with expected entries and agent output', () => {
@@ -16,11 +24,17 @@ describe('TranscriptList', () => {
     renderWithProviders(
       <WorkspaceProvider workspacePath="/tmp/workspace">
         <TranscriptList
-          conversationId="test-conversation"
-          turns={turns}
+          turns={turns as Record<string, SharedTranscriptTurn>}
           turnOrder={turnOrder}
           expandedTurns={expandedTurns}
           onToggleTurn={vi.fn()}
+          renderCell={(cell, { nthUserMessage }) => (
+            <TranscriptCells
+              cell={cell as TranscriptCell}
+              conversationId="test-conversation"
+              nthUserMessage={nthUserMessage}
+            />
+          )}
         />
       </WorkspaceProvider>
     );
@@ -43,11 +57,17 @@ describe('TranscriptList', () => {
     renderWithProviders(
       <WorkspaceProvider workspacePath="/tmp/workspace">
         <TranscriptList
-          conversationId="test-conversation"
-          turns={turns}
+          turns={turns as Record<string, SharedTranscriptTurn>}
           turnOrder={turnOrder}
           expandedTurns={{}}
           onToggleTurn={vi.fn()}
+          renderCell={(cell, { nthUserMessage }) => (
+            <TranscriptCells
+              cell={cell as TranscriptCell}
+              conversationId="test-conversation"
+              nthUserMessage={nthUserMessage}
+            />
+          )}
         />
       </WorkspaceProvider>
     );
@@ -85,7 +105,7 @@ describe('TranscriptList', () => {
       ).toISOString(),
       streaming: false,
     };
-    const mutatedTurns = {
+    const mutatedTurns: Record<string, DesktopTranscriptTurn> = {
       ...turns,
       [turnId]: {
         ...originalTurn,
@@ -100,11 +120,17 @@ describe('TranscriptList', () => {
     renderWithProviders(
       <WorkspaceProvider workspacePath="/tmp/workspace">
         <TranscriptList
-          conversationId="test-conversation"
-          turns={mutatedTurns}
+          turns={mutatedTurns as Record<string, SharedTranscriptTurn>}
           turnOrder={turnOrder}
           expandedTurns={{}}
           onToggleTurn={vi.fn()}
+          renderCell={(cell, { nthUserMessage }) => (
+            <TranscriptCells
+              cell={cell as TranscriptCell}
+              conversationId="test-conversation"
+              nthUserMessage={nthUserMessage}
+            />
+          )}
         />
       </WorkspaceProvider>
     );

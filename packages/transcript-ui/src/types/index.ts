@@ -184,12 +184,12 @@ export type TranscriptToolCell = BaseTranscriptCell & {
   kind: 'tool';
   toolType: 'mcp' | 'web-search' | 'view-image';
   status: 'running' | 'succeeded' | 'failed';
-  callId?: string;
-  invocation?: McpInvocation;
+  callId?: string | null;
+  invocation?: McpInvocation | null;
   result?: unknown;
-  duration?: string;
-  path?: string;
-  query?: string;
+  duration?: string | null;
+  path?: string | null;
+  query?: string | null;
 };
 
 /**
@@ -260,9 +260,15 @@ export type FileChange =
  * MCP tool invocation details
  */
 export type McpInvocation = {
-  serverName: string;
-  toolName: string;
-  arguments?: Record<string, unknown>;
+  serverName?: string | null;
+  toolName?: string | null;
+  /**
+   * Legacy fields used by the desktop app's protocol types.
+   * Kept for structural compatibility with platform-specific data.
+   */
+  server?: string | null;
+  tool?: string | null;
+  arguments?: Record<string, unknown> | null;
 };
 
 /**

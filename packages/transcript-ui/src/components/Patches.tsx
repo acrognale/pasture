@@ -26,7 +26,7 @@ const countChanges = (
   changes: Record<string, FileChange | undefined> | undefined
 ) => (changes ? Object.keys(changes).length : 0);
 
-const describeFileChange = (path: string, change: FileChange | undefined) => {
+const describeFileChange = (change: FileChange | undefined) => {
   if (!change) {
     return {
       label: 'modified',
@@ -72,7 +72,7 @@ const FileChangeItem = ({
   path: string;
   change: FileChange | undefined;
 }) => {
-  const { label, description, diff } = describeFileChange(path, change);
+  const { label, description, diff } = describeFileChange(change);
   const diffLines = diff ? splitLines(diff) : [];
 
   const getDiffLineClass = (line: string) => {

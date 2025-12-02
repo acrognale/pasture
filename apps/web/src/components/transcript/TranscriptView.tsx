@@ -3,6 +3,7 @@ import {
   TranscriptProvider,
   type TranscriptState,
 } from '@pasture/transcript-ui';
+import { renderTranscriptCell } from './TranscriptCellRenderer';
 
 type TranscriptViewProps = {
   transcript: TranscriptState;
@@ -15,6 +16,7 @@ export function TranscriptView({ transcript }: TranscriptViewProps) {
         <TranscriptList
           transcript={transcript}
           className="select-text"
+          renderCell={(cell) => renderTranscriptCell(cell)}
         />
       </TranscriptProvider>
     </div>

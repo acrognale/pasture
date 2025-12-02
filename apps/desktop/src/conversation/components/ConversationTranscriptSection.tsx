@@ -5,6 +5,10 @@ import {
   useRef,
   useState,
 } from 'react';
+import {
+  TranscriptList,
+  type TranscriptTurn as SharedTranscriptTurn,
+} from '@pasture/transcript-ui';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 
@@ -14,7 +18,8 @@ import {
   useConversationTranscriptTurns,
 } from '../store/hooks';
 import { FloatingPlanPanel } from './FloatingPlanPanel';
-import { TranscriptList } from './TranscriptList';
+import { TranscriptCells } from './TranscriptCells';
+import type { TranscriptCell } from '../transcript/types';
 
 export type ConversationTranscriptHandle = {
   scrollToBottom: () => void;
@@ -129,16 +134,22 @@ export const ConversationTranscriptSection = forwardRef<
       }
       if (hasTranscript) {
         return (
-          <TranscriptList
-            conversationId={conversationId}
-            turns={turns}
+            <TranscriptList
+            turns={turns as Record<string, SharedTranscriptTurn>}
             turnOrder={turnOrder}
             expandedTurns={expandedTurns}
             onToggleTurn={onToggleTurn}
-            onConversationForked={onConversationForked}
             bottomAnchorRef={bottomAnchorRef}
             contentRef={transcriptContentRef}
             shouldAnimateInitial={shouldAnimateInitial}
+            renderCell={(cell, { nthUserMessage }) => (
+              <TranscriptCells
+                cell={cell as TranscriptCell}
+                conversationId={conversationId}
+                nthUserMessage={nthUserMessage}
+                onConversationForked={onConversationForked}
+              />
+            )}
           />
         );
       }
