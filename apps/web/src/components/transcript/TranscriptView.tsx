@@ -1,21 +1,25 @@
+import { cn } from '@pasture/theme';
 import {
   ImagePreview,
-  TranscriptProvider,
   TranscriptView as SharedTranscriptView,
+  TranscriptProvider,
   type TranscriptUserMessageCell,
   type TranscriptViewOverrides,
 } from '@pasture/transcript-ui';
-import { useState } from 'react';
-
 import type { TranscriptState } from '@pasture/transcript-ui';
+import { useState } from 'react';
 
 type SharedTranscript = Pick<TranscriptState, 'turns' | 'turnOrder'>;
 
 type TranscriptViewProps = {
   transcript: SharedTranscript;
+  showBorder?: boolean;
 };
 
-export function TranscriptView({ transcript }: TranscriptViewProps) {
+export function TranscriptView({
+  transcript,
+  showBorder = true,
+}: TranscriptViewProps) {
   const [expandedTurns, setExpandedTurns] = useState<Record<string, boolean>>(
     {}
   );
@@ -28,13 +32,18 @@ export function TranscriptView({ transcript }: TranscriptViewProps) {
   };
 
   const overrides: TranscriptViewOverrides = {
-    'user-message': ({ cell }) => (
-      <ReadOnlyUserMessage cell={cell} />
-    ),
+    'user-message': ({ cell }) => <ReadOnlyUserMessage cell={cell} />,
   };
 
   return (
-    <div className="rounded-transcript-lg border border-transcript-border bg-transcript-background/95 p-6 shadow-sm">
+    <div
+      className={cn(
+        'bg-transcript-background/95 shadow-sm',
+        showBorder
+          ? 'p-6 border border-transcript-border rounded-transcript-lg'
+          : 'p-0 border-0 rounded-none shadow-none'
+      )}
+    >
       <TranscriptProvider>
         <SharedTranscriptView
           turns={transcript.turns}
@@ -62,7 +71,9 @@ function ReadOnlyUserMessage({ cell }: { cell: TranscriptUserMessageCell }) {
             {cell.message ?? ''}
           </div>
           {hasMessageKind ? (
-            <div className="text-muted-foreground text-xs">/{cell.messageKind}</div>
+            <div className="text-muted-foreground text-xs">
+              /{cell.messageKind}
+            </div>
           ) : null}
           {hasImages ? (
             <div className="space-y-1">

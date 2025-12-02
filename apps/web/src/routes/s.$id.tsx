@@ -75,7 +75,6 @@ function LoadingComponent() {
 function RouteComponent() {
   const share = Route.useLoaderData() as SharedThreadDTO;
   const transcript = share.transcript as TranscriptState;
-  const turnCount = transcript.turnOrder.length;
   const formattedDate = formatRelativeDate(share.createdAt);
 
   return (
@@ -91,7 +90,7 @@ function RouteComponent() {
           </div>
 
           {/* Title */}
-          <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-medium text-foreground leading-tight mb-4 animate-fade-up delay-100">
+          <h1 className="font-display text-2xl md:text-3xl lg:text-4xl font-medium text-foreground leading-tight mb-4 animate-fade-up delay-100">
             {share.title ?? (
               <span className="italic text-muted-foreground">
                 Untitled Thread
@@ -105,10 +104,6 @@ function RouteComponent() {
               {share.model ? (
                 <MetaPill icon={<ModelIcon />} label={share.model} />
               ) : null}
-              <MetaPill
-                icon={<ConversationIcon />}
-                label={`${turnCount} turn${turnCount === 1 ? '' : 's'}`}
-              />
               <span className="font-body text-sm text-muted-foreground italic">
                 {formattedDate}
               </span>
@@ -150,7 +145,7 @@ function RouteComponent() {
 
           {/* Transcript container */}
           <article className="animate-fade-up delay-400">
-            <TranscriptView transcript={transcript} />
+            <TranscriptView transcript={transcript} showBorder={false} />
           </article>
 
           {/* Footer */}
