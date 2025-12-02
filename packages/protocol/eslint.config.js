@@ -1,12 +1,6 @@
-import eslint from '@eslint/js';
+import { tsLibrary } from "@pasture/configs";
 
-// Generated protocol types live in src/; skip linting to avoid noisy warnings.
-export default [
-  {
-    ignores: ['src/**/*', 'dist/**/*', 'node_modules/**/*'],
-  },
-  {
-    files: ['**/*.js'],
-    rules: eslint.configs.recommended.rules,
-  },
-];
+export default tsLibrary({
+  tsconfigRootDir: import.meta.dirname,
+  ignores: ["dist/**"],
+});

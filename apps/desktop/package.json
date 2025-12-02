@@ -25,15 +25,6 @@
     "vite:build": "vite build",
     "vite:dev": "vite"
   },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.rs": [
-      "scripts/fmt-staged-rust.sh"
-    ]
-  },
   "dependencies": {
     "@lexical/history": "^0.38.2",
     "@lexical/react": "^0.38.2",
@@ -77,6 +68,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@pasture/configs": "workspace:*",
     "@storybook/addon-a11y": "^10.0.7",
     "@storybook/addon-docs": "^10.0.7",
     "@storybook/addon-links": "^10.0.7",

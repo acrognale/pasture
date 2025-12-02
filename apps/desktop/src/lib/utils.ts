@@ -2,7 +2,7 @@ import { writeText as tauriWriteText } from '@tauri-apps/plugin-clipboard-manage
 import { type ClassValue, clsx } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
 
-const twMerge: (...inputs: ClassValue[]) => string = extendTailwindMerge({
+const twMerge = extendTailwindMerge({
   extend: {
     theme: {
       leading: ['transcript', 'transcript-code', 'transcript-tight'],

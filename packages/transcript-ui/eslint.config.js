@@ -1,4 +1,6 @@
-import baseConfig from '../../eslint.config.js';
+import { reactLibrary } from "@pasture/configs";
 
-export default [...baseConfig];
-
+export default reactLibrary({
+  tsconfigRootDir: import.meta.dirname,
+  ignores: ["dist/**"],
+});
