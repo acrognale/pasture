@@ -1,7 +1,6 @@
+import { AgentMessage } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { TranscriptAgentMessageCell } from '~/conversation/transcript/types';
-
-import { AgentMessage } from '../AgentMessage';
 
 const meta: Meta<typeof AgentMessage> = {
   title: 'Components/Message/AgentMessage',

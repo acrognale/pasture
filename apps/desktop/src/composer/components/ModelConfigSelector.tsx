@@ -1,11 +1,11 @@
-import { ChevronDownIcon } from 'lucide-react';
-import { RefObject, useMemo, useRef } from 'react';
 import type {
   AskForApproval,
   ReasoningEffort,
   ReasoningSummary,
   SandboxMode,
-} from '~/codex.gen';
+} from '@pasture/protocol';
+import { ChevronDownIcon } from 'lucide-react';
+import { RefObject, useMemo, useRef } from 'react';
 import { Button } from '~/components/ui/button';
 import {
   DropdownMenu,

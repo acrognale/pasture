@@ -1,7 +1,6 @@
+import { ExecutionResult } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { TranscriptExecCommandCell } from '~/conversation/transcript/types';
-
-import { ExecutionResult } from '../ExecutionResult';
 
 const meta: Meta<typeof ExecutionResult> = {
   title: 'Components/Conversation/ExecutionResult',

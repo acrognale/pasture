@@ -14,7 +14,7 @@ type SharedThreadDTO = {
 };
 
 export const Route = createFileRoute('/s/$id')({
-  loader: async ({ params }): Promise<SharedThreadDTO> => {
+  loader: async ({ params }): Promise<any> => {
     const { db } = await import('@/lib/db');
     const result: SharedThread | null = await db.sharedThread.findUnique({
       where: { id: params.id },
@@ -26,7 +26,7 @@ export const Route = createFileRoute('/s/$id')({
       id: result.id,
       title: result.title,
       model: result.model,
-      transcript: result.transcript as SharedTranscriptState,
+      transcript: result.transcript as TranscriptState,
       createdAt: result.createdAt.toISOString(),
     };
   },

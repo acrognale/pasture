@@ -1,6 +1,6 @@
+import type { ThreadSummary } from '@pasture/protocol';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import { Codex } from '~/codex/client';
 
 import {

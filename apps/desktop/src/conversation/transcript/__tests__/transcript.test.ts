@@ -1,7 +1,7 @@
+import type { ConversationEventPayload } from '@pasture/protocol';
+import type { EventMsg } from '@pasture/protocol';
+import type { ParsedCommand } from '@pasture/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { EventMsg } from '~/codex.gen/EventMsg';
-import type { ParsedCommand } from '~/codex.gen/ParsedCommand';
 import type { ConversationControllerState } from '~/conversation/store/reducer';
 import { createConversationStore } from '~/conversation/store/store';
 

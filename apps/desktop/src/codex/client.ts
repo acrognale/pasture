@@ -1,5 +1,4 @@
 // GENERATED CODE! DO NOT MODIFY BY HAND!
-import { invoke } from '@tauri-apps/api/core';
 import type {
   AddConversationListenerParams,
   AddConversationSubscriptionResponse,
@@ -39,7 +38,8 @@ import type {
   WorkspacePathParams,
   WorkspaceSettings,
   WorkspaceSymbolHit,
-} from '~/codex.gen';
+} from '@pasture/protocol';
+import { invoke } from '@tauri-apps/api/core';
 
 export namespace Codex {
   export async function listThreads(

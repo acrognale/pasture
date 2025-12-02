@@ -1,5 +1,5 @@
-import type { FileChange } from '~/codex.gen/FileChange';
-import type { ParsedCommand } from '~/codex.gen/ParsedCommand';
+import type { FileChange } from '@pasture/protocol';
+import type { ParsedCommand } from '@pasture/protocol';
 import type { ComposerTurnConfig } from '~/composer/config';
 import { createDefaultComposerConfig } from '~/composer/config';
 import {

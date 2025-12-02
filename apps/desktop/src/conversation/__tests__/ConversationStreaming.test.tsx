@@ -1,7 +1,7 @@
+import type { SendUserMessageParams } from '@pasture/protocol';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { SendUserMessageParams } from '~/codex.gen/SendUserMessageParams';
 import { mockCodex, mockEvents } from '~/testing/codex';
 
 import {

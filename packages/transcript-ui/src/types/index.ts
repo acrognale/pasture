@@ -37,8 +37,8 @@ export type BaseTranscriptCell = {
 export type TranscriptUserMessageCell = BaseTranscriptCell & {
   kind: 'user-message';
   message: string;
-  messageKind?: string;
-  images?: string[];
+  messageKind?: string | null;
+  images?: string[] | null;
 };
 
 /**
@@ -47,6 +47,7 @@ export type TranscriptUserMessageCell = BaseTranscriptCell & {
 export type TranscriptAgentMessageCell = BaseTranscriptCell & {
   kind: 'agent-message';
   message: string;
+  streaming?: boolean;
 };
 
 /**
@@ -56,6 +57,7 @@ export type TranscriptAgentReasoningCell = BaseTranscriptCell & {
   kind: 'agent-reasoning';
   text: string;
   visible?: boolean;
+  streaming?: boolean;
 };
 
 /**
@@ -64,9 +66,31 @@ export type TranscriptAgentReasoningCell = BaseTranscriptCell & {
 export type TranscriptTaskCell = BaseTranscriptCell & {
   kind: 'task';
   status: 'started' | 'complete';
-  modelContextWindow?: string;
-  lastAgentMessage?: string;
-  startedAt?: string;
+  modelContextWindow?: string | null;
+  lastAgentMessage?: string | null;
+  startedAt?: string | null;
+};
+
+/**
+ * Parsed command entry for exploration calls
+ */
+export type ParsedCommand = {
+  type: 'read' | 'list_files' | 'search' | 'exec' | 'unknown';
+  cmd: string;
+  name?: string | null;
+  path?: string | null;
+  query?: string | null;
+};
+
+/**
+ * Exploration call within an exec cell
+ */
+export type TranscriptExplorationCall = {
+  callId: string;
+  command: string[];
+  parsed: ParsedCommand[];
+  status: 'running' | 'succeeded' | 'failed';
+  duration?: string | null;
 };
 
 /**
@@ -82,7 +106,9 @@ export type TranscriptExecCell = BaseTranscriptCell & {
   stderr: string;
   aggregatedOutput?: string;
   exitCode?: number | null;
-  duration?: string;
+  duration?: string | null;
+  streaming?: boolean;
+  exploration?: { calls: TranscriptExplorationCall[] } | null;
 };
 
 /**
@@ -92,8 +118,8 @@ export type TranscriptExecApprovalCell = BaseTranscriptCell & {
   kind: 'exec-approval';
   callId: string;
   command: string[];
-  cwd?: string;
-  reason?: string;
+  cwd?: string | null;
+  reason?: string | null;
   decision: 'pending' | 'approved' | 'approved_for_session' | 'rejected';
 };
 
@@ -102,7 +128,7 @@ export type TranscriptExecApprovalCell = BaseTranscriptCell & {
  */
 export type TranscriptPlanCell = BaseTranscriptCell & {
   kind: 'plan';
-  explanation?: string;
+  explanation?: string | null;
   steps: Array<{ step: string; status: string }>;
 };
 
@@ -131,12 +157,12 @@ export type TranscriptErrorCell = BaseTranscriptCell & {
 export type TranscriptPatchCell = BaseTranscriptCell & {
   kind: 'patch';
   callId: string;
-  autoApproved?: boolean;
+  autoApproved?: boolean | null;
   changes: Record<string, FileChange | undefined>;
   status: 'applying' | 'succeeded' | 'failed';
-  stdout?: string;
-  stderr?: string;
-  success?: boolean;
+  stdout?: string | null;
+  stderr?: string | null;
+  success?: boolean | null;
 };
 
 /**
@@ -145,8 +171,8 @@ export type TranscriptPatchCell = BaseTranscriptCell & {
 export type TranscriptPatchApprovalCell = BaseTranscriptCell & {
   kind: 'patch-approval';
   callId: string;
-  reason?: string;
-  grantRoot?: string;
+  reason?: string | null;
+  grantRoot?: string | null;
   changes: Record<string, FileChange | undefined>;
   decision: 'pending' | 'approved' | 'rejected';
 };
@@ -225,11 +251,10 @@ export type TranscriptState = {
 /**
  * File change information for patches
  */
-export type FileChange = {
-  type: 'create' | 'update' | 'delete';
-  diff?: string;
-  content?: string;
-};
+export type FileChange =
+  | { type: 'add'; content: string }
+  | { type: 'delete'; content: string }
+  | { type: 'update'; unified_diff: string; move_path: string | null };
 
 /**
  * MCP tool invocation details
@@ -258,4 +283,15 @@ export type TranscriptContext = {
    * Workspace path for making file paths relative
    */
   workspacePath?: string;
+
+  /**
+   * Convert a file path to an image source URL.
+   * Platform-specific: Tauri uses asset protocol, web might use different approach.
+   */
+  convertImageSrc?: (path: string) => string;
+
+  /**
+   * Show a toast notification to the user.
+   */
+  showToast?: (message: string, type: 'success' | 'error') => void;
 };

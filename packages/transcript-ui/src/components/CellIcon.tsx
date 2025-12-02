@@ -1,4 +1,4 @@
-import { cn } from '~/lib/utils';
+import { cn } from '../lib/utils';
 
 export type CellIconStatus =
   | 'success'
@@ -69,3 +69,4 @@ export function CellIcon({ status, className }: CellIconProps) {
     </span>
   );
 }
+

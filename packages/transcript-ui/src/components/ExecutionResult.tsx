@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import type { TranscriptExecCommandCell } from '~/conversation/transcript/types';
 
-import { splitLines } from '../transcript-utils';
+import { splitLines } from '../lib/utils';
+import type { TranscriptExecCell } from '../types';
 import { Cell } from './Cell';
 import { CellIcon } from './CellIcon';
 
 type ExecutionResultProps = {
-  cell: TranscriptExecCommandCell;
+  cell: TranscriptExecCell;
   timestamp?: string;
 };
 
@@ -60,9 +60,10 @@ export function ExecutionResult({ cell }: ExecutionResultProps) {
   const status = cell.status;
   const hasStdout = cell.stdout.trim().length > 0;
   const hasStderr = cell.stderr.trim().length > 0;
+  const aggregatedOutput = cell.aggregatedOutput ?? '';
   const showAggregated =
     cell.streaming &&
-    cell.aggregatedOutput.trim().length > 0 &&
+    aggregatedOutput.trim().length > 0 &&
     !hasStdout &&
     !hasStderr;
 
@@ -90,7 +91,7 @@ export function ExecutionResult({ cell }: ExecutionResultProps) {
         </div>
         {showAggregated ? (
           <OutputSection
-            output={cell.aggregatedOutput}
+            output={aggregatedOutput}
             colorClass="text-muted-foreground"
           />
         ) : null}
@@ -113,3 +114,4 @@ export function ExecutionResult({ cell }: ExecutionResultProps) {
     </Cell>
   );
 }
+

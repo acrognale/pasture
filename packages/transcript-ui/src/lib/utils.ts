@@ -101,3 +101,37 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 export function splitLines(text: string): string[] {
   return text.split(/\r?\n/);
 }
+
+/**
+ * Clamp elapsed time to a non-negative integer
+ */
+const clampElapsed = (value: number): number => {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+};
+
+/**
+ * Format elapsed seconds into a compact human-readable string
+ */
+export function formatElapsedCompact(elapsedSeconds: number): string {
+  const totalSeconds = clampElapsed(elapsedSeconds);
+
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+
+  if (totalSeconds < 3600) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+  }
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}h ${minutes.toString().padStart(2, '0')}m ${seconds
+    .toString()
+    .padStart(2, '0')}s`;
+}

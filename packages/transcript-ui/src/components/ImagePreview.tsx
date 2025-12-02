@@ -1,5 +1,6 @@
-import { useTranscriptContext } from '@pasture/transcript-ui';
 import { useMemo, useState } from 'react';
+
+import { useTranscriptContext } from '../context/TranscriptContext';
 
 type ImagePreviewProps = {
   path: string;
@@ -106,3 +107,4 @@ export function ImagePreview({ path, alt }: ImagePreviewProps) {
     </>
   );
 }
+

@@ -74,6 +74,9 @@ importers:
       '@lexical/react':
         specifier: ^0.38.2
         version: 0.38.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(yjs@13.6.27)
+      '@pasture/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
       '@pasture/transcript-ui':
         specifier: workspace:*
         version: link:../../packages/transcript-ui
@@ -359,6 +362,21 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0
 
+  packages/protocol:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.4
+        version: 22.19.1
+      eslint:
+        specifier: ^9.13.0
+        version: 9.39.1(jiti@2.6.1)
+      prettier:
+        specifier: ^3.3.3
+        version: 3.6.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/transcript-ui:
     dependencies:
       clsx:
@@ -385,9 +403,15 @@ importers:
       remark-breaks:
         specifier: ^4.0.0
         version: 4.0.0
+      remark-directive:
+        specifier: ^4.0.0
+        version: 4.0.0
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
+      streamdown:
+        specifier: ^1.5.0
+        version: 1.5.0(@types/mdast@4.0.4)(@types/react@19.2.2)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.0)(unified@11.0.5)
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0

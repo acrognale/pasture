@@ -1,4 +1,4 @@
-import type { FileChange } from '~/codex.gen/FileChange';
+import type { FileChange } from '@pasture/protocol';
 
 export type ExecApprovalRequest = {
   kind: 'exec';

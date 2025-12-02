@@ -1,6 +1,6 @@
+import type { ConversationEventPayload } from '@pasture/protocol';
+import type { ParsedCommand } from '@pasture/protocol';
 import { describe, expect, it } from 'vitest';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { ParsedCommand } from '~/codex.gen/ParsedCommand';
 
 import { mapConversationEventToApprovalRequest } from '../event-utils';
 

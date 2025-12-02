@@ -1,5 +1,5 @@
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { EventMsg } from '~/codex.gen/EventMsg';
+import type { ConversationEventPayload } from '@pasture/protocol';
+import type { EventMsg } from '@pasture/protocol';
 
 import {
   DEFAULT_REPLAY_TIMING,

@@ -5,8 +5,8 @@ import remarkBreaks from 'remark-breaks';
 import remarkDirective from 'remark-directive';
 import remarkGfm from 'remark-gfm';
 import { Streamdown } from 'streamdown';
-import { cn } from '~/lib/utils';
 
+import { cn } from '../lib/utils';
 import { CopyButton } from './CopyButton';
 
 type MarkdownProps = {
@@ -34,25 +34,16 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
 }
 
 const markdownComponents: Components = {
-  code({
-    inline,
-    className,
-    children,
-    ...props
-  }: {
-    inline: boolean;
-    className: string;
-    children: React.ReactNode;
-    props: React.HTMLAttributes<HTMLElement>;
-  }) {
-    // Inline code: explicitly marked inline, OR no language className
-    const isInline = inline ?? !className;
+  code(props) {
+    const { className, children, ...rest } = props;
+    // Check if this is inline code (no language class = inline)
+    const isInline = !className;
 
     if (isInline) {
       return (
         <code
           className="rounded bg-muted px-1.5 py-0.5 text-[0.9em] font-mono"
-          {...props}
+          {...rest}
         >
           {children}
         </code>
@@ -85,7 +76,7 @@ const markdownComponents: Components = {
 
   h1({ children }) {
     return (
-      <h1 className="mb-2 mt-4 text-[length:var(--text-markdown-h1)] font-medium leading-tight">
+      <h1 className="mb-2 mt-4 text-(length:--text-markdown-h1) font-medium leading-tight">
         {children}
       </h1>
     );
@@ -93,7 +84,7 @@ const markdownComponents: Components = {
 
   h2({ children }) {
     return (
-      <h2 className="mb-2 mt-3 text-[length:var(--text-markdown-h2)] font-medium leading-tight">
+      <h2 className="mb-2 mt-3 text-(length:--text-markdown-h2) font-medium leading-tight">
         {children}
       </h2>
     );
@@ -101,7 +92,7 @@ const markdownComponents: Components = {
 
   h3({ children }) {
     return (
-      <h3 className="mb-1 mt-2 text-[length:var(--text-markdown-h3)] font-medium leading-snug">
+      <h3 className="mb-1 mt-2 text-(length:--text-markdown-h3) font-medium leading-snug">
         {children}
       </h3>
     );
@@ -109,7 +100,7 @@ const markdownComponents: Components = {
 
   h4({ children }) {
     return (
-      <h4 className="mb-1 mt-2 text-[length:var(--text-markdown-h4)] font-medium leading-snug">
+      <h4 className="mb-1 mt-2 text-(length:--text-markdown-h4) font-medium leading-snug">
         {children}
       </h4>
     );
@@ -117,7 +108,7 @@ const markdownComponents: Components = {
 
   h5({ children }) {
     return (
-      <h5 className="mb-1 mt-2 text-[length:var(--text-markdown-h5)] font-medium leading-snug">
+      <h5 className="mb-1 mt-2 text-(length:--text-markdown-h5) font-medium leading-snug">
         {children}
       </h5>
     );
@@ -125,7 +116,7 @@ const markdownComponents: Components = {
 
   h6({ children }) {
     return (
-      <h6 className="mb-1 mt-2 text-[length:var(--text-markdown-h6)] font-medium leading-snug">
+      <h6 className="mb-1 mt-2 text-(length:--text-markdown-h6) font-medium leading-snug">
         {children}
       </h6>
     );
@@ -220,3 +211,4 @@ export function Markdown({
     </div>
   );
 }
+

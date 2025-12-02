@@ -1,10 +1,10 @@
+import type { CodexEvent } from '@pasture/protocol';
+import type { EventMsg } from '@pasture/protocol';
+import type { ParsedCommand } from '@pasture/protocol';
 import { act, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ApprovalsStore } from '~/approvals/store';
-import type { CodexEvent } from '~/codex.gen/CodexEvent';
-import type { EventMsg } from '~/codex.gen/EventMsg';
-import type { ParsedCommand } from '~/codex.gen/ParsedCommand';
 import { useWorkspaceApprovalsStore } from '~/workspace';
 import { WorkspaceProvider } from '~/workspace/WorkspaceProvider';
 

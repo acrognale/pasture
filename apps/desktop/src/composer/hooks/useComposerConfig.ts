@@ -1,9 +1,9 @@
+import type { AskForApproval } from '@pasture/protocol';
+import type { ComposerTurnConfigPayload } from '@pasture/protocol';
+import type { UpdateComposerConfigParams } from '@pasture/protocol';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { toast } from 'sonner';
-import type { AskForApproval } from '~/codex.gen/AskForApproval';
-import type { ComposerTurnConfigPayload } from '~/codex.gen/ComposerTurnConfigPayload';
-import type { UpdateComposerConfigParams } from '~/codex.gen/UpdateComposerConfigParams';
 import { Codex } from '~/codex/client';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 import { useWorkspaceActions } from '~/workspace';

@@ -1,9 +1,9 @@
+import type { AuthState } from '@pasture/protocol';
+import type { CodexEvent } from '@pasture/protocol';
+import type { ConversationEventPayload } from '@pasture/protocol';
+import type { EventMsg } from '@pasture/protocol';
+import type { ThreadMetadataPayload } from '@pasture/protocol';
 import { type UnlistenFn, listen } from '@tauri-apps/api/event';
-import type { AuthState } from '~/codex.gen/AuthState';
-import type { CodexEvent } from '~/codex.gen/CodexEvent';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { EventMsg } from '~/codex.gen/EventMsg';
-import type { ThreadMetadataPayload } from '~/codex.gen/ThreadMetadataPayload';
 
 export const isTauriEnvironment = (): boolean =>
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;

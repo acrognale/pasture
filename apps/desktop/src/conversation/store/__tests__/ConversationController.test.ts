@@ -1,6 +1,6 @@
 // @vitest-environment node
+import type { ConversationEventPayload } from '@pasture/protocol';
 import { describe, expect, it } from 'vitest';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 import {
   buildControllerFromFixture,
   loadFixtureEvents,

@@ -1,5 +1,5 @@
+import type { Conversation } from '@pasture/protocol';
 import { describe, expect, test } from 'vitest';
-import type { Conversation } from '~/codex.gen/Conversation';
 
 import { getForksAtMessage } from '../getForksAtMessage';
 

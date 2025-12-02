@@ -1,7 +1,7 @@
-import type { AskForApproval } from '~/codex.gen/AskForApproval';
-import type { ReasoningEffort } from '~/codex.gen/ReasoningEffort';
-import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
-import type { SandboxMode } from '~/codex.gen/SandboxMode';
+import type { AskForApproval } from '@pasture/protocol';
+import type { ReasoningEffort } from '@pasture/protocol';
+import type { ReasoningSummary } from '@pasture/protocol';
+import type { SandboxMode } from '@pasture/protocol';
 
 const SANDBOX_VALUES: readonly SandboxMode[] = [
   'read-only',

@@ -1,8 +1,8 @@
+import type { InitializeThreadResponse } from '@pasture/protocol';
+import type { ListThreadsResponse } from '@pasture/protocol';
+import type { ThreadSummary } from '@pasture/protocol';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import type { InitializeThreadResponse } from '~/codex.gen/InitializeThreadResponse';
-import type { ListThreadsResponse } from '~/codex.gen/ListThreadsResponse';
-import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { mockCodex, mockEvents } from '~/testing/codex';
 

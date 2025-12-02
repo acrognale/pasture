@@ -1,8 +1,9 @@
+import { useTranscriptContext } from '@pasture/transcript-ui';
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '~/components/ui/button';
-import { cn, copyToClipboard } from '~/lib/utils';
+import { cn } from '~/lib/utils';
 
 type CopyButtonProps = {
   content: string;
@@ -15,18 +16,19 @@ export function CopyButton({
   content,
   className,
   label = 'Copy',
-  showToast = false,
+  showToast: shouldShowToast = false,
 }: CopyButtonProps) {
+  const { copyToClipboard } = useTranscriptContext();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    if (!content) {
+    if (!content || !copyToClipboard) {
       return;
     }
 
     const success = await copyToClipboard(content);
 
-    if (showToast) {
+    if (shouldShowToast) {
       if (success) {
         toast.success('Copied to clipboard');
       } else {

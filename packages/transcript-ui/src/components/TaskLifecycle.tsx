@@ -1,11 +1,10 @@
-import type { TranscriptTaskCell } from '~/conversation/transcript/types';
-import { formatElapsedCompact } from '~/lib/time';
-
+import { formatElapsedCompact } from '../lib/utils';
+import type { TranscriptTaskCell } from '../types';
 import { Cell } from './Cell';
 
 type TaskLifecycleProps = {
   cell: TranscriptTaskCell;
-  timestamp: string;
+  timestamp?: string;
 };
 
 export function TaskLifecycle({ cell }: TaskLifecycleProps) {
@@ -15,7 +14,7 @@ export function TaskLifecycle({ cell }: TaskLifecycleProps) {
     if (isStarted) {
       return 'Task started';
     }
-    if (cell.startedAt) {
+    if (cell.startedAt && cell.timestamp) {
       const startTime = new Date(cell.startedAt).getTime();
       const endTime = new Date(cell.timestamp).getTime();
       const elapsedSeconds = Math.floor((endTime - startTime) / 1000);
@@ -48,3 +47,4 @@ export function TaskLifecycle({ cell }: TaskLifecycleProps) {
     </Cell>
   );
 }
+

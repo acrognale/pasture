@@ -1,5 +1,5 @@
+import type { ThreadSummary } from '@pasture/protocol';
 import type { QueryClient } from '@tanstack/react-query';
-import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import {
   normalizeWorkspaceSlashes,
   trimWorkspaceTrailingSeparators,

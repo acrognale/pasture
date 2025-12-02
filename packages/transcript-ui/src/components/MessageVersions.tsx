@@ -1,4 +1,12 @@
-import type { MessageVersionEntry } from '../hooks/useMessageVersions';
+/**
+ * Message version entry for version navigation
+ */
+export type MessageVersionEntry = {
+  conversationId: string;
+  createdAt: string;
+  parentConversationId: string | null;
+  forkedAtNthUserMessage: number | null;
+};
 
 type MessageVersionsProps = {
   versions: MessageVersionEntry[];
@@ -76,3 +84,4 @@ export const MessageVersions = ({
     </div>
   );
 };
+

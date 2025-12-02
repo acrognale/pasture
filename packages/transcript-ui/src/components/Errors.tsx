@@ -1,11 +1,10 @@
-import type { TranscriptErrorCell } from '~/conversation/transcript/types';
-
+import type { TranscriptErrorCell } from '../types';
 import { Cell } from './Cell';
 import { CellIcon } from './CellIcon';
 
 type ErrorsProps = {
   cell: TranscriptErrorCell;
-  timestamp: string;
+  timestamp?: string;
 };
 
 export function Errors({ cell }: ErrorsProps) {
@@ -21,3 +20,4 @@ export function Errors({ cell }: ErrorsProps) {
     </Cell>
   );
 }
+

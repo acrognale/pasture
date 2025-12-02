@@ -1,8 +1,8 @@
+import type { Conversation } from '@pasture/protocol';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { describe, expect, test } from 'vitest';
-import type { Conversation } from '~/codex.gen/Conversation';
 import { ConversationPane } from '~/conversation/ConversationPane';
 import { ConversationProvider } from '~/conversation/store';
 import { mockCodex, mockEvents } from '~/testing/codex';

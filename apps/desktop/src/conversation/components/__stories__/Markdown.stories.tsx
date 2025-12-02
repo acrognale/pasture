@@ -1,6 +1,5 @@
+import { Markdown } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-
-import { Markdown } from '../Markdown';
 
 const meta: Meta<typeof Markdown> = {
   title: 'Components/Message/Markdown',

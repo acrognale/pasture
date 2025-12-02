@@ -9,11 +9,31 @@ import type { TranscriptContext as TranscriptContextType } from '../types';
 
 const TranscriptContext = createContext<TranscriptContextType | null>(null);
 
+/**
+ * Default image source converter - returns the path as-is.
+ * Platforms can override to use asset protocols (e.g., Tauri's convertFileSrc).
+ */
+const defaultConvertImageSrc = (path: string): string => path;
+
+/**
+ * Default toast implementation - logs to console.
+ * Platforms can override with their own notification system.
+ */
+const defaultShowToast = (message: string, type: 'success' | 'error'): void => {
+  if (type === 'error') {
+    console.error(message);
+  } else {
+    console.log(message);
+  }
+};
+
 type TranscriptProviderProps = {
   children: ReactNode;
   copyToClipboard?: (text: string) => Promise<boolean>;
   formatTimestamp?: (timestamp: string) => string;
   workspacePath?: string;
+  convertImageSrc?: (path: string) => string;
+  showToast?: (message: string, type: 'success' | 'error') => void;
 };
 
 /**
@@ -25,14 +45,18 @@ export function TranscriptProvider({
   copyToClipboard = defaultCopyToClipboard,
   formatTimestamp = formatTimestampClock,
   workspacePath,
+  convertImageSrc = defaultConvertImageSrc,
+  showToast = defaultShowToast,
 }: TranscriptProviderProps) {
   const value = useMemo<TranscriptContextType>(
     () => ({
       copyToClipboard,
       formatTimestamp,
       workspacePath,
+      convertImageSrc,
+      showToast,
     }),
-    [copyToClipboard, formatTimestamp, workspacePath]
+    [copyToClipboard, formatTimestamp, workspacePath, convertImageSrc, showToast]
   );
 
   return (
@@ -54,6 +78,8 @@ export function useTranscriptContext(): TranscriptContextType {
     return {
       copyToClipboard: defaultCopyToClipboard,
       formatTimestamp: formatTimestampClock,
+      convertImageSrc: defaultConvertImageSrc,
+      showToast: defaultShowToast,
     };
   }
 

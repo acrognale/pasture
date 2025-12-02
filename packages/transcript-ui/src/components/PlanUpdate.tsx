@@ -1,10 +1,9 @@
-import type { TranscriptPlanCell } from '~/conversation/transcript/types';
-
+import type { TranscriptPlanCell } from '../types';
 import { Cell } from './Cell';
 
 type PlanUpdateProps = {
   cell: TranscriptPlanCell;
-  timestamp: string;
+  timestamp?: string;
 };
 
 export function PlanUpdate({ cell }: PlanUpdateProps) {
@@ -23,3 +22,4 @@ export function PlanUpdate({ cell }: PlanUpdateProps) {
     </Cell>
   );
 }
+

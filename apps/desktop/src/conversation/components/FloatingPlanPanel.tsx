@@ -1,9 +1,9 @@
+import { CellIcon } from '@pasture/transcript-ui';
 import { LayoutGroup, motion } from 'framer-motion';
 import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { useLatestPlan } from '../store/hooks';
-import { CellIcon } from './CellIcon';
 
 type FloatingPlanPanelProps = {
   conversationId: string;

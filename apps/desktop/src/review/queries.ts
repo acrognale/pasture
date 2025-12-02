@@ -1,10 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import type {
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
   ListTurnSnapshotsResponse,
-} from '~/codex.gen';
+} from '@pasture/protocol';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { Codex } from '~/codex/client';
 
 import { parseUnifiedDiff } from './diff';

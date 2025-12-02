@@ -44,6 +44,7 @@ Important: always run `turbo lint` and `turbo typecheck` when you finish making 
 ## Notes
 
 - You **MUST** escape dollar signs in file paths when using the shell tool.
+- You must **NEVER** re-export types needlessly. If a type is already exported, use it directly.
 
 ## Github Workflows
 

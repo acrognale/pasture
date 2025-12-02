@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { cn } from '~/lib/utils';
+
+import { cn } from '../lib/utils';
 
 const cellBase =
   'w-full px-1.5 py-2 font-transcript leading-transcript text-transcript-base text-foreground';
@@ -27,3 +28,4 @@ export function Cell({ icon, className, children }: CellProps) {
     </div>
   );
 }
+

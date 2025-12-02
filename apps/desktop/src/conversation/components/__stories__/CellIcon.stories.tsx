@@ -1,6 +1,5 @@
+import { CellIcon } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-
-import { CellIcon } from '../CellIcon';
 
 const meta: Meta<typeof CellIcon> = {
   title: 'Components/Foundation/CellIcon',

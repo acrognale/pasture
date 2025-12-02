@@ -37,8 +37,6 @@ const TranscriptTurnGroup = ({
   turn,
   turnId,
   enableCollapsing,
-  isExpanded,
-  onToggle,
 }: TranscriptTurnGroupProps) => {
   const cellsWithIndex = turn.cells.map((cell, idx) => ({ cell, idx }));
 

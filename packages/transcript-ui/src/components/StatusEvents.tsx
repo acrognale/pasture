@@ -1,14 +1,50 @@
-import type { BackgroundEventEvent } from '~/codex.gen/BackgroundEventEvent';
-import type { TokenCountEvent } from '~/codex.gen/TokenCountEvent';
-import type { TurnAbortedEvent } from '~/codex.gen/TurnAbortedEvent';
-import type { TranscriptStatusCell } from '~/conversation/transcript/types';
-
+import type { TranscriptStatusCell } from '../types';
 import { Cell } from './Cell';
 import { CellIcon } from './CellIcon';
 
 type StatusEventsProps = {
   cell: TranscriptStatusCell;
-  timestamp: string;
+  timestamp?: string;
+};
+
+/**
+ * Token usage information from a token count event
+ */
+type TokenUsage = {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+};
+
+/**
+ * Extract token usage from cell data if available
+ */
+const getTokenUsage = (data: unknown): TokenUsage | null => {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+  const info = (data as { info?: { total_token_usage?: TokenUsage } }).info;
+  return info?.total_token_usage ?? null;
+};
+
+/**
+ * Extract reason from turn aborted event data
+ */
+const getTurnAbortedReason = (data: unknown): string | null => {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+  return (data as { reason?: string }).reason ?? null;
+};
+
+/**
+ * Extract message from background event data
+ */
+const getBackgroundMessage = (data: unknown): string | null => {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+  return (data as { message?: string }).message ?? null;
 };
 
 export function StatusEvents({ cell }: StatusEventsProps) {
@@ -28,8 +64,7 @@ export function StatusEvents({ cell }: StatusEventsProps) {
 }
 
 const TokenCountContent = ({ cell }: { cell: TranscriptStatusCell }) => {
-  const usage = (cell.data as TokenCountEvent | undefined)?.info
-    ?.total_token_usage;
+  const usage = getTokenUsage(cell.data);
 
   if (!usage) {
     return <div className="text-muted-foreground">{cell.summary}</div>;
@@ -51,23 +86,20 @@ const TokenCountContent = ({ cell }: { cell: TranscriptStatusCell }) => {
 };
 
 const TurnAbortedContent = ({ cell }: { cell: TranscriptStatusCell }) => {
-  const payload = cell.data as TurnAbortedEvent | undefined;
+  const reason = getTurnAbortedReason(cell.data);
   return (
     <div className="space-y-1">
-      <div className="text-muted-foreground">
-        {payload?.reason ?? cell.summary}
-      </div>
+      <div className="text-muted-foreground">{reason ?? cell.summary}</div>
     </div>
   );
 };
 
 const BackgroundContent = ({ cell }: { cell: TranscriptStatusCell }) => {
-  const payload = cell.data as BackgroundEventEvent | undefined;
+  const message = getBackgroundMessage(cell.data);
   return (
     <div className="space-y-1">
-      <div className="text-muted-foreground">
-        {payload?.message ?? cell.summary}
-      </div>
+      <div className="text-muted-foreground">{message ?? cell.summary}</div>
     </div>
   );
 };
+

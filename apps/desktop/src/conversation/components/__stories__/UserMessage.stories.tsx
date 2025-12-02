@@ -1,16 +1,12 @@
+import { UserMessage } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { TranscriptUserMessageCell } from '~/conversation/transcript/types';
-
-import { UserMessage } from '../UserMessage';
 
 const meta: Meta<typeof UserMessage> = {
   title: 'Components/Message/UserMessage',
   component: UserMessage,
   parameters: {
     layout: 'padded',
-  },
-  args: {
-    conversationId: 'story-conversation',
   },
 };
 
@@ -31,8 +27,6 @@ const createCell = (
   itemId: null,
   ...overrides,
 });
-
-const storyConversationId = 'story-conversation';
 
 export const Simple: Story = {
   args: {
@@ -158,7 +152,6 @@ export const Conversation: Story = {
           message: 'Search for all TypeScript files in src/',
           messageKind: 'search',
         })}
-        conversationId={storyConversationId}
         timestamp={new Date().toISOString()}
       />
       <UserMessage
@@ -166,7 +159,6 @@ export const Conversation: Story = {
           message:
             'Now find all files that import React and show me their structure',
         })}
-        conversationId={storyConversationId}
         timestamp={new Date().toISOString()}
       />
       <UserMessage
@@ -174,7 +166,6 @@ export const Conversation: Story = {
           message: "Here are some screenshots of the errors I'm seeing",
           images: ['error1.png', 'error2.png', 'error3.png'],
         })}
-        conversationId={storyConversationId}
         timestamp={new Date().toISOString()}
       />
       <UserMessage
@@ -184,7 +175,6 @@ export const Conversation: Story = {
 2. Add proper error handling
 3. Update the tests`,
         })}
-        conversationId={storyConversationId}
         timestamp={new Date().toISOString()}
       />
     </div>
@@ -200,7 +190,6 @@ export const AllVariations: Story = {
         </div>
         <UserMessage
           cell={createCell({ message: 'Can you help me?' })}
-          conversationId={storyConversationId}
           timestamp={new Date().toISOString()}
         />
       </div>
@@ -213,7 +202,6 @@ export const AllVariations: Story = {
             message: 'Find all React components',
             messageKind: 'search',
           })}
-          conversationId={storyConversationId}
           timestamp={new Date().toISOString()}
         />
       </div>
@@ -224,7 +212,6 @@ export const AllVariations: Story = {
             message: 'Look at these screenshots',
             images: ['img1.png', 'img2.png'],
           })}
-          conversationId={storyConversationId}
           timestamp={new Date().toISOString()}
         />
       </div>
@@ -238,7 +225,6 @@ export const AllVariations: Story = {
             messageKind: 'analyze',
             images: ['error.png'],
           })}
-          conversationId={storyConversationId}
           timestamp={new Date().toISOString()}
         />
       </div>

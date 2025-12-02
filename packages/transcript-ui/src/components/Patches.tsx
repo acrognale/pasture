@@ -1,18 +1,25 @@
-import { ApprovalActions } from '~/approvals/components/ApprovalActions';
-import { useApprovals } from '~/approvals/hooks/useApprovals';
-import { useRespondToApproval } from '~/approvals/hooks/useRespondToApproval';
-import type { FileChange } from '~/codex.gen/FileChange';
+import { splitLines } from '../lib/utils';
 import type {
+  FileChange,
   TranscriptPatchApprovalCell,
   TranscriptPatchCell,
-} from '~/conversation/transcript/types';
-
-import { splitLines } from '../transcript-utils';
+} from '../types';
+import { ApprovalActions } from './ApprovalActions';
 import { Cell } from './Cell';
 import { CellIcon } from './CellIcon';
 
 type PatchesProps = {
   cell: TranscriptPatchCell | TranscriptPatchApprovalCell;
+  /** Whether this approval is currently active (for approval cells) */
+  isApprovalActive?: boolean;
+  /** Number of approvals in the queue */
+  queueSize?: number;
+  /** Whether a response is pending */
+  isPending?: boolean;
+  /** Callback when user approves */
+  onApprove?: () => void;
+  /** Callback when user rejects */
+  onReject?: () => void;
 };
 
 const countChanges = (
@@ -121,17 +128,14 @@ const FileChanges = ({
   );
 };
 
-export function Patches({ cell }: PatchesProps) {
-  const approvals = useApprovals();
-  const respondToApproval = useRespondToApproval();
-
-  const isApproval = cell.kind === 'patch-approval';
-  const isCurrentApprovalActive =
-    isApproval &&
-    approvals.activeRequest !== null &&
-    approvals.activeRequest.kind === 'patch' &&
-    approvals.activeRequest.eventId === cell.id;
-
+export function Patches({
+  cell,
+  isApprovalActive = false,
+  queueSize = 0,
+  isPending = false,
+  onApprove,
+  onReject,
+}: PatchesProps) {
   const iconStatus = (() => {
     if (cell.kind === 'patch-approval') {
       return 'warning';
@@ -161,19 +165,11 @@ export function Patches({ cell }: PatchesProps) {
           <ApprovalActions
             decision={cell.decision}
             approvalType="patch"
-            isActive={Boolean(isCurrentApprovalActive)}
-            queueSize={approvals.queueSize}
-            isPending={respondToApproval.isPending}
-            onApprove={() => {
-              const request = approvals.activeRequest;
-              if (!request) return;
-              respondToApproval.mutate({ request, decision: 'approve' });
-            }}
-            onReject={() => {
-              const request = approvals.activeRequest;
-              if (!request) return;
-              respondToApproval.mutate({ request, decision: 'abort' });
-            }}
+            isActive={isApprovalActive}
+            queueSize={queueSize}
+            isPending={isPending}
+            onApprove={onApprove ?? (() => {})}
+            onReject={onReject ?? (() => {})}
           />
         </div>
       </Cell>
@@ -202,8 +198,8 @@ export function Patches({ cell }: PatchesProps) {
         ? 'Edits attempted:'
         : 'Edits to apply:';
 
-  const hasStdout = cell.stdout.trim().length > 0;
-  const hasStderr = cell.stderr.trim().length > 0;
+  const hasStdout = (cell.stdout ?? '').trim().length > 0;
+  const hasStderr = (cell.stderr ?? '').trim().length > 0;
 
   return (
     <Cell icon={<CellIcon status={iconStatus} />}>

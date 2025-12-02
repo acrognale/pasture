@@ -1,5 +1,5 @@
+import type { ThreadSummary } from '@pasture/protocol';
 import { useMemo } from 'react';
-import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 
 import {
   useWorkspaceRecentThreads,

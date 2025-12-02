@@ -1,22 +1,24 @@
+import {
+  Cell,
+  CellIcon,
+  Errors,
+  ExecutionResult,
+  ExplorationCell,
+  PlanUpdate,
+  StatusEvents,
+  TaskLifecycle,
+  safeStringify,
+} from '@pasture/transcript-ui';
 import { memo } from 'react';
 import type { TranscriptCell } from '~/conversation/transcript/types';
 import { formatTimestampClock } from '~/lib/time';
-import { safeStringify } from '~/lib/utils';
 
-import { AgentMessage } from './AgentMessage';
-import { AgentReasoning } from './AgentReasoning';
-import { Cell } from './Cell';
-import { CellIcon } from './CellIcon';
-import { Errors } from './Errors';
-import { ExecutionApproval } from './ExecutionApproval';
-import { ExecutionResult } from './ExecutionResult';
-import { ExplorationCell } from './ExplorationCell';
-import { Patches } from './Patches';
-import { PlanUpdate } from './PlanUpdate';
-import { StatusEvents } from './StatusEvents';
-import { TaskLifecycle } from './TaskLifecycle';
+import { AgentMessageContainer } from './AgentMessageContainer';
+import { AgentReasoningContainer } from './AgentReasoningContainer';
+import { ExecutionApprovalContainer } from './ExecutionApprovalContainer';
+import { PatchesContainer } from './PatchesContainer';
 import { Tools } from './Tools';
-import { UserMessage } from './UserMessage';
+import { UserMessageContainer } from './UserMessageContainer';
 
 type TranscriptCellsProps = {
   cell: TranscriptCell;
@@ -38,24 +40,21 @@ const TranscriptCellsComponent = ({
       return <div />;
     case 'user-message':
       return (
-        <UserMessage
+        <UserMessageContainer
           cell={cell}
-          timestamp={timestamp}
           conversationId={conversationId}
           nthUserMessage={nthUserMessage}
           onConversationForked={onConversationForked}
         />
       );
     case 'agent-message':
-      return <AgentMessage cell={cell} timestamp={timestamp} />;
+      return <AgentMessageContainer cell={cell} />;
     case 'agent-reasoning':
-      return cell.visible ? (
-        <AgentReasoning cell={cell} timestamp={timestamp} />
-      ) : null;
+      return cell.visible ? <AgentReasoningContainer cell={cell} /> : null;
     case 'task':
       return <TaskLifecycle cell={cell} timestamp={timestamp} />;
     case 'exec-approval':
-      return <ExecutionApproval cell={cell} />;
+      return <ExecutionApprovalContainer cell={cell} />;
     case 'exec':
       return cell.exploration ? (
         <ExplorationCell cell={cell} timestamp={timestamp} />
@@ -66,7 +65,7 @@ const TranscriptCellsComponent = ({
       return <Tools cell={cell} timestamp={timestamp} />;
     case 'patch':
     case 'patch-approval':
-      return <Patches cell={cell} />;
+      return <PatchesContainer cell={cell} />;
     case 'plan':
       return <PlanUpdate cell={cell} timestamp={timestamp} />;
     case 'status':

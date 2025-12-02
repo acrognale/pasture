@@ -1,4 +1,4 @@
-import type { ComposerTurnConfigPayload } from '~/codex.gen';
+import type { ComposerTurnConfigPayload } from '@pasture/protocol';
 
 // Type alias for consistency with existing code
 export type ComposerTurnConfig = ComposerTurnConfigPayload;

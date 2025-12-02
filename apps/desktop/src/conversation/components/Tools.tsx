@@ -1,8 +1,7 @@
+import { Cell, CellIcon } from '@pasture/transcript-ui';
 import { SearchIcon } from 'lucide-react';
 import type { TranscriptToolCell } from '~/conversation/transcript/types';
 
-import { Cell } from './Cell';
-import { CellIcon } from './CellIcon';
 import { ImagePreview } from './ImagePreview';
 
 type ToolsProps = {
