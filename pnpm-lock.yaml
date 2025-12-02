@@ -77,6 +77,9 @@ importers:
       '@pasture/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@pasture/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       '@pasture/transcript-ui':
         specifier: workspace:*
         version: link:../../packages/transcript-ui
@@ -264,6 +267,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@pasture/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       '@pasture/transcript-ui':
         specifier: workspace:*
         version: link:../../packages/transcript-ui
@@ -274,7 +280,7 @@ importers:
         specifier: ^7.0.1
         version: 7.0.1(prisma@7.0.1(@types/react@19.2.2)(magicast@0.3.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.3))(typescript@5.9.3)
       '@tailwindcss/vite':
-        specifier: ^4.0.6
+        specifier: ^4.1.14
         version: 4.1.17(vite@7.2.4(@types/node@22.19.1)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.20.6)(yaml@2.8.1))
       '@tanstack/react-devtools':
         specifier: ^0.7.0
@@ -313,7 +319,7 @@ importers:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
       tailwindcss:
-        specifier: ^4.0.6
+        specifier: ^4.1.14
         version: 4.1.17
       vite-tsconfig-paths:
         specifier: ^5.1.4
@@ -419,11 +425,30 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/theme:
+    dependencies:
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      tailwind-merge:
+        specifier: ^3.4.0
+        version: 3.4.0
+    devDependencies:
+      '@pasture/configs':
+        specifier: workspace:*
+        version: link:../configs
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/transcript-ui:
     dependencies:
       '@pasture/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@pasture/theme':
+        specifier: workspace:*
+        version: link:../theme
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -468,7 +493,7 @@ importers:
         specifier: workspace:*
         version: link:../configs
       '@tailwindcss/cli':
-        specifier: ^4.1.5
+        specifier: ^4.1.14
         version: 4.1.17
       '@testing-library/jest-dom':
         specifier: ^6.6.3
@@ -486,7 +511,7 @@ importers:
         specifier: ^26.1.0
         version: 26.1.0
       tailwindcss:
-        specifier: ^4.1.5
+        specifier: ^4.1.14
         version: 4.1.17
       typescript:
         specifier: ^5.9.3

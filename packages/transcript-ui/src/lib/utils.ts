@@ -1,24 +1,11 @@
-import { type ClassValue, clsx } from 'clsx';
-import { extendTailwindMerge } from 'tailwind-merge';
-
-/**
- * Extended tailwind-merge with transcript-specific theme tokens
- */
-const twMerge = extendTailwindMerge({
-  extend: {
-    theme: {
-      leading: ['transcript', 'transcript-code', 'transcript-tight'],
-      text: ['transcript-base', 'transcript-code', 'transcript-micro'],
-      font: ['transcript', 'transcript-code'],
-    },
-  },
-});
+import { type ClassValue } from 'clsx';
+import { cn as themeCn } from '@pasture/theme';
 
 /**
  * Merge class names with tailwind-merge support
  */
 export function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
+  return themeCn(...inputs);
 }
 
 /**

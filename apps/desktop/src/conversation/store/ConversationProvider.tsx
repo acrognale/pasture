@@ -25,7 +25,6 @@ import {
   isThreadMetadataUpdatedEvent,
   subscribeToCodexEvents,
 } from '~/codex/events';
-import { formatTimestampClock } from '~/lib/time';
 import { copyToClipboard } from '~/lib/utils';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 import {

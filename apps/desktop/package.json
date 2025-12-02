@@ -28,6 +28,7 @@
   "dependencies": {
     "@lexical/history": "^0.38.2",
     "@lexical/react": "^0.38.2",
+    "@pasture/theme": "workspace:*",
     "@pasture/transcript-ui": "workspace:*",
     "@pasture/protocol": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",

@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@pasture/protocol": "workspace:*",
+    "@pasture/theme": "workspace:*",
     "clsx": "^2.1.1",
     "framer-motion": "^12.0.6",
     "highlight.js": "^11.11.1",
@@ -40,11 +41,11 @@
     "@pasture/configs": "workspace:*",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
-    "@tailwindcss/cli": "^4.1.5",
+    "@tailwindcss/cli": "^4.1.14",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "jsdom": "^26.1.0",
-    "tailwindcss": "^4.1.5",
+    "tailwindcss": "^4.1.14",
     "typescript": "^5.9.3",
     "vitest": "^3.0.5"
   }

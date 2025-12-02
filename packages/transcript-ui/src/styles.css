@@ -1,3 +1,2 @@
-/* Component-level styles for the transcript-ui package */
 @import 'tailwindcss';
-@import './styles/tokens.css';
+@import '@pasture/theme/tokens.css';

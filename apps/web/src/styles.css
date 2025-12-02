@@ -1,5 +1,5 @@
+@import "@pasture/theme/tokens.css";
 @import "tailwindcss";
-@import "@pasture/transcript-ui/tokens.css";
 
 body {
   @apply m-0;

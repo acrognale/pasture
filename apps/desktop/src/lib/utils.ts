@@ -1,19 +1,9 @@
 import { writeText as tauriWriteText } from '@tauri-apps/plugin-clipboard-manager';
-import { type ClassValue, clsx } from 'clsx';
-import { extendTailwindMerge } from 'tailwind-merge';
-
-const twMerge = extendTailwindMerge({
-  extend: {
-    theme: {
-      leading: ['transcript', 'transcript-code', 'transcript-tight'],
-      text: ['transcript-base', 'transcript-code', 'transcript-micro'],
-      font: ['transcript', 'transcript-code'],
-    },
-  },
-});
+import { type ClassValue } from 'clsx';
+import { cn as themeCn } from '@pasture/theme';
 
 export function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
+  return themeCn(...inputs);
 }
 
 const normalizeJsonValue = (input: unknown): unknown =>
