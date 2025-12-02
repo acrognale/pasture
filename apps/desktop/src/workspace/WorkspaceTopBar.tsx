@@ -9,6 +9,7 @@ import {
 } from '~/conversation/store/hooks';
 import { copyToClipboard } from '~/lib/utils';
 import { formatWorkspaceLabel } from '~/lib/workspaces';
+import { useWorkspaceActions, useWorkspaceThreads } from '~/workspace';
 
 type WorkspaceTopBarProps = {
   workspacePath: string;
@@ -22,6 +23,8 @@ export function WorkspaceTopBar({
   activeConversationId,
 }: WorkspaceTopBarProps) {
   const { open } = useSidebar();
+  const { getThreadIdForConversation } = useWorkspaceActions();
+  const { items: threads } = useWorkspaceThreads();
   const hasReviewHistory = useConversationHasTurnDiffHistory(
     activeConversationId ?? ''
   );
@@ -33,6 +36,29 @@ export function WorkspaceTopBar({
     () => formatWorkspaceLabel(workspacePath),
     [workspacePath]
   );
+
+  const activeThreadId = useMemo(() => {
+    if (!activeConversationId) {
+      return null;
+    }
+    return getThreadIdForConversation(activeConversationId);
+  }, [activeConversationId, getThreadIdForConversation]);
+
+  const shareTitle = useMemo(() => {
+    if (activeThreadId) {
+      const thread = threads.find((item) => item.threadId === activeThreadId);
+      const normalizedTitle = thread?.title?.trim();
+      if (normalizedTitle) {
+        return normalizedTitle;
+      }
+      const normalizedPreview = thread?.preview?.trim();
+      if (normalizedPreview) {
+        return normalizedPreview;
+      }
+    }
+
+    return workspaceName;
+  }, [activeThreadId, threads, workspaceName]);
 
   const canShare =
     Boolean(activeConversationId) && turnOrder && turnOrder.length > 0;
@@ -53,7 +79,7 @@ export function WorkspaceTopBar({
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          title: workspaceName,
+          title: shareTitle,
           model: undefined,
           transcript: { turns, turnOrder },
         }),

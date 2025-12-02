@@ -32,91 +32,284 @@ export const Route = createFileRoute('/s/$id')({
       createdAt: result.createdAt.toISOString(),
     };
   },
+  head: ({ loaderData }) => {
+    const data = loaderData as SharedThreadDTO | undefined;
+    const title = data?.title ?? 'Shared Thread';
+    return {
+      meta: [{ title: `${title} – Pasture` }],
+    };
+  },
   component: RouteComponent,
   errorComponent: ErrorComponent,
-  pendingComponent: () => (
-    <div className="flex min-h-[50vh] items-center justify-center text-slate-500">
-      Loading shared thread…
-    </div>
-  ),
+  pendingComponent: LoadingComponent,
 });
+
+function LoadingComponent() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative">
+          {/* Animated shepherd crook */}
+          <svg
+            className="w-12 h-12 text-pasture-meadow animate-gentle-float"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M18 3a3 3 0 0 0-3 3v12" />
+            <path d="M15 6a3 3 0 0 1 3-3h1" />
+            <path d="M15 21v-3" />
+          </svg>
+        </div>
+        <p className="font-body text-muted-foreground italic">
+          Gathering the thread…
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function RouteComponent() {
   const share = Route.useLoaderData() as SharedThreadDTO;
   const transcript = share.transcript as TranscriptState;
   const turnCount = transcript.turnOrder.length;
+  const formattedDate = formatRelativeDate(share.createdAt);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="container mx-auto flex flex-col gap-6 px-6 py-12">
-        <header className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-muted ring-1 ring-border" />
-            <div>
-              <p className="text-sm uppercase tracking-wide text-muted-foreground">
-                Shared via Pasture
-              </p>
-              <h1 className="text-2xl font-semibold text-foreground">
-                {share.title ?? 'Shared thread'}
-              </h1>
+    <div className="bg-background text-foreground">
+      {/* Hero section with pastoral background */}
+      <div className="hills-bg relative">
+        <div className="max-w-4xl mx-auto px-6 pt-8 pb-16 md:pt-10 md:pb-20">
+          {/* Byline */}
+          <div className="animate-fade-up">
+            <p className="font-body text-sm tracking-widest uppercase text-pasture-meadow mb-3">
+              Shared Conversation
+            </p>
+          </div>
+
+          {/* Title */}
+          <h1 className="font-display text-3xl md:text-4xl lg:text-5xl font-medium text-foreground leading-tight mb-4 animate-fade-up delay-100">
+            {share.title ?? (
+              <span className="italic text-muted-foreground">
+                Untitled Thread
+              </span>
+            )}
+          </h1>
+
+          {/* Meta + CTA row */}
+          <div className="flex flex-wrap items-center justify-between gap-4 animate-fade-up delay-200">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              {share.model ? (
+                <MetaPill icon={<ModelIcon />} label={share.model} />
+              ) : null}
+              <MetaPill
+                icon={<ConversationIcon />}
+                label={`${turnCount} turn${turnCount === 1 ? '' : 's'}`}
+              />
+              <span className="font-body text-sm text-muted-foreground italic">
+                {formattedDate}
+              </span>
             </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            {share.model ? <Badge label={share.model} /> : null}
-            <Badge label={`${turnCount} turn${turnCount === 1 ? '' : 's'}`} />
-            <Badge label={new Date(share.createdAt).toLocaleString()} />
-          </div>
-        </header>
 
-        <main>
-          <TranscriptView transcript={transcript} />
-        </main>
+            {/* CTA */}
+            <a
+              href="/"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pasture-meadow text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <span>Try Pasture</span>
+              <span className="text-white/70">→</span>
+            </a>
+          </div>
+        </div>
 
-        <footer className="text-sm text-muted-foreground">
-          <a
-            className="underline decoration-muted-foreground underline-offset-4 hover:text-foreground"
-            href="/"
+        {/* Rolling hills divider */}
+        <div className="absolute bottom-0 left-0 right-0 h-12 overflow-hidden">
+          <svg
+            className="absolute bottom-0 w-full h-16"
+            viewBox="0 0 1200 120"
+            preserveAspectRatio="none"
+            fill="var(--background)"
           >
-            Learn about Pasture
-          </a>
-        </footer>
+            <path d="M0,60 C200,100 400,20 600,60 C800,100 1000,20 1200,60 L1200,120 L0,120 Z" />
+          </svg>
+        </div>
       </div>
+
+      {/* Transcript section */}
+      <main className="relative -mt-4 z-10">
+        <div className="max-w-4xl mx-auto px-6">
+          {/* Editorial decorative line */}
+          <div className="flex items-center gap-4 mb-8 animate-fade-up delay-300">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+            <SheepIcon className="w-6 h-6 text-pasture-meadow opacity-60" />
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+          </div>
+
+          {/* Transcript container */}
+          <article className="animate-fade-up delay-400">
+            <TranscriptView transcript={transcript} />
+          </article>
+
+          {/* Footer */}
+          <footer className="mt-12 mb-8">
+            <div className="flex items-center justify-center gap-2 py-6 border-t border-border text-sm text-muted-foreground">
+              <span>Shared via</span>
+              <a
+                href="/"
+                className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-pasture-meadow transition-colors"
+              >
+                <img src="/logo.png" alt="" className="w-5 h-5 rounded" />
+                <span>Pasture</span>
+              </a>
+            </div>
+          </footer>
+        </div>
+      </main>
     </div>
   );
 }
 
-function Badge({ label }: { label: string }) {
+function MetaPill({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground ring-1 ring-border">
+    <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-pasture-cream border border-pasture-meadow/20 text-sm font-mono text-foreground/80">
+      <span className="text-pasture-meadow">{icon}</span>
       {label}
     </span>
   );
 }
 
+function ModelIcon() {
+  return (
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
+      <path d="M12 12v10" />
+      <path d="M8 18h8" />
+    </svg>
+  );
+}
+
+function ConversationIcon() {
+  return (
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function SheepIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {/* Fluffy body */}
+      <ellipse cx="12" cy="14" rx="7" ry="5" />
+      {/* Head */}
+      <circle cx="6" cy="11" r="3" />
+      {/* Ears */}
+      <ellipse cx="4" cy="9" rx="1" ry="1.5" />
+      {/* Legs */}
+      <line x1="9" y1="19" x2="9" y2="22" />
+      <line x1="15" y1="19" x2="15" y2="22" />
+      {/* Eye */}
+      <circle cx="5" cy="10.5" r="0.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function formatRelativeDate(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return 'Shared today';
+  } else if (diffDays === 1) {
+    return 'Shared yesterday';
+  } else if (diffDays < 7) {
+    return `Shared ${diffDays} days ago`;
+  } else {
+    return `Shared on ${date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    })}`;
+  }
+}
+
 function ErrorComponent({ error }: { error: unknown }) {
   if (error instanceof Response && error.status === 404) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 bg-background text-foreground">
-        <h2 className="text-2xl font-semibold">Thread not found</h2>
-        <p className="text-muted-foreground">
-          This shared thread doesn&apos;t exist or may have been removed.
-        </p>
-        <a
-          href="/"
-          className="rounded-full bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground ring-1 ring-border hover:bg-secondary/90"
-        >
-          Go home
-        </a>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center px-6">
+        <div className="max-w-md text-center">
+          {/* Lost sheep illustration */}
+          <div className="mb-8 animate-fade-up">
+            <div className="relative inline-block">
+              <SheepIcon className="w-24 h-24 text-muted-foreground/30" />
+              <span className="absolute -top-2 -right-2 text-3xl">?</span>
+            </div>
+          </div>
+
+          <h2 className="font-display text-3xl md:text-4xl font-medium text-foreground mb-4 animate-fade-up delay-100">
+            Thread Not Found
+          </h2>
+          <p className="font-body text-muted-foreground mb-8 animate-fade-up delay-200">
+            This conversation seems to have wandered off.
+            <br />
+            It may have been removed or never existed.
+          </p>
+          <a
+            href="/"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-pasture-meadow text-white font-medium text-sm hover:opacity-90 transition-opacity animate-fade-up delay-300"
+          >
+            <span>Return to pasture</span>
+            <span>→</span>
+          </a>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 bg-background text-foreground">
-      <h2 className="text-2xl font-semibold">Something went wrong</h2>
-      <pre className="text-xs text-muted-foreground">
-        {error instanceof Error ? error.message : 'Unknown error'}
-      </pre>
+    <div className="min-h-[70vh] flex flex-col items-center justify-center px-6">
+      <div className="max-w-md text-center">
+        <div className="mb-8">
+          <div className="w-16 h-16 mx-auto rounded-full bg-error/10 flex items-center justify-center">
+            <span className="text-2xl">⚠</span>
+          </div>
+        </div>
+        <h2 className="font-display text-2xl font-medium text-foreground mb-4">
+          Something Went Wrong
+        </h2>
+        <pre className="font-mono text-xs text-muted-foreground bg-muted/50 rounded-lg p-4 overflow-auto max-w-full">
+          {error instanceof Error ? error.message : 'Unknown error'}
+        </pre>
+      </div>
     </div>
   );
 }

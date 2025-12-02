@@ -31,6 +31,12 @@ export const ShareRequestSchema = z.object({
   transcript: TranscriptSchema,
 });
 
+const normalizeTitle = (value?: string | null) => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'OPTIONS, POST, GET',
@@ -100,9 +106,11 @@ export const Route = createFileRoute('/api/share')({
 
         const { db } = await import('@/lib/db');
 
+        const normalizedTitle = normalizeTitle(validated.data.title);
+
         const created = await db.sharedThread.create({
           data: {
-            title: validated.data.title ?? null,
+            title: normalizedTitle,
             model: validated.data.model ?? null,
             transcript: validated.data.transcript as Prisma.InputJsonValue,
           },
