@@ -24,6 +24,12 @@ export { Patches } from './components/Patches';
 export { PlanUpdate } from './components/PlanUpdate';
 export { StatusEvents } from './components/StatusEvents';
 export { TaskLifecycle } from './components/TaskLifecycle';
+export {
+  TranscriptView,
+  type TranscriptRenderContext,
+  type TranscriptViewOverrides,
+  type TranscriptViewProps,
+} from './components/TranscriptView';
 export { UserMessage } from './components/UserMessage';
 
 // Context
