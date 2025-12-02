@@ -7,7 +7,7 @@ fn main() -> anyhow::Result<()> {
     let out_dir = env::args()
         .nth(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("../../desktop/src/codex.gen"));
+        .unwrap_or_else(|| PathBuf::from("../../packages/protocol/src"));
 
     if out_dir.exists() {
         fs::remove_dir_all(&out_dir)

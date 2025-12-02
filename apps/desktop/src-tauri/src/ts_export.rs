@@ -210,7 +210,7 @@ fn generate_client_file(out_dir: &Path) -> Result<PathBuf> {
         sorted_imports.sort();
         let type_list = sorted_imports.join(", ");
         content.push_str(&format!(
-            "import type {{ {type_list} }} from '~/codex.gen';\n"
+            "import type {{ {type_list} }} from '@pasture/protocol';\n"
         ));
     }
 
@@ -327,7 +327,7 @@ fn resolve_prettier(start: &Path) -> Option<PathBuf> {
     // Canonicalize the starting path so that we correctly walk actual
     // filesystem parents instead of relative segments like `../..`.
     // This allows us to discover the workspace root `node_modules/.bin`
-    // even when `start` is a relative path such as `../../desktop/src/codex.gen`.
+    // even when `start` is a relative path such as `../../packages/protocol/src`.
     let mut current = start.canonicalize().ok();
 
     while let Some(dir) = current.as_deref() {
