@@ -2,9 +2,6 @@
  * Design tokens for transcript UI components.
  * Import this file in your app's CSS to get the base styling.
  * Override these CSS custom properties to customize the appearance.
- *
- * Naming follows Tailwind 4 convention: --{utility-namespace}-{variant}
- * e.g., --leading-transcript creates the `leading-transcript` utility class.
  */
 
 @theme {
