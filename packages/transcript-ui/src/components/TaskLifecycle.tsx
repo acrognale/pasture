@@ -4,7 +4,6 @@ import { Cell } from './Cell';
 
 type TaskLifecycleProps = {
   cell: TranscriptTaskCell;
-  timestamp?: string;
 };
 
 export function TaskLifecycle({ cell }: TaskLifecycleProps) {
@@ -47,4 +46,3 @@ export function TaskLifecycle({ cell }: TaskLifecycleProps) {
     </Cell>
   );
 }
-

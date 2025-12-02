@@ -4,7 +4,6 @@ import { CellIcon } from './CellIcon';
 
 type ErrorsProps = {
   cell: TranscriptErrorCell;
-  timestamp?: string;
 };
 
 export function Errors({ cell }: ErrorsProps) {
@@ -20,4 +19,3 @@ export function Errors({ cell }: ErrorsProps) {
     </Cell>
   );
 }
-

@@ -3,7 +3,6 @@ import { Cell } from './Cell';
 
 type PlanUpdateProps = {
   cell: TranscriptPlanCell;
-  timestamp?: string;
 };
 
 export function PlanUpdate({ cell }: PlanUpdateProps) {
@@ -22,4 +21,3 @@ export function PlanUpdate({ cell }: PlanUpdateProps) {
     </Cell>
   );
 }
-

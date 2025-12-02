@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 
-import { useTranscriptContext } from '../context/TranscriptContext';
 import type {
   TranscriptAgentMessageCell,
   TranscriptAgentReasoningCell,
@@ -131,8 +130,7 @@ const coerceGenericToExecCell = (
 });
 
 const renderDefaultCell = (
-  cell: TranscriptCell,
-  timestamp: string | undefined
+  cell: TranscriptCell
 ) => {
   switch (cell.kind) {
     case 'session-configured':
@@ -140,37 +138,35 @@ const renderDefaultCell = (
     case 'user-message':
       return <UserMessage cell={cell} />;
     case 'agent-message':
-      return <AgentMessage cell={cell} timestamp={timestamp} />;
+      return <AgentMessage cell={cell} />;
     case 'agent-reasoning':
-      return cell.visible ? (
-        <AgentReasoning cell={cell} timestamp={timestamp} />
-      ) : null;
+      return cell.visible ? <AgentReasoning cell={cell} /> : null;
     case 'task':
-      return <TaskLifecycle cell={cell} timestamp={timestamp} />;
+      return <TaskLifecycle cell={cell} />;
     case 'exec-approval':
       return <ExecutionApproval cell={cell} />;
     case 'exec':
       return cell.exploration ? (
-        <ExplorationCell cell={cell} timestamp={timestamp} />
+        <ExplorationCell cell={cell} />
       ) : (
-        <ExecutionResult cell={cell} timestamp={timestamp} />
+        <ExecutionResult cell={cell} />
       );
     case 'tool': {
       const execLike = coerceToolToExecCell(cell);
-      return <ExecutionResult cell={execLike} timestamp={timestamp} />;
+      return <ExecutionResult cell={execLike} />;
     }
     case 'patch':
     case 'patch-approval':
       return <Patches cell={cell} />;
     case 'plan':
-      return <PlanUpdate cell={cell} timestamp={timestamp} />;
+      return <PlanUpdate cell={cell} />;
     case 'status':
-      return <StatusEvents cell={cell} timestamp={timestamp} />;
+      return <StatusEvents cell={cell} />;
     case 'error':
-      return <Errors cell={cell} timestamp={timestamp} />;
+      return <Errors cell={cell} />;
     case 'generic': {
       const execLike = coerceGenericToExecCell(cell);
-      return <ExecutionResult cell={execLike} timestamp={timestamp} />;
+      return <ExecutionResult cell={execLike} />;
     }
     default:
       return null;
@@ -178,20 +174,11 @@ const renderDefaultCell = (
 };
 
 export function TranscriptView({ overrides, ...listProps }: TranscriptViewProps) {
-  const { formatTimestamp } = useTranscriptContext();
-
-  const resolveTimestamp = useCallback(
-    (raw: string | undefined) =>
-      raw && formatTimestamp ? formatTimestamp(raw) : raw,
-    [formatTimestamp]
-  );
-
   const renderCell = useCallback<
     NonNullable<TranscriptListProps['renderCell']>
   >(
     (cell, context) => {
-      const timestamp = resolveTimestamp(cell.timestamp);
-      const defaultNode = renderDefaultCell(cell, timestamp);
+      const defaultNode = renderDefaultCell(cell);
 
       const override = overrides?.[
         cell.kind as keyof TranscriptViewOverrides
@@ -207,7 +194,7 @@ export function TranscriptView({ overrides, ...listProps }: TranscriptViewProps)
         defaultNode,
       });
     },
-    [overrides, resolveTimestamp]
+    [overrides]
   );
 
   return (

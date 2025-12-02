@@ -7,7 +7,6 @@ import { CellIcon } from './CellIcon';
 
 type ExecutionResultProps = {
   cell: TranscriptExecCommandCell;
-  timestamp?: string;
 };
 
 const OUTPUT_MAX_LINES = 5;

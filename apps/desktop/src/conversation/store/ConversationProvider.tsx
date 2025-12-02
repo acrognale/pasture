@@ -276,7 +276,6 @@ export function ConversationProvider({
   return (
     <TranscriptProvider
       copyToClipboard={copyToClipboard}
-      formatTimestamp={formatTimestampClock}
       workspacePath={workspacePath}
       convertImageSrc={convertImageSrcFn}
       showToast={showToastFn}

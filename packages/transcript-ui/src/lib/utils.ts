@@ -86,11 +86,22 @@ export function formatTimestampClock(timestamp: string | undefined): string {
  * Default clipboard copy function using navigator.clipboard
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
+  if (typeof navigator === 'undefined') {
+    console.warn('[copyToClipboard] navigator is unavailable');
+    return false;
+  }
+
+  const clipboard = navigator.clipboard;
+  if (!clipboard || typeof clipboard.writeText !== 'function') {
+    console.warn('[copyToClipboard] clipboard API is not available');
+    return false;
+  }
+
   try {
-    await navigator.clipboard.writeText(text);
+    await clipboard.writeText(text);
     return true;
   } catch (error) {
-    console.error('Failed to copy to clipboard', error);
+    console.error('[copyToClipboard] Failed to copy to clipboard', error);
     return false;
   }
 }

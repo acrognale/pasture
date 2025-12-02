@@ -20,7 +20,7 @@ describe('PlanUpdate', () => {
   test('renders only the first in-progress step', () => {
     const cell = createPlanCell();
 
-    render(<PlanUpdate cell={cell} timestamp="12:00" />);
+    render(<PlanUpdate cell={cell} />);
 
     expect(
       screen.getByText('Starting: Draft release announcement')
@@ -44,7 +44,7 @@ describe('PlanUpdate', () => {
     };
 
     const { container } = render(
-      <PlanUpdate cell={completedCell} timestamp="12:00" />
+      <PlanUpdate cell={completedCell} />
     );
 
     expect(container.firstChild).toBeNull();

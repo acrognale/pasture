@@ -33,7 +33,6 @@ export const Fatal: Story = {
       message:
         'Fatal error: Unable to connect to the server. Please check your network connection and try again.',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -44,7 +43,6 @@ export const Stream: Story = {
       message:
         'Warning: The API returned a partial response. Some data may be incomplete.',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -55,7 +53,6 @@ export const AuthenticationError: Story = {
       message:
         'Authentication failed: Invalid API key. Please check your credentials in settings.',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -66,7 +63,6 @@ export const RateLimitError: Story = {
       message:
         'Rate limit exceeded: Too many requests. Please wait 60 seconds before trying again.',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -77,7 +73,6 @@ export const FileNotFoundError: Story = {
       message:
         'File not found: src/components/NonExistent.tsx\n\nThe requested file does not exist in the workspace.',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -88,7 +83,6 @@ export const ParseError: Story = {
       message:
         'Warning: Failed to parse response from AI model. Retrying with simplified prompt.',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -99,7 +93,6 @@ export const TimeoutError: Story = {
       message:
         'Request timeout: The operation took too long to complete and was cancelled after 30 seconds.',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -115,7 +108,6 @@ Line 44: Expected 2 arguments, but got 1
 
 Please fix these errors before continuing.`,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -125,7 +117,6 @@ export const ShortError: Story = {
       severity: 'error',
       message: 'Connection refused',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -138,7 +129,6 @@ export const AllSeverities: Story = {
           severity: 'error',
           message: 'Fatal error: System crashed unexpectedly',
         })}
-        timestamp={new Date().toISOString()}
       />
       <div className="text-xs text-muted-foreground mb-1 mt-4">
         Stream error (warning):
@@ -149,7 +139,6 @@ export const AllSeverities: Story = {
           message:
             'Warning: Partial data received, continuing with available information',
         })}
-        timestamp={new Date().toISOString()}
       />
     </div>
   ),

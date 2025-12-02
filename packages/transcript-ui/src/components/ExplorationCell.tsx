@@ -7,7 +7,6 @@ import { CellIcon } from './CellIcon';
 
 type ExplorationCellProps = {
   cell: TranscriptExecCommandCell;
-  timestamp?: string;
 };
 
 const describeExplorationCall = (call: TranscriptExplorationCall): string[] => {

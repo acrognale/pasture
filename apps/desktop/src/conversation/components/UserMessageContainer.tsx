@@ -5,7 +5,6 @@ import { Codex } from '~/codex/client';
 import { buildInputItems } from '~/conversation/hooks/useSendMessage';
 import type { TranscriptUserMessageCell } from '@pasture/transcript-ui';
 import type { MessageAttachment } from '~/conversation/types';
-import { formatTimestampClock } from '~/lib/time';
 import { copyToClipboard } from '~/lib/utils';
 import { useWorkspaceActions } from '~/workspace';
 
@@ -25,7 +24,6 @@ export function UserMessageContainer({
   onConversationForked,
 }: UserMessageContainerProps) {
   const message = cell.message ?? '';
-  const timestamp = formatTimestampClock(cell.timestamp);
   const messageAttachments: MessageAttachment[] = useMemo(
     () =>
       (cell.images ?? []).map((path) => ({
@@ -174,7 +172,6 @@ export function UserMessageContainer({
   return (
     <UserMessage
       cell={cell}
-      timestamp={timestamp}
       versions={versions}
       activeConversationId={activeConversationId}
       isVersionsLoading={versionsLoading}

@@ -32,7 +32,6 @@ export const Simple: Story = {
     cell: createCell({
       message: 'I can help you with that. Let me analyze the code first.',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -56,7 +55,6 @@ function handleSubmit(data: FormData) {
 
 This should resolve the validation error.`,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -67,7 +65,6 @@ export const Streaming: Story = {
         'I am currently analyzing your request and will provide a response shortly',
       streaming: true,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -76,7 +73,6 @@ export const Empty: Story = {
     cell: createCell({
       message: '',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -156,7 +152,6 @@ function generateToken(userId: number): string {
 
 Would you like me to implement these changes?`,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -197,7 +192,6 @@ function UserProfile({ userId }: { userId: number }) {
 }
 \`\`\``,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -216,7 +210,6 @@ Next steps:
 - Run the test suite
 - Deploy to staging environment`,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -227,7 +220,6 @@ export const Conversation: Story = {
         cell={createCell({
           message: 'Let me search for authentication-related files.',
         })}
-        timestamp={new Date().toISOString()}
       />
       <AgentMessage
         cell={createCell({
@@ -235,7 +227,6 @@ export const Conversation: Story = {
             'I found 3 files. Let me analyze the authentication implementation.',
           streaming: true,
         })}
-        timestamp={new Date().toISOString()}
       />
       <AgentMessage
         cell={createCell({
@@ -251,7 +242,6 @@ function verifyToken(token: string) {
 
 I'll fix this now.`,
         })}
-        timestamp={new Date().toISOString()}
       />
     </div>
   ),

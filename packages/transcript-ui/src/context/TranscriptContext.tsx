@@ -1,10 +1,7 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import {
-  copyToClipboard as defaultCopyToClipboard,
-  formatTimestampClock,
-} from '../lib/utils';
+import { copyToClipboard as defaultCopyToClipboard } from '../lib/utils';
 import type { TranscriptContext as TranscriptContextType } from '../types';
 
 const TranscriptContext = createContext<TranscriptContextType | null>(null);
@@ -30,7 +27,6 @@ const defaultShowToast = (message: string, type: 'success' | 'error'): void => {
 type TranscriptProviderProps = {
   children: ReactNode;
   copyToClipboard?: (text: string) => Promise<boolean>;
-  formatTimestamp?: (timestamp: string) => string;
   workspacePath?: string;
   convertImageSrc?: (path: string) => string;
   showToast?: (message: string, type: 'success' | 'error') => void;
@@ -43,7 +39,6 @@ type TranscriptProviderProps = {
 export function TranscriptProvider({
   children,
   copyToClipboard = defaultCopyToClipboard,
-  formatTimestamp = formatTimestampClock,
   workspacePath,
   convertImageSrc = defaultConvertImageSrc,
   showToast = defaultShowToast,
@@ -51,12 +46,11 @@ export function TranscriptProvider({
   const value = useMemo<TranscriptContextType>(
     () => ({
       copyToClipboard,
-      formatTimestamp,
       workspacePath,
       convertImageSrc,
       showToast,
     }),
-    [copyToClipboard, formatTimestamp, workspacePath, convertImageSrc, showToast]
+    [copyToClipboard, workspacePath, convertImageSrc, showToast]
   );
 
   return (
@@ -77,7 +71,6 @@ export function useTranscriptContext(): TranscriptContextType {
   if (!context) {
     return {
       copyToClipboard: defaultCopyToClipboard,
-      formatTimestamp: formatTimestampClock,
       convertImageSrc: defaultConvertImageSrc,
       showToast: defaultShowToast,
     };

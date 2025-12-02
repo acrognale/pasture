@@ -4,7 +4,6 @@ import { Markdown } from './Markdown';
 
 type AgentReasoningProps = {
   cell: TranscriptAgentReasoningCell;
-  timestamp?: string;
   /**
    * Optional pre-rendered display text. If provided, this will be used
    * instead of the cell's text (skipping streaming animation).
@@ -31,4 +30,3 @@ export function AgentReasoning({ cell, displayText }: AgentReasoningProps) {
     </Cell>
   );
 }
-

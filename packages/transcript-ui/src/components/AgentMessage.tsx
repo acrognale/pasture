@@ -5,7 +5,6 @@ import { Markdown } from './Markdown';
 
 type AgentMessageProps = {
   cell: TranscriptAgentMessageCell;
-  timestamp?: string;
   /**
    * Optional pre-rendered display text. If provided, this will be used
    * instead of the cell's message (skipping streaming animation).

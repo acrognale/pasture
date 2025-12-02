@@ -4,7 +4,6 @@ import type { TranscriptToolCell } from '@pasture/transcript-ui';
 
 type ToolsProps = {
   cell: TranscriptToolCell;
-  timestamp: string;
 };
 
 const formatResult = (value: unknown) => {

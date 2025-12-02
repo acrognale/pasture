@@ -4,7 +4,6 @@ import { CellIcon } from './CellIcon';
 
 type StatusEventsProps = {
   cell: TranscriptStatusCell;
-  timestamp?: string;
 };
 
 /**
@@ -102,4 +101,3 @@ const BackgroundContent = ({ cell }: { cell: TranscriptStatusCell }) => {
     </div>
   );
 };
-

@@ -33,7 +33,6 @@ export const Simple: Story = {
     cell: createCell({
       message: 'Can you help me fix this bug?',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -46,7 +45,6 @@ The error message says "Invalid credentials" but I'm sure the password is correc
 
 Can you help me debug this?`,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -56,7 +54,6 @@ export const WithSlashCommand: Story = {
       message: 'Search for authentication-related files',
       messageKind: 'search',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -66,7 +63,6 @@ export const WithImages: Story = {
       message: "Here's a screenshot of the error I'm getting",
       images: ['screenshot1.png', 'screenshot2.png'],
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -77,7 +73,6 @@ export const WithImagesAndCommand: Story = {
       messageKind: 'analyze',
       images: ['error-screenshot.png'],
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -86,7 +81,6 @@ export const Empty: Story = {
     cell: createCell({
       message: '',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -106,7 +100,6 @@ Can you help me investigate this issue? I need to figure out:
 
 The relevant code is in src/components/RegistrationForm.tsx and src/hooks/useFormValidation.ts.`,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -121,7 +114,6 @@ function greet(name) {
 
 console.log(greet());`,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -130,7 +122,6 @@ export const Question: Story = {
     cell: createCell({
       message: 'What files are in the src directory?',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -140,7 +131,6 @@ export const Task: Story = {
       message:
         'Please update the authentication system to use JWT tokens with expiration',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -152,21 +142,18 @@ export const Conversation: Story = {
           message: 'Search for all TypeScript files in src/',
           messageKind: 'search',
         })}
-        timestamp={new Date().toISOString()}
       />
       <UserMessage
         cell={createCell({
           message:
             'Now find all files that import React and show me their structure',
         })}
-        timestamp={new Date().toISOString()}
       />
       <UserMessage
         cell={createCell({
           message: "Here are some screenshots of the errors I'm seeing",
           images: ['error1.png', 'error2.png', 'error3.png'],
         })}
-        timestamp={new Date().toISOString()}
       />
       <UserMessage
         cell={createCell({
@@ -175,7 +162,6 @@ export const Conversation: Story = {
 2. Add proper error handling
 3. Update the tests`,
         })}
-        timestamp={new Date().toISOString()}
       />
     </div>
   ),
@@ -190,7 +176,6 @@ export const AllVariations: Story = {
         </div>
         <UserMessage
           cell={createCell({ message: 'Can you help me?' })}
-          timestamp={new Date().toISOString()}
         />
       </div>
       <div>
@@ -202,7 +187,6 @@ export const AllVariations: Story = {
             message: 'Find all React components',
             messageKind: 'search',
           })}
-          timestamp={new Date().toISOString()}
         />
       </div>
       <div>
@@ -212,7 +196,6 @@ export const AllVariations: Story = {
             message: 'Look at these screenshots',
             images: ['img1.png', 'img2.png'],
           })}
-          timestamp={new Date().toISOString()}
         />
       </div>
       <div>
@@ -225,7 +208,6 @@ export const AllVariations: Story = {
             messageKind: 'analyze',
             images: ['error.png'],
           })}
-          timestamp={new Date().toISOString()}
         />
       </div>
     </div>

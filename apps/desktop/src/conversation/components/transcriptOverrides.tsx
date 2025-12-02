@@ -30,7 +30,7 @@ const renderGenericCell = (cell: TranscriptGenericCell) => (
 );
 
 const renderToolCell = (cell: TranscriptToolCell) => (
-  <Tools cell={cell} timestamp={cell.timestamp} />
+  <Tools cell={cell} />
 );
 
 export const createTranscriptOverrides = ({

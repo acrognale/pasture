@@ -10,11 +10,6 @@ export type TranscriptContext = {
   copyToClipboard?: (text: string) => Promise<boolean>;
 
   /**
-   * Format a timestamp for display.
-   */
-  formatTimestamp?: (timestamp: string) => string;
-
-  /**
    * Workspace path for making file paths relative.
    */
   workspacePath?: string;

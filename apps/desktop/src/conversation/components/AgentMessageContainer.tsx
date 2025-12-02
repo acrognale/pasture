@@ -1,7 +1,6 @@
 import { AgentMessage } from '@pasture/transcript-ui';
 import { useStreamingText } from '~/conversation/hooks/useStreamingText';
 import type { TranscriptAgentMessageCell } from '@pasture/transcript-ui';
-import { formatTimestampClock } from '~/lib/time';
 
 type AgentMessageContainerProps = {
   cell: TranscriptAgentMessageCell;
@@ -9,16 +8,11 @@ type AgentMessageContainerProps = {
 
 export function AgentMessageContainer({ cell }: AgentMessageContainerProps) {
   const message = cell.message ?? '';
-  const timestamp = formatTimestampClock(cell.timestamp);
   const animatedMessage = useStreamingText(message, {
     enabled: cell.streaming,
   });
 
   return (
-    <AgentMessage
-      cell={cell}
-      timestamp={timestamp}
-      displayText={animatedMessage}
-    />
+    <AgentMessage cell={cell} displayText={animatedMessage} />
   );
 }

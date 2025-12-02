@@ -8,7 +8,6 @@ import { MessageVersions } from './MessageVersions';
 
 type UserMessageProps = {
   cell: TranscriptUserMessageCell;
-  timestamp?: string;
   /** Message versions for navigation */
   versions?: MessageVersionEntry[];
   /** Currently active conversation ID */
@@ -254,4 +253,3 @@ export function UserMessage({
     </div>
   );
 }
-
