@@ -1,6 +1,6 @@
+@import "tailwindcss";
 @import "@pasture/theme/tokens.css";
 @import "@pasture/transcript-ui/styles.css";
-@import "tailwindcss";
 
 /* Self-hosted editorial fonts (Fraunces + Source Serif 4) */
 @font-face {

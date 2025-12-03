@@ -1,14 +1,12 @@
 import {
   Cell,
   CellIcon,
-  safeStringify,
   type TranscriptGenericCell,
   type TranscriptToolCell,
   type TranscriptViewOverrides,
+  safeStringify,
 } from '@pasture/transcript-ui';
 
-import { AgentMessageContainer } from './AgentMessageContainer';
-import { AgentReasoningContainer } from './AgentReasoningContainer';
 import { ExecutionApprovalContainer } from './ExecutionApprovalContainer';
 import { PatchesContainer } from './PatchesContainer';
 import { Tools } from './Tools';
@@ -29,9 +27,7 @@ const renderGenericCell = (cell: TranscriptGenericCell) => (
   </Cell>
 );
 
-const renderToolCell = (cell: TranscriptToolCell) => (
-  <Tools cell={cell} />
-);
+const renderToolCell = (cell: TranscriptToolCell) => <Tools cell={cell} />;
 
 export const createTranscriptOverrides = ({
   conversationId,
@@ -45,9 +41,6 @@ export const createTranscriptOverrides = ({
       onConversationForked={onConversationForked}
     />
   ),
-  'agent-message': ({ cell }) => <AgentMessageContainer cell={cell} />,
-  'agent-reasoning': ({ cell }) =>
-    cell.visible ? <AgentReasoningContainer cell={cell} /> : null,
   'exec-approval': ({ cell }) => <ExecutionApprovalContainer cell={cell} />,
   patch: ({ cell }) => <PatchesContainer cell={cell} />,
   'patch-approval': ({ cell }) => <PatchesContainer cell={cell} />,

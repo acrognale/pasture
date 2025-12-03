@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
-import type { ComponentType, ReactNode } from 'react';
-import type { PluggableList } from 'unified';
+import type { ReactNode } from 'react';
 
 import type {
   TranscriptAgentMessageCell,
@@ -25,7 +24,6 @@ import { Errors } from './Errors';
 import { ExecutionApproval } from './ExecutionApproval';
 import { ExecutionResult } from './ExecutionResult';
 import { ExplorationCell } from './ExplorationCell';
-import { MarkdownRendererProps } from './Markdown';
 import { Patches } from './Patches';
 import { PlanUpdate } from './PlanUpdate';
 import { StatusEvents } from './StatusEvents';
@@ -76,8 +74,6 @@ export type TranscriptViewOverrides = {
 
 export type TranscriptViewProps = Omit<TranscriptListProps, 'renderCell'> & {
   overrides?: TranscriptViewOverrides;
-  markdownRehypePlugins?: PluggableList;
-  markdownRenderer?: ComponentType<MarkdownRendererProps>;
 };
 
 const coerceToolToExecCell = (
@@ -131,12 +127,7 @@ const coerceGenericToExecCell = (
   exploration: null,
 });
 
-export function TranscriptView({
-  overrides,
-  markdownRehypePlugins,
-  markdownRenderer,
-  ...listProps
-}: TranscriptViewProps) {
+export function TranscriptView({ overrides, ...listProps }: TranscriptViewProps) {
   const renderDefaultCell = useCallback(
     (cell: TranscriptCell) => {
       switch (cell.kind) {
@@ -148,16 +139,12 @@ export function TranscriptView({
           return (
             <AgentMessage
               cell={cell}
-              rehypePlugins={markdownRehypePlugins}
-              renderer={markdownRenderer}
             />
           );
         case 'agent-reasoning':
           return cell.visible ? (
             <AgentReasoning
               cell={cell}
-              rehypePlugins={markdownRehypePlugins}
-              renderer={markdownRenderer}
             />
           ) : null;
         case 'task':
@@ -191,7 +178,7 @@ export function TranscriptView({
           return null;
       }
     },
-    [markdownRehypePlugins]
+    []
   );
 
   const renderCell = useCallback<

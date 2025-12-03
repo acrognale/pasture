@@ -7,8 +7,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import rehypeHighlight from 'rehype-highlight';
-import { Streamdown } from 'streamdown';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 
@@ -150,8 +148,6 @@ export const ConversationTranscriptSection = forwardRef<
             contentRef={transcriptContentRef}
             shouldAnimateInitial={shouldAnimateInitial}
             overrides={overrides}
-            markdownRenderer={Streamdown}
-            markdownRehypePlugins={[rehypeHighlight]}
           />
         );
       }

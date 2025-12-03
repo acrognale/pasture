@@ -144,6 +144,7 @@ export type TranscriptStatusCell = BaseTranscriptCell & {
   kind: 'status';
   statusType: 'token-count' | 'turn-aborted' | 'background';
   summary: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: Record<string, any>;
 };
 
@@ -179,6 +180,7 @@ export type TranscriptToolCell = BaseTranscriptCell & {
   status: 'running' | 'succeeded' | 'failed';
   callId: string | null;
   invocation: McpInvocation | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result: Record<string, any>;
   duration: string | null;
   path: string | null;
@@ -189,6 +191,7 @@ export type TranscriptToolCell = BaseTranscriptCell & {
 export type TranscriptGenericCell = BaseTranscriptCell & {
   kind: 'generic';
   eventType: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: Record<string, any>;
 };
 

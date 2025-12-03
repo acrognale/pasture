@@ -3,8 +3,8 @@ import type { MotionProps } from 'framer-motion';
 import { useMemo } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
 
-import type { TranscriptCell, TranscriptState, TranscriptTurn } from '../types';
 import { cn } from '../lib/utils';
+import type { TranscriptCell, TranscriptState, TranscriptTurn } from '../types';
 
 const isAgentOrStatus = (cell: TranscriptCell) =>
   cell.kind === 'agent-message' ||
@@ -369,7 +369,11 @@ export function TranscriptList(props: TranscriptListProps) {
   }
 
   return (
-    <div ref={contentRef} className={className ?? 'px-6 pt-4 pb-4 select-text'}>
+    <div
+      id="transcript"
+      ref={contentRef}
+      className={className ?? 'px-6 pt-4 pb-4 select-text'}
+    >
       <AnimatePresence initial={shouldAnimateInitial}>
         {turnEntries.map(({ turnId, turn }, index) => (
           <TranscriptTurnGroup

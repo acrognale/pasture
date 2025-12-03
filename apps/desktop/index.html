@@ -12,11 +12,11 @@
     <title>Pasture</title>
     <script src="http://localhost:8097"></script>
     <script type="module">
-      // if (import.meta.env.DEV) {
-      //   const reactScan = document.createElement('script');
-      //   reactScan.src = 'https://unpkg.com/react-scan/dist/auto.global.js';
-      //   document.head.appendChild(reactScan);
-      // }
+      if (import.meta.env.DEV) {
+        const reactScan = document.createElement('script');
+        reactScan.src = 'https://unpkg.com/react-scan/dist/auto.global.js';
+        document.head.appendChild(reactScan);
+      }
     </script>
   </head>
   <body>

@@ -140,9 +140,6 @@ importers:
       framer-motion:
         specifier: ^12.23.24
         version: 12.23.24(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      highlight.js:
-        specifier: ^11.11.1
-        version: 11.11.1
       immer:
         specifier: ^11.0.1
         version: 11.0.1
@@ -158,9 +155,6 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
-      react-markdown:
-        specifier: ^9.1.0
-        version: 9.1.0(@types/react@19.2.2)(react@19.2.0)
       rehype-highlight:
         specifier: ^7.0.2
         version: 7.0.2
@@ -174,14 +168,11 @@ importers:
         specifier: ^4.0.1
         version: 4.0.1
       shiki:
-        specifier: ^3.17.0
+        specifier: ^3.12.2
         version: 3.17.0
       sonner:
         specifier: ^1.7.4
         version: 1.7.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
-      streamdown:
-        specifier: ^1.5.0
-        version: 1.5.0(@types/mdast@4.0.4)(@types/react@19.2.2)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.0)(unified@11.0.5)
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0
@@ -470,6 +461,9 @@ importers:
       framer-motion:
         specifier: ^12.0.6
         version: 12.23.24(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      highlight.js:
+        specifier: ^11.11.1
+        version: 11.11.1
       lucide-react:
         specifier: ^0.553.0
         version: 0.553.0(react@19.2.0)
@@ -480,8 +474,11 @@ importers:
         specifier: ^19.0.0
         version: 19.2.0(react@19.2.0)
       react-markdown:
-        specifier: ^9.1.0
-        version: 9.1.0(@types/react@19.2.2)(react@19.2.0)
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.2.2)(react@19.2.0)
+      rehype-highlight:
+        specifier: ^7.0.2
+        version: 7.0.2
       remark-breaks:
         specifier: ^4.0.0
         version: 4.0.0
@@ -491,6 +488,9 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
+      streamdown:
+        specifier: ^1.6.10
+        version: 1.6.10(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.0)
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.4.0
@@ -4899,6 +4899,10 @@ packages:
   hast-util-whitespace@3.0.0:
     resolution: {integrity: sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw==}
 
+  hast@1.0.0:
+    resolution: {integrity: sha512-vFUqlRV5C+xqP76Wwq2SrM0kipnmpxJm7OfvVXpB35Fp+Fn4MV+ozr+JZr5qFvyR1q/U+Foim2x+3P+x9S1PLA==}
+    deprecated: Renamed to rehype
+
   hastscript@9.0.1:
     resolution: {integrity: sha512-g7df9rMFX/SPi34tyGCyUBREQoKkapwdY/T04Qn9TDWfHhAYt4/I0gMVirzK5wEzeUqIjEB+LXC/ypb7Aqno5w==}
 
@@ -6117,12 +6121,6 @@ packages:
       '@types/react': '>=18'
       react: '>=18'
 
-  react-markdown@9.1.0:
-    resolution: {integrity: sha512-xaijuJB0kzGiUdG7nc2MOMDUDBWPyGAjZtUrow9XxUeua8IqeP+VlIfAZ3bphpcLTnSZXz6z9jcVC/TCwbfgdw==}
-    peerDependencies:
-      '@types/react': '>=18'
-      react: '>=18'
-
   react-refresh@0.18.0:
     resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
     engines: {node: '>=0.10.0'}
@@ -6197,8 +6195,8 @@ packages:
     resolution: {integrity: sha512-dYqgNSZbDwkaJ2ceRd9ojCGjBq+mOm9LmtXnAnEGyHhN/5R7iDW2TRw3h+o/jCFxus3P2LfWIIiwowAjANm7IA==}
     engines: {node: '>= 0.4'}
 
-  rehype-harden@1.1.5:
-    resolution: {integrity: sha512-JrtBj5BVd/5vf3H3/blyJatXJbzQfRT9pJBmjafbTaPouQCAKxHwRyCc7dle9BXQKxv4z1OzZylz/tNamoiG3A==}
+  rehype-harden@1.1.6:
+    resolution: {integrity: sha512-5WyX6BFEWYmmbCF/S2gNRklfgPGTiGjviAjbseO4XlpqEilWBkvWwve6uU/JB3C0JvG/qxCZa3rBn8+ajy4i/A==}
 
   rehype-highlight@7.0.2:
     resolution: {integrity: sha512-k158pK7wdC2qL3M5NcZROZ2tR/l7zOzjxXd5VGdcfIyoijjQqpHd3JKtYSBDpDZ38UI2WJWuFAtkMDxmx5kstA==}
@@ -6252,6 +6250,9 @@ packages:
 
   remeda@2.21.3:
     resolution: {integrity: sha512-XXrZdLA10oEOQhLLzEJEiFFSKi21REGAkHdImIb4rt/XXy8ORGXh5HCcpUOsElfPNDb+X6TA/+wkh+p2KffYmg==}
+
+  remend@1.0.1:
+    resolution: {integrity: sha512-152puVH0qMoRJQFnaMG+rVDdf01Jq/CaED+MBuXExurJgdbkLp0c3TIe4R12o28Klx8uyGsjvFNG05aFG69G9w==}
 
   require-from-string@2.0.2:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
@@ -6515,8 +6516,8 @@ packages:
       prettier:
         optional: true
 
-  streamdown@1.5.0:
-    resolution: {integrity: sha512-Yjz/L/XUpNK7BvE3y1Ffz//3VhPNMTSDOa00NAxqJWFQNHHwqUhpL/MuSkBClAB2USNTNQ9lr11Kz/lvtH6+Zw==}
+  streamdown@1.6.10:
+    resolution: {integrity: sha512-B4Y3Z/qiXl1Dc+LzAB5c52Cd1QGRiFjaDwP+ERoj1JtCykdRDM8X6HwQnn3YkpkSk0x3R7S/6LrGe1nQiElHQQ==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
@@ -12045,6 +12046,8 @@ snapshots:
     dependencies:
       '@types/hast': 3.0.4
 
+  hast@1.0.0: {}
+
   hastscript@9.0.1:
     dependencies:
       '@types/hast': 3.0.4
@@ -13674,24 +13677,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  react-markdown@9.1.0(@types/react@19.2.2)(react@19.2.0):
-    dependencies:
-      '@types/hast': 3.0.4
-      '@types/mdast': 4.0.4
-      '@types/react': 19.2.2
-      devlop: 1.1.0
-      hast-util-to-jsx-runtime: 2.3.6
-      html-url-attributes: 3.0.1
-      mdast-util-to-hast: 13.2.0
-      react: 19.2.0
-      remark-parse: 11.0.0
-      remark-rehype: 11.1.2
-      unified: 11.0.5
-      unist-util-visit: 5.0.0
-      vfile: 6.0.3
-    transitivePeerDependencies:
-      - supports-color
-
   react-refresh@0.18.0: {}
 
   react-remove-scroll-bar@2.3.8(@types/react@19.2.2)(react@19.2.0):
@@ -13774,7 +13759,9 @@ snapshots:
       gopd: 1.2.0
       set-function-name: 2.0.2
 
-  rehype-harden@1.1.5: {}
+  rehype-harden@1.1.6:
+    dependencies:
+      unist-util-visit: 5.0.0
 
   rehype-highlight@7.0.2:
     dependencies:
@@ -13881,6 +13868,8 @@ snapshots:
   remeda@2.21.3:
     dependencies:
       type-fest: 4.41.0
+
+  remend@1.0.1: {}
 
   require-from-string@2.0.2: {}
 
@@ -14219,31 +14208,36 @@ snapshots:
       - utf-8-validate
       - vite
 
-  streamdown@1.5.0(@types/mdast@4.0.4)(@types/react@19.2.2)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.0)(unified@11.0.5):
+  streamdown@1.6.10(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.0):
     dependencies:
       clsx: 2.1.1
+      hast: 1.0.0
+      hast-util-to-jsx-runtime: 2.3.6
+      html-url-attributes: 3.0.1
       katex: 0.16.25
       lucide-react: 0.542.0(react@19.2.0)
       marked: 16.4.2
       mermaid: 11.12.1
       react: 19.2.0
-      react-markdown: 10.1.0(@types/react@19.2.2)(react@19.2.0)
-      rehype-harden: 1.1.5
+      rehype-harden: 1.1.6
       rehype-katex: 7.0.1
       rehype-raw: 7.0.0
       remark-cjk-friendly: 1.2.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(unified@11.0.5)
       remark-cjk-friendly-gfm-strikethrough: 1.2.3(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(unified@11.0.5)
       remark-gfm: 4.0.1
       remark-math: 6.0.0
+      remark-parse: 11.0.0
+      remark-rehype: 11.1.2
+      remend: 1.0.1
       shiki: 3.17.0
       tailwind-merge: 3.4.0
+      unified: 11.0.5
+      unist-util-visit: 5.0.0
     transitivePeerDependencies:
       - '@types/mdast'
-      - '@types/react'
       - micromark
       - micromark-util-types
       - supports-color
-      - unified
 
   string-argv@0.3.2: {}
 
