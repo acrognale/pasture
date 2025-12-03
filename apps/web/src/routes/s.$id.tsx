@@ -45,11 +45,34 @@ export const Route = createFileRoute('/s/$id')({
       },
     });
   },
-  head: ({ loaderData }) => {
+  head: ({ loaderData, params }) => {
     const data = loaderData as SharedThreadDTO | undefined;
     const title = data?.title ?? 'Shared Thread';
+    const description = data?.model
+      ? `A conversation with ${data.model} shared on Pasture`
+      : 'A shared conversation on Pasture';
+    const ogImageUrl = `https://pasture.dev/api/og/${params.id}`;
+    const shareUrl = `https://pasture.dev/s/${params.id}`;
+
     return {
-      meta: [{ title: `${title} - Pasture` }],
+      meta: [
+        { title: `${title} - Pasture` },
+        { name: 'description', content: description },
+        // OpenGraph tags
+        { property: 'og:type', content: 'article' },
+        { property: 'og:title', content: title },
+        { property: 'og:description', content: description },
+        { property: 'og:image', content: ogImageUrl },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:url', content: shareUrl },
+        { property: 'og:site_name', content: 'Pasture' },
+        // Twitter Card tags
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: title },
+        { name: 'twitter:description', content: description },
+        { name: 'twitter:image', content: ogImageUrl },
+      ],
     };
   },
   component: RouteComponent,

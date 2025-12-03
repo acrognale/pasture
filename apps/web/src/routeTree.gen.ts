@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SIdRouteImport } from './routes/s.$id'
 import { Route as ApiShareRouteImport } from './routes/api.share'
+import { Route as ApiOgIdRouteImport } from './routes/api.og.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const ApiShareRoute = ApiShareRouteImport.update({
   path: '/api/share',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOgIdRoute = ApiOgIdRouteImport.update({
+  id: '/api/og/$id',
+  path: '/api/og/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/share': typeof ApiShareRoute
   '/s/$id': typeof SIdRoute
+  '/api/og/$id': typeof ApiOgIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/share': typeof ApiShareRoute
   '/s/$id': typeof SIdRoute
+  '/api/og/$id': typeof ApiOgIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/share': typeof ApiShareRoute
   '/s/$id': typeof SIdRoute
+  '/api/og/$id': typeof ApiOgIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/share' | '/s/$id'
+  fullPaths: '/' | '/api/share' | '/s/$id' | '/api/og/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/share' | '/s/$id'
-  id: '__root__' | '/' | '/api/share' | '/s/$id'
+  to: '/' | '/api/share' | '/s/$id' | '/api/og/$id'
+  id: '__root__' | '/' | '/api/share' | '/s/$id' | '/api/og/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiShareRoute: typeof ApiShareRoute
   SIdRoute: typeof SIdRoute
+  ApiOgIdRoute: typeof ApiOgIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiShareRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/og/$id': {
+      id: '/api/og/$id'
+      path: '/api/og/$id'
+      fullPath: '/api/og/$id'
+      preLoaderRoute: typeof ApiOgIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiShareRoute: ApiShareRoute,
   SIdRoute: SIdRoute,
+  ApiOgIdRoute: ApiOgIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

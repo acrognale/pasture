@@ -222,7 +222,8 @@ export function WorkspaceTopBar({
           {/* Preview card showing what will be shared */}
           <div className="rounded-lg border border-border bg-muted/30 p-3 my-2">
             <p className="text-sm font-medium text-foreground truncate">
-              {shareTitle}
+              {shareTitle?.slice(0, 30)}
+              {shareTitle?.length > 30 ? '...' : ''}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {turnOrder?.length ?? 0} turn
