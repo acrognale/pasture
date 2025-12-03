@@ -1,3 +1,4 @@
+import { type TranscriptState, TranscriptView } from '@pasture/transcript-ui';
 import {
   forwardRef,
   useEffect,
@@ -6,10 +7,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  TranscriptView,
-  type TranscriptState,
-} from '@pasture/transcript-ui';
+import rehypeHighlight from 'rehype-highlight';
+import { Streamdown } from 'streamdown';
 import { Button } from '~/components/ui/button';
 import { Skeleton } from '~/components/ui/skeleton';
 
@@ -151,6 +150,8 @@ export const ConversationTranscriptSection = forwardRef<
             contentRef={transcriptContentRef}
             shouldAnimateInitial={shouldAnimateInitial}
             overrides={overrides}
+            markdownRenderer={Streamdown}
+            markdownRehypePlugins={[rehypeHighlight]}
           />
         );
       }

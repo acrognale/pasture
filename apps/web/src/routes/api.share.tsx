@@ -51,7 +51,7 @@ export const Route = createFileRoute('/api/share')({
           headers: corsHeaders,
         }),
       GET: async ({ request, context }) => {
-        const db = context.db;
+        const db = context.db();
         const url = new URL(request.url);
         const id = url.searchParams.get('id');
         if (!id) {
@@ -105,7 +105,7 @@ export const Route = createFileRoute('/api/share')({
           );
         }
 
-        const db = context.db;
+        const db = context.db();
 
         const normalizedTitle = normalizeTitle(validated.data.title);
 

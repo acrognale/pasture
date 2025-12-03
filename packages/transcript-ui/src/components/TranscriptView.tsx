@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import type { PluggableList } from 'unified';
 
 import type {
   TranscriptAgentMessageCell,
@@ -24,6 +25,7 @@ import { Errors } from './Errors';
 import { ExecutionApproval } from './ExecutionApproval';
 import { ExecutionResult } from './ExecutionResult';
 import { ExplorationCell } from './ExplorationCell';
+import { MarkdownRendererProps } from './Markdown';
 import { Patches } from './Patches';
 import { PlanUpdate } from './PlanUpdate';
 import { StatusEvents } from './StatusEvents';
@@ -64,9 +66,7 @@ export type TranscriptViewOverrides = {
   plan?: (props: OverrideProps<TranscriptPlanCell>) => ReactNode;
   status?: (props: OverrideProps<TranscriptStatusCell>) => ReactNode;
   error?: (props: OverrideProps<TranscriptErrorCell>) => ReactNode;
-  patch?: (
-    props: OverrideProps<TranscriptPatchCell>
-  ) => ReactNode;
+  patch?: (props: OverrideProps<TranscriptPatchCell>) => ReactNode;
   'patch-approval'?: (
     props: OverrideProps<TranscriptPatchApprovalCell>
   ) => ReactNode;
@@ -76,6 +76,8 @@ export type TranscriptViewOverrides = {
 
 export type TranscriptViewProps = Omit<TranscriptListProps, 'renderCell'> & {
   overrides?: TranscriptViewOverrides;
+  markdownRehypePlugins?: PluggableList;
+  markdownRenderer?: ComponentType<MarkdownRendererProps>;
 };
 
 const coerceToolToExecCell = (
@@ -129,51 +131,69 @@ const coerceGenericToExecCell = (
   exploration: null,
 });
 
-const renderDefaultCell = (
-  cell: TranscriptCell
-) => {
-  switch (cell.kind) {
-    case 'session-configured':
-      return null;
-    case 'user-message':
-      return <UserMessage cell={cell} />;
-    case 'agent-message':
-      return <AgentMessage cell={cell} />;
-    case 'agent-reasoning':
-      return cell.visible ? <AgentReasoning cell={cell} /> : null;
-    case 'task':
-      return <TaskLifecycle cell={cell} />;
-    case 'exec-approval':
-      return <ExecutionApproval cell={cell} />;
-    case 'exec':
-      return cell.exploration ? (
-        <ExplorationCell cell={cell} />
-      ) : (
-        <ExecutionResult cell={cell} />
-      );
-    case 'tool': {
-      const execLike = coerceToolToExecCell(cell);
-      return <ExecutionResult cell={execLike} />;
-    }
-    case 'patch':
-    case 'patch-approval':
-      return <Patches cell={cell} />;
-    case 'plan':
-      return <PlanUpdate cell={cell} />;
-    case 'status':
-      return <StatusEvents cell={cell} />;
-    case 'error':
-      return <Errors cell={cell} />;
-    case 'generic': {
-      const execLike = coerceGenericToExecCell(cell);
-      return <ExecutionResult cell={execLike} />;
-    }
-    default:
-      return null;
-  }
-};
+export function TranscriptView({
+  overrides,
+  markdownRehypePlugins,
+  markdownRenderer,
+  ...listProps
+}: TranscriptViewProps) {
+  const renderDefaultCell = useCallback(
+    (cell: TranscriptCell) => {
+      switch (cell.kind) {
+        case 'session-configured':
+          return null;
+        case 'user-message':
+          return <UserMessage cell={cell} />;
+        case 'agent-message':
+          return (
+            <AgentMessage
+              cell={cell}
+              rehypePlugins={markdownRehypePlugins}
+              renderer={markdownRenderer}
+            />
+          );
+        case 'agent-reasoning':
+          return cell.visible ? (
+            <AgentReasoning
+              cell={cell}
+              rehypePlugins={markdownRehypePlugins}
+              renderer={markdownRenderer}
+            />
+          ) : null;
+        case 'task':
+          return <TaskLifecycle cell={cell} />;
+        case 'exec-approval':
+          return <ExecutionApproval cell={cell} />;
+        case 'exec':
+          return cell.exploration ? (
+            <ExplorationCell cell={cell} />
+          ) : (
+            <ExecutionResult cell={cell} />
+          );
+        case 'tool': {
+          const execLike = coerceToolToExecCell(cell);
+          return <ExecutionResult cell={execLike} />;
+        }
+        case 'patch':
+        case 'patch-approval':
+          return <Patches cell={cell} />;
+        case 'plan':
+          return <PlanUpdate cell={cell} />;
+        case 'status':
+          return <StatusEvents cell={cell} />;
+        case 'error':
+          return <Errors cell={cell} />;
+        case 'generic': {
+          const execLike = coerceGenericToExecCell(cell);
+          return <ExecutionResult cell={execLike} />;
+        }
+        default:
+          return null;
+      }
+    },
+    [markdownRehypePlugins]
+  );
 
-export function TranscriptView({ overrides, ...listProps }: TranscriptViewProps) {
   const renderCell = useCallback<
     NonNullable<TranscriptListProps['renderCell']>
   >(
@@ -194,7 +214,7 @@ export function TranscriptView({ overrides, ...listProps }: TranscriptViewProps)
         defaultNode,
       });
     },
-    [overrides]
+    [overrides, renderDefaultCell]
   );
 
   return (

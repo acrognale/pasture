@@ -1,6 +1,8 @@
 import type { TranscriptAgentReasoningCell } from '../types';
 import { Cell } from './Cell';
-import { Markdown } from './Markdown';
+import { Markdown, type MarkdownRendererProps } from './Markdown';
+import type { PluggableList } from 'unified';
+import type { ComponentType } from 'react';
 
 type AgentReasoningProps = {
   cell: TranscriptAgentReasoningCell;
@@ -9,9 +11,16 @@ type AgentReasoningProps = {
    * instead of the cell's text (skipping streaming animation).
    */
   displayText?: string;
+  rehypePlugins?: PluggableList;
+  renderer?: ComponentType<MarkdownRendererProps>;
 };
 
-export function AgentReasoning({ cell, displayText }: AgentReasoningProps) {
+export function AgentReasoning({
+  cell,
+  displayText,
+  rehypePlugins,
+  renderer,
+}: AgentReasoningProps) {
   const text = cell.text ?? '';
   // Use displayText if provided, otherwise fall back to the raw text
   const textToDisplay = displayText ?? text;
@@ -20,7 +29,11 @@ export function AgentReasoning({ cell, displayText }: AgentReasoningProps) {
     <Cell>
       <div className="text-muted-foreground italic">
         {text ? (
-          <Markdown className="text-muted-foreground italic">
+          <Markdown
+            className="text-muted-foreground italic"
+            rehypePlugins={rehypePlugins}
+            renderer={renderer}
+          >
             {textToDisplay}
           </Markdown>
         ) : (

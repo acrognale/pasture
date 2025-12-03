@@ -10,8 +10,11 @@ export default function Header() {
           className="group flex items-center gap-2 text-foreground hover:text-brand transition-colors"
         >
           <img
-            src="/logo.png"
+            src="/logo-48.png"
+            srcSet="/logo-48.png 1x, /logo-96.png 2x"
             alt="Pasture"
+            width={36}
+            height={36}
             className="w-9 h-9 rounded-lg group-hover:scale-105 transition-transform"
           />
           <span className="font-display text-xl font-medium tracking-tight">

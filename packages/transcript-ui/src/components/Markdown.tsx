@@ -1,18 +1,28 @@
-import 'highlight.js/styles/github.css';
+import type { ComponentType } from 'react';
 import type { Components } from 'react-markdown';
-import rehypeHighlight from 'rehype-highlight';
+import ReactMarkdown from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkDirective from 'remark-directive';
 import remarkGfm from 'remark-gfm';
-import { Streamdown } from 'streamdown';
+import type { PluggableList } from 'unified';
 
 import { cn } from '../lib/utils';
 import { CopyButton } from './CopyButton';
+
+export type MarkdownRendererProps = {
+  className?: string;
+  children: string;
+  components: Components;
+  remarkPlugins?: PluggableList;
+  rehypePlugins?: PluggableList;
+};
 
 type MarkdownProps = {
   children: string;
   className?: string;
   streaming?: boolean;
+  rehypePlugins?: PluggableList;
+  renderer?: ComponentType<MarkdownRendererProps>;
 };
 
 function CodeBlock({ children }: { children: React.ReactNode }) {
@@ -194,20 +204,25 @@ export function Markdown({
   children,
   className,
   streaming = false,
+  rehypePlugins,
+  renderer: Renderer = ReactMarkdown,
 }: MarkdownProps) {
-  // Skip expensive syntax highlighting during streaming to prevent freezing
-  const rehypePlugins = streaming ? [] : [rehypeHighlight];
+  const resolvedRehypePlugins = streaming ? [] : rehypePlugins;
+  const rehypeProp =
+    resolvedRehypePlugins === undefined
+      ? {}
+      : { rehypePlugins: resolvedRehypePlugins };
 
   return (
     <div className={cn('font-transcript leading-transcript', className)}>
-      <Streamdown
-        className="font-transcript leading-transcript"
+      <Renderer
+        className="font-transcript leading-transcript space-y-3"
         components={markdownComponents}
         remarkPlugins={[remarkGfm, remarkBreaks, remarkDirective]}
-        rehypePlugins={rehypePlugins}
+        {...rehypeProp}
       >
         {children}
-      </Streamdown>
+      </Renderer>
     </div>
   );
 }

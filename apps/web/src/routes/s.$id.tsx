@@ -18,7 +18,7 @@ type SharedThreadDTO = {
 const getThread = createServerFn()
   .inputValidator(z.object({ id: z.string() }))
   .handler(async ({ context, data }) => {
-    const db = context.db;
+    const db = context.db();
 
     const result = await db
       .selectFrom('SharedThread')
@@ -62,9 +62,8 @@ function LoadingComponent() {
     <div className="min-h-[60vh] flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <div className="relative">
-          {/* Animated shepherd crook */}
           <svg
-            className="w-12 h-12 text-brand animate-gentle-float"
+            className="w-12 h-12 text-brand"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -96,14 +95,14 @@ function RouteComponent() {
       <div className="hills-bg relative">
         <div className="max-w-4xl mx-auto px-6 pt-8 pb-16 md:pt-10 md:pb-20">
           {/* Byline */}
-          <div className="animate-fade-up">
+          <div>
             <p className="font-body text-sm tracking-widest uppercase text-brand mb-3">
               Shared Conversation
             </p>
           </div>
 
           {/* Title */}
-          <h1 className="font-display text-2xl md:text-3xl lg:text-4xl font-medium text-foreground leading-tight mb-4 animate-fade-up delay-100">
+          <h1 className="font-display text-2xl md:text-3xl lg:text-4xl font-medium text-foreground leading-tight mb-4">
             {share.title ?? (
               <span className="italic text-muted-foreground">
                 Untitled Thread
@@ -112,7 +111,7 @@ function RouteComponent() {
           </h1>
 
           {/* Meta + CTA row */}
-          <div className="flex flex-wrap items-center justify-between gap-4 animate-fade-up delay-200">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               {share.model ? (
                 <MetaPill icon={<ModelIcon />} label={share.model} />
@@ -150,14 +149,14 @@ function RouteComponent() {
       <main className="relative -mt-4 z-10">
         <div className="max-w-4xl mx-auto px-6">
           {/* Editorial decorative line */}
-          <div className="flex items-center gap-4 mb-8 animate-fade-up delay-300">
+          <div className="flex items-center gap-4 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
             <SheepIcon className="w-6 h-6 text-brand opacity-60" />
             <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
           </div>
 
           {/* Transcript container */}
-          <article className="animate-fade-up delay-400">
+          <article>
             <TranscriptView transcript={transcript} showBorder={false} />
           </article>
 
@@ -169,7 +168,14 @@ function RouteComponent() {
                 href="/"
                 className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-brand transition-colors"
               >
-                <img src="/logo.png" alt="" className="w-5 h-5 rounded" />
+                <img
+                  src="/logo-48.png"
+                  srcSet="/logo-48.png 1x, /logo-96.png 2x"
+                  width={20}
+                  height={20}
+                  alt=""
+                  className="w-5 h-5 rounded"
+                />
                 <span>Pasture</span>
               </a>
             </div>
@@ -260,17 +266,17 @@ function ErrorComponent({ error }: { error: unknown }) {
       <div className="min-h-[70vh] flex flex-col items-center justify-center px-6">
         <div className="max-w-md text-center">
           {/* Lost sheep illustration */}
-          <div className="mb-8 animate-fade-up">
+          <div className="mb-8">
             <div className="relative inline-block">
               <SheepIcon className="w-24 h-24 text-muted-foreground/30" />
               <span className="absolute -top-2 -right-2 text-3xl">?</span>
             </div>
           </div>
 
-          <h2 className="font-display text-3xl md:text-4xl font-medium text-foreground mb-4 animate-fade-up delay-100">
+          <h2 className="font-display text-3xl md:text-4xl font-medium text-foreground mb-4">
             Thread Not Found
           </h2>
-          <p className="font-body text-muted-foreground mb-8 animate-fade-up delay-200">
+          <p className="font-body text-muted-foreground mb-8">
             This conversation seems to have wandered off.
             <br />
             It may have been removed or never existed.

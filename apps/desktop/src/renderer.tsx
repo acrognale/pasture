@@ -1,6 +1,7 @@
 import '@pasture/transcript-ui/styles.css';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
+import 'highlight.js/styles/github.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ShortcutProvider } from '~/keyboard/ShortcutProvider';

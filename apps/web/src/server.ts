@@ -6,7 +6,7 @@ declare module '@tanstack/react-start' {
   interface Register {
     server: {
       requestContext: {
-        db: Awaited<ReturnType<typeof createDb>>;
+        db: () => Awaited<ReturnType<typeof createDb>>;
       };
     };
   }
@@ -14,7 +14,8 @@ declare module '@tanstack/react-start' {
 
 export default createServerEntry({
   async fetch(request) {
-    const db = createDb();
+    let dbInstance: Awaited<ReturnType<typeof createDb>> | undefined;
+    const db = () => (dbInstance ??= createDb());
     return handler.fetch(request, { context: { db } });
   },
 });
