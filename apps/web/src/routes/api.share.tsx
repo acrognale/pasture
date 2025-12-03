@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
+import { db } from '@/lib/db';
+
 import type { Prisma } from '../../generated/prisma/client';
 
 const TranscriptCellSchema = z
@@ -66,7 +68,6 @@ export const Route = createFileRoute('/api/share')({
           );
         }
 
-        const { db } = await import('@/lib/db');
         const share = await db.sharedThread.findUnique({
           where: { id },
         });

@@ -1,7 +1,9 @@
 import type { TranscriptState } from '@pasture/transcript-ui';
 import { createFileRoute } from '@tanstack/react-router';
+import { createServerOnlyFn } from '@tanstack/react-start';
 
 import { TranscriptView } from '@/components/transcript/TranscriptView';
+import { db } from '@/lib/db';
 
 import type { SharedThread } from '../../generated/prisma/client';
 
@@ -16,8 +18,7 @@ type SharedThreadDTO = {
 };
 
 export const Route = createFileRoute('/s/$id')({
-  loader: async ({ params }): Promise<any> => {
-    const { db } = await import('@/lib/db');
+  loader: createServerOnlyFn(async ({ params }): Promise<any> => {
     const result: SharedThread | null = await db.sharedThread.findUnique({
       where: { id: params.id },
     });
@@ -31,7 +32,7 @@ export const Route = createFileRoute('/s/$id')({
       transcript: result.transcript as TranscriptState,
       createdAt: result.createdAt.toISOString(),
     };
-  },
+  }),
   head: ({ loaderData }) => {
     const data = loaderData as SharedThreadDTO | undefined;
     const title = data?.title ?? 'Shared Thread';
@@ -190,22 +191,6 @@ function ModelIcon() {
       <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
       <path d="M12 12v10" />
       <path d="M8 18h8" />
-    </svg>
-  );
-}
-
-function ConversationIcon() {
-  return (
-    <svg
-      className="w-4 h-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
 }

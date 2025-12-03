@@ -12,13 +12,17 @@
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "eslint .",
+    "deploy": "pnpm run build && wrangler deploy",
+    "preview": "pnpm run build && vite preview",
+    "cf-typegen": "wrangler types",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@pasture/transcript-ui": "workspace:*",
+    "@cloudflare/vite-plugin": "1.13.7",
     "@pasture/theme": "workspace:*",
+    "@pasture/transcript-ui": "workspace:*",
     "@prisma/adapter-pg": "^7.0.1",
     "@prisma/client": "^7.0.1",
     "@tailwindcss/vite": "^4.1.14",
@@ -53,6 +57,7 @@
     "typescript": "^5.9.3",
     "vite": "^7.1.7",
     "vitest": "^3.0.5",
-    "web-vitals": "^5.1.0"
+    "web-vitals": "^5.1.0",
+    "wrangler": "^4.51.0"
   }
 }
