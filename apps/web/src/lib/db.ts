@@ -1,16 +1,16 @@
-import { PrismaPg } from '@prisma/adapter-pg';
+import { Kysely, PostgresDialect } from 'kysely';
+import { Pool } from 'pg';
 
-import { PrismaClient } from '../../generated/prisma/client';
+import type { DB } from '../../generated/kysely';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   throw new Error('DATABASE_URL is not set');
 }
 
-const adapter = new PrismaPg({
-  connectionString,
-});
-
-export const db = new PrismaClient({
-  adapter,
-});
+export const createDb = () =>
+  new Kysely<DB>({
+    dialect: new PostgresDialect({
+      pool: new Pool({ connectionString }),
+    }),
+  });

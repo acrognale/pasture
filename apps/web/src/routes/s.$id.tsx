@@ -1,11 +1,9 @@
 import type { TranscriptState } from '@pasture/transcript-ui';
 import { createFileRoute } from '@tanstack/react-router';
-import { createServerOnlyFn } from '@tanstack/react-start';
+import { createServerFn } from '@tanstack/react-start';
+import z from 'zod';
 
 import { TranscriptView } from '@/components/transcript/TranscriptView';
-import { db } from '@/lib/db';
-
-import type { SharedThread } from '../../generated/prisma/client';
 
 type SharedTranscript = Pick<TranscriptState, 'turns' | 'turnOrder'>;
 
@@ -17,11 +15,16 @@ type SharedThreadDTO = {
   createdAt: string;
 };
 
-export const Route = createFileRoute('/s/$id')({
-  loader: createServerOnlyFn(async ({ params }): Promise<any> => {
-    const result: SharedThread | null = await db.sharedThread.findUnique({
-      where: { id: params.id },
-    });
+const getThread = createServerFn()
+  .inputValidator(z.object({ id: z.string() }))
+  .handler(async ({ context, data }) => {
+    const db = context.db;
+
+    const result = await db
+      .selectFrom('SharedThread')
+      .selectAll()
+      .where('id', '=', data.id)
+      .executeTakeFirst();
     if (!result) {
       throw new Response('Not found', { status: 404 });
     }
@@ -29,15 +32,24 @@ export const Route = createFileRoute('/s/$id')({
       id: result.id,
       title: result.title,
       model: result.model,
-      transcript: result.transcript as TranscriptState,
-      createdAt: result.createdAt.toISOString(),
+      transcript: result.transcript as unknown as TranscriptState,
+      createdAt: new Date(result.createdAt).toISOString(),
     };
-  }),
+  });
+
+export const Route = createFileRoute('/s/$id')({
+  loader: async ({ params }) => {
+    return getThread({
+      data: {
+        id: params.id,
+      },
+    });
+  },
   head: ({ loaderData }) => {
     const data = loaderData as SharedThreadDTO | undefined;
     const title = data?.title ?? 'Shared Thread';
     return {
-      meta: [{ title: `${title} – Pasture` }],
+      meta: [{ title: `${title} - Pasture` }],
     };
   },
   component: RouteComponent,

@@ -144,7 +144,7 @@ export type TranscriptStatusCell = BaseTranscriptCell & {
   kind: 'status';
   statusType: 'token-count' | 'turn-aborted' | 'background';
   summary: string;
-  data: unknown;
+  data: Record<string, any>;
 };
 
 export type TranscriptErrorCell = BaseTranscriptCell & {
@@ -179,7 +179,7 @@ export type TranscriptToolCell = BaseTranscriptCell & {
   status: 'running' | 'succeeded' | 'failed';
   callId: string | null;
   invocation: McpInvocation | null;
-  result: unknown;
+  result: Record<string, any>;
   duration: string | null;
   path: string | null;
   query: string | null;
@@ -189,7 +189,7 @@ export type TranscriptToolCell = BaseTranscriptCell & {
 export type TranscriptGenericCell = BaseTranscriptCell & {
   kind: 'generic';
   eventType: string;
-  payload: unknown;
+  payload: Record<string, any>;
 };
 
 export type TranscriptCell =

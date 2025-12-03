@@ -6,5 +6,5 @@ export default reactApp({
   rules: {
     "@typescript-eslint/no-explicit-any": "off",
   },
-  ignores: ["dist/**"],
+  ignores: ["dist/**", ".output/**"],
 });

@@ -1,9 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
+import cuid from 'cuid';
 import { z } from 'zod';
-
-import { db } from '@/lib/db';
-
-import type { Prisma } from '../../generated/prisma/client';
 
 const TranscriptCellSchema = z
   .object({
@@ -53,7 +50,8 @@ export const Route = createFileRoute('/api/share')({
           status: 204,
           headers: corsHeaders,
         }),
-      GET: async ({ request }: { request: Request }) => {
+      GET: async ({ request, context }) => {
+        const db = context.db;
         const url = new URL(request.url);
         const id = url.searchParams.get('id');
         if (!id) {
@@ -68,9 +66,11 @@ export const Route = createFileRoute('/api/share')({
           );
         }
 
-        const share = await db.sharedThread.findUnique({
-          where: { id },
-        });
+        const share = await db
+          .selectFrom('SharedThread')
+          .selectAll()
+          .where('id', '=', id)
+          .executeTakeFirst();
 
         if (!share) {
           return new Response(
@@ -89,7 +89,7 @@ export const Route = createFileRoute('/api/share')({
           headers: { 'content-type': 'application/json', ...corsHeaders },
         });
       },
-      POST: async ({ request }: { request: Request }) => {
+      POST: async ({ request, context }) => {
         const body = await request.json();
         const validated = ShareRequestSchema.safeParse(body);
         if (!validated.success) {
@@ -105,21 +105,32 @@ export const Route = createFileRoute('/api/share')({
           );
         }
 
-        const { db } = await import('@/lib/db');
+        const db = context.db;
 
         const normalizedTitle = normalizeTitle(validated.data.title);
 
-        const created = await db.sharedThread.create({
-          data: {
+        const created = await db
+          .insertInto('SharedThread')
+          .values({
+            id: cuid(),
             title: normalizedTitle,
             model: validated.data.model ?? null,
-            transcript: validated.data.transcript as Prisma.InputJsonValue,
-          },
-          select: {
-            id: true,
-            title: true,
-          },
-        });
+            transcript: validated.data.transcript as unknown,
+          })
+          .returning(['id', 'title'])
+          .executeTakeFirst();
+
+        if (!created) {
+          return new Response(
+            JSON.stringify({
+              error: 'Unable to create share',
+            }),
+            {
+              status: 500,
+              headers: { 'content-type': 'application/json', ...corsHeaders },
+            }
+          );
+        }
 
         return new Response(
           JSON.stringify({
