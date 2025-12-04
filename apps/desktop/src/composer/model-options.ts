@@ -38,14 +38,17 @@ export const REASONING_EFFORT_OPTIONS: readonly ReasoningEffort[] = [
 
 export const getAvailableReasoningEfforts = (
   model: ModelName
-): ReasoningEffort[] => MODEL_REASONING_EFFORTS[model] ?? [...REASONING_EFFORT_OPTIONS];
+): ReasoningEffort[] =>
+  MODEL_REASONING_EFFORTS[model] ?? [...REASONING_EFFORT_OPTIONS];
 
 export const normalizeReasoningEffort = (
   model: ModelName,
   candidate: ReasoningEffort | null | undefined
 ): ReasoningEffort => {
   const available = getAvailableReasoningEfforts(model);
-  const fallback = available.includes('medium') ? 'medium' : available[0] ?? 'medium';
+  const fallback = available.includes('medium')
+    ? 'medium'
+    : (available[0] ?? 'medium');
   if (!candidate) return fallback;
   return available.includes(candidate) ? candidate : fallback;
 };
