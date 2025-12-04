@@ -1,4 +1,4 @@
-import { FilePlus, FileX, FilePen } from 'lucide-react';
+import { FilePen, FilePlus, FileX } from 'lucide-react';
 import type { ParsedTurnDiffFile } from '~/review/types';
 
 type ProcessedFile = {
@@ -82,7 +82,10 @@ export function ChangesSidebarContent({ files }: ChangesSidebarContentProps) {
             <li key={file.id}>
               <div className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs bg-background/50">
                 <FileStatusIcon status={status} />
-                <span className="flex-1 min-w-0 flex items-center gap-1 text-foreground" title={relativePath}>
+                <span
+                  className="flex-1 min-w-0 flex items-center gap-1 text-foreground"
+                  title={relativePath}
+                >
                   {dir ? (
                     <span
                       className="truncate text-muted-foreground"

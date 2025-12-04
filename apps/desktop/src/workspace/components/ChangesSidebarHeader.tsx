@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
-import { cn } from '~/lib/utils';
 
 type ChangesSidebarHeaderProps = {
   conversationId: string | null;
@@ -17,7 +16,6 @@ export function ChangesSidebarHeader({
   isCollapsed,
   onToggleCollapse,
 }: ChangesSidebarHeaderProps) {
-
   return (
     <div className="flex items-center gap-2 px-4 py-3 text-xs border-b border-border/60">
       <button

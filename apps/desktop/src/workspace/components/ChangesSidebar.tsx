@@ -23,13 +23,10 @@ export function ChangesSidebar({
   isCollapsed,
   onToggleCollapse,
 }: ChangesSidebarProps) {
-
   const hasReviewHistory = useConversationHasTurnDiffHistory(
     conversationId ?? ''
   );
-  const turnDiffHistory = useConversationTurnDiffHistory(
-    conversationId ?? ''
-  );
+  const turnDiffHistory = useConversationTurnDiffHistory(conversationId ?? '');
   const latestDiff = useConversationLatestTurnDiff(conversationId ?? '');
 
   const processedFiles = useMemo(() => {
@@ -47,7 +44,10 @@ export function ChangesSidebar({
     sortedHistory.sort((a, b) => a.turnNumber - b.turnNumber);
 
     const statsByPath = new Map<string, { added: number; removed: number }>();
-    const latestFileByPath = new Map<string, ReturnType<typeof parseUnifiedDiff>['files'][number]>();
+    const latestFileByPath = new Map<
+      string,
+      ReturnType<typeof parseUnifiedDiff>['files'][number]
+    >();
 
     sortedHistory.forEach((turnDiff) => {
       if (!turnDiff.unifiedDiff) return;
@@ -90,9 +90,7 @@ export function ChangesSidebar({
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}
       />
-      {!isCollapsed ? (
-        <ChangesSidebarContent files={processedFiles} />
-      ) : null}
+      {!isCollapsed ? <ChangesSidebarContent files={processedFiles} /> : null}
     </aside>
   );
 }
