@@ -5,9 +5,9 @@ use ts_rs::TS;
 use crate::domain::ids::ThreadId;
 use crate::domain::ids::WorkspacePath;
 use codex_protocol::ConversationId;
-use codex_protocol::config_types::ReasoningEffort;
 use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
+use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::AskForApproval;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
