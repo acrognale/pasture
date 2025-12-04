@@ -87,17 +87,15 @@ const cleanTranscriptForStorage = (transcript: any): any => {
     cleaned.turns[turnId] = {
       ...turnData,
       cells: turnData.cells.map((cell: any) => {
-        const {
-          // Remove execution-only fields
-          outputChunks,
-          formattedOutput,
-          eventIds,
-          streaming,
-          stdout, // Remove stdout, aggregatedOutput has everything
-          stderr, // Remove stderr, aggregatedOutput has everything
-          // Keep everything else (including exploration for file grouping)
-          ...rest
-        } = cell;
+        // Copy the cell so we can strip execution-only fields without mutating the original
+        const rest = { ...cell };
+
+        delete rest.outputChunks;
+        delete rest.formattedOutput;
+        delete rest.eventIds;
+        delete rest.streaming;
+        delete rest.stdout; // Remove stdout, aggregatedOutput has everything
+        delete rest.stderr; // Remove stderr, aggregatedOutput has everything
 
         // Truncate large aggregatedOutput
         if (

@@ -181,7 +181,7 @@ export type TranscriptToolCell = BaseTranscriptCell & {
   callId: string | null;
   invocation: McpInvocation | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result: Record<string, any>;
+  result: Record<string, any> | string | number | boolean | null;
   duration: string | null;
   path: string | null;
   query: string | null;
