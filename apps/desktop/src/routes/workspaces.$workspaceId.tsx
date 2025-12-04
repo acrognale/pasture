@@ -14,7 +14,7 @@ import {
 import { ConversationProvider } from '~/conversation/store';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { SettingsModal } from '~/settings/SettingsModal';
-import { WorkspaceProvider, useWorkspaceActions } from '~/workspace';
+import { WorkspaceProvider, useWorkspaceThreadConversationId } from '~/workspace';
 import { RecentConversationSwitcher } from '~/workspace/RecentConversationSwitcher';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';
@@ -50,7 +50,6 @@ function RouteComponent() {
 function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
   const [isResizing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { getThreadConversationId } = useWorkspaceActions();
 
   const threadMatch = useRouterState({
     select: (state) =>
@@ -65,9 +64,7 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
       ? threadMatch.params.threadId
       : null;
 
-  const activeConversationId = activeThreadId
-    ? getThreadConversationId(activeThreadId)
-    : null;
+  const activeConversationId = useWorkspaceThreadConversationId(activeThreadId);
 
   return (
     <SidebarProvider
