@@ -323,14 +323,54 @@ export function Patches({
         ? 'Edits attempted'
         : 'Edits to apply';
 
+  const changeCount = countChanges(cell.changes);
+  const hasStdout = (cell.stdout ?? '').trim().length > 0;
+  const hasStderr = (cell.stderr ?? '').trim().length > 0;
+
+  const statusText =
+    cell.status === 'failed'
+      ? 'Patch failed'
+      : cell.status === 'applying'
+        ? 'Applying patch…'
+        : null;
+
   return (
     <Cell>
-      <FileChanges
-        changes={cell.changes}
-        title={changeTitle}
-        workspacePath={workspacePath}
-        showTitle={false}
-      />
+      <div className="space-y-1.5">
+        <FileChanges
+          changes={cell.changes}
+          title={changeTitle}
+          workspacePath={workspacePath}
+          showTitle={false}
+        />
+        {(statusText || hasStdout || hasStderr) && (
+          <div className="space-y-0.5 pt-1">
+            {statusText ? (
+              <div
+                className={cn(
+                  'text-xs',
+                  cell.status === 'failed'
+                    ? 'text-error-foreground'
+                    : 'text-muted-foreground'
+                )}
+              >
+                {statusText} • files touched: {changeCount} • auto approved:{' '}
+                {cell.autoApproved ? 'yes' : 'no'}
+              </div>
+            ) : null}
+            {hasStdout ? (
+              <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-transcript text-success-foreground">
+                {cell.stdout}
+              </pre>
+            ) : null}
+            {hasStderr ? (
+              <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-transcript text-error-foreground">
+                {cell.stderr}
+              </pre>
+            ) : null}
+          </div>
+        )}
+      </div>
     </Cell>
   );
 }
