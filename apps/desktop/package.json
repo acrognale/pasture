@@ -10,7 +10,6 @@
     "dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
-    "format:rust": "cd src-tauri/ && cargo fmt -- --config imports_granularity=Item",
     "generate:types": "cd src-tauri && cargo run --bin ts-export --quiet",
     "knip": "knip",
     "lint": "eslint .",

@@ -21,7 +21,7 @@
     "dev:web": "turbo dev --filter=@pasture/web",
     "format:check": "turbo format:check",
     "format:fix": "turbo format:fix",
-    "format:rust": "npm run format:rust --workspace=apps/desktop",
+    "format:rust": "cargo fmt --all -- --config imports_granularity=Item",
     "generate:types": "npm run generate:types --workspace=apps/desktop",
     "lint": "turbo lint",
     "package": "npm run package --workspace=apps/desktop",
