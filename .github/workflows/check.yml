@@ -110,6 +110,9 @@ jobs:
       - name: TypeScript typecheck (incremental)
         run: pnpm run typecheck
 
+      - name: Sherif
+        run: pnpm run sherif
+
       - name: Vitest
         run: pnpm run test
 

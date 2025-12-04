@@ -15,10 +15,10 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2(prettier@3.6.2)
       '@typescript-eslint/eslint-plugin':
-        specifier: ^8.46.3
+        specifier: ^8.46.4
         version: 8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
       '@typescript-eslint/parser':
-        specifier: ^8.46.3
+        specifier: ^8.46.4
         version: 8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
       eslint:
         specifier: ^9.39.1
@@ -28,7 +28,7 @@ importers:
         version: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.1(jiti@2.6.1))
       eslint-plugin-import:
         specifier: ^2.32.0
-        version: 2.32.0(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.1(jiti@2.6.1))
+        version: 2.32.0(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.1(jiti@2.6.1)))(eslint@9.39.1(jiti@2.6.1))
       eslint-plugin-no-barrel-files:
         specifier: ^1.2.2
         version: 1.2.2(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
@@ -56,6 +56,9 @@ importers:
       prettier-plugin-packagejson:
         specifier: ^2.5.19
         version: 2.5.19(prettier@3.6.2)
+      sherif:
+        specifier: ^1.9.0
+        version: 1.9.0
       turbo:
         specifier: ^2.6.1
         version: 2.6.1
@@ -381,7 +384,7 @@ importers:
         version: 9.39.1(jiti@2.6.1)
       eslint-plugin-import:
         specifier: ^2.32.0
-        version: 2.32.0(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.1(jiti@2.6.1))
+        version: 2.32.0(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.1(jiti@2.6.1)))(eslint@9.39.1(jiti@2.6.1))
       eslint-plugin-no-barrel-files:
         specifier: ^1.2.2
         version: 1.2.2(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)
@@ -6274,6 +6277,50 @@ packages:
     resolution: {integrity: sha512-ObmnIF4hXNg1BqhnHmgbDETF8dLPCggZWBjkQfhZpbszZnYur5DUljTcCHii5LC3J5E0yeO/1LIMyH+UvHQgyw==}
     engines: {node: '>= 0.4'}
 
+  sherif-darwin-arm64@1.9.0:
+    resolution: {integrity: sha512-R+RpKSzlqZgBHean04CqHrdlmBBKu6Dhd/9BcdCpjx/KpqsalZsh9LzBVxTWLTtT9IBb/ccr23PNqFzWQTuh6A==}
+    cpu: [arm64]
+    os: [darwin]
+
+  sherif-darwin-x64@1.9.0:
+    resolution: {integrity: sha512-b/KX9MczzkzmyEjngGxYuBq/rOdM6CbGcDLFdQ0H990Dmn9foj4C/UpLlyqSxXcsJhy586ATMEVN68aM2hFQdQ==}
+    cpu: [x64]
+    os: [darwin]
+
+  sherif-linux-arm64-musl@1.9.0:
+    resolution: {integrity: sha512-OZ4cKcCXTJTl8zaTxKnP8z0wu05nDeGtttxRQjaXHSKK+fjBwGkH/1qqFEVDcRANUxtLRLLdwmDyxvqQrCzhPQ==}
+    cpu: [arm64]
+    os: [linux]
+
+  sherif-linux-arm64@1.9.0:
+    resolution: {integrity: sha512-TyuGhaD/efCxGIk4scx09n6NsTr3qfKvH5qHYdyxtelv1mHRgbzVHwJ+Jj98jVktuzOZoexHpxr/hz7RUjd/nw==}
+    cpu: [arm64]
+    os: [linux]
+
+  sherif-linux-x64-musl@1.9.0:
+    resolution: {integrity: sha512-JSbA6DN0HkWSabYU858BUkS4cMmkTsAamDZEYuUVDW+XvW9IjaI6o0HNatUr7oCjrITIfcjzqlqy7uizmNlr/A==}
+    cpu: [x64]
+    os: [linux]
+
+  sherif-linux-x64@1.9.0:
+    resolution: {integrity: sha512-iO+hTxndO36r0hgmipBRjntWFqFHKrrYFRODz0WnmDquVek88LInSzAY1xpS18/Thbff8IVc6ssefYNVFQQPWw==}
+    cpu: [x64]
+    os: [linux]
+
+  sherif-windows-arm64@1.9.0:
+    resolution: {integrity: sha512-lPqQXDB/95SJodtIbGAJc90O/KyxcunvKTycZqo+6RGjkOSYZB/XnRzm/tJ7If/6kz0/wcDP4uvkJmJxrxcj3A==}
+    cpu: [arm64]
+    os: [win32]
+
+  sherif-windows-x64@1.9.0:
+    resolution: {integrity: sha512-3cL+XVGLpmyLC3UOZYiPr4vY2OFBQqPZnCoCwoRKN+ONm8VfGMirO9iqI0OckgFBUtJoG4AQY/MWxoPhNmzD8A==}
+    cpu: [x64]
+    os: [win32]
+
+  sherif@1.9.0:
+    resolution: {integrity: sha512-5n7zqPAjL+RzR7n09NPKpWBXmDCtuRpQzIL+ycj8pe6MayV7cDuFmceoyPQJ0c95oFj6feY7SZvhX/+S0i1ukg==}
+    hasBin: true
+
   shiki@3.17.0:
     resolution: {integrity: sha512-lUZfWsyW7czITYTdo/Tb6ZM4VfyXlzmKYBQBjTz+pBzPPkP08RgIt00Ls1Z50Cl3SfwJsue6WbJeF3UgqLVI9Q==}
 
@@ -11200,7 +11247,7 @@ snapshots:
       tinyglobby: 0.2.15
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.1(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.1(jiti@2.6.1)))(eslint@9.39.1(jiti@2.6.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -11215,7 +11262,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.1(jiti@2.6.1)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.46.4(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.1(jiti@2.6.1)))(eslint@9.39.1(jiti@2.6.1)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -13739,6 +13786,41 @@ snapshots:
   shebang-regex@3.0.0: {}
 
   shell-quote@1.8.3: {}
+
+  sherif-darwin-arm64@1.9.0:
+    optional: true
+
+  sherif-darwin-x64@1.9.0:
+    optional: true
+
+  sherif-linux-arm64-musl@1.9.0:
+    optional: true
+
+  sherif-linux-arm64@1.9.0:
+    optional: true
+
+  sherif-linux-x64-musl@1.9.0:
+    optional: true
+
+  sherif-linux-x64@1.9.0:
+    optional: true
+
+  sherif-windows-arm64@1.9.0:
+    optional: true
+
+  sherif-windows-x64@1.9.0:
+    optional: true
+
+  sherif@1.9.0:
+    optionalDependencies:
+      sherif-darwin-arm64: 1.9.0
+      sherif-darwin-x64: 1.9.0
+      sherif-linux-arm64: 1.9.0
+      sherif-linux-arm64-musl: 1.9.0
+      sherif-linux-x64: 1.9.0
+      sherif-linux-x64-musl: 1.9.0
+      sherif-windows-arm64: 1.9.0
+      sherif-windows-x64: 1.9.0
 
   shiki@3.17.0:
     dependencies:
