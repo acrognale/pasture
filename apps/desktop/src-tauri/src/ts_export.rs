@@ -30,10 +30,11 @@ pub fn export_types(out_dir: &Path) -> Result<()> {
 
     prepend_headers(out_dir)?;
     generate_index(out_dir)?;
-    let client_path = generate_client_file(out_dir)?;
+    // Generate the client into the desktop app so consumers import from ~/codex/client.
+    let desktop_client_path = generate_client_file(out_dir, ClientLocation::Desktop)?;
 
     let mut ts_files = collect_ts_files(out_dir)?;
-    ts_files.push(client_path);
+    ts_files.push(desktop_client_path);
     format_with_prettier(&ts_files)?;
 
     Ok(())
@@ -143,12 +144,14 @@ fn generate_index(out_dir: &Path) -> Result<()> {
         .with_context(|| format!("Failed to write {}", index_path.display()))
 }
 
-fn generate_client_file(out_dir: &Path) -> Result<PathBuf> {
-    let codex_dir = out_dir
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("codex");
+enum ClientLocation {
+    Desktop,
+}
+
+fn generate_client_file(_out_dir: &Path, location: ClientLocation) -> Result<PathBuf> {
+    let codex_dir = match location {
+        ClientLocation::Desktop => PathBuf::from("../src/codex"),
+    };
 
     fs::create_dir_all(&codex_dir)
         .with_context(|| format!("Failed to create {}", codex_dir.display()))?;
