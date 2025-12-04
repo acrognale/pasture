@@ -11,11 +11,17 @@
     />
     <title>Pasture</title>
     <script src="http://localhost:8097"></script>
+    <script
+      src="//www.react-grab.com/script.js"
+      crossorigin="anonymous"
+    ></script>
     <script type="module">
       if (import.meta.env.DEV) {
         const reactScan = document.createElement('script');
         reactScan.src = 'https://unpkg.com/react-scan/dist/auto.global.js';
         document.head.appendChild(reactScan);
+
+        import('react-grab');
       }
     </script>
   </head>

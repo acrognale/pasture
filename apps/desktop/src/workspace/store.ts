@@ -216,6 +216,10 @@ export const createWorkspaceStore = (
         return mappedConversation ?? null;
       }
       if (!options?.force && status === 'loaded' && mappedConversation) {
+        // Even if the thread is already loaded, touching it should
+        // update its position in the MRU-style recent list so the
+        // recent conversation switcher cycles by last access time.
+        touchRecentThread(threadId);
         return mappedConversation;
       }
 

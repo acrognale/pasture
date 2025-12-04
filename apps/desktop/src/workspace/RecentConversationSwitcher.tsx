@@ -136,7 +136,7 @@ export function RecentConversationSwitcher() {
     };
   }, [close, open]);
 
-  if (items.length === 0) {
+  if (!open || items.length === 0) {
     return null;
   }
 
