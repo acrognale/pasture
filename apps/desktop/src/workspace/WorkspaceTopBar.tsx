@@ -2,7 +2,7 @@ import {
   Loader2Icon,
   PanelLeftCloseIcon,
   PanelRightOpenIcon,
-  Share2,
+  Upload,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -18,11 +18,7 @@ import {
 import { SidebarTrigger, useSidebar } from '~/components/ui/sidebar';
 import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
 import { createDefaultComposerConfig } from '~/composer/types';
-import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
-import {
-  useConversationHasTurnDiffHistory,
-  useConversationTranscriptTurns,
-} from '~/conversation/store/hooks';
+import { useConversationTranscriptTurns } from '~/conversation/store/hooks';
 import { copyToClipboard } from '~/lib/utils';
 import { formatWorkspaceLabel } from '~/lib/workspaces';
 import { useWorkspaceActions, useWorkspaceThreads } from '~/workspace';
@@ -30,6 +26,7 @@ import { useWorkspaceActions, useWorkspaceThreads } from '~/workspace';
 type WorkspaceTopBarProps = {
   workspacePath: string;
   activeConversationId?: string | null;
+  hasActiveThread?: boolean;
 };
 
 const TRAFFIC_LIGHT_OFFSET = '72px';
@@ -37,13 +34,11 @@ const TRAFFIC_LIGHT_OFFSET = '72px';
 export function WorkspaceTopBar({
   workspacePath,
   activeConversationId,
+  hasActiveThread = false,
 }: WorkspaceTopBarProps) {
   const { open } = useSidebar();
   const { getThreadIdForConversation } = useWorkspaceActions();
   const { items: threads } = useWorkspaceThreads();
-  const hasReviewHistory = useConversationHasTurnDiffHistory(
-    activeConversationId ?? ''
-  );
   const { turns, turnOrder } = useConversationTranscriptTurns(
     activeConversationId ?? ''
   );
@@ -172,43 +167,24 @@ export function WorkspaceTopBar({
             className="flex flex-1 justify-end gap-2"
             data-tauri-drag-region="true"
           >
-            {activeConversationId ? (
-              <>
-                <button
-                  type="button"
-                  className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition ${
-                    canShare
-                      ? 'font-semibold text-foreground hover:bg-accent/60'
-                      : 'text-muted-foreground cursor-default'
-                  }`}
-                  onClick={() => {
-                    if (canShare && !isSharing) {
-                      setConfirmShareOpen(true);
-                    }
-                  }}
-                  disabled={!canShare || isSharing}
-                >
-                  <Share2 className="h-4 w-4" />
-                  {isSharing ? 'Sharing…' : 'Share'}
-                </button>
-
-                <button
-                  type="button"
-                  className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition ${
-                    hasReviewHistory
-                      ? 'font-semibold text-foreground hover:bg-accent/60'
-                      : 'text-muted-foreground hover:text-muted-foreground cursor-default'
-                  }`}
-                  onClick={() => {
-                    if (activeConversationId) {
-                      dispatchOpenReviewOverlayEvent(activeConversationId);
-                    }
-                  }}
-                  disabled={!hasReviewHistory}
-                >
-                  Review changes
-                </button>
-              </>
+            {hasActiveThread ? (
+              <button
+                type="button"
+                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition ${
+                  canShare
+                    ? 'font-semibold text-foreground hover:bg-accent/60'
+                    : 'text-muted-foreground cursor-default'
+                }`}
+                onClick={() => {
+                  if (canShare && !isSharing) {
+                    setConfirmShareOpen(true);
+                  }
+                }}
+                disabled={!canShare || isSharing}
+              >
+                <Upload className="h-4 w-4" />
+                {isSharing ? 'Sharing…' : 'Share'}
+              </button>
             ) : null}
           </div>
         </div>
@@ -219,7 +195,7 @@ export function WorkspaceTopBar({
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-brand-soft flex items-center justify-center">
-                <Share2 className="w-5 h-5 text-brand" />
+                <Upload className="w-5 h-5 text-brand" />
               </div>
               <DialogTitle>Share this conversation</DialogTitle>
             </div>

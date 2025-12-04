@@ -11,6 +11,7 @@ type TurnReviewPaneProps = {
   onRequestFeedback?: (prompt: string) => void;
   disabled?: boolean;
   onClose?: () => void;
+  focusFilePath?: string | null;
 };
 
 const getInitialViewMode = (): DiffViewMode => {
@@ -25,6 +26,7 @@ export function TurnReviewPane({
   onRequestFeedback,
   disabled,
   onClose,
+  focusFilePath,
 }: TurnReviewPaneProps) {
   const { comments, selectedDiff } = useTurnReview();
   const commentCount = comments.length;
@@ -108,7 +110,11 @@ export function TurnReviewPane({
         />
         <RangeSelectorSection />
       </div>
-      <DiffContentSection workspacePath={workspacePath} viewMode={viewMode} />
+      <DiffContentSection
+        workspacePath={workspacePath}
+        viewMode={viewMode}
+        focusFilePath={focusFilePath}
+      />
     </div>
   );
 }

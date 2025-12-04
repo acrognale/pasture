@@ -23,6 +23,7 @@ export type ConversationReviewOverlayProps = {
   hasHistory: boolean;
   onClose: () => void;
   onRequestFeedback: (prompt: string) => void;
+  focusFilePath?: string | null;
 };
 
 export function ConversationReviewOverlay({
@@ -32,6 +33,7 @@ export function ConversationReviewOverlay({
   hasHistory,
   onClose,
   onRequestFeedback,
+  focusFilePath,
 }: ConversationReviewOverlayProps) {
   const latestDiff = useConversationLatestTurnDiff(conversationId);
   const history = useConversationTurnDiffHistory(conversationId);
@@ -68,6 +70,7 @@ export function ConversationReviewOverlay({
               workspacePath={workspacePath}
               onRequestFeedback={onRequestFeedback}
               onClose={onClose}
+              focusFilePath={focusFilePath}
             />
           </TurnReviewProvider>
         </Suspense>

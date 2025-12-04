@@ -7,6 +7,7 @@ export {
   useWorkspaceOpenThreads,
   useWorkspaceActions,
   useWorkspaceRecentThreads,
+  useWorkspaceThreadConversationId,
   useWorkspaceThreadConversationIds,
 } from './WorkspaceProvider';
 export {
