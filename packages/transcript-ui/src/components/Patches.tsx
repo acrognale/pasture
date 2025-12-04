@@ -1,12 +1,12 @@
 import type { FileChange } from '@pasture/protocol';
 import { useState } from 'react';
 
+import { useTranscriptContext } from '../context/TranscriptContext';
 import { cn, makePathRelative, splitLines } from '../lib/utils';
 import type {
   TranscriptPatchApprovalCell,
   TranscriptPatchCell,
 } from '../types';
-import { useTranscriptContext } from '../context/TranscriptContext';
 import { ApprovalActions } from './ApprovalActions';
 import { Cell } from './Cell';
 import { CellIcon } from './CellIcon';
@@ -212,10 +212,7 @@ const FileChangeItem = ({
         <div className="border-t border-border/60 bg-background/40">
           <pre className="overflow-x-auto whitespace-pre text-xs font-mono leading-transcript-code px-1.5 py-1.5">
             {diffLines.map((line, index) => (
-              <div
-                key={`${path}-${index}`}
-                className={getDiffLineClass(line)}
-              >
+              <div key={`${path}-${index}`} className={getDiffLineClass(line)}>
                 {line.length > 0 ? line : ' '}
               </div>
             ))}

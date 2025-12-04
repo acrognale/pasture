@@ -118,7 +118,7 @@ export function ExecutionResult({ cell }: ExecutionResultProps) {
             ) : null}
           </div>
         </div>
-            {hasOutput && isOpen ? (
+        {hasOutput && isOpen ? (
           <div className="border-t border-border/60 bg-background/40">
             <div className="overflow-x-auto whitespace-pre text-xs font-mono leading-transcript-code px-1.5 py-1.5">
               {showAggregated ? (
