@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConversationPane } from '~/conversation/ConversationPane';
+import { useNamedShortcut } from '~/keyboard/hooks';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { useWorkspaceActions } from '~/workspace';
+import { ChangesSidebar } from '~/workspace/components/ChangesSidebar';
 
 export const Route = createFileRoute(
   '/workspaces/$workspaceId/threads/$threadId'
@@ -21,6 +23,18 @@ function RouteComponent() {
     getThreadConversationId(threadId)
   );
   const [error, setError] = useState<Error | null>(null);
+  const [isChangesSidebarCollapsed, setIsChangesSidebarCollapsed] =
+    useState(false);
+
+  const handleToggleChangesSidebar = useCallback(() => {
+    setIsChangesSidebarCollapsed((prev) => !prev);
+  }, []);
+
+  useNamedShortcut(
+    'workspace.toggleChangesSidebar',
+    undefined,
+    handleToggleChangesSidebar
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -68,10 +82,18 @@ function RouteComponent() {
   }
 
   return (
-    <ConversationPane
-      workspacePath={workspacePath}
-      conversationId={conversationId}
-      onConversationForked={setConversationId}
-    />
+    <div className="flex h-full w-full">
+      <ConversationPane
+        workspacePath={workspacePath}
+        conversationId={conversationId}
+        onConversationForked={setConversationId}
+      />
+      <ChangesSidebar
+        workspacePath={workspacePath}
+        conversationId={conversationId}
+        isCollapsed={isChangesSidebarCollapsed}
+        onToggleCollapse={handleToggleChangesSidebar}
+      />
+    </div>
   );
 }

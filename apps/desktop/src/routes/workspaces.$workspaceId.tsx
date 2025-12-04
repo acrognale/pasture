@@ -14,11 +14,10 @@ import {
 import { ConversationProvider } from '~/conversation/store';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { SettingsModal } from '~/settings/SettingsModal';
-import { WorkspaceProvider } from '~/workspace';
+import { WorkspaceProvider, useWorkspaceActions } from '~/workspace';
 import { RecentConversationSwitcher } from '~/workspace/RecentConversationSwitcher';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';
-import { useWorkspaceThreadConversationId } from '~/workspace/WorkspaceProvider';
 import { WorkspaceTopBar } from '~/workspace/WorkspaceTopBar';
 
 export const Route = createFileRoute('/workspaces/$workspaceId')({
@@ -49,6 +48,10 @@ function RouteComponent() {
 }
 
 function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
+  const [isResizing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { getThreadConversationId } = useWorkspaceActions();
+
   const threadMatch = useRouterState({
     select: (state) =>
       state.matches.find(
@@ -56,14 +59,15 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
           match.routeId === '/workspaces/$workspaceId/threads/$threadId'
       ),
   });
-  const [isResizing] = useState(false);
 
-  const threadId =
+  const activeThreadId =
     typeof threadMatch?.params?.threadId === 'string'
       ? threadMatch.params.threadId
       : null;
-  const activeConversationId = useWorkspaceThreadConversationId(threadId);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const activeConversationId = activeThreadId
+    ? getThreadConversationId(activeThreadId)
+    : null;
 
   return (
     <SidebarProvider
@@ -80,6 +84,7 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
         <WorkspaceTopBar
           workspacePath={workspacePath}
           activeConversationId={activeConversationId}
+          hasActiveThread={activeThreadId !== null}
         />
         <div className="flex flex-1 min-h-0">
           <Sidebar

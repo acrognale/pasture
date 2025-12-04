@@ -8,6 +8,13 @@ export const SHORTCUTS = {
     description: 'Toggle the workspace sidebar',
     allowInInput: true,
   },
+  'workspace.toggleChangesSidebar': {
+    id: 'workspace.toggleChangesSidebar',
+    chord: 'CmdOrCtrl+\\',
+    scope: 'workspace',
+    description: 'Toggle the changes sidebar',
+    allowInInput: true,
+  },
   'workspace.newThread': {
     id: 'workspace.newThread',
     chord: 'CmdOrCtrl+N',
