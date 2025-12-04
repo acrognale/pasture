@@ -156,6 +156,14 @@ export function SettingsModal({
     mutation.mutate(changes);
   };
 
+  const handleModelDefaultChange = (nextModel: ModelName) => {
+    const normalizedEffort = normalizeReasoningEffort(
+      nextModel,
+      selectedReasoningEffort
+    );
+    updateSetting({ model: nextModel, reasoningEffort: normalizedEffort });
+  };
+
   const renderDropdown = <T extends string>(
     label: string,
     value: T,
@@ -279,7 +287,7 @@ export function SettingsModal({
                       selectedModel,
                       MODEL_OPTIONS,
                       modelDisplayMap,
-                      (next) => updateSetting({ model: next })
+                      handleModelDefaultChange
                     )}
                     {renderDropdown(
                       'Reasoning effort',
