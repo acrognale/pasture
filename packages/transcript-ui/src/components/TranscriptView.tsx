@@ -78,31 +78,35 @@ export type TranscriptViewProps = Omit<TranscriptListProps, 'renderCell'> & {
 
 const coerceToolToExecCell = (
   cell: TranscriptToolCell
-): TranscriptExecCommandCell => ({
-  id: `${cell.id}-exec-like`,
-  timestamp: cell.timestamp,
-  eventIds: cell.eventIds,
-  kind: 'exec',
-  callId: cell.callId ?? '',
-  command: cell.query ? [cell.query] : [],
-  cwd: cell.path ?? '',
-  parsed: [],
-  status: cell.status,
-  stdout:
+): TranscriptExecCommandCell => {
+  const renderedResult =
     typeof cell.result === 'string'
       ? cell.result
       : cell.result
         ? JSON.stringify(cell.result, null, 2)
-        : '',
-  stderr: '',
-  aggregatedOutput: '',
-  formattedOutput: '',
-  exitCode: null,
-  duration: cell.duration,
-  streaming: cell.status === 'running',
-  outputChunks: [],
-  exploration: null,
-});
+        : '';
+
+  return {
+    id: `${cell.id}-exec-like`,
+    timestamp: cell.timestamp,
+    eventIds: cell.eventIds,
+    kind: 'exec',
+    callId: cell.callId ?? '',
+    command: cell.query ? [cell.query] : [],
+    cwd: cell.path ?? '',
+    parsed: [],
+    status: cell.status,
+    stdout: renderedResult,
+    stderr: '',
+    aggregatedOutput: renderedResult,
+    formattedOutput: '',
+    exitCode: null,
+    duration: cell.duration,
+    streaming: cell.status === 'running',
+    outputChunks: [],
+    exploration: null,
+  };
+};
 
 const coerceGenericToExecCell = (
   cell: TranscriptGenericCell

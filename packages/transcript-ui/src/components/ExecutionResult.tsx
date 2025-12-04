@@ -1,9 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
-import { splitLines } from '../lib/utils';
+import { cn, splitLines } from '../lib/utils';
 import type { TranscriptExecCommandCell } from '../types';
 import { Cell } from './Cell';
-import { CellIcon } from './CellIcon';
 
 type ExecutionResultProps = {
   cell: TranscriptExecCommandCell;
@@ -40,7 +39,7 @@ const OutputSection = ({
   }, [output]);
 
   return (
-    <pre className="text-xs overflow-x-auto leading-transcript whitespace-pre-wrap">
+    <>
       {lines.map((line, index) => (
         <div
           key={`${colorClass}-${index}-${line}`}
@@ -51,7 +50,7 @@ const OutputSection = ({
           {line.length > 0 ? line : ' '}
         </div>
       ))}
-    </pre>
+    </>
   );
 };
 
@@ -60,21 +59,11 @@ export function ExecutionResult({ cell }: ExecutionResultProps) {
   const hasStdout = (cell.stdout ?? '').trim().length > 0;
   const hasStderr = (cell.stderr ?? '').trim().length > 0;
   const aggregatedOutput = cell.aggregatedOutput ?? '';
-  const showAggregated =
-    cell.streaming &&
-    aggregatedOutput.trim().length > 0 &&
-    !hasStdout &&
-    !hasStderr;
+  const showAggregated = aggregatedOutput.trim().length > 0;
 
   const commandText = cell.command.length
     ? cell.command.join(' ')
     : '(command pending)';
-
-  const getIconStatus = () => {
-    if (status === 'succeeded') return 'success';
-    if (status === 'failed') return 'failure';
-    return 'running';
-  };
 
   const exitCode = cell.exitCode ?? 'n/a';
   const exitCodeClass =
@@ -82,32 +71,76 @@ export function ExecutionResult({ cell }: ExecutionResultProps) {
       ? 'text-error-foreground'
       : 'text-muted-foreground';
 
+  const hasOutput = showAggregated || hasStdout || hasStderr;
+  const [isOpen, setIsOpen] = useState(true);
+
   return (
-    <Cell icon={<CellIcon status={getIconStatus()} />}>
-      <div className="space-y-1.5">
-        <div className="text-muted-foreground whitespace-pre-wrap">
-          $ {commandText}
+    <Cell>
+      <div className="rounded-transcript border border-border/60 bg-card/60">
+        <div className="flex items-start gap-1.5 px-1.5 py-1">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="text-transcript-base text-foreground font-mono">
+              $ {commandText}
+            </div>
+          </div>
+          <div className="flex items-center gap-1 pl-1">
+            {status !== 'running' ? (
+              <div className={`text-xs shrink-0 ${exitCodeClass}`}>
+                exit {exitCode}
+              </div>
+            ) : null}
+            {hasOutput ? (
+              <button
+                type="button"
+                className={cn(
+                  'inline-flex size-4 items-center justify-center rounded-sm border border-transparent text-xs text-foreground/80 transition-colors',
+                  'hover:bg-foreground/5 hover:text-foreground'
+                )}
+                aria-label={isOpen ? 'Hide output' : 'Show output'}
+                aria-expanded={isOpen}
+                onClick={() => setIsOpen((open) => !open)}
+              >
+                <svg viewBox="0 0 24 24" className="size-3">
+                  <path
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d={
+                      isOpen
+                        ? 'm7 20 5-5 5 5M7 4l5 5 5-5'
+                        : 'M7 10l5-5 5 5M7 14l5 5 5-5'
+                    }
+                  />
+                </svg>
+              </button>
+            ) : null}
+          </div>
         </div>
-        {showAggregated ? (
-          <OutputSection
-            output={aggregatedOutput}
-            colorClass="text-muted-foreground"
-          />
-        ) : null}
-        {hasStdout ? (
-          <OutputSection
-            output={cell.stdout ?? ''}
-            colorClass="text-muted-foreground"
-          />
-        ) : null}
-        {hasStderr ? (
-          <OutputSection
-            output={cell.stderr ?? ''}
-            colorClass="text-error-foreground"
-          />
-        ) : null}
-        {status !== 'running' ? (
-          <div className={`text-xs pl-2 ${exitCodeClass}`}>exit {exitCode}</div>
+            {hasOutput && isOpen ? (
+          <div className="border-t border-border/60 bg-background/40">
+            <div className="overflow-x-auto whitespace-pre text-xs font-mono leading-transcript-code px-1.5 py-1.5">
+              {showAggregated ? (
+                <OutputSection
+                  output={aggregatedOutput}
+                  colorClass="text-muted-foreground"
+                />
+              ) : null}
+              {!showAggregated && hasStdout ? (
+                <OutputSection
+                  output={cell.stdout ?? ''}
+                  colorClass="text-muted-foreground"
+                />
+              ) : null}
+              {!showAggregated && hasStderr ? (
+                <OutputSection
+                  output={cell.stderr ?? ''}
+                  colorClass="text-error-foreground"
+                />
+              ) : null}
+            </div>
+          </div>
         ) : null}
       </div>
     </Cell>
