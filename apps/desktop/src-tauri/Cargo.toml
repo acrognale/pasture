@@ -57,12 +57,12 @@ migration = { path = "migration" }
 thiserror = "1"
 
 # Codex dependencies
-codex-core = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
-codex-otel = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
-codex-protocol = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
-codex-apply-patch = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
-codex-git = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
-codex-file-search = { git = "https://github.com/openai/codex.git", tag = "rust-v0.63.0" }
+codex-core = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
+codex-otel = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
+codex-protocol = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
+codex-apply-patch = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
+codex-git = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
+codex-file-search = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
 futures = "0.3"
 ignore = "0.4"
 tree-sitter = "0.25.10"

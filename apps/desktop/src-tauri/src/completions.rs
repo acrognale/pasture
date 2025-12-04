@@ -8,10 +8,10 @@ use codex_core::ResponseEvent;
 use codex_core::auth::CodexAuth;
 use codex_core::config::Config;
 use codex_core::content_items_to_text;
-use codex_core::model_family::find_family_for_model;
+use codex_core::openai_models::model_family::find_family_for_model;
 use codex_otel::otel_event_manager::OtelEventManager;
 use codex_protocol::ConversationId;
-use codex_protocol::config_types::ReasoningEffort;
+use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::SessionSource;
 use futures::StreamExt;
 
@@ -37,9 +37,7 @@ pub async fn generate_text(
     if let Some(model_config) = model_config {
         config.model = model_config.model;
         config.model_reasoning_effort = model_config.reasoning_effort;
-        if let Some(family) = find_family_for_model(&config.model) {
-            config.model_family = family;
-        }
+        config.model_family = find_family_for_model(&config.model);
     }
     let config = Arc::new(config);
 
