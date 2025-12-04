@@ -101,6 +101,9 @@ jobs:
       - name: Install front-end dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Build transcript-ui styles
+        run: pnpm --filter @pasture/transcript-ui build
+
       - name: ESLint
         run: pnpm run lint
 

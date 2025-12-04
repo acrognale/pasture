@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Pasture",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "identifier": "com.acrognale.pasture",
   "plugins": {
     "updater": {
@@ -41,7 +41,9 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       },
       "capabilities": [
         {

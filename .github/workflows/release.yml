@@ -124,7 +124,10 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install front-end dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline --no-fund
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Build transcript-ui styles
+        run: pnpm --filter @pasture/transcript-ui build
 
       # sccache binary + GitHub Actions cache backend
       - name: Install sccache
