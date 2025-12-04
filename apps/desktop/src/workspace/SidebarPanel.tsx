@@ -279,28 +279,19 @@ export function SidebarPanel({
                 </Button>
               </div>
             ) : sessions.length > 0 ? (
-              <>
-                <SidebarMenu>
-                  {sessions.map((session) => (
-                    <SidebarConversationMenuItem
-                      key={session.threadId}
-                      session={session}
-                      isActive={session.threadId === activeThreadId}
-                      now={now}
-                      onSelect={handleThreadClick}
-                      onClose={handleCloseThread}
-                    />
-                  ))}
-                </SidebarMenu>
-              </>
-            ) : (
-              <div className="px-2 space-y-1 text-xs text-muted-foreground">
-                <span>
-                  No open sessions in this workspace. Start a new session or
-                  open one with CmdOrCtrl+P to begin.
-                </span>
-              </div>
-            )}
+              <SidebarMenu>
+                {sessions.map((session) => (
+                  <SidebarConversationMenuItem
+                    key={session.threadId}
+                    session={session}
+                    isActive={session.threadId === activeThreadId}
+                    now={now}
+                    onSelect={handleThreadClick}
+                    onClose={handleCloseThread}
+                  />
+                ))}
+              </SidebarMenu>
+            ) : null}
           </SidebarGroupContent>
         </SidebarGroup>
       </ScrollArea>
