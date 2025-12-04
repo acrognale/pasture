@@ -1,5 +1,5 @@
+import type { ReasoningSummary, SandboxMode } from '@pasture/protocol';
 import { ChevronDownIcon, SettingsIcon } from 'lucide-react';
-import type { ReasoningSummary, SandboxMode } from '~/codex.gen';
 import { Button } from '~/components/ui/button';
 import {
   DropdownMenu,

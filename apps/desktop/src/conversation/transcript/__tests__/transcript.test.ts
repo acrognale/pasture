@@ -1,10 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { EventMsg } from '~/codex.gen/EventMsg';
-import type { ParsedCommand } from '~/codex.gen/ParsedCommand';
-import type { ConversationControllerState } from '~/conversation/store/reducer';
-import { createConversationStore } from '~/conversation/store/store';
-
+import type { ConversationEventPayload } from '@pasture/protocol';
+import type { EventMsg } from '@pasture/protocol';
+import type { ParsedCommand } from '@pasture/protocol';
 import type {
   TranscriptAgentReasoningCell,
   TranscriptExecCommandCell,
@@ -13,7 +9,10 @@ import type {
   TranscriptTaskCell,
   TranscriptToolCell,
   TranscriptUserMessageCell,
-} from '../types';
+} from '@pasture/transcript-ui';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConversationControllerState } from '~/conversation/store/reducer';
+import { createConversationStore } from '~/conversation/store/store';
 
 type ExecBeginEvent = Extract<EventMsg, { type: 'exec_command_begin' }>;
 type ExecEndEvent = Extract<EventMsg, { type: 'exec_command_end' }>;

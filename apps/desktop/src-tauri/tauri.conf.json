@@ -107,6 +107,15 @@
           "permissions": [
             "process:allow-restart"
           ]
+        },
+        {
+          "identifier": "clipboard-manager",
+          "windows": [
+            "*"
+          ],
+          "permissions": [
+            "clipboard-manager:allow-write-text"
+          ]
         }
       ]
     }

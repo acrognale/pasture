@@ -1,12 +1,20 @@
+import type { ConversationEventPayload } from '@pasture/protocol';
+import type { EventMsg } from '@pasture/protocol';
+import type { ThreadSummary } from '@pasture/protocol';
+import type { CodexEvent } from '@pasture/protocol';
+import { TranscriptProvider } from '@pasture/transcript-ui';
 import { useQueryClient } from '@tanstack/react-query';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import type { ReactNode } from 'react';
-import { startTransition, useEffect, useMemo, useRef } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { toast } from 'sonner';
 import { mapConversationEventToApprovalRequest } from '~/approvals/event-utils';
-import type { CodexEvent } from '~/codex.gen';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { EventMsg } from '~/codex.gen/EventMsg';
-import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import {
   derivePreviewFromEvent,
   getAuthUpdatedPayload,
@@ -17,6 +25,7 @@ import {
   isThreadMetadataUpdatedEvent,
   subscribeToCodexEvents,
 } from '~/codex/events';
+import { copyToClipboard } from '~/lib/utils';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 import {
   updateConversationPreview,
@@ -244,7 +253,35 @@ export function ConversationProvider({
     workspacePath,
   ]);
 
-  return <>{children}</>;
+  const showToastFn = useCallback(
+    (message: string, type: 'success' | 'error') => {
+      if (type === 'error') {
+        toast.error(message);
+      } else {
+        toast.success(message);
+      }
+    },
+    []
+  );
+
+  const convertImageSrcFn = useCallback((path: string) => {
+    try {
+      return convertFileSrc(path);
+    } catch {
+      return path;
+    }
+  }, []);
+
+  return (
+    <TranscriptProvider
+      copyToClipboard={copyToClipboard}
+      workspacePath={workspacePath}
+      convertImageSrc={convertImageSrcFn}
+      showToast={showToastFn}
+    >
+      {children}
+    </TranscriptProvider>
+  );
 }
 
 const runSideEffects = (effects: ConversationSideEffect[]) => {

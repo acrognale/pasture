@@ -1,26 +1,33 @@
+import {
+  type TranscriptAgentMessageCell,
+  type TranscriptState,
+  type TranscriptTurn,
+  TranscriptView,
+} from '@pasture/transcript-ui';
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { buildControllerFromFixture } from '~/conversation/__tests__/fixtures';
-import type { TranscriptAgentMessageCell } from '~/conversation/transcript/types';
 import { renderWithProviders } from '~/testing/harness';
 import { WorkspaceProvider } from '~/workspace';
 
-import { TranscriptList } from '../TranscriptList';
+import { createTranscriptOverrides } from '../transcriptOverrides';
 
 describe('TranscriptList', () => {
   it('renders the exploration collapse with expected entries and agent output', () => {
     const state = buildControllerFromFixture('explore-the-code.jsonl');
-    const { turns, turnOrder } = state.conversation.transcript;
+    const { turnOrder } = state.conversation.transcript;
     const expandedTurns = turnOrder[0] ? { [turnOrder[0]]: true } : {};
+    const overrides = createTranscriptOverrides({
+      conversationId: 'test-conversation',
+    });
 
     renderWithProviders(
       <WorkspaceProvider workspacePath="/tmp/workspace">
-        <TranscriptList
-          conversationId="test-conversation"
-          turns={turns}
-          turnOrder={turnOrder}
+        <TranscriptView
+          transcript={state.conversation.transcript as TranscriptState}
           expandedTurns={expandedTurns}
           onToggleTurn={vi.fn()}
+          overrides={overrides}
         />
       </WorkspaceProvider>
     );
@@ -38,16 +45,17 @@ describe('TranscriptList', () => {
 
   it('does not render collapsed entries twice when a turn has completed', () => {
     const state = buildControllerFromFixture('explore-the-code.jsonl');
-    const { turns, turnOrder } = state.conversation.transcript;
+    const overrides = createTranscriptOverrides({
+      conversationId: 'test-conversation',
+    });
 
     renderWithProviders(
       <WorkspaceProvider workspacePath="/tmp/workspace">
-        <TranscriptList
-          conversationId="test-conversation"
-          turns={turns}
-          turnOrder={turnOrder}
+        <TranscriptView
+          transcript={state.conversation.transcript as TranscriptState}
           expandedTurns={{}}
           onToggleTurn={vi.fn()}
+          overrides={overrides}
         />
       </WorkspaceProvider>
     );
@@ -85,7 +93,7 @@ describe('TranscriptList', () => {
       ).toISOString(),
       streaming: false,
     };
-    const mutatedTurns = {
+    const mutatedTurns: Record<string, TranscriptTurn> = {
       ...turns,
       [turnId]: {
         ...originalTurn,
@@ -96,15 +104,22 @@ describe('TranscriptList', () => {
         ],
       },
     };
+    const overrides = createTranscriptOverrides({
+      conversationId: 'test-conversation',
+    });
 
     renderWithProviders(
       <WorkspaceProvider workspacePath="/tmp/workspace">
-        <TranscriptList
-          conversationId="test-conversation"
-          turns={mutatedTurns}
-          turnOrder={turnOrder}
+        <TranscriptView
+          transcript={
+            {
+              ...state.conversation.transcript,
+              turns: mutatedTurns,
+            } as TranscriptState
+          }
           expandedTurns={{}}
           onToggleTurn={vi.fn()}
+          overrides={overrides}
         />
       </WorkspaceProvider>
     );

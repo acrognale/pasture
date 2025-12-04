@@ -1,4 +1,4 @@
-import type { AuthState } from '~/codex.gen/AuthState';
+import type { AuthState } from '@pasture/protocol';
 
 const defaultAuthState: AuthState = {
   isAuthenticated: true,

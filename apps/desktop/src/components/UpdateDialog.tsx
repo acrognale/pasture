@@ -1,8 +1,8 @@
+import type { UpdateInfo } from '@pasture/protocol';
 import { listen } from '@tauri-apps/api/event';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import type { UpdateInfo } from '~/codex.gen/UpdateInfo';
 import { Codex } from '~/codex/client';
 import { isTauriEnvironment } from '~/codex/events';
 

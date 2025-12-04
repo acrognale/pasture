@@ -1,6 +1,6 @@
-import type { ApplyPatchApprovalRequestEvent } from '~/codex.gen/ApplyPatchApprovalRequestEvent';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { ExecApprovalRequestEvent } from '~/codex.gen/ExecApprovalRequestEvent';
+import type { ApplyPatchApprovalRequestEvent } from '@pasture/protocol';
+import type { ConversationEventPayload } from '@pasture/protocol';
+import type { ExecApprovalRequestEvent } from '@pasture/protocol';
 
 import type {
   ApprovalRequest,

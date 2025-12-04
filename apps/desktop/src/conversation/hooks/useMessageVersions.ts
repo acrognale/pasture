@@ -1,16 +1,10 @@
+import type { MessageVersionEntry } from '@pasture/transcript-ui';
 import { useEffect, useMemo, useState } from 'react';
 import {
   getForksAtMessage,
   useWorkspaceActions,
   useWorkspaceThreadConversations,
 } from '~/workspace';
-
-export type MessageVersionEntry = {
-  conversationId: string;
-  createdAt: string;
-  parentConversationId: string | null;
-  forkedAtNthUserMessage: number | null;
-};
 
 type UseMessageVersionsParams = {
   conversationId: string;

@@ -1,11 +1,11 @@
+import type { Conversation } from '@pasture/protocol';
+import type { ListThreadConversationsResponse } from '@pasture/protocol';
 import {
   type UseQueryResult,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import type { Conversation } from '~/codex.gen/Conversation';
-import type { ListThreadConversationsResponse } from '~/codex.gen/ListThreadConversationsResponse';
 import { Codex } from '~/codex/client';
 
 import { useWorkspace, useWorkspaceKeys } from '../WorkspaceProvider';

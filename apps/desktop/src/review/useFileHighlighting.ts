@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { BundledLanguage, HighlighterGeneric } from 'shiki';
+import type { BundledLanguage, BundledTheme, HighlighterGeneric } from 'shiki';
 
 import type { ParsedTurnDiffFile } from './types';
 
@@ -16,9 +16,9 @@ export type FileHighlighting = Map<string, HighlightedLine>;
 
 // Shiki highlighter singleton
 
-type ShikiHighlighter = HighlighterGeneric<BundledLanguage, string>;
+type ShikiHighlighter = HighlighterGeneric<BundledLanguage, BundledTheme>;
 
-let highlighterPromise: Promise<ShikiHighlighter> | null = null;
+let highlighterPromise: Promise<ShikiHighlighter> | undefined;
 
 const PRELOADED_LANGUAGES: BundledLanguage[] = [
   'typescript',
@@ -59,7 +59,7 @@ const getHighlighter = async (): Promise<ShikiHighlighter> => {
         throw err;
       });
   }
-  return highlighterPromise;
+  return highlighterPromise!;
 };
 
 const loadedLanguages = new Set<string>(PRELOADED_LANGUAGES);

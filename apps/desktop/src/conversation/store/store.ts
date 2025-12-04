@@ -1,8 +1,8 @@
+import type { ConversationEventPayload } from '@pasture/protocol';
+import type { ReasoningSummary } from '@pasture/protocol';
 import { Draft, produce } from 'immer';
 import { createStore } from 'zustand/vanilla';
 import type { StoreApi } from 'zustand/vanilla';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
 
 import type { QueuedUserMessage } from '../types';
 import {

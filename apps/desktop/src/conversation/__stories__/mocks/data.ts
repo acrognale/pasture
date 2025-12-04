@@ -1,11 +1,5 @@
-import type { FileChange } from '~/codex.gen/FileChange';
-import type { ParsedCommand } from '~/codex.gen/ParsedCommand';
-import type { ComposerTurnConfig } from '~/composer/config';
-import { createDefaultComposerConfig } from '~/composer/config';
-import {
-  type ConversationState,
-  createInitialConversationState,
-} from '~/conversation/store/reducer';
+import type { FileChange } from '@pasture/protocol';
+import type { ParsedCommand } from '@pasture/protocol';
 import type {
   TranscriptAgentMessageCell,
   TranscriptAgentReasoningCell,
@@ -22,7 +16,13 @@ import type {
   TranscriptToolCell,
   TranscriptTurn,
   TranscriptUserMessageCell,
-} from '~/conversation/transcript/types';
+} from '@pasture/transcript-ui';
+import type { ComposerTurnConfig } from '~/composer/config';
+import { createDefaultComposerConfig } from '~/composer/config';
+import {
+  type ConversationState,
+  createInitialConversationState,
+} from '~/conversation/store/reducer';
 import type { ConversationSummary } from '~/workspace/conversations';
 
 const iso = (value: string) => new Date(value).toISOString();

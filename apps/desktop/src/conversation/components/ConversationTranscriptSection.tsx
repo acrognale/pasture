@@ -1,7 +1,9 @@
+import { type TranscriptState, TranscriptView } from '@pasture/transcript-ui';
 import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -11,10 +13,10 @@ import { Skeleton } from '~/components/ui/skeleton';
 import { useAutoscroll } from '../hooks/useAutoscroll';
 import {
   useConversationLoadState,
-  useConversationTranscriptTurns,
+  useConversationTranscript,
 } from '../store/hooks';
 import { FloatingPlanPanel } from './FloatingPlanPanel';
-import { TranscriptList } from './TranscriptList';
+import { createTranscriptOverrides } from './transcriptOverrides';
 
 export type ConversationTranscriptHandle = {
   scrollToBottom: () => void;
@@ -50,7 +52,16 @@ export const ConversationTranscriptSection = forwardRef<
     const transcriptContentRef = useRef<HTMLDivElement | null>(null);
     const previousConversationIdRef = useRef<string | null>(null);
     const { isLoading, error } = useConversationLoadState(conversationId);
-    const { turns, turnOrder } = useConversationTranscriptTurns(conversationId);
+    const transcript = useConversationTranscript(conversationId);
+    const { turns, turnOrder } = transcript;
+    const overrides = useMemo(
+      () =>
+        createTranscriptOverrides({
+          conversationId,
+          onConversationForked,
+        }),
+      [conversationId, onConversationForked]
+    );
     const countCells = (order: string[], lookup: typeof turns) =>
       order.reduce((sum, turnId) => {
         const turn = lookup[turnId];
@@ -129,16 +140,14 @@ export const ConversationTranscriptSection = forwardRef<
       }
       if (hasTranscript) {
         return (
-          <TranscriptList
-            conversationId={conversationId}
-            turns={turns}
-            turnOrder={turnOrder}
+          <TranscriptView
+            transcript={transcript as TranscriptState}
             expandedTurns={expandedTurns}
             onToggleTurn={onToggleTurn}
-            onConversationForked={onConversationForked}
             bottomAnchorRef={bottomAnchorRef}
             contentRef={transcriptContentRef}
             shouldAnimateInitial={shouldAnimateInitial}
+            overrides={overrides}
           />
         );
       }

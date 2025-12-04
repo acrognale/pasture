@@ -1,7 +1,7 @@
+import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { TranscriptTurnDiff } from '~/conversation/transcript/types';
 import { mockCodex } from '~/testing/codex';
 import { renderWithProviders } from '~/testing/harness';
 

@@ -1,3 +1,8 @@
+import type {
+  TranscriptState,
+  TranscriptTurn,
+  TranscriptUserMessageCell,
+} from '@pasture/transcript-ui';
 import { useSyncExternalStore } from 'react';
 import { createStore } from 'zustand/vanilla';
 import type { StoreApi } from 'zustand/vanilla';
@@ -6,11 +11,6 @@ import {
   type ConversationState,
   createInitialConversationState,
 } from '~/conversation/store/reducer';
-import type {
-  TranscriptState,
-  TranscriptTurn,
-  TranscriptUserMessageCell,
-} from '~/conversation/transcript/types';
 import type { MessageAttachment } from '~/conversation/types';
 import type { ConversationSummary } from '~/workspace/conversations';
 

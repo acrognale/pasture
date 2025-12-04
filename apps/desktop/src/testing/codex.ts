@@ -1,21 +1,21 @@
 /* eslint-disable @typescript-eslint/require-await */
+import type { AddConversationSubscriptionResponse } from '@pasture/protocol';
+import type { AuthState } from '@pasture/protocol';
+import type { CodexEvent } from '@pasture/protocol';
+import type { ComposerTurnConfigPayload } from '@pasture/protocol';
+import type { ConversationEventPayload } from '@pasture/protocol';
+import type { EventMsg } from '@pasture/protocol';
+import type { GetTurnDiffRangeResponse } from '@pasture/protocol';
+import type { InitializeThreadResponse } from '@pasture/protocol';
+import type { InterruptConversationResponse } from '@pasture/protocol';
+import type { ListThreadConversationsResponse } from '@pasture/protocol';
+import type { ListThreadsResponse } from '@pasture/protocol';
+import type { ListTurnSnapshotsResponse } from '@pasture/protocol';
+import type { NewThreadResponse } from '@pasture/protocol';
+import type { ReasoningSummary } from '@pasture/protocol';
+import type { SessionConfiguredEvent } from '@pasture/protocol';
+import type { WorkspaceSettings } from '@pasture/protocol';
 import { vi } from 'vitest';
-import type { AddConversationSubscriptionResponse } from '~/codex.gen/AddConversationSubscriptionResponse';
-import type { AuthState } from '~/codex.gen/AuthState';
-import type { CodexEvent } from '~/codex.gen/CodexEvent';
-import type { ComposerTurnConfigPayload } from '~/codex.gen/ComposerTurnConfigPayload';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import type { EventMsg } from '~/codex.gen/EventMsg';
-import type { GetTurnDiffRangeResponse } from '~/codex.gen/GetTurnDiffRangeResponse';
-import type { InitializeThreadResponse } from '~/codex.gen/InitializeThreadResponse';
-import type { InterruptConversationResponse } from '~/codex.gen/InterruptConversationResponse';
-import type { ListThreadConversationsResponse } from '~/codex.gen/ListThreadConversationsResponse';
-import type { ListThreadsResponse } from '~/codex.gen/ListThreadsResponse';
-import type { ListTurnSnapshotsResponse } from '~/codex.gen/ListTurnSnapshotsResponse';
-import type { NewThreadResponse } from '~/codex.gen/NewThreadResponse';
-import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
-import type { SessionConfiguredEvent } from '~/codex.gen/SessionConfiguredEvent';
-import type { WorkspaceSettings } from '~/codex.gen/WorkspaceSettings';
 
 type AsyncFn<TArgs extends unknown[], TResult> = (
   ...args: TArgs

@@ -25,18 +25,12 @@
     "vite:build": "vite build",
     "vite:dev": "vite"
   },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.rs": [
-      "scripts/fmt-staged-rust.sh"
-    ]
-  },
   "dependencies": {
     "@lexical/history": "^0.38.2",
     "@lexical/react": "^0.38.2",
+    "@pasture/theme": "workspace:*",
+    "@pasture/transcript-ui": "workspace:*",
+    "@pasture/protocol": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-scroll-area": "^1.2.10",
@@ -49,31 +43,30 @@
     "@tanstack/react-router": "^1.135.2",
     "@tanstack/router-plugin": "^1.135.0",
     "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-clipboard-manager": "^2.0.0",
     "@tauri-apps/plugin-process": "^2.0.0",
     "@vitejs/plugin-react": "^5.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "framer-motion": "^12.23.24",
-    "highlight.js": "^11.11.1",
     "immer": "^11.0.1",
     "lexical": "^0.38.2",
     "lucide-react": "^0.553.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-markdown": "^9.1.0",
     "rehype-highlight": "^7.0.2",
     "remark-breaks": "^4.0.0",
     "remark-directive": "^4.0.0",
     "remark-gfm": "^4.0.1",
-    "shiki": "^3.17.0",
+    "shiki": "^3.12.2",
     "sonner": "^1.7.4",
-    "streamdown": "^1.5.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@pasture/configs": "workspace:*",
     "@storybook/addon-a11y": "^10.0.7",
     "@storybook/addon-docs": "^10.0.7",
     "@storybook/addon-links": "^10.0.7",

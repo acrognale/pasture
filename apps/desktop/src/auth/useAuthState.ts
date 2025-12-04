@@ -1,5 +1,5 @@
+import type { AuthState } from '@pasture/protocol';
 import { useQuery } from '@tanstack/react-query';
-import type { AuthState } from '~/codex.gen/AuthState';
 import { Codex } from '~/codex/client';
 
 const AUTH_QUERY_KEY = ['auth'] as const;

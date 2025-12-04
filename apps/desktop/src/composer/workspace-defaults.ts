@@ -1,8 +1,8 @@
-import type { AskForApproval } from '~/codex.gen/AskForApproval';
-import type { ReasoningEffort } from '~/codex.gen/ReasoningEffort';
-import type { ReasoningSummary } from '~/codex.gen/ReasoningSummary';
-import type { SandboxMode } from '~/codex.gen/SandboxMode';
-import type { WorkspaceSettings } from '~/codex.gen/WorkspaceSettings';
+import type { AskForApproval } from '@pasture/protocol';
+import type { ReasoningEffort } from '@pasture/protocol';
+import type { ReasoningSummary } from '@pasture/protocol';
+import type { SandboxMode } from '@pasture/protocol';
+import type { WorkspaceSettings } from '@pasture/protocol';
 
 export type WorkspaceComposerDefaultsState = {
   model: string | null;

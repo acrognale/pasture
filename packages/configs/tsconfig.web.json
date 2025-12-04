@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.react.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false
+  }
+}

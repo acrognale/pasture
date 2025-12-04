@@ -1,5 +1,5 @@
+import type { TranscriptToolCell } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { TranscriptToolCell } from '~/conversation/transcript/types';
 
 import { Tools } from '../Tools';
 
@@ -57,7 +57,6 @@ export const MCPToolSuccess: Story = {
         total_count: 2,
       },
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -74,7 +73,6 @@ export const MCPToolRunning: Story = {
         },
       },
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -96,7 +94,6 @@ export const MCPToolFailed: Story = {
         status: 404,
       },
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -107,7 +104,6 @@ export const ViewImageTool: Story = {
       status: 'succeeded',
       path: '/Users/john/screenshots/error-screenshot.png',
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -123,7 +119,6 @@ export const SearchTool: Story = {
 - src/utils/validateAuth.ts
 - tests/auth.test.ts`,
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -161,7 +156,6 @@ export const ToolWithComplexResult: Story = {
         },
       },
     }),
-    timestamp: new Date().toISOString(),
   },
 };
 
@@ -183,7 +177,6 @@ export const AllToolTypes: Story = {
           },
           result: { matches: 42 },
         })}
-        timestamp={new Date().toISOString()}
       />
 
       <div className="text-xs text-muted-foreground mb-1 mt-4">
@@ -199,7 +192,6 @@ export const AllToolTypes: Story = {
             arguments: { table: 'users' },
           },
         })}
-        timestamp={new Date().toISOString()}
       />
 
       <div className="text-xs text-muted-foreground mb-1 mt-4">
@@ -217,7 +209,6 @@ export const AllToolTypes: Story = {
           },
           result: { error: 'Not found' },
         })}
-        timestamp={new Date().toISOString()}
       />
 
       <div className="text-xs text-muted-foreground mb-1 mt-4">
@@ -229,7 +220,6 @@ export const AllToolTypes: Story = {
           status: 'succeeded',
           path: '/path/to/screenshot.png',
         })}
-        timestamp={new Date().toISOString()}
       />
 
       <div className="text-xs text-muted-foreground mb-1 mt-4">
@@ -242,7 +232,6 @@ export const AllToolTypes: Story = {
           query: 'TODO comments',
           result: 'Found 15 TODO comments across 8 files',
         })}
-        timestamp={new Date().toISOString()}
       />
     </div>
   ),

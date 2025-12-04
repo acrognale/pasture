@@ -1,5 +1,5 @@
+import type { ListThreadConversationsResponse } from '@pasture/protocol';
 import type { QueryClient } from '@tanstack/react-query';
-import type { ListThreadConversationsResponse } from '~/codex.gen/ListThreadConversationsResponse';
 import type { WorkspaceKeys } from '~/lib/workspaceKeys';
 
 import type { WorkspaceThreadsState } from './hooks/useWorkspaceThreads';

@@ -1,21 +1,23 @@
+import { CellIcon, type TranscriptPlanCell } from '@pasture/transcript-ui';
 import { LayoutGroup, motion } from 'framer-motion';
 import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { useLatestPlan } from '../store/hooks';
-import { CellIcon } from './CellIcon';
 
 type FloatingPlanPanelProps = {
   conversationId: string;
 };
 
-const getStepIcon = (status: string) => {
+type PlanStepStatus = TranscriptPlanCell['steps'][number]['status'];
+
+const getStepIcon = (status: PlanStepStatus) => {
   if (status === 'completed') return 'success';
   if (status === 'in_progress') return 'in-progress';
   return 'pending';
 };
 
-const getStepClass = (status: string) => {
+const getStepClass = (status: PlanStepStatus) => {
   if (status === 'completed') return 'text-muted-foreground';
   if (status === 'in_progress') return 'text-foreground';
   return 'text-muted-foreground/60';

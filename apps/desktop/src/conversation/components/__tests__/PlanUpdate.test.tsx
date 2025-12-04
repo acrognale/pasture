@@ -1,8 +1,7 @@
+import { PlanUpdate } from '@pasture/transcript-ui';
+import type { TranscriptPlanCell } from '@pasture/transcript-ui';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
-import type { TranscriptPlanCell } from '~/conversation/transcript/types';
-
-import { PlanUpdate } from '../PlanUpdate';
 
 const createPlanCell = (): TranscriptPlanCell => ({
   id: 'plan-1',
@@ -21,7 +20,7 @@ describe('PlanUpdate', () => {
   test('renders only the first in-progress step', () => {
     const cell = createPlanCell();
 
-    render(<PlanUpdate cell={cell} timestamp="12:00" />);
+    render(<PlanUpdate cell={cell} />);
 
     expect(
       screen.getByText('Starting: Draft release announcement')
@@ -44,9 +43,7 @@ describe('PlanUpdate', () => {
       ],
     };
 
-    const { container } = render(
-      <PlanUpdate cell={completedCell} timestamp="12:00" />
-    );
+    const { container } = render(<PlanUpdate cell={completedCell} />);
 
     expect(container.firstChild).toBeNull();
   });

@@ -1,5 +1,5 @@
+import type { ConversationId } from '@pasture/protocol';
 import { useEffect } from 'react';
-import type { ConversationId } from '~/codex.gen/ConversationId';
 import { ConversationPane } from '~/conversation/ConversationPane';
 import { ConversationProvider } from '~/conversation/store';
 import { mockCodex, mockEvents } from '~/testing/codex';

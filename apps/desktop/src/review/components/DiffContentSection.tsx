@@ -1,6 +1,6 @@
+import type { GetTurnDiffRangeParams } from '@pasture/protocol';
+import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GetTurnDiffRangeParams } from '~/codex.gen';
-import type { TranscriptTurnDiff } from '~/conversation/transcript/types';
 
 import { DraftCommentProvider } from '../DraftCommentContext';
 import { useTurnReview } from '../TurnReviewContext';

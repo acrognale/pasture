@@ -5,6 +5,7 @@ import {
   type MenuTextMatch,
   type TypeaheadMenuPluginProps,
 } from '@lexical/react/LexicalTypeaheadMenuPlugin';
+import type { WorkspaceSymbolHit } from '@pasture/protocol';
 import {
   $createTextNode,
   $getRoot,
@@ -14,7 +15,6 @@ import {
 import type { TextNode } from 'lexical';
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { WorkspaceSymbolHit } from '~/codex.gen';
 import { Codex } from '~/codex/client';
 import { cn } from '~/lib/utils';
 

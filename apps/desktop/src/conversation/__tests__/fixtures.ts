@@ -1,7 +1,7 @@
+import type { ConversationEventPayload } from '@pasture/protocol';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 
 import { type ConversationControllerState } from '../store/reducer';
 import { createConversationStore } from '../store/store';

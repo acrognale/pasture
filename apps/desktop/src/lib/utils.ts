@@ -1,18 +1,9 @@
-import { type ClassValue, clsx } from 'clsx';
-import { extendTailwindMerge } from 'tailwind-merge';
-
-const twMerge: (...inputs: ClassValue[]) => string = extendTailwindMerge({
-  extend: {
-    theme: {
-      leading: ['transcript', 'transcript-code', 'transcript-tight'],
-      text: ['transcript-base', 'transcript-code', 'transcript-micro'],
-      font: ['transcript', 'transcript-code'],
-    },
-  },
-});
+import { cn as themeCn } from '@pasture/theme';
+import { writeText as tauriWriteText } from '@tauri-apps/plugin-clipboard-manager';
+import { type ClassValue } from 'clsx';
 
 export function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
+  return themeCn(...inputs);
 }
 
 const normalizeJsonValue = (input: unknown): unknown =>
@@ -53,10 +44,17 @@ export function makePathRelative(
 
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
-    await navigator.clipboard.writeText(text);
+    await tauriWriteText(text);
     return true;
   } catch (error) {
     console.error('Failed to copy to clipboard', error);
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (error) {
+    console.error('Failed to copy to clipboard via navigator', error);
     return false;
   }
 }

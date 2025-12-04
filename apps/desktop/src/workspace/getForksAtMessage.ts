@@ -1,4 +1,4 @@
-import type { Conversation } from '~/codex.gen/Conversation';
+import type { Conversation } from '@pasture/protocol';
 
 /**
  * Get all conversation forks at a specific user message, relative to the current conversation.

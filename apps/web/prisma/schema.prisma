@@ -1,0 +1,18 @@
+generator kysely {
+  provider = "prisma-kysely"
+  output   = "../generated"
+  fileName = "kysely.ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SharedThread {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  title      String?
+  model      String?
+  reasoningEffort String?
+  transcript Json
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@pasture/protocol",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "format:check": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@pasture/configs": "workspace:*",
+    "@types/node": "^22.9.4",
+    "eslint": "^9.39.1",
+    "prettier": "^3.3.3",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,3 +1,5 @@
+import type { NewThreadResponse } from '@pasture/protocol';
+import type { ThreadSummary } from '@pasture/protocol';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import {
@@ -10,8 +12,6 @@ import {
 import { useCallback, useMemo, useState } from 'react';
 import type { FocusEvent } from 'react';
 import { toast } from 'sonner';
-import type { NewThreadResponse } from '~/codex.gen/NewThreadResponse';
-import type { ThreadSummary } from '~/codex.gen/ThreadSummary';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
 import { ScrollArea } from '~/components/ui/scroll-area';

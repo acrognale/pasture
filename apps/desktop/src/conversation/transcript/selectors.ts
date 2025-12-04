@@ -3,7 +3,7 @@ import type {
   TranscriptCell,
   TranscriptState,
   TranscriptToolCell,
-} from './types';
+} from '@pasture/transcript-ui';
 
 type IndexedCell<K extends TranscriptCell['kind']> = {
   cell: Extract<TranscriptCell, { kind: K }>;

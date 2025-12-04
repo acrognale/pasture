@@ -1,7 +1,7 @@
+import type { AuthState } from '@pasture/protocol';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo } from 'react';
-import type { AuthState } from '~/codex.gen/AuthState';
 import { createAppQueryClient } from '~/lib/queryClient';
 import { WorkspaceProvider } from '~/workspace';
 

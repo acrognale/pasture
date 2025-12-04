@@ -1,5 +1,5 @@
+import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
 import { useEffect, useMemo } from 'react';
-import type { TranscriptTurnDiff } from '~/conversation/transcript/types';
 
 import { useTurnReview } from '../TurnReviewContext';
 import { useTurnSnapshots } from '../queries';

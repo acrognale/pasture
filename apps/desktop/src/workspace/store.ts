@@ -1,7 +1,7 @@
+import type { ConversationEventPayload } from '@pasture/protocol';
 import type { QueryClient } from '@tanstack/react-query';
 import { createStore } from 'zustand/vanilla';
 import type { StoreApi } from 'zustand/vanilla';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
 import { Codex } from '~/codex/client';
 import {
   type ConversationStore,

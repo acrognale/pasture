@@ -1,16 +1,16 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
-import type { ConversationEventPayload } from '~/codex.gen/ConversationEventPayload';
-import {
-  buildControllerFromFixture,
-  loadFixtureEvents,
-} from '~/conversation/__tests__/fixtures';
+import type { ConversationEventPayload } from '@pasture/protocol';
 import type {
   TranscriptAgentReasoningCell,
   TranscriptExecCommandCell,
   TranscriptExplorationCall,
   TranscriptUserMessageCell,
-} from '~/conversation/transcript/types';
+} from '@pasture/transcript-ui';
+import { describe, expect, it } from 'vitest';
+import {
+  buildControllerFromFixture,
+  loadFixtureEvents,
+} from '~/conversation/__tests__/fixtures';
 
 import type { ConversationControllerState } from '../reducer';
 import { createConversationStore } from '../store';
