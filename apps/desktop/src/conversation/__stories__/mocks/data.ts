@@ -1,11 +1,5 @@
 import type { FileChange } from '@pasture/protocol';
 import type { ParsedCommand } from '@pasture/protocol';
-import type { ComposerTurnConfig } from '~/composer/config';
-import { createDefaultComposerConfig } from '~/composer/config';
-import {
-  type ConversationState,
-  createInitialConversationState,
-} from '~/conversation/store/reducer';
 import type {
   TranscriptAgentMessageCell,
   TranscriptAgentReasoningCell,
@@ -23,6 +17,12 @@ import type {
   TranscriptTurn,
   TranscriptUserMessageCell,
 } from '@pasture/transcript-ui';
+import type { ComposerTurnConfig } from '~/composer/config';
+import { createDefaultComposerConfig } from '~/composer/config';
+import {
+  type ConversationState,
+  createInitialConversationState,
+} from '~/conversation/store/reducer';
 import type { ConversationSummary } from '~/workspace/conversations';
 
 const iso = (value: string) => new Date(value).toISOString();

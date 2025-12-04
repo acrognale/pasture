@@ -3,23 +3,19 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
     "./styles.css": "./dist/index.css"
   },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "scripts": {
     "build": "tailwindcss -i ./src/styles.css -o ./dist/index.css",
     "dev": "tailwindcss -i ./src/styles.css -o ./dist/index.css --watch",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
     "format:check": "prettier --check .",
-    "format:fix": "prettier --write ."
-  },
-  "peerDependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "format:fix": "prettier --write .",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@pasture/protocol": "workspace:*",
@@ -48,5 +44,9 @@
     "tailwindcss": "^4.1.14",
     "typescript": "^5.9.3",
     "vitest": "^3.0.5"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   }
 }

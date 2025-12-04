@@ -1,9 +1,9 @@
 import { UserMessage } from '@pasture/transcript-ui';
+import type { TranscriptUserMessageCell } from '@pasture/transcript-ui';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { buildInputItems } from '~/conversation/hooks/useSendMessage';
-import type { TranscriptUserMessageCell } from '@pasture/transcript-ui';
 import type { MessageAttachment } from '~/conversation/types';
 import { copyToClipboard } from '~/lib/utils';
 import { useWorkspaceActions } from '~/workspace';

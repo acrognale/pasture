@@ -1,4 +1,4 @@
-import { tsLibrary } from "@pasture/configs";
+import { tsLibrary } from '@pasture/configs';
 
 export default tsLibrary({
   tsconfigRootDir: import.meta.dirname,

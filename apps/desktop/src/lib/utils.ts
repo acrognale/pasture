@@ -1,6 +1,6 @@
+import { cn as themeCn } from '@pasture/theme';
 import { writeText as tauriWriteText } from '@tauri-apps/plugin-clipboard-manager';
 import { type ClassValue } from 'clsx';
-import { cn as themeCn } from '@pasture/theme';
 
 export function cn(...inputs: ClassValue[]): string {
   return themeCn(...inputs);

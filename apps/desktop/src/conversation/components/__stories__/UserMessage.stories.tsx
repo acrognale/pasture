@@ -1,6 +1,6 @@
 import { UserMessage } from '@pasture/transcript-ui';
-import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { TranscriptUserMessageCell } from '@pasture/transcript-ui';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof UserMessage> = {
   title: 'Components/Message/UserMessage',
@@ -174,9 +174,7 @@ export const AllVariations: Story = {
         <div className="text-xs text-muted-foreground mb-1">
           Simple message:
         </div>
-        <UserMessage
-          cell={createCell({ message: 'Can you help me?' })}
-        />
+        <UserMessage cell={createCell({ message: 'Can you help me?' })} />
       </div>
       <div>
         <div className="text-xs text-muted-foreground mb-1">

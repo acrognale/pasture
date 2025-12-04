@@ -1,3 +1,4 @@
+import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
 import {
   type ReactNode,
   createContext,
@@ -8,7 +9,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
 
 import type { TurnReviewComment } from './types';
 

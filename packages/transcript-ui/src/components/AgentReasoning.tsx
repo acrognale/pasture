@@ -11,10 +11,7 @@ type AgentReasoningProps = {
   displayText?: string;
 };
 
-export function AgentReasoning({
-  cell,
-  displayText,
-}: AgentReasoningProps) {
+export function AgentReasoning({ cell, displayText }: AgentReasoningProps) {
   const text = cell.text ?? '';
   // Use displayText if provided, otherwise fall back to the raw text
   const textToDisplay = displayText ?? text;
@@ -23,9 +20,7 @@ export function AgentReasoning({
     <Cell>
       <div className="text-muted-foreground italic">
         {text ? (
-          <Markdown
-            className="text-muted-foreground italic"
-          >
+          <Markdown className="text-muted-foreground italic">
             {textToDisplay}
           </Markdown>
         ) : (

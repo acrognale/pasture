@@ -16,6 +16,8 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog';
 import { SidebarTrigger, useSidebar } from '~/components/ui/sidebar';
+import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
+import { createDefaultComposerConfig } from '~/composer/types';
 import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
 import {
   useConversationHasTurnDiffHistory,
@@ -24,8 +26,6 @@ import {
 import { copyToClipboard } from '~/lib/utils';
 import { formatWorkspaceLabel } from '~/lib/workspaces';
 import { useWorkspaceActions, useWorkspaceThreads } from '~/workspace';
-import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
-import { createDefaultComposerConfig } from '~/composer/types';
 
 type WorkspaceTopBarProps = {
   workspacePath: string;

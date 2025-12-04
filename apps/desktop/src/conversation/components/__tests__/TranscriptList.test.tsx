@@ -1,8 +1,8 @@
 import {
-  TranscriptView,
   type TranscriptAgentMessageCell,
   type TranscriptState,
   type TranscriptTurn,
+  TranscriptView,
 } from '@pasture/transcript-ui';
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';

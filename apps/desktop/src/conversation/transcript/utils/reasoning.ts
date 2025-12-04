@@ -1,9 +1,9 @@
-import { extractFirstBold } from '~/lib/markdown';
-
 import type {
   TranscriptReasoningItem,
   TranscriptReasoningSummaryFormat,
 } from '@pasture/transcript-ui';
+import { extractFirstBold } from '~/lib/markdown';
+
 import { joinSegments } from './formatting';
 
 export const hasReasoningBody = (text: string): boolean => {

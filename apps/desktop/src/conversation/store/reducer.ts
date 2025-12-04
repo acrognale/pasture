@@ -33,19 +33,6 @@ import type { ViewImageToolCallEvent } from '@pasture/protocol';
 import type { WarningEvent } from '@pasture/protocol';
 import type { WebSearchBeginEvent } from '@pasture/protocol';
 import type { WebSearchEndEvent } from '@pasture/protocol';
-import { produce } from 'immer';
-import type { Draft } from 'immer';
-import { extractFirstBold } from '~/lib/markdown';
-import { safeStringify } from '~/lib/utils';
-
-import {
-  findExecCellByCallId,
-  findExplorationAnchor,
-  findLatestTaskCell,
-  findPatchCellByCallId,
-  findToolCellByCallId,
-} from '../transcript/selectors';
-import { createInitialTranscriptState } from '../transcript/state';
 import type {
   CellLocation,
   ExecStreamDecoders,
@@ -68,6 +55,19 @@ import type {
   TranscriptTurnDiff,
   TranscriptUserMessageCell,
 } from '@pasture/transcript-ui';
+import { produce } from 'immer';
+import type { Draft } from 'immer';
+import { extractFirstBold } from '~/lib/markdown';
+import { safeStringify } from '~/lib/utils';
+
+import {
+  findExecCellByCallId,
+  findExplorationAnchor,
+  findLatestTaskCell,
+  findPatchCellByCallId,
+  findToolCellByCallId,
+} from '../transcript/selectors';
+import { createInitialTranscriptState } from '../transcript/state';
 import {
   deriveReasoningSummaryFormat,
   hasReasoningBody,

@@ -107,4 +107,3 @@ export function ImagePreview({ path, alt }: ImagePreviewProps) {
     </>
   );
 }
-

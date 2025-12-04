@@ -69,4 +69,3 @@ export function CellIcon({ status, className }: CellIconProps) {
     </span>
   );
 }
-

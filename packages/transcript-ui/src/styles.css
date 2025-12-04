@@ -8,17 +8,18 @@
  * ============================================
  */
 
-[data-streamdown="code-block-header"] {
+[data-streamdown='code-block-header'] {
   display: none;
 }
 
-[data-streamdown="code-block"],
-[data-streamdown="code-block-body"] {
+[data-streamdown='code-block'],
+[data-streamdown='code-block-body'] {
   @apply rounded-none border-0;
 }
 
 /* Headings */
-[data-streamdown='heading-1'], #transcript h1 {
+[data-streamdown='heading-1'],
+#transcript h1 {
   margin-bottom: 0.5rem;
   margin-top: 1rem;
   font-size: var(--text-markdown-h1);
@@ -26,7 +27,8 @@
   line-height: 1.25;
 }
 
-[data-streamdown='heading-2'], #transcript h2 {
+[data-streamdown='heading-2'],
+#transcript h2 {
   margin-bottom: 0.5rem;
   margin-top: 0.75rem;
   font-size: var(--text-markdown-h2);
@@ -34,7 +36,8 @@
   line-height: 1.25;
 }
 
-[data-streamdown='heading-3'], #transcript h3 {
+[data-streamdown='heading-3'],
+#transcript h3 {
   margin-bottom: 0.25rem;
   margin-top: 0.5rem;
   font-size: var(--text-markdown-h3);
@@ -42,7 +45,8 @@
   line-height: 1.375;
 }
 
-[data-streamdown='heading-4'], #transcript h4 {
+[data-streamdown='heading-4'],
+#transcript h4 {
   margin-bottom: 0.25rem;
   margin-top: 0.5rem;
   font-size: var(--text-markdown-h4);
@@ -50,7 +54,8 @@
   line-height: 1.375;
 }
 
-[data-streamdown='heading-5'], #transcript h5 {
+[data-streamdown='heading-5'],
+#transcript h5 {
   margin-bottom: 0.25rem;
   margin-top: 0.5rem;
   font-size: var(--text-markdown-h5);
@@ -58,7 +63,8 @@
   line-height: 1.375;
 }
 
-[data-streamdown='heading-6'], #transcript h6 {
+[data-streamdown='heading-6'],
+#transcript h6 {
   margin-bottom: 0.25rem;
   margin-top: 0.5rem;
   font-size: var(--text-markdown-h6);
@@ -67,49 +73,58 @@
 }
 
 /* Paragraphs */
-[data-streamdown] p, #transcript p {
+[data-streamdown] p,
+#transcript p {
   margin-bottom: 0.375rem;
 }
 
 /* Lists */
-[data-streamdown='unordered-list'], #transcript ul {
+[data-streamdown='unordered-list'],
+#transcript ul {
   margin-bottom: 0.5rem;
   margin-left: 1rem;
   list-style-type: disc;
 }
 
-[data-streamdown='unordered-list'] > * + *, #transcript ul > * + * {
+[data-streamdown='unordered-list'] > * + *,
+#transcript ul > * + * {
   margin-top: 0.25rem;
 }
 
-[data-streamdown='ordered-list'], #transcript ol {
+[data-streamdown='ordered-list'],
+#transcript ol {
   margin-bottom: 0.5rem;
   margin-left: 1rem;
   list-style-type: decimal;
 }
 
-[data-streamdown='ordered-list'] > * + *, #transcript ol > * + * {
+[data-streamdown='ordered-list'] > * + *,
+#transcript ol > * + * {
   margin-top: 0.25rem;
 }
 
-[data-streamdown='list-item'], #transcript li {
+[data-streamdown='list-item'],
+#transcript li {
   line-height: 1.5;
 }
 
 /* Links */
-[data-streamdown='link'], #transcript a {
+[data-streamdown='link'],
+#transcript a {
   color: var(--primary);
   text-decoration-line: underline;
   text-decoration-color: color-mix(in oklch, var(--primary) 30%, transparent);
   text-underline-offset: 2px;
 }
 
-[data-streamdown='link']:hover, #transcript a:hover {
+[data-streamdown='link']:hover,
+#transcript a:hover {
   text-decoration-color: color-mix(in oklch, var(--primary) 60%, transparent);
 }
 
 /* Inline code */
-[data-streamdown='inline-code'], #transcript code {
+[data-streamdown='inline-code'],
+#transcript code {
   border-radius: 0.25rem;
   background-color: var(--muted);
   padding-left: 0.375rem;
@@ -121,13 +136,15 @@
 }
 
 /* Code blocks - Streamdown */
-[data-streamdown='code-block'], #transcript pre {
+[data-streamdown='code-block'],
+#transcript pre {
   position: relative;
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
 }
 
-[data-streamdown='code-block'] pre, #transcript pre pre {
+[data-streamdown='code-block'] pre,
+#transcript pre pre {
   overflow-x: auto;
   border-radius: var(--radius-lg);
   background-color: var(--muted);
@@ -135,14 +152,16 @@
   white-space: pre-wrap;
 }
 
-[data-streamdown='code-block'] code, #transcript pre code {
+[data-streamdown='code-block'] code,
+#transcript pre code {
   font-family: var(--font-transcript-mono);
   font-size: 0.875rem;
   background-color: transparent !important;
 }
 
 /* Code blocks - react-markdown with highlight.js */
-pre:has(> code.hljs), #transcript pre:has(> code.hljs) {
+pre:has(> code.hljs),
+#transcript pre:has(> code.hljs) {
   overflow-x: auto;
   border-radius: var(--radius-lg);
   background-color: var(--muted);
@@ -152,7 +171,8 @@ pre:has(> code.hljs), #transcript pre:has(> code.hljs) {
   white-space: pre-wrap;
 }
 
-pre > code.hljs, #transcript pre > code.hljs {
+pre > code.hljs,
+#transcript pre > code.hljs {
   font-family: var(--font-transcript-mono);
   font-size: 0.875rem;
   background-color: transparent !important;
@@ -160,46 +180,57 @@ pre > code.hljs, #transcript pre > code.hljs {
 }
 
 /* Blockquote */
-[data-streamdown='blockquote'], #transcript blockquote {
+[data-streamdown='blockquote'],
+#transcript blockquote {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
   border-left-width: 2px;
-  border-left-color: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
+  border-left-color: color-mix(
+    in oklch,
+    var(--muted-foreground) 30%,
+    transparent
+  );
   padding-left: 1rem;
   font-style: italic;
   color: var(--muted-foreground);
 }
 
 /* Horizontal rule */
-[data-streamdown='horizontal-rule'], #transcript hr {
+[data-streamdown='horizontal-rule'],
+#transcript hr {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
   border-color: var(--border);
 }
 
 /* Tables */
-[data-streamdown='table-wrapper'], #transcript table {
+[data-streamdown='table-wrapper'],
+#transcript table {
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
   overflow-x: auto;
 }
 
-[data-streamdown='table'], #transcript table {
+[data-streamdown='table'],
+#transcript table {
   min-width: 100%;
   border-collapse: collapse;
 }
 
-[data-streamdown='table-header'], #transcript table thead {
+[data-streamdown='table-header'],
+#transcript table thead {
   border-bottom-width: 1px;
   border-bottom-color: var(--border);
 }
 
-[data-streamdown='table-body'] > tr + tr, #transcript table tbody > tr + tr {
+[data-streamdown='table-body'] > tr + tr,
+#transcript table tbody > tr + tr {
   border-top-width: 1px;
   border-top-color: var(--border);
 }
 
-[data-streamdown='table-header-cell'], #transcript table thead th {
+[data-streamdown='table-header-cell'],
+#transcript table thead th {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
   padding-top: 0.5rem;
@@ -209,7 +240,8 @@ pre > code.hljs, #transcript pre > code.hljs {
   font-weight: 500;
 }
 
-[data-streamdown='table-cell'], #transcript table tbody td {
+[data-streamdown='table-cell'],
+#transcript table tbody td {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
   padding-top: 0.5rem;
@@ -218,20 +250,22 @@ pre > code.hljs, #transcript pre > code.hljs {
 }
 
 /* Strong/Bold */
-[data-streamdown='strong'], #transcript strong {
+[data-streamdown='strong'],
+#transcript strong {
   font-weight: 600;
 }
 
 /* Emphasis/Italic - using em selector within streamdown context */
-[data-streamdown] em, #transcript em {
+[data-streamdown] em,
+#transcript em {
   font-style: italic;
 }
 
 /* Strikethrough - using del selector within streamdown context */
-[data-streamdown] del, #transcript del {
+[data-streamdown] del,
+#transcript del {
   text-decoration-line: line-through;
   opacity: 0.7;
 }
-
 
 @import 'highlight.js/styles/github.css';

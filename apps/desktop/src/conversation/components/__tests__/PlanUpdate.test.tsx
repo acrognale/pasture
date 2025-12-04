@@ -1,7 +1,7 @@
 import { PlanUpdate } from '@pasture/transcript-ui';
+import type { TranscriptPlanCell } from '@pasture/transcript-ui';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, test } from 'vitest';
-import type { TranscriptPlanCell } from '@pasture/transcript-ui';
 
 const createPlanCell = (): TranscriptPlanCell => ({
   id: 'plan-1',
@@ -43,9 +43,7 @@ describe('PlanUpdate', () => {
       ],
     };
 
-    const { container } = render(
-      <PlanUpdate cell={completedCell} />
-    );
+    const { container } = render(<PlanUpdate cell={completedCell} />);
 
     expect(container.firstChild).toBeNull();
   });

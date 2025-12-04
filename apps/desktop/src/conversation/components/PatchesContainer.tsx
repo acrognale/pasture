@@ -1,10 +1,10 @@
 import { Patches } from '@pasture/transcript-ui';
-import { useApprovals } from '~/approvals/hooks/useApprovals';
-import { useRespondToApproval } from '~/approvals/hooks/useRespondToApproval';
 import type {
   TranscriptPatchApprovalCell,
   TranscriptPatchCell,
 } from '@pasture/transcript-ui';
+import { useApprovals } from '~/approvals/hooks/useApprovals';
+import { useRespondToApproval } from '~/approvals/hooks/useRespondToApproval';
 
 type PatchesContainerProps = {
   cell: TranscriptPatchCell | TranscriptPatchApprovalCell;

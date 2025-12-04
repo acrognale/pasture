@@ -1,5 +1,5 @@
-import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { TranscriptToolCell } from '@pasture/transcript-ui';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { Tools } from '../Tools';
 
@@ -69,7 +69,7 @@ export const MCPToolRunning: Story = {
         server: 'database',
         tool: 'query',
         arguments: {
-        sql: 'SELECT * FROM users WHERE active = true',
+          sql: 'SELECT * FROM users WHERE active = true',
         },
       },
     }),

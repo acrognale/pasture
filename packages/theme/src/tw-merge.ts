@@ -16,7 +16,12 @@ const twMerge = extendTailwindMerge({
         'transcript-markdown-h5',
         'transcript-markdown-h6',
       ],
-      font: ['transcript', 'transcript-code', 'transcript-sans', 'transcript-mono'],
+      font: [
+        'transcript',
+        'transcript-code',
+        'transcript-sans',
+        'transcript-mono',
+      ],
       radius: ['transcript', 'transcript-sm', 'transcript-md', 'transcript-lg'],
       color: [
         // Brand

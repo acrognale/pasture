@@ -127,59 +127,51 @@ const coerceGenericToExecCell = (
   exploration: null,
 });
 
-export function TranscriptView({ overrides, ...listProps }: TranscriptViewProps) {
-  const renderDefaultCell = useCallback(
-    (cell: TranscriptCell) => {
-      switch (cell.kind) {
-        case 'session-configured':
-          return null;
-        case 'user-message':
-          return <UserMessage cell={cell} />;
-        case 'agent-message':
-          return (
-            <AgentMessage
-              cell={cell}
-            />
-          );
-        case 'agent-reasoning':
-          return cell.visible ? (
-            <AgentReasoning
-              cell={cell}
-            />
-          ) : null;
-        case 'task':
-          return <TaskLifecycle cell={cell} />;
-        case 'exec-approval':
-          return <ExecutionApproval cell={cell} />;
-        case 'exec':
-          return cell.exploration ? (
-            <ExplorationCell cell={cell} />
-          ) : (
-            <ExecutionResult cell={cell} />
-          );
-        case 'tool': {
-          const execLike = coerceToolToExecCell(cell);
-          return <ExecutionResult cell={execLike} />;
-        }
-        case 'patch':
-        case 'patch-approval':
-          return <Patches cell={cell} />;
-        case 'plan':
-          return <PlanUpdate cell={cell} />;
-        case 'status':
-          return <StatusEvents cell={cell} />;
-        case 'error':
-          return <Errors cell={cell} />;
-        case 'generic': {
-          const execLike = coerceGenericToExecCell(cell);
-          return <ExecutionResult cell={execLike} />;
-        }
-        default:
-          return null;
+export function TranscriptView({
+  overrides,
+  ...listProps
+}: TranscriptViewProps) {
+  const renderDefaultCell = useCallback((cell: TranscriptCell) => {
+    switch (cell.kind) {
+      case 'session-configured':
+        return null;
+      case 'user-message':
+        return <UserMessage cell={cell} />;
+      case 'agent-message':
+        return <AgentMessage cell={cell} />;
+      case 'agent-reasoning':
+        return cell.visible ? <AgentReasoning cell={cell} /> : null;
+      case 'task':
+        return <TaskLifecycle cell={cell} />;
+      case 'exec-approval':
+        return <ExecutionApproval cell={cell} />;
+      case 'exec':
+        return cell.exploration ? (
+          <ExplorationCell cell={cell} />
+        ) : (
+          <ExecutionResult cell={cell} />
+        );
+      case 'tool': {
+        const execLike = coerceToolToExecCell(cell);
+        return <ExecutionResult cell={execLike} />;
       }
-    },
-    []
-  );
+      case 'patch':
+      case 'patch-approval':
+        return <Patches cell={cell} />;
+      case 'plan':
+        return <PlanUpdate cell={cell} />;
+      case 'status':
+        return <StatusEvents cell={cell} />;
+      case 'error':
+        return <Errors cell={cell} />;
+      case 'generic': {
+        const execLike = coerceGenericToExecCell(cell);
+        return <ExecutionResult cell={execLike} />;
+      }
+      default:
+        return null;
+    }
+  }, []);
 
   const renderCell = useCallback<
     NonNullable<TranscriptListProps['renderCell']>

@@ -29,18 +29,18 @@
   --green-300: oklch(0.72 0.14 145);
   --green-400: oklch(0.65 0.16 145);
   --green-500: oklch(0.58 0.16 145);
-  --green-600: oklch(0.50 0.14 145);
+  --green-600: oklch(0.5 0.14 145);
   --green-700: oklch(0.42 0.12 145);
-  --green-800: oklch(0.30 0.08 145);
+  --green-800: oklch(0.3 0.08 145);
   --green-900: oklch(0.22 0.04 145);
 
   /* Cream (warm neutrals) */
   --cream-50: oklch(0.97 0.01 90);
   --cream-100: oklch(0.94 0.02 90);
-  --cream-200: oklch(0.90 0.02 90);
+  --cream-200: oklch(0.9 0.02 90);
   --cream-300: oklch(0.85 0.02 90);
-  --cream-400: oklch(0.70 0.02 90);
-  --cream-500: oklch(0.50 0.02 90);
+  --cream-400: oklch(0.7 0.02 90);
+  --cream-500: oklch(0.5 0.02 90);
   --cream-600: oklch(0.35 0.015 90);
   --cream-700: oklch(0.25 0.02 90);
   --cream-800: oklch(0.22 0.01 90);
@@ -48,14 +48,14 @@
 
   /* Blue (info) */
   --blue-50: oklch(0.95 0.024 236.81);
-  --blue-100: oklch(0.90 0.05 236.81);
-  --blue-400: oklch(0.68 0.148 238.10);
-  --blue-500: oklch(0.60 0.16 238.10);
+  --blue-100: oklch(0.9 0.05 236.81);
+  --blue-400: oklch(0.68 0.148 238.1);
+  --blue-500: oklch(0.6 0.16 238.1);
   --blue-800: oklch(0.28 0.0875 267.91);
 
   /* Red (error/destructive) */
   --red-50: oklch(0.93 0.0314 17.73);
-  --red-100: oklch(0.90 0.06 22);
+  --red-100: oklch(0.9 0.06 22);
   --red-400: oklch(0.64 0.2082 25.38);
   --red-500: oklch(0.577 0.245 27.325);
   --red-600: oklch(0.704 0.191 22.216);
@@ -188,8 +188,10 @@
   --text-transcript-base: 13px;
   --text-transcript-code: 12px;
   --text-transcript-micro: 11px;
-  --font-transcript-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-transcript-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  --font-transcript-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-transcript-mono:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   --font-transcript: var(--font-transcript-sans);
 
   /* Line heights */
@@ -404,15 +406,23 @@
   --color-transcript-info: var(--color-transcript-info);
   --color-transcript-info-foreground: var(--color-transcript-info-foreground);
   --color-transcript-success: var(--color-transcript-success);
-  --color-transcript-success-foreground: var(--color-transcript-success-foreground);
+  --color-transcript-success-foreground: var(
+    --color-transcript-success-foreground
+  );
   --color-transcript-warning: var(--color-transcript-warning);
-  --color-transcript-warning-foreground: var(--color-transcript-warning-foreground);
+  --color-transcript-warning-foreground: var(
+    --color-transcript-warning-foreground
+  );
   --color-transcript-error: var(--color-transcript-error);
   --color-transcript-error-foreground: var(--color-transcript-error-foreground);
   --color-transcript-tool-primary: var(--color-transcript-tool-primary);
-  --color-transcript-tool-primary-foreground: var(--color-transcript-tool-primary-foreground);
+  --color-transcript-tool-primary-foreground: var(
+    --color-transcript-tool-primary-foreground
+  );
   --color-transcript-tool-secondary: var(--color-transcript-tool-secondary);
-  --color-transcript-tool-secondary-foreground: var(--color-transcript-tool-secondary-foreground);
+  --color-transcript-tool-secondary-foreground: var(
+    --color-transcript-tool-secondary-foreground
+  );
 
   /* Radii */
   --radius: var(--radius);

@@ -2,6 +2,7 @@ import type { TranscriptPlanCell } from '@pasture/transcript-ui';
 import { shallow } from 'zustand/shallow';
 import { useStoreWithEqualityFn } from 'zustand/traditional';
 import { useWorkspaceActions } from '~/workspace';
+
 import type { ConversationStoreState } from './store';
 
 const useConversationSelector = <T>(

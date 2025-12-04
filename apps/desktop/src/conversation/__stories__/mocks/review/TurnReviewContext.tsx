@@ -1,6 +1,6 @@
+import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
-import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
 
 type TurnReviewContextValue = {
   diff: null;

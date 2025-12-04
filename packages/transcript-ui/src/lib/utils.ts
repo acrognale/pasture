@@ -1,5 +1,5 @@
-import { type ClassValue } from 'clsx';
 import { cn as themeCn } from '@pasture/theme';
+import { type ClassValue } from 'clsx';
 
 /**
  * Merge class names with tailwind-merge support

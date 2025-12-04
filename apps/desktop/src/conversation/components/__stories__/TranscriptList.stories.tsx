@@ -1,5 +1,5 @@
+import { type TranscriptState, TranscriptView } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { TranscriptView, type TranscriptState } from '@pasture/transcript-ui';
 
 import { sampleTranscript } from '../../__stories__/mocks/data';
 import { createTranscriptOverrides } from '../transcriptOverrides';

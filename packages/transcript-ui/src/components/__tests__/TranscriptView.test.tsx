@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
-import { TranscriptView } from '../TranscriptView';
 import type { TranscriptState } from '../../types';
+import { TranscriptView } from '../TranscriptView';
 
 const buildTranscript = (): TranscriptState => ({
   turns: {
@@ -52,7 +51,9 @@ const buildTranscript = (): TranscriptState => ({
 
 describe('TranscriptView', () => {
   it('renders default mapping for common cell kinds', () => {
-    render(<TranscriptView transcript={buildTranscript()} enableCollapsing={false} />);
+    render(
+      <TranscriptView transcript={buildTranscript()} enableCollapsing={false} />
+    );
 
     expect(screen.getByText('Hello world')).toBeInTheDocument();
     expect(screen.getByText('Agent reply')).toBeInTheDocument();

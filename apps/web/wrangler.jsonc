@@ -2,16 +2,14 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "pasture-web",
   "compatibility_date": "2025-09-02",
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
+  "compatibility_flags": ["nodejs_compat"],
   "main": "./src/server.ts",
   "observability": {
     "enabled": true,
     "logs": {
       "invocation_logs": true,
-      "head_sampling_rate": 1
-    }
+      "head_sampling_rate": 1,
+    },
   },
   "workers_dev": true,
   "preview_urls": true,
@@ -19,7 +17,7 @@
     {
       "pattern": "pasture.dev",
       "zone_name": "pasture.dev",
-      "custom_domain": true
-    }
-  ]
+      "custom_domain": true,
+    },
+  ],
 }

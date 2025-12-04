@@ -1,6 +1,6 @@
 import { Errors } from '@pasture/transcript-ui';
-import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { TranscriptErrorCell } from '@pasture/transcript-ui';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 
 const meta: Meta<typeof Errors> = {
   title: 'Components/Conversation/Errors',

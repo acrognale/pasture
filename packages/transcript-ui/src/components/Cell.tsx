@@ -28,4 +28,3 @@ export function Cell({ icon, className, children }: CellProps) {
     </div>
   );
 }
-

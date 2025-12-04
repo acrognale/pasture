@@ -4,20 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --port 3001",
     "build": "vite build",
-    "serve": "vite preview",
-    "test": "echo skipped",
-    "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types",
+    "deploy": "pnpm run build && wrangler deploy",
+    "dev": "vite dev --port 3001",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "eslint .",
-    "deploy": "pnpm run build && wrangler deploy",
     "preview": "pnpm run build && vite preview",
-    "cf-typegen": "wrangler types",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "serve": "vite preview",
+    "test": "echo skipped",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "1.13.7",
