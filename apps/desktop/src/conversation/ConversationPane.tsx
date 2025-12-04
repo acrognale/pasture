@@ -51,6 +51,9 @@ export function ConversationPane({
     useState<ComposerBarControls | null>(null);
   const interruptRequestedRef = useRef(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [reviewFocusFilePath, setReviewFocusFilePath] = useState<string | null>(
+    null
+  );
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const expandedTurns = expandedTurnsByConversation[conversationId] ?? {};
   const isTurnActive = useConversationIsRunning(conversationId);
@@ -241,6 +244,7 @@ export function ConversationPane({
       if (event.detail.conversationId !== conversationId) {
         return;
       }
+      setReviewFocusFilePath(event.detail.fileDisplayPath ?? null);
       setIsReviewOpen(true);
     };
 
@@ -317,9 +321,13 @@ export function ConversationPane({
         conversationId={conversationId}
         open={isReviewOpen}
         hasHistory={hasReviewHistory}
-        onClose={() => setIsReviewOpen(false)}
+        onClose={() => {
+          setIsReviewOpen(false);
+          setReviewFocusFilePath(null);
+        }}
         workspacePath={workspacePath}
         onRequestFeedback={handleReviewFeedback}
+        focusFilePath={reviewFocusFilePath}
       />
     </>
   );

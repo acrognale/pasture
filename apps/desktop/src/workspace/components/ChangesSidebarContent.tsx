@@ -9,6 +9,7 @@ type ProcessedFile = {
 
 type ChangesSidebarContentProps = {
   files: ProcessedFile[];
+  onFileClick?: (file: ParsedTurnDiffFile) => void;
 };
 
 type FileStatus = 'added' | 'deleted' | 'modified';
@@ -60,7 +61,10 @@ function splitPath(path: string): { dir: string; file: string } {
   };
 }
 
-export function ChangesSidebarContent({ files }: ChangesSidebarContentProps) {
+export function ChangesSidebarContent({
+  files,
+  onFileClick,
+}: ChangesSidebarContentProps) {
   if (files.length === 0) {
     return (
       <div className="flex-1 px-4 py-6 text-center text-xs text-muted-foreground">
@@ -80,7 +84,11 @@ export function ChangesSidebarContent({ files }: ChangesSidebarContentProps) {
           const { dir, file: fileName } = splitPath(relativePath);
           return (
             <li key={file.id}>
-              <div className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs bg-background/50">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs bg-background/50 hover:bg-muted/40 transition-colors"
+                onClick={() => onFileClick?.(file)}
+              >
                 <FileStatusIcon status={status} />
                 <span
                   className="flex-1 min-w-0 flex items-center gap-1 text-foreground"
@@ -107,7 +115,7 @@ export function ChangesSidebarContent({ files }: ChangesSidebarContentProps) {
                     -{stats.removed}
                   </span>
                 </span>
-              </div>
+              </button>
             </li>
           );
         })}

@@ -14,7 +14,10 @@ import {
 import { ConversationProvider } from '~/conversation/store';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { SettingsModal } from '~/settings/SettingsModal';
-import { WorkspaceProvider, useWorkspaceThreadConversationId } from '~/workspace';
+import {
+  WorkspaceProvider,
+  useWorkspaceThreadConversationId,
+} from '~/workspace';
 import { RecentConversationSwitcher } from '~/workspace/RecentConversationSwitcher';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';

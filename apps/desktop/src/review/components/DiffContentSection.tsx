@@ -20,11 +20,13 @@ import { FileSidebar } from './FileSidebar';
 export type DiffContentSectionProps = {
   workspacePath: string;
   viewMode: DiffViewMode;
+  focusFilePath?: string | null;
 };
 
 export function DiffContentSection({
   workspacePath,
   viewMode,
+  focusFilePath,
 }: DiffContentSectionProps) {
   const {
     conversationId,
@@ -178,6 +180,18 @@ export function DiffContentSection({
       }
     }
   }, [diffFiles, selectedFileId]);
+
+  // Focus a specific file when requested (e.g., from ChangesSidebar)
+  useEffect(() => {
+    if (!focusFilePath || !diffFiles.length) {
+      return;
+    }
+    const target = diffFiles.find((file) => file.displayPath === focusFilePath);
+    if (target && target.id !== selectedFileId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedFileId(target.id);
+    }
+  }, [diffFiles, focusFilePath, selectedFileId]);
 
   // Scroll to selected file
   useEffect(() => {

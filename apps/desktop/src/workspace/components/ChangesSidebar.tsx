@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
 import {
   useConversationHasTurnDiffHistory,
   useConversationLatestTurnDiff,
@@ -90,7 +91,16 @@ export function ChangesSidebar({
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}
       />
-      {!isCollapsed ? <ChangesSidebarContent files={processedFiles} /> : null}
+      {!isCollapsed ? (
+        <ChangesSidebarContent
+          files={processedFiles}
+          onFileClick={(file) => {
+            if (conversationId) {
+              dispatchOpenReviewOverlayEvent(conversationId, file.displayPath);
+            }
+          }}
+        />
+      ) : null}
     </aside>
   );
 }
