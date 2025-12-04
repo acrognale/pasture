@@ -24,6 +24,8 @@ import {
 import { copyToClipboard } from '~/lib/utils';
 import { formatWorkspaceLabel } from '~/lib/workspaces';
 import { useWorkspaceActions, useWorkspaceThreads } from '~/workspace';
+import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
+import { createDefaultComposerConfig } from '~/composer/types';
 
 type WorkspaceTopBarProps = {
   workspacePath: string;
@@ -78,6 +80,12 @@ export function WorkspaceTopBar({
   const canShare =
     Boolean(activeConversationId) && turnOrder && turnOrder.length > 0;
 
+  const { query: composerQuery } = useComposerConfig(
+    workspacePath,
+    activeConversationId
+  );
+  const composerConfig = composerQuery.data ?? createDefaultComposerConfig();
+
   const handleShare = async () => {
     if (!canShare) {
       return;
@@ -95,7 +103,8 @@ export function WorkspaceTopBar({
         },
         body: JSON.stringify({
           title: shareTitle,
-          model: undefined,
+          model: composerConfig.model ?? undefined,
+          reasoningEffort: composerConfig.reasoningEffort ?? undefined,
           transcript: { turns, turnOrder },
         }),
       });

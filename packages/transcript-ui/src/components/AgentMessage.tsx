@@ -9,7 +9,6 @@ type AgentMessageProps = {
 };
 
 export function AgentMessage({ cell }: AgentMessageProps) {
-  console.log('cell', cell);
   return (
     <Cell className="group">
       <div>

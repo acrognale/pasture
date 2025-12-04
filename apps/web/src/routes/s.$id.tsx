@@ -4,6 +4,10 @@ import { createServerFn } from '@tanstack/react-start';
 import z from 'zod';
 
 import { TranscriptView } from '@/components/transcript/TranscriptView';
+import {
+  deriveModelFromTranscript,
+  deriveReasoningEffortFromTranscript,
+} from '@/lib/transcript';
 
 type SharedTranscript = Pick<TranscriptState, 'turns' | 'turnOrder'>;
 
@@ -11,6 +15,7 @@ type SharedThreadDTO = {
   id: string;
   title: string | null;
   model: string | null;
+  reasoningEffort: string | null;
   transcript: SharedTranscript;
   createdAt: string;
 };
@@ -31,7 +36,16 @@ const getThread = createServerFn()
     return {
       id: result.id,
       title: result.title,
-      model: result.model,
+      model:
+        result.model ??
+        deriveModelFromTranscript(
+          result.transcript as unknown as TranscriptState
+        ),
+      reasoningEffort:
+        result.reasoningEffort ??
+        deriveReasoningEffortFromTranscript(
+          result.transcript as unknown as TranscriptState
+        ),
       transcript: result.transcript as unknown as TranscriptState,
       createdAt: new Date(result.createdAt).toISOString(),
     };
@@ -48,8 +62,12 @@ export const Route = createFileRoute('/s/$id')({
   head: ({ loaderData, params }) => {
     const data = loaderData as SharedThreadDTO | undefined;
     const title = data?.title ?? 'Shared Thread';
+    const modelLabel = data?.model ?? 'Unknown model';
+    const reasoningLabel = formatReasoningEffort(data?.reasoningEffort);
     const description = data?.model
-      ? `A conversation with ${data.model} shared on Pasture`
+      ? reasoningLabel
+        ? `A conversation with ${modelLabel} (${reasoningLabel}) shared on Pasture`
+        : `A conversation with ${modelLabel} shared on Pasture`
       : 'A shared conversation on Pasture';
     const ogImageUrl = `https://pasture.dev/api/og/${params.id}`;
     const shareUrl = `https://pasture.dev/s/${params.id}`;
@@ -111,6 +129,8 @@ function RouteComponent() {
   const share = Route.useLoaderData() as SharedThreadDTO;
   const transcript = share.transcript as TranscriptState;
   const formattedDate = formatRelativeDate(share.createdAt);
+  const modelLabel = share.model ?? 'Unknown model';
+  const reasoningLabel = formatReasoningEffort(share.reasoningEffort);
 
   return (
     <div className="bg-background text-foreground">
@@ -137,7 +157,22 @@ function RouteComponent() {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               {share.model ? (
-                <MetaPill icon={<ModelIcon />} label={share.model} />
+                <MetaPill
+                  icon={
+                    <img
+                      src="/OpenAI-black-monoblossom.png"
+                      alt="OpenAI"
+                      className="w-6 h-6"
+                    />
+                  }
+                  label={modelLabel}
+                />
+              ) : null}
+              {reasoningLabel ? (
+                <MetaPill
+                  icon={<ReasoningIcon />}
+                  label={`${reasoningLabel} reasoning`}
+                />
               ) : null}
               <span className="font-body text-sm text-muted-foreground italic">
                 {formattedDate}
@@ -218,24 +253,6 @@ function MetaPill({ icon, label }: { icon: React.ReactNode; label: string }) {
   );
 }
 
-function ModelIcon() {
-  return (
-    <svg
-      className="w-4 h-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
-      <path d="M12 12v10" />
-      <path d="M8 18h8" />
-    </svg>
-  );
-}
-
 function SheepIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -262,13 +279,32 @@ function SheepIcon({ className }: { className?: string }) {
   );
 }
 
+function ReasoningIcon() {
+  return (
+    <svg
+      className="w-4 h-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3a9 9 0 1 0 9 9" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19 3v4" />
+      <path d="M21 5h-4" />
+    </svg>
+  );
+}
+
 function formatRelativeDate(isoString: string): string {
   const date = new Date(isoString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) {
+  if (diffDays <= 0) {
     return 'Shared today';
   } else if (diffDays === 1) {
     return 'Shared yesterday';
@@ -281,6 +317,21 @@ function formatRelativeDate(isoString: string): string {
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
     })}`;
   }
+}
+
+function formatReasoningEffort(
+  value: string | null | undefined
+): string | null {
+  if (!value) return null;
+  const map: Record<string, string> = {
+    none: 'No',
+    minimal: 'Minimal',
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+    xhigh: 'Extra high',
+  };
+  return map[value] ?? null;
 }
 
 function ErrorComponent({ error }: { error: unknown }) {

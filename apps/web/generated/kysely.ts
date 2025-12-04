@@ -11,6 +11,7 @@ export type SharedThread = {
   createdAt: Generated<Timestamp>;
   title: string | null;
   model: string | null;
+  reasoningEffort: string | null;
   transcript: unknown;
 };
 export type DB = {

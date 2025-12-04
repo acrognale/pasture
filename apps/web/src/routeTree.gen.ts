@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SIdRouteImport } from './routes/s.$id'
 import { Route as ApiShareRouteImport } from './routes/api.share'
+import { Route as ApiRawIdRouteImport } from './routes/api.raw.$id'
 import { Route as ApiOgIdRouteImport } from './routes/api.og.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const ApiShareRoute = ApiShareRouteImport.update({
   path: '/api/share',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRawIdRoute = ApiRawIdRouteImport.update({
+  id: '/api/raw/$id',
+  path: '/api/raw/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOgIdRoute = ApiOgIdRouteImport.update({
   id: '/api/og/$id',
   path: '/api/og/$id',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/api/share': typeof ApiShareRoute
   '/s/$id': typeof SIdRoute
   '/api/og/$id': typeof ApiOgIdRoute
+  '/api/raw/$id': typeof ApiRawIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/share': typeof ApiShareRoute
   '/s/$id': typeof SIdRoute
   '/api/og/$id': typeof ApiOgIdRoute
+  '/api/raw/$id': typeof ApiRawIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,20 @@ export interface FileRoutesById {
   '/api/share': typeof ApiShareRoute
   '/s/$id': typeof SIdRoute
   '/api/og/$id': typeof ApiOgIdRoute
+  '/api/raw/$id': typeof ApiRawIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/share' | '/s/$id' | '/api/og/$id'
+  fullPaths: '/' | '/api/share' | '/s/$id' | '/api/og/$id' | '/api/raw/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/share' | '/s/$id' | '/api/og/$id'
-  id: '__root__' | '/' | '/api/share' | '/s/$id' | '/api/og/$id'
+  to: '/' | '/api/share' | '/s/$id' | '/api/og/$id' | '/api/raw/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/share'
+    | '/s/$id'
+    | '/api/og/$id'
+    | '/api/raw/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +82,7 @@ export interface RootRouteChildren {
   ApiShareRoute: typeof ApiShareRoute
   SIdRoute: typeof SIdRoute
   ApiOgIdRoute: typeof ApiOgIdRoute
+  ApiRawIdRoute: typeof ApiRawIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -92,6 +108,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiShareRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/raw/$id': {
+      id: '/api/raw/$id'
+      path: '/api/raw/$id'
+      fullPath: '/api/raw/$id'
+      preLoaderRoute: typeof ApiRawIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/og/$id': {
       id: '/api/og/$id'
       path: '/api/og/$id'
@@ -107,6 +130,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiShareRoute: ApiShareRoute,
   SIdRoute: SIdRoute,
   ApiOgIdRoute: ApiOgIdRoute,
+  ApiRawIdRoute: ApiRawIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

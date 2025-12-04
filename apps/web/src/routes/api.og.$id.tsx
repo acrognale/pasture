@@ -1,17 +1,28 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { ImageResponse } from 'workers-og';
 
+import {
+  deriveModelFromTranscript,
+  deriveReasoningEffortFromTranscript,
+} from '@/lib/transcript';
+
 export const Route = createFileRoute('/api/og/$id')({
   server: {
     handlers: {
-      GET: async ({ params, context }) => {
+      GET: async ({ params, context, request }) => {
         const db = context.db();
         const { id } = params;
 
         // Fetch the shared thread
         const share = await db
           .selectFrom('SharedThread')
-          .select(['title', 'model', 'createdAt', 'transcript'])
+          .select([
+            'title',
+            'model',
+            'reasoningEffort',
+            'createdAt',
+            'transcript',
+          ])
           .where('id', '=', id)
           .executeTakeFirst();
 
@@ -19,8 +30,16 @@ export const Route = createFileRoute('/api/og/$id')({
           return new Response('Not found', { status: 404 });
         }
 
+        const transcript = share.transcript as any;
+        const derivedModel =
+          share.model ?? deriveModelFromTranscript(transcript);
+        const derivedReasoningEffort =
+          share.reasoningEffort ??
+          deriveReasoningEffortFromTranscript(transcript);
+
         const title = share.title || 'Untitled Thread';
-        const model = share.model || 'Claude';
+        const model = derivedModel || 'Unknown model';
+        const reasoningLabel = formatReasoningEffort(derivedReasoningEffort);
         const date = new Date(share.createdAt);
         const formattedDate = date.toLocaleDateString('en-US', {
           month: 'long',
@@ -31,7 +50,6 @@ export const Route = createFileRoute('/api/og/$id')({
         // Extract first user message from transcript
         let firstMessage = '';
         try {
-          const transcript = share.transcript as any;
           if (transcript?.turns && transcript?.turnOrder) {
             const firstTurnId = transcript.turnOrder[0];
             const firstTurn = transcript.turns[firstTurnId];
@@ -52,6 +70,8 @@ export const Route = createFileRoute('/api/og/$id')({
           console.error('Error extracting first message:', error);
         }
 
+        const logoUrl = new URL('/logo-96.png', request.url).toString();
+
         try {
           return new ImageResponse(
             (
@@ -61,7 +81,8 @@ export const Route = createFileRoute('/api/og/$id')({
                   flexDirection: 'column',
                   width: '100%',
                   height: '100%',
-                  background: 'linear-gradient(180deg, #F9F7F4 0%, #F2EFE9 100%)',
+                  background:
+                    'linear-gradient(180deg, #F9F7F4 0%, #F2EFE9 100%)',
                   padding: '80px',
                   fontFamily: 'system-ui, sans-serif',
                   position: 'relative',
@@ -94,7 +115,7 @@ export const Route = createFileRoute('/api/og/$id')({
                 >
                   {/* Pasture logo */}
                   <img
-                    src="https://pasture.dev/logo-96.png"
+                    src={logoUrl}
                     width={40}
                     height={40}
                     style={{
@@ -195,18 +216,6 @@ export const Route = createFileRoute('/api/og/$id')({
                       padding: '12px 24px',
                     }}
                   >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#7BC85C"
-                      strokeWidth="2"
-                    >
-                      <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
-                      <path d="M12 12v10" />
-                      <path d="M8 18h8" />
-                    </svg>
                     <span
                       style={{
                         fontSize: '22px',
@@ -217,6 +226,44 @@ export const Route = createFileRoute('/api/og/$id')({
                       {model}
                     </span>
                   </div>
+
+                  {/* Reasoning effort */}
+                  {reasoningLabel ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        background: '#FFFFFF',
+                        border: '2px solid rgba(123, 200, 92, 0.2)',
+                        borderRadius: '100px',
+                        padding: '12px 20px',
+                      }}
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#7BC85C"
+                        strokeWidth="2"
+                      >
+                        <path d="M12 3a9 9 0 1 0 9 9" />
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19 3v4" />
+                        <path d="M21 5h-4" />
+                      </svg>
+                      <span
+                        style={{
+                          fontSize: '20px',
+                          fontWeight: '500',
+                          color: '#3D3B37',
+                        }}
+                      >
+                        {`${reasoningLabel} reasoning`}
+                      </span>
+                    </div>
+                  ) : null}
 
                   {/* Date */}
                   <div
@@ -259,3 +306,18 @@ export const Route = createFileRoute('/api/og/$id')({
     },
   },
 });
+
+const formatReasoningEffort = (
+  value: string | null | undefined
+): string | null => {
+  if (!value) return null;
+  const map: Record<string, string> = {
+    none: 'No',
+    minimal: 'Minimal',
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+    xhigh: 'Extra high',
+  };
+  return map[value] ?? null;
+};

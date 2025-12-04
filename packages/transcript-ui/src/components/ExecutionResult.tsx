@@ -57,8 +57,8 @@ const OutputSection = ({
 
 export function ExecutionResult({ cell }: ExecutionResultProps) {
   const status = cell.status;
-  const hasStdout = cell.stdout.trim().length > 0;
-  const hasStderr = cell.stderr.trim().length > 0;
+  const hasStdout = (cell.stdout ?? '').trim().length > 0;
+  const hasStderr = (cell.stderr ?? '').trim().length > 0;
   const aggregatedOutput = cell.aggregatedOutput ?? '';
   const showAggregated =
     cell.streaming &&
@@ -96,13 +96,13 @@ export function ExecutionResult({ cell }: ExecutionResultProps) {
         ) : null}
         {hasStdout ? (
           <OutputSection
-            output={cell.stdout}
+            output={cell.stdout ?? ''}
             colorClass="text-muted-foreground"
           />
         ) : null}
         {hasStderr ? (
           <OutputSection
-            output={cell.stderr}
+            output={cell.stderr ?? ''}
             colorClass="text-error-foreground"
           />
         ) : null}

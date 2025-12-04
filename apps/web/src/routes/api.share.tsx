@@ -1,13 +1,18 @@
+// oxlint-disable no-unused-vars
 import { createFileRoute } from '@tanstack/react-router';
 import cuid from 'cuid';
 import { z } from 'zod';
+
+import {
+  deriveModelFromTranscript,
+  deriveReasoningEffortFromTranscript,
+} from '@/lib/transcript';
 
 const TranscriptCellSchema = z
   .object({
     id: z.string(),
     timestamp: z.string(),
     kind: z.string(),
-    // Everything else is left open for now; we only require the basics to render.
   })
   .passthrough();
 
@@ -24,9 +29,19 @@ const TranscriptSchema = z.object({
   turnOrder: z.array(z.string()),
 });
 
+const ReasoningEffortSchema = z.enum([
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+]);
+
 export const ShareRequestSchema = z.object({
   title: z.string().trim().max(200).optional(),
   model: z.string().trim().max(120).optional(),
+  reasoningEffort: ReasoningEffortSchema.optional(),
   transcript: TranscriptSchema,
 });
 
@@ -34,6 +49,70 @@ const normalizeTitle = (value?: string | null) => {
   if (!value) return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+};
+
+/**
+ * Truncate large output to first 100 and last 100 lines
+ */
+const truncateOutput = (output: string, maxLines = 200): string => {
+  const lines = output.split('\n');
+  if (lines.length <= maxLines) {
+    return output;
+  }
+
+  const half = maxLines / 2;
+  const firstLines = lines.slice(0, half);
+  const lastLines = lines.slice(-half);
+  const omittedCount = lines.length - maxLines;
+
+  return [
+    ...firstLines,
+    `\n... [${omittedCount} lines omitted] ...\n`,
+    ...lastLines,
+  ].join('\n');
+};
+
+/**
+ * Clean up transcript data by removing fields that are only needed during execution,
+ * not for display. This significantly reduces storage size.
+ */
+const cleanTranscriptForStorage = (transcript: any): any => {
+  const cleaned = {
+    turns: {} as any,
+    turnOrder: transcript.turnOrder,
+  };
+
+  for (const [turnId, turn] of Object.entries(transcript.turns)) {
+    const turnData = turn as any;
+    cleaned.turns[turnId] = {
+      ...turnData,
+      cells: turnData.cells.map((cell: any) => {
+        const {
+          // Remove execution-only fields
+          outputChunks,
+          formattedOutput,
+          eventIds,
+          streaming,
+          stdout, // Remove stdout, aggregatedOutput has everything
+          stderr, // Remove stderr, aggregatedOutput has everything
+          // Keep everything else (including exploration for file grouping)
+          ...rest
+        } = cell;
+
+        // Truncate large aggregatedOutput
+        if (
+          rest.aggregatedOutput &&
+          typeof rest.aggregatedOutput === 'string'
+        ) {
+          rest.aggregatedOutput = truncateOutput(rest.aggregatedOutput);
+        }
+
+        return rest;
+      }),
+    };
+  }
+
+  return cleaned;
 };
 
 const corsHeaders = {
@@ -108,14 +187,24 @@ export const Route = createFileRoute('/api/share')({
         const db = context.db();
 
         const normalizedTitle = normalizeTitle(validated.data.title);
+        const transcript = validated.data.transcript;
+        const derivedModel =
+          validated.data.model ?? deriveModelFromTranscript(transcript);
+        const derivedReasoningEffort =
+          validated.data.reasoningEffort ??
+          deriveReasoningEffortFromTranscript(transcript);
+
+        // Clean the transcript to remove execution-only data before storage
+        const cleanedTranscript = cleanTranscriptForStorage(transcript);
 
         const created = await db
           .insertInto('SharedThread')
           .values({
             id: cuid(),
             title: normalizedTitle,
-            model: validated.data.model ?? null,
-            transcript: validated.data.transcript as unknown,
+            model: derivedModel ?? null,
+            reasoningEffort: derivedReasoningEffort ?? null,
+            transcript: cleanedTranscript as unknown,
           })
           .returning(['id', 'title'])
           .executeTakeFirst();

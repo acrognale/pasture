@@ -13,5 +13,6 @@ model SharedThread {
   createdAt  DateTime @default(now())
   title      String?
   model      String?
+  reasoningEffort String?
   transcript Json
 }
