@@ -18,37 +18,14 @@ import {
   useContainerQuery,
 } from '~/lib/hooks/useContainerQuery';
 
+import {
+  MODEL_DISPLAY_NAMES,
+  type ModelName,
+  getAvailableReasoningEfforts,
+  normalizeReasoningEffort,
+} from '../model-options';
 import { type ComposerTurnConfig, createDefaultComposerConfig } from '../types';
 import { SettingsPopover } from './SettingsPopover';
-
-export type ModelName =
-  | 'gpt-5.1'
-  | 'gpt-5.1-codex'
-  | 'gpt-5.1-codex-max'
-  | 'gpt-5.1-codex-mini';
-
-const MODEL_REASONING_EFFORTS: Record<ModelName, ReasoningEffort[]> = {
-  'gpt-5.1': ['low', 'medium', 'high'],
-  'gpt-5.1-codex': ['low', 'medium', 'high'],
-  'gpt-5.1-codex-max': ['low', 'medium', 'high', 'xhigh'],
-  'gpt-5.1-codex-mini': ['medium', 'high'],
-};
-
-const MODEL_DISPLAY_NAMES: Record<ModelName, string> = {
-  'gpt-5.1': 'GPT-5.1',
-  'gpt-5.1-codex': 'GPT-5.1 Codex',
-  'gpt-5.1-codex-max': 'GPT-5.1 Codex Max',
-  'gpt-5.1-codex-mini': 'GPT-5.1 Codex Mini',
-};
-
-export const REASONING_EFFORT_OPTIONS: readonly ReasoningEffort[] = [
-  'none',
-  'minimal',
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-] as const;
 
 export const REASONING_EFFORT_DISPLAY: Record<ReasoningEffort, string> = {
   none: 'Reasoning off',
@@ -57,10 +34,6 @@ export const REASONING_EFFORT_DISPLAY: Record<ReasoningEffort, string> = {
   medium: 'Medium',
   high: 'High',
   xhigh: 'Extra high',
-};
-
-const getAvailableReasoningEfforts = (model: ModelName): ReasoningEffort[] => {
-  return MODEL_REASONING_EFFORTS[model] ?? [...REASONING_EFFORT_OPTIONS];
 };
 
 export const SANDBOX_OPTIONS: readonly SandboxMode[] = [
@@ -172,15 +145,11 @@ export function ModelConfigSelector({
   );
 
   const selectedReasoningEffort = useMemo<ReasoningEffort>(() => {
-    const candidate = composerConfig.reasoningEffort ?? 'medium';
-    if (availableReasoningEfforts.includes(candidate)) {
-      return candidate;
-    }
-    if (availableReasoningEfforts.includes('medium')) {
-      return 'medium';
-    }
-    return availableReasoningEfforts[0] ?? 'medium';
-  }, [composerConfig.reasoningEffort, availableReasoningEfforts]);
+    return normalizeReasoningEffort(
+      selectedModel,
+      composerConfig.reasoningEffort ?? undefined
+    );
+  }, [composerConfig.reasoningEffort, selectedModel]);
 
   const selectedSandbox = useMemo<SandboxMode>(() => {
     const current = composerConfig.sandbox;

@@ -1,3 +1,7 @@
+use codex_protocol::config_types::ReasoningEffort;
+use codex_protocol::config_types::ReasoningSummary;
+use codex_protocol::config_types::SandboxMode;
+use codex_protocol::protocol::AskForApproval;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::AppHandle;
@@ -138,6 +142,22 @@ pub async fn get_workspace_composer_defaults(
 #[serde(rename_all = "camelCase")]
 pub struct UpdateWorkspaceSettingsParams {
     pub workspace_path: String,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<ReasoningEffort>,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_summary: Option<ReasoningSummary>,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sandbox: Option<SandboxMode>,
+    #[ts(optional)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval: Option<AskForApproval>,
+    #[ts(optional)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub web_search_enabled: Option<bool>,
 }
@@ -154,6 +174,11 @@ pub async fn update_workspace_settings(
         &app.db,
         &normalized,
         ComposerSettingsUpdate {
+            model: params.model,
+            reasoning_effort: params.reasoning_effort,
+            reasoning_summary: params.reasoning_summary,
+            sandbox: params.sandbox,
+            approval: params.approval,
             web_search_enabled: params.web_search_enabled,
             ..ComposerSettingsUpdate::default()
         },
