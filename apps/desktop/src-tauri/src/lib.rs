@@ -7,6 +7,7 @@ mod db;
 mod domain;
 mod env;
 mod errors;
+mod message_comments;
 mod menu;
 mod review;
 mod rollout;
@@ -114,6 +115,11 @@ pub fn run() {
             commands::threads::new_thread,
             commands::threads::initialize_thread,
             commands::threads::fork_conversation,
+            commands::message_comments::list_message_comments,
+            commands::message_comments::create_message_comment,
+            commands::message_comments::update_message_comment,
+            commands::message_comments::set_message_comments_submitted,
+            commands::message_comments::delete_message_comment,
             commands::turns::send_user_message,
             commands::turns::interrupt_conversation,
             commands::turns::compact_conversation,

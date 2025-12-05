@@ -12,6 +12,14 @@ export const createWorkspaceKeys = (workspacePath: string) => ({
       conversationId,
       'composer',
     ] as const,
+  messageComments: (conversationId: string) =>
+    [
+      'workspace',
+      workspacePath,
+      'conversation',
+      conversationId,
+      'message-comments',
+    ] as const,
   composerDefaults: () =>
     ['workspace', workspacePath, 'composer', 'defaults'] as const,
 });

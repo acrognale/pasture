@@ -18,6 +18,7 @@ const meta: Meta<typeof AgentMessage> = {
     (Story, context) => (
       <MessageCommentProvider
         conversationId={context.args.conversationId as string}
+        workspacePath="/tmp/workspace"
       >
         <MessageCommentDraftProvider>
           <div className="max-w-3xl">

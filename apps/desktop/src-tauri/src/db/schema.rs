@@ -191,6 +191,46 @@ pub mod turn_snapshots {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
+pub mod message_comments {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "message_comments")]
+    pub struct Model {
+        #[sea_orm(primary_key, auto_increment = false)]
+        pub id: String,
+        pub conversation_id: String,
+        pub cell_id: String,
+        pub selection_text: String,
+        pub selection_preview: String,
+        pub selection_start_offset: Option<i32>,
+        pub selection_end_offset: Option<i32>,
+        pub selection_block_index: Option<i32>,
+        pub comment_text: String,
+        pub created_at: String,
+        #[sea_orm(column_type = "Integer", default_value = 0)]
+        pub is_submitted: bool,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {
+        #[sea_orm(
+            belongs_to = "super::conversations::Entity",
+            from = "Column::ConversationId",
+            to = "super::conversations::Column::Id"
+        )]
+        Conversations,
+    }
+
+    impl Related<super::conversations::Entity> for Entity {
+        fn to() -> RelationDef {
+            Relation::Conversations.def()
+        }
+    }
+
+    impl ActiveModelBehavior for ActiveModel {}
+}
+
 pub fn encode_workspace_settings(
     workspace_path: &WorkspacePath,
     settings: &WorkspaceSettings,
@@ -228,4 +268,44 @@ fn deserialize_json<T: DeserializeOwned>(value: Option<String>) -> Result<Option
     value
         .map(|raw| serde_json::from_str(&raw).map_err(Into::into))
         .transpose()
+}
+
+pub mod message_comment_codec {
+    use super::message_comments;
+    use crate::domain::message_comment::MessageComment;
+
+    pub fn encode(model: &MessageComment) -> message_comments::ActiveModel {
+        message_comments::ActiveModel {
+            id: sea_orm::ActiveValue::Set(model.id.clone()),
+            conversation_id: sea_orm::ActiveValue::Set(model.conversation_id.to_string()),
+            cell_id: sea_orm::ActiveValue::Set(model.cell_id.clone()),
+            selection_text: sea_orm::ActiveValue::Set(model.selection_text.clone()),
+            selection_preview: sea_orm::ActiveValue::Set(model.selection_preview.clone()),
+            selection_start_offset: sea_orm::ActiveValue::Set(model.selection_start_offset),
+            selection_end_offset: sea_orm::ActiveValue::Set(model.selection_end_offset),
+            selection_block_index: sea_orm::ActiveValue::Set(model.selection_block_index),
+            comment_text: sea_orm::ActiveValue::Set(model.comment_text.clone()),
+            created_at: sea_orm::ActiveValue::Set(model.created_at.clone()),
+            is_submitted: sea_orm::ActiveValue::Set(model.is_submitted),
+        }
+    }
+
+    pub fn decode(model: message_comments::Model) -> MessageComment {
+        MessageComment {
+            id: model.id,
+            conversation_id: codex_protocol::ConversationId::from_string(
+                &model.conversation_id,
+            )
+            .expect("conversation_id should be a valid ConversationId"),
+            cell_id: model.cell_id,
+            selection_text: model.selection_text,
+            selection_preview: model.selection_preview,
+            selection_start_offset: model.selection_start_offset,
+            selection_end_offset: model.selection_end_offset,
+            selection_block_index: model.selection_block_index,
+            comment_text: model.comment_text,
+            created_at: model.created_at,
+            is_submitted: model.is_submitted,
+        }
+    }
 }

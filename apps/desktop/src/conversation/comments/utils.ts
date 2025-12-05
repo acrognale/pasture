@@ -1,4 +1,4 @@
-import type { MessageComment } from './types';
+import type { MessageComment } from '@pasture/protocol';
 
 const truncate = (text: string, max = 120) => {
   if (text.length <= max) {

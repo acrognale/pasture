@@ -1,14 +1,21 @@
+import type { MessageComment } from '@pasture/protocol';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   type ReactNode,
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
 } from 'react';
+import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 
-import type { MessageComment } from './types';
+import {
+  useCreateMessageCommentMutation,
+  useDeleteMessageCommentMutation,
+  useMessageCommentsQuery,
+  useSetMessageCommentsSubmittedMutation,
+  useUpdateMessageCommentMutation,
+} from './hooks';
 
 type MessageCommentContextValue = {
   conversationId: string | null;
@@ -24,6 +31,7 @@ type MessageCommentContextValue = {
 
 type MessageCommentProviderProps = {
   conversationId: string;
+  workspacePath: string;
   children: ReactNode;
 };
 
@@ -54,23 +62,50 @@ const MessageCommentContext =
 
 export function MessageCommentProvider({
   conversationId,
+  workspacePath,
   children,
 }: MessageCommentProviderProps) {
-  const [state, setState] = useState<MessageComment[]>([]);
+  const queryClient = useQueryClient();
+  const keys = useMemo(
+    () => createWorkspaceKeys(workspacePath),
+    [workspacePath]
+  );
+  const queryKey = useMemo(
+    () => keys.messageComments(conversationId ?? '__inactive__'),
+    [keys, conversationId]
+  );
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState([]);
-  }, [conversationId]);
+  const commentsQuery = useMessageCommentsQuery(workspacePath, conversationId);
+  const comments = useMemo(
+    () => commentsQuery.data ?? [],
+    [commentsQuery.data]
+  );
+
+  const createMutation = useCreateMessageCommentMutation(
+    workspacePath,
+    conversationId
+  );
+  const updateMutation = useUpdateMessageCommentMutation(
+    workspacePath,
+    conversationId
+  );
+  const setSubmittedMutation = useSetMessageCommentsSubmittedMutation(
+    workspacePath,
+    conversationId
+  );
+  const deleteMutation = useDeleteMessageCommentMutation(
+    workspacePath,
+    conversationId
+  );
 
   const commentsByCell = useMemo(() => {
     const map = new Map<string, MessageComment[]>();
-    for (const comment of state) {
+    for (const comment of comments) {
       const existing = map.get(comment.cellId) ?? [];
       map.set(comment.cellId, [...existing, comment]);
     }
     return map;
-  }, [state]);
+  }, [comments]);
 
   const addComment = useCallback(
     (input: Omit<MessageComment, 'id' | 'createdAt'>): MessageComment => {
@@ -80,38 +115,41 @@ export function MessageCommentProvider({
         createdAt: new Date().toISOString(),
         isSubmitted: false,
       };
-      setState((prev) => [...prev, comment]);
+      createMutation.mutate({
+        ...input,
+        id: comment.id,
+      });
       return comment;
     },
-    []
+    [createMutation]
   );
 
-  const markCommentsSubmitted = useCallback((ids: string[]) => {
-    const idSet = new Set(ids);
-    setState((prev) =>
-      prev.map((comment) =>
-        idSet.has(comment.id) ? { ...comment, isSubmitted: true } : comment
-      )
-    );
-  }, []);
+  const markCommentsSubmitted = useCallback(
+    (ids: string[]) => {
+      setSubmittedMutation.mutate({ ids, isSubmitted: true });
+    },
+    [setSubmittedMutation]
+  );
 
-  const updateComment = useCallback((id: string, commentText: string) => {
-    const trimmed = commentText.trim();
-    setState((prev) =>
-      prev.map((comment) =>
-        comment.id === id ? { ...comment, commentText: trimmed } : comment
-      )
-    );
-  }, []);
+  const updateComment = useCallback(
+    (id: string, commentText: string) => {
+      const trimmed = commentText.trim();
+      updateMutation.mutate({ id, commentText: trimmed, isSubmitted: null });
+    },
+    [updateMutation]
+  );
 
-  const removeComment = useCallback((id: string) => {
-    setState((prev) => prev.filter((comment) => comment.id !== id));
-  }, []);
+  const removeComment = useCallback(
+    (id: string) => {
+      deleteMutation.mutate(id);
+    },
+    [deleteMutation]
+  );
 
   const value = useMemo<MessageCommentContextValue>(
     () => ({
       conversationId,
-      comments: state,
+      comments,
       commentsByCell,
       addComment,
       markCommentsSubmitted,
@@ -120,7 +158,7 @@ export function MessageCommentProvider({
     }),
     [
       conversationId,
-      state,
+      comments,
       commentsByCell,
       addComment,
       markCommentsSubmitted,

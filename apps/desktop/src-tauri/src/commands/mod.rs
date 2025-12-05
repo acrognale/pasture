@@ -8,6 +8,7 @@ pub mod images;
 pub mod review;
 pub mod subscriptions;
 pub mod symbols;
+pub mod message_comments;
 pub mod threads;
 pub mod turns;
 pub mod update;
@@ -41,6 +42,26 @@ codex_command_descriptors! {
     threads::fork_conversation {
         params: threads::ForkConversationParams,
         result: threads::ForkConversationResponse,
+    },
+    message_comments::list_message_comments {
+        params: message_comments::ListMessageCommentsParams,
+        result: message_comments::ListMessageCommentsResponse,
+    },
+    message_comments::create_message_comment {
+        params: message_comments::CreateMessageCommentParams,
+        result: message_comments::CreateMessageCommentResponse,
+    },
+    message_comments::update_message_comment {
+        params: message_comments::UpdateMessageCommentParams,
+        result: (),
+    },
+    message_comments::set_message_comments_submitted {
+        params: message_comments::SetMessageCommentsSubmittedParams,
+        result: (),
+    },
+    message_comments::delete_message_comment {
+        params: message_comments::DeleteMessageCommentParams,
+        result: (),
     },
     turns::send_user_message {
         params: turns::SendUserMessageParams,

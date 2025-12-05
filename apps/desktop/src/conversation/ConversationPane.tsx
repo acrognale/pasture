@@ -375,10 +375,13 @@ function ConversationPaneContent({
 }
 
 export function ConversationPane(props: ConversationPaneProps) {
-  const { conversationId } = props;
+  const { conversationId, workspacePath } = props;
 
   return (
-    <MessageCommentProvider conversationId={conversationId}>
+    <MessageCommentProvider
+      conversationId={conversationId}
+      workspacePath={workspacePath}
+    >
       <MessageCommentDraftProvider>
         <ConversationPaneContent {...props} />
       </MessageCommentDraftProvider>
