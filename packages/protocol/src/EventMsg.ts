@@ -10,7 +10,9 @@ import type { AgentReasoningRawContentEvent } from './AgentReasoningRawContentEv
 import type { AgentReasoningSectionBreakEvent } from './AgentReasoningSectionBreakEvent';
 import type { ApplyPatchApprovalRequestEvent } from './ApplyPatchApprovalRequestEvent';
 import type { BackgroundEventEvent } from './BackgroundEventEvent';
+import type { ContextCompactedEvent } from './ContextCompactedEvent';
 import type { DeprecationNoticeEvent } from './DeprecationNoticeEvent';
+import type { ElicitationRequestEvent } from './ElicitationRequestEvent';
 import type { ErrorEvent } from './ErrorEvent';
 import type { ExecApprovalRequestEvent } from './ExecApprovalRequestEvent';
 import type { ExecCommandBeginEvent } from './ExecCommandBeginEvent';
@@ -55,6 +57,7 @@ import type { WebSearchEndEvent } from './WebSearchEndEvent';
 export type EventMsg =
   | ({ type: 'error' } & ErrorEvent)
   | ({ type: 'warning' } & WarningEvent)
+  | ({ type: 'context_compacted' } & ContextCompactedEvent)
   | ({ type: 'task_started' } & TaskStartedEvent)
   | ({ type: 'task_complete' } & TaskCompleteEvent)
   | ({ type: 'token_count' } & TokenCountEvent)
@@ -82,6 +85,7 @@ export type EventMsg =
   | ({ type: 'exec_command_end' } & ExecCommandEndEvent)
   | ({ type: 'view_image_tool_call' } & ViewImageToolCallEvent)
   | ({ type: 'exec_approval_request' } & ExecApprovalRequestEvent)
+  | ({ type: 'elicitation_request' } & ElicitationRequestEvent)
   | ({ type: 'apply_patch_approval_request' } & ApplyPatchApprovalRequestEvent)
   | ({ type: 'deprecation_notice' } & DeprecationNoticeEvent)
   | ({ type: 'background_event' } & BackgroundEventEvent)

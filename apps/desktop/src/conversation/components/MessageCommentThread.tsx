@@ -1,10 +1,10 @@
+import type { MessageComment } from '@pasture/protocol';
 import { MessageSquareQuoteIcon } from 'lucide-react';
 import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { forwardRef } from 'react';
 import type { ForwardedRef } from 'react';
 import { Button } from '~/components/ui/button';
 import { Textarea } from '~/components/ui/textarea';
-import type { MessageComment } from '~/conversation/comments/types';
 import { cn } from '~/lib/utils';
 
 export type MessageCommentThreadProps = {

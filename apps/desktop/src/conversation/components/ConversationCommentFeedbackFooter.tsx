@@ -1,6 +1,6 @@
+import type { MessageComment } from '@pasture/protocol';
 import { MessageSquareIcon } from 'lucide-react';
 import { Button } from '~/components/ui/button';
-import type { MessageComment } from '~/conversation/comments/types';
 
 type ConversationCommentFeedbackFooterProps = {
   comments: readonly MessageComment[];

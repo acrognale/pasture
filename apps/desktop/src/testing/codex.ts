@@ -14,6 +14,11 @@ import type { ListTurnSnapshotsResponse } from '@pasture/protocol';
 import type { NewThreadResponse } from '@pasture/protocol';
 import type { ReasoningSummary } from '@pasture/protocol';
 import type { SessionConfiguredEvent } from '@pasture/protocol';
+import type {
+  CreateMessageCommentResponse,
+  ListMessageCommentsResponse,
+  MessageComment,
+} from '@pasture/protocol';
 import type { WorkspaceSettings } from '@pasture/protocol';
 import { vi } from 'vitest';
 
@@ -153,6 +158,33 @@ const mockCodexNamespace = {
       unifiedDiff: '',
     })
   ),
+  listMessageComments: defineStub<[], ListMessageCommentsResponse>(
+    async () => ({
+      comments: [],
+    })
+  ),
+  createMessageComment: defineStub<
+    [Partial<MessageComment>],
+    CreateMessageCommentResponse
+  >(async (partial: Partial<MessageComment>) => ({
+    comment: {
+      id:
+        partial.id ?? `mock-comment-${Math.random().toString(36).slice(2, 8)}`,
+      conversationId: partial.conversationId ?? 'mock-conversation',
+      cellId: partial.cellId ?? 'mock-cell',
+      selectionText: partial.selectionText ?? 'mock selection',
+      selectionPreview: partial.selectionPreview ?? 'mock selection',
+      selectionStartOffset: partial.selectionStartOffset ?? 0,
+      selectionEndOffset: partial.selectionEndOffset ?? 3,
+      selectionBlockIndex: partial.selectionBlockIndex ?? null,
+      commentText: partial.commentText ?? 'mock comment',
+      createdAt: partial.createdAt ?? new Date().toISOString(),
+      isSubmitted: partial.isSubmitted ?? false,
+    },
+  })),
+  updateMessageComment: defineStub(async () => undefined),
+  setMessageCommentsSubmitted: defineStub(async () => undefined),
+  deleteMessageComment: defineStub(async () => undefined),
   getAuthState: defineStub(async () => createDefaultAuthState()),
   workspace: {
     listRecentWorkspaces: defineStub(async () => []),

@@ -2,5 +2,5 @@ import { tsLibrary } from '@pasture/configs';
 
 export default tsLibrary({
   tsconfigRootDir: import.meta.dirname,
-  ignores: ['dist/**', 'codex/**'],
+  ignores: ['dist/**', 'codex/**', 'src/EventMsg.ts'],
 });

@@ -5,6 +5,9 @@ import type {
   AuthState,
   CompactConversationParams,
   ComposerTurnConfigPayload,
+  CreateMessageCommentParams,
+  CreateMessageCommentResponse,
+  DeleteMessageCommentParams,
   ForkConversationParams,
   ForkConversationResponse,
   GetComposerConfigParams,
@@ -14,6 +17,8 @@ import type {
   InitializeThreadResponse,
   InterruptConversationParams,
   InterruptConversationResponse,
+  ListMessageCommentsParams,
+  ListMessageCommentsResponse,
   ListThreadConversationsParams,
   ListThreadConversationsResponse,
   ListThreadsParams,
@@ -29,10 +34,12 @@ import type {
   SearchWorkspaceFilesParams,
   SearchWorkspaceSymbolsParams,
   SendUserMessageParams,
+  SetMessageCommentsSubmittedParams,
   SetWindowTitleParams,
   SwitchConversationParams,
   SwitchConversationResponse,
   UpdateComposerConfigParams,
+  UpdateMessageCommentParams,
   UpdateWorkspaceSettingsParams,
   WorkspaceFileHit,
   WorkspacePathParams,
@@ -85,6 +92,41 @@ export namespace Codex {
     return await invoke<ForkConversationResponse>('fork_conversation', {
       params,
     });
+  }
+
+  export async function listMessageComments(
+    params: ListMessageCommentsParams
+  ): Promise<ListMessageCommentsResponse> {
+    return await invoke<ListMessageCommentsResponse>('list_message_comments', {
+      params,
+    });
+  }
+
+  export async function createMessageComment(
+    params: CreateMessageCommentParams
+  ): Promise<CreateMessageCommentResponse> {
+    return await invoke<CreateMessageCommentResponse>(
+      'create_message_comment',
+      { params }
+    );
+  }
+
+  export async function updateMessageComment(
+    params: UpdateMessageCommentParams
+  ): Promise<void> {
+    return await invoke<void>('update_message_comment', { params });
+  }
+
+  export async function setMessageCommentsSubmitted(
+    params: SetMessageCommentsSubmittedParams
+  ): Promise<void> {
+    return await invoke<void>('set_message_comments_submitted', { params });
+  }
+
+  export async function deleteMessageComment(
+    params: DeleteMessageCommentParams
+  ): Promise<void> {
+    return await invoke<void>('delete_message_comment', { params });
   }
 
   export async function sendUserMessage(
