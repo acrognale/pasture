@@ -85,14 +85,7 @@ function MessageCommentThreadInner(
   );
 
   return (
-    <div
-      className={cn(
-        'flex flex-col gap-2.5',
-        showResolvedBubble && isCollapsed
-          ? ''
-          : 'rounded-lg border border-border/70 bg-card px-3 py-3 shadow-sm'
-      )}
-    >
+    <div className="flex flex-col gap-2.5">
       {comments.length > 0 ? (
         <>
           {showResolvedBubble ? (
@@ -119,7 +112,7 @@ function MessageCommentThreadInner(
                 'overflow-hidden transition-all duration-200',
               showResolvedBubble && isCollapsed
                 ? 'max-h-0 opacity-0 pointer-events-none'
-                : 'max-h-96 opacity-100'
+                : 'max-h-none opacity-100'
             )}
           >
             {comments.map((comment, index) => (

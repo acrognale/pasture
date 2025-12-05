@@ -442,7 +442,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
               style={{ top: bubblePosition.top, left: bubblePosition.left }}
               onClick={handleAddComment}
             >
-              Add annotation
+              Add comment
             </button>
           ) : null}
         </div>
