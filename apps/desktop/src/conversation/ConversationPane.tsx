@@ -4,10 +4,15 @@ import {
   ComposerBar,
   type ComposerBarControls,
 } from '~/composer/components/ComposerBar';
+import { MessageCommentProvider } from '~/conversation/comments/MessageCommentContext';
+import { useMessageComments } from '~/conversation/comments/MessageCommentContext';
+import { MessageCommentDraftProvider } from '~/conversation/comments/MessageCommentDraftContext';
+import { buildMessageCommentsPrompt } from '~/conversation/comments/utils';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { copyToClipboard } from '~/lib/utils';
 import { useWorkspaceActions } from '~/workspace';
 
+import { ConversationCommentFeedbackFooter } from './components/ConversationCommentFeedbackFooter';
 import { ConversationDevCommandMenu } from './components/ConversationDevCommandMenu';
 import { ConversationPaneHeader } from './components/ConversationPaneHeader';
 import { ConversationReviewOverlay } from './components/ConversationReviewOverlay';
@@ -38,7 +43,7 @@ type ConversationPaneProps = {
   onConversationForked?: (conversationId: string) => void;
 };
 
-export function ConversationPane({
+function ConversationPaneContent({
   workspacePath,
   conversationId,
   rightSidebarVisible,
@@ -103,6 +108,38 @@ export function ConversationPane({
     },
     [composerControls, handleScrollToBottom]
   );
+
+  const { comments: messageComments, markCommentsSubmitted } =
+    useMessageComments();
+  const pendingComments = useMemo(
+    () =>
+      messageComments.filter(
+        (comment) =>
+          !comment.isSubmitted && comment.conversationId === conversationId
+      ),
+    [conversationId, messageComments]
+  );
+
+  const handleInsertMessageCommentsFeedback = useCallback(() => {
+    const prompt = buildMessageCommentsPrompt(pendingComments);
+    if (!prompt) {
+      return;
+    }
+    if (!composerControls) {
+      return;
+    }
+    const existing = composerControls.getDraft().trim();
+    const nextDraft = existing ? `${existing}\n\n${prompt}` : prompt;
+    composerControls.setDraft(nextDraft);
+    composerControls.focus();
+    handleScrollToBottom();
+    markCommentsSubmitted(pendingComments.map((comment) => comment.id));
+  }, [
+    pendingComments,
+    composerControls,
+    handleScrollToBottom,
+    markCommentsSubmitted,
+  ]);
 
   const handleCopyEventsJsonl = useCallback(async () => {
     const store = getConversationStore(conversationId);
@@ -299,6 +336,10 @@ export function ConversationPane({
               conversationId={conversationId}
               onInterrupt={handleInterrupt}
             />
+            <ConversationCommentFeedbackFooter
+              comments={pendingComments}
+              onInsertFeedback={handleInsertMessageCommentsFeedback}
+            />
             <ComposerBar
               workspacePath={workspacePath}
               conversationId={conversationId}
@@ -336,5 +377,17 @@ export function ConversationPane({
         focusFilePath={reviewFocusFilePath}
       />
     </>
+  );
+}
+
+export function ConversationPane(props: ConversationPaneProps) {
+  const { conversationId } = props;
+
+  return (
+    <MessageCommentProvider conversationId={conversationId}>
+      <MessageCommentDraftProvider>
+        <ConversationPaneContent {...props} />
+      </MessageCommentDraftProvider>
+    </MessageCommentProvider>
   );
 }
