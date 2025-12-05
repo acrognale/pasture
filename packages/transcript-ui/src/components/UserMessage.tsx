@@ -170,7 +170,10 @@ export function UserMessage({
                   disabled={isActionPending}
                 />
               ) : (
-                <div className="whitespace-pre-wrap break-words leading-transcript font-transcript text-transcript-base text-foreground">
+                <div
+                  className="whitespace-pre-wrap break-words leading-transcript font-transcript text-transcript-base text-foreground"
+                  style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                >
                   {message}
                 </div>
               )}

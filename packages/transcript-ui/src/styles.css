@@ -133,6 +133,15 @@
   padding-bottom: 0.125rem;
   font-size: 0.9em;
   font-family: var(--font-transcript-mono);
+  /* Allow long inline code snippets to wrap inside narrow containers */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* User / agent message blocks: wrap very long tokens (URLs, JSON keys) */
+#transcript .whitespace-pre-wrap {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Code blocks - Streamdown */
