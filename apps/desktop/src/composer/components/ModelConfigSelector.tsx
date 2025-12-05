@@ -246,10 +246,9 @@ export function ModelConfigSelector({
   // Determine layout based on viewport width (keeps dropdowns visible on larger screens).
   const showIconOnly = width < COMPOSER_BREAKPOINTS.MEDIUM;
 
-  const approvalsBreakpoint =
-    sidebarConsumesSpace
-      ? BASE_APPROVAL_WIDTH + LEFT_SIDEBAR_WIDTH
-      : BASE_APPROVAL_WIDTH;
+  const approvalsBreakpoint = sidebarConsumesSpace
+    ? BASE_APPROVAL_WIDTH + LEFT_SIDEBAR_WIDTH
+    : BASE_APPROVAL_WIDTH;
   const reasoningBreakpoint = approvalsBreakpoint - REASONING_OFFSET;
 
   // Move approvals into the settings popover when space is constrained.
