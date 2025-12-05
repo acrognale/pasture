@@ -25,7 +25,10 @@ pub async fn list_for_conversation(
         .await
         .map_err(|e| db_err("list message comments", e))?;
 
-    Ok(rows.into_iter().map(message_comment_codec::decode).collect())
+    Ok(rows
+        .into_iter()
+        .map(message_comment_codec::decode)
+        .collect())
 }
 
 pub async fn insert(db: &DatabaseConnection, comment: &MessageComment) -> AppResult<()> {

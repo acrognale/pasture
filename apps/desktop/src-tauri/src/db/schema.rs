@@ -293,10 +293,8 @@ pub mod message_comment_codec {
     pub fn decode(model: message_comments::Model) -> MessageComment {
         MessageComment {
             id: model.id,
-            conversation_id: codex_protocol::ConversationId::from_string(
-                &model.conversation_id,
-            )
-            .expect("conversation_id should be a valid ConversationId"),
+            conversation_id: codex_protocol::ConversationId::from_string(&model.conversation_id)
+                .expect("conversation_id should be a valid ConversationId"),
             cell_id: model.cell_id,
             selection_text: model.selection_text,
             selection_preview: model.selection_preview,

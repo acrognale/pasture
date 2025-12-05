@@ -69,7 +69,8 @@ pub async fn list_message_comments(
     app: State<'_, AppState>,
     params: ListMessageCommentsParams,
 ) -> AppResult<ListMessageCommentsResponse> {
-    let comments = message_comments::list_for_conversation(&app.db, &params.conversation_id).await?;
+    let comments =
+        message_comments::list_for_conversation(&app.db, &params.conversation_id).await?;
     Ok(ListMessageCommentsResponse { comments })
 }
 
@@ -102,14 +103,12 @@ pub async fn update_message_comment(
     app: State<'_, AppState>,
     params: UpdateMessageCommentParams,
 ) -> AppResult<()> {
-    let trimmed = params.comment_text.as_ref().map(|text| text.trim().to_string());
-    message_comments::update_comment(
-        &app.db,
-        &params.id,
-        trimmed.as_deref(),
-        params.is_submitted,
-    )
-    .await
+    let trimmed = params
+        .comment_text
+        .as_ref()
+        .map(|text| text.trim().to_string());
+    message_comments::update_comment(&app.db, &params.id, trimmed.as_deref(), params.is_submitted)
+        .await
 }
 
 #[tauri::command]

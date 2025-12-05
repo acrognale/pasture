@@ -1,5 +1,4 @@
 import type { MessageComment } from '@pasture/protocol';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   type ReactNode,
   createContext,
@@ -7,7 +6,6 @@ import {
   useContext,
   useMemo,
 } from 'react';
-import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 
 import {
   useCreateMessageCommentMutation,
@@ -65,16 +63,6 @@ export function MessageCommentProvider({
   workspacePath,
   children,
 }: MessageCommentProviderProps) {
-  const queryClient = useQueryClient();
-  const keys = useMemo(
-    () => createWorkspaceKeys(workspacePath),
-    [workspacePath]
-  );
-  const queryKey = useMemo(
-    () => keys.messageComments(conversationId ?? '__inactive__'),
-    [keys, conversationId]
-  );
-
   const commentsQuery = useMessageCommentsQuery(workspacePath, conversationId);
   const comments = useMemo(
     () => commentsQuery.data ?? [],
