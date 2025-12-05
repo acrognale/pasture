@@ -10,7 +10,10 @@ import { useMessageComments } from '~/conversation/comments/MessageCommentContex
 import { useMessageCommentDraft } from '~/conversation/comments/MessageCommentDraftContext';
 import type { DraftTarget } from '~/conversation/comments/types';
 
-import { MessageCommentThread } from './MessageCommentThread';
+import {
+  MessageCommentThread,
+  type MessageCommentThreadHandle,
+} from './MessageCommentThread';
 
 type AgentMessageProps = {
   cell: TranscriptAgentMessageCell;
@@ -30,6 +33,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
   } = useMessageCommentDraft();
 
   const messageRef = useRef<HTMLDivElement | null>(null);
+  const threadRef = useRef<MessageCommentThreadHandle | null>(null);
   const [bubblePosition, setBubblePosition] = useState<{
     top: number;
     left: number;
@@ -316,8 +320,9 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
 
       const wrappers = wrapTextNodesInRange(root, start, end, (position) => {
         const wrapper = document.createElement('mark');
-        const baseClasses =
-          'message-comment-highlight bg-warning-foreground/25 text-foreground transition-all duration-200 box-decoration-clone';
+        const baseClasses = comment.isSubmitted
+          ? 'message-comment-highlight bg-muted-foreground/10 text-foreground/80 opacity-80 transition-all duration-200 box-decoration-clone'
+          : 'message-comment-highlight bg-warning-foreground/25 text-foreground transition-all duration-200 box-decoration-clone';
         let roundingClasses = '';
         if (position === 'single') {
           roundingClasses = 'rounded-sm px-0.5';
@@ -337,9 +342,16 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
           setActiveCommentId((current) =>
             current === comment.id ? null : current
           );
+        const handleClick = () => {
+          setActiveCommentId(comment.id);
+          if (comment.isSubmitted) {
+            threadRef.current?.expandResolved();
+          }
+        };
 
         wrapper.addEventListener('pointerenter', handleEnter);
         wrapper.addEventListener('pointerleave', handleLeave);
+        wrapper.addEventListener('click', handleClick);
 
         newHighlights.push(wrapper);
       }
@@ -431,7 +443,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
               style={{ top: bubblePosition.top, left: bubblePosition.left }}
               onClick={handleAddComment}
             >
-              Add comment
+              Add annotation
             </button>
           ) : null}
         </div>
@@ -439,6 +451,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
         {commentsForCell.length > 0 || isDraftOpen ? (
           <div className="w-[240px] shrink-0">
             <MessageCommentThread
+              ref={threadRef}
               comments={commentsForCell}
               isDraftOpen={isDraftOpen}
               draftText={draftCommentText}

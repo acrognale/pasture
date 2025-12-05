@@ -90,8 +90,8 @@ export const WithComments: Story = {
     <div className="space-y-4">
       <AgentMessage {...args} />
       <p className="text-sm text-muted-foreground">
-        Select any text in the message body to add a comment. Comments appear in
-        the right sidebar.
+        Select any text in the message body to add an annotation. Annotations
+        appear in the right sidebar.
       </p>
     </div>
   ),
