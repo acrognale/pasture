@@ -30,6 +30,7 @@ const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = '18rem';
 const SIDEBAR_WIDTH_MOBILE = '18rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
+const SIDEBAR_DESKTOP_COLLAPSE_WIDTH = 876;
 
 type SidebarContextProps = {
   state: 'expanded' | 'collapsed';
@@ -67,6 +68,15 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile();
   const [openMobile, setOpenMobile] = React.useState(false);
+  const [viewportWidth, setViewportWidth] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -105,7 +115,11 @@ function SidebarProvider({
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
-  const state = open ? 'expanded' : 'collapsed';
+  const isNarrowDesktop =
+    !isMobile &&
+    typeof viewportWidth === 'number' &&
+    viewportWidth < SIDEBAR_DESKTOP_COLLAPSE_WIDTH;
+  const state = open && !isNarrowDesktop ? 'expanded' : 'collapsed';
 
   const contextValue = React.useMemo<SidebarContextProps>(
     () => ({

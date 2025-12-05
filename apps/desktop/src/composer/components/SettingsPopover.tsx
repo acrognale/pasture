@@ -1,4 +1,9 @@
-import type { ReasoningSummary, SandboxMode } from '@pasture/protocol';
+import type {
+  AskForApproval,
+  ReasoningEffort,
+  ReasoningSummary,
+  SandboxMode,
+} from '@pasture/protocol';
 import { ChevronDownIcon, SettingsIcon } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import {
@@ -9,6 +14,10 @@ import {
 } from '~/components/ui/dropdown-menu';
 
 import {
+  APPROVAL_DISPLAY,
+  APPROVAL_HELP_TEXT,
+  APPROVAL_OPTIONS,
+  REASONING_EFFORT_DISPLAY,
   REASONING_SUMMARY_DISPLAY,
   REASONING_SUMMARY_HELP_TEXT,
   REASONING_SUMMARY_OPTIONS,
@@ -21,8 +30,13 @@ type SettingsPopoverProps = {
   sandboxMode: SandboxMode;
   disabled: boolean;
   iconOnly?: boolean;
+  approval?: AskForApproval;
+  reasoningEffort?: ReasoningEffort;
+  availableReasoningEfforts?: readonly ReasoningEffort[];
   onReasoningSummaryChange: (summary: ReasoningSummary) => void;
   onSandboxChange: (sandbox: SandboxMode) => void;
+  onApprovalChange?: (approval: AskForApproval) => void;
+  onReasoningEffortChange?: (effort: ReasoningEffort) => void;
 };
 
 type ConfigSectionProps = {
@@ -94,8 +108,13 @@ export function SettingsPopover({
   sandboxMode,
   disabled,
   iconOnly = false,
+  approval,
+  reasoningEffort,
+  availableReasoningEfforts,
   onReasoningSummaryChange,
   onSandboxChange,
+  onApprovalChange,
+  onReasoningEffortChange,
 }: SettingsPopoverProps) {
   return (
     <DropdownMenu>
@@ -120,13 +139,40 @@ export function SettingsPopover({
             disabled={disabled}
           >
             <SettingsIcon className="size-3" />
-            Settings
             <ChevronDownIcon className="size-3 opacity-50" />
           </Button>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[320px] p-4">
         <div className="space-y-4">
+          {approval !== undefined && onApprovalChange ? (
+            <ConfigSection
+              label="Command Approvals"
+              value={approval}
+              disabled={disabled}
+              options={APPROVAL_OPTIONS}
+              displayMap={APPROVAL_DISPLAY}
+              helpTextMap={APPROVAL_HELP_TEXT}
+              onSelect={(value) => onApprovalChange(value as AskForApproval)}
+            />
+          ) : null}
+
+          {reasoningEffort !== undefined &&
+          availableReasoningEfforts !== undefined &&
+          availableReasoningEfforts.length > 0 &&
+          onReasoningEffortChange ? (
+            <ConfigSection
+              label="Reasoning Effort"
+              value={reasoningEffort}
+              disabled={disabled}
+              options={availableReasoningEfforts}
+              displayMap={REASONING_EFFORT_DISPLAY}
+              onSelect={(value) =>
+                onReasoningEffortChange(value as ReasoningEffort)
+              }
+            />
+          ) : null}
+
           <ConfigSection
             label="Reasoning Summary"
             value={reasoningSummary}

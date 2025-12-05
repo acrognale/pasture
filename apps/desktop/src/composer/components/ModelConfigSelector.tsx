@@ -5,7 +5,7 @@ import type {
   SandboxMode,
 } from '@pasture/protocol';
 import { ChevronDownIcon } from 'lucide-react';
-import { RefObject, useMemo, useRef } from 'react';
+import { RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '~/components/ui/button';
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
+import { useSidebar } from '~/components/ui/sidebar';
 import {
   COMPOSER_BREAKPOINTS,
   useContainerQuery,
@@ -97,7 +98,16 @@ export interface ModelConfigSelectorProps {
   composerConfig?: ComposerTurnConfig;
   disabled?: boolean;
   onUpdate?: (config: ComposerUpdate) => void;
+  rightSidebarVisible?: boolean;
+  rightSidebarCollapsed?: boolean;
 }
+
+const SIDEBAR_AUTO_COLLAPSE_WIDTH = 876;
+const LEFT_SIDEBAR_WIDTH = 288; // 18rem
+const RIGHT_SIDEBAR_EXPANDED_WIDTH = 288; // 18rem
+const RIGHT_SIDEBAR_COLLAPSED_WIDTH = 48; // 12
+const BASE_APPROVAL_WIDTH = 600;
+const REASONING_OFFSET = 65;
 
 const isModelName = (value: string | null | undefined): value is ModelName =>
   value === 'gpt-5.1' ||
@@ -125,6 +135,8 @@ export function ModelConfigSelector({
   composerConfig: composerConfigProp,
   disabled: disabledProp,
   onUpdate,
+  rightSidebarVisible,
+  rightSidebarCollapsed,
 }: ModelConfigSelectorProps) {
   const composerConfig = useMemo(
     () => composerConfigProp ?? createDefaultComposerConfig(),
@@ -212,18 +224,53 @@ export function ModelConfigSelector({
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const containerWidth = useContainerQuery(
-    containerRef as RefObject<HTMLElement>
-  );
+  useContainerQuery(containerRef as RefObject<HTMLElement>);
+
+  const sidebarOpen = useSidebar().open;
+
+  const [viewportWidth, setViewportWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const updateWidth = () => setViewportWidth(window.innerWidth);
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  const fallbackViewportWidth = viewportWidth ?? Number.POSITIVE_INFINITY;
 
   if (!conversationId) {
     return null;
   }
 
-  // Determine layout based on container width
-  // Model selector is always visible; settings are in popover
-  const showIconOnly =
-    containerWidth !== null && containerWidth < COMPOSER_BREAKPOINTS.MEDIUM;
+  // Sidebar only reduces available width while it is open and wider than its auto-collapse threshold.
+  const sidebarConsumesSpace =
+    sidebarOpen && fallbackViewportWidth > SIDEBAR_AUTO_COLLAPSE_WIDTH;
+  const rightSidebarIsVisible = Boolean(
+    rightSidebarVisible && fallbackViewportWidth >= 768
+  );
+  const rightSidebarWidth = rightSidebarIsVisible
+    ? rightSidebarCollapsed
+      ? RIGHT_SIDEBAR_COLLAPSED_WIDTH
+      : RIGHT_SIDEBAR_EXPANDED_WIDTH
+    : 0;
+
+  const width = fallbackViewportWidth;
+
+  // Determine layout based on viewport width (keeps dropdowns visible on larger screens).
+  const showIconOnly = width < COMPOSER_BREAKPOINTS.MEDIUM;
+
+  const approvalsBreakpoint =
+    (sidebarConsumesSpace
+      ? BASE_APPROVAL_WIDTH + LEFT_SIDEBAR_WIDTH
+      : BASE_APPROVAL_WIDTH) + rightSidebarWidth;
+  const reasoningBreakpoint = approvalsBreakpoint - REASONING_OFFSET;
+
+  // Move approvals into the settings popover when space is constrained.
+  const approvalsInSettings = width < approvalsBreakpoint;
+
+  // At an additional 65px reduction also move reasoning effort.
+  const reasoningEffortInSettings = width < reasoningBreakpoint;
 
   // Model dropdown (always visible)
   const modelDropdown = (
@@ -320,13 +367,26 @@ export function ModelConfigSelector({
   return (
     <div ref={containerRef} className="flex items-center gap-2">
       {modelDropdown}
-      {reasoningEffortDropdown}
-      {approvalDropdown}
+      {!reasoningEffortInSettings && reasoningEffortDropdown}
+      {!approvalsInSettings && approvalDropdown}
       <SettingsPopover
         reasoningSummary={selectedSummary}
         sandboxMode={selectedSandbox}
         disabled={disabled}
         iconOnly={showIconOnly}
+        approval={approvalsInSettings ? selectedApproval : undefined}
+        onApprovalChange={
+          approvalsInSettings ? handleApprovalChange : undefined
+        }
+        reasoningEffort={
+          reasoningEffortInSettings ? selectedReasoningEffort : undefined
+        }
+        availableReasoningEfforts={
+          reasoningEffortInSettings ? availableReasoningEfforts : undefined
+        }
+        onReasoningEffortChange={
+          reasoningEffortInSettings ? handleReasoningEffortChange : undefined
+        }
         onReasoningSummaryChange={handleSummaryChange}
         onSandboxChange={handleSandboxChange}
       />

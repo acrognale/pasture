@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
+import { SidebarProvider } from '~/components/ui/sidebar';
 import { ShortcutProvider } from '~/keyboard/ShortcutProvider';
 
 export const createTestQueryClient = () =>
@@ -29,7 +30,9 @@ export const renderWithProviders = (
 
   const Wrapper = ({ children }: { children?: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <ShortcutProvider>{children}</ShortcutProvider>
+      <ShortcutProvider>
+        <SidebarProvider defaultOpen>{children}</SidebarProvider>
+      </ShortcutProvider>
     </QueryClientProvider>
   );
 

@@ -86,6 +86,8 @@ function RouteComponent() {
       <ConversationPane
         workspacePath={workspacePath}
         conversationId={conversationId}
+        rightSidebarVisible
+        rightSidebarCollapsed={isChangesSidebarCollapsed}
         onConversationForked={setConversationId}
       />
       <ChangesSidebar
