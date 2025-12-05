@@ -291,7 +291,7 @@ pub async fn create(
         current_conversation_id: conversation_id,
         conversations: vec![conversation],
         title: None,
-        preview: Some("Untitled session".to_string()),
+        preview: Some("Untitled thread".to_string()),
         model: settings.model.clone(),
         reasoning_effort: settings.reasoning_effort,
         reasoning_summary: settings.reasoning_summary,
@@ -604,7 +604,7 @@ async fn update_preview_for_conversation(
 
     for thread in threads {
         let existing = thread.preview.as_deref().unwrap_or("");
-        if !existing.is_empty() && existing != "Untitled session" {
+        if !existing.is_empty() && existing != "Untitled thread" {
             continue;
         }
 
@@ -758,7 +758,7 @@ async fn update_title_for_conversation(
     title: &str,
 ) -> AppResult<bool> {
     let normalized_title = title.trim();
-    if normalized_title.is_empty() || normalized_title == "Untitled session" {
+    if normalized_title.is_empty() || normalized_title == "Untitled thread" {
         return Ok(false);
     }
 
@@ -942,7 +942,7 @@ async fn resolve_rollout_cwd(rollout_path: &Path, workspace: &WorkspacePath) -> 
 
 fn is_missing_title(title: &Option<String>) -> bool {
     match title.as_deref() {
-        Some(existing) => existing.trim().is_empty() || existing == "Untitled session",
+        Some(existing) => existing.trim().is_empty() || existing == "Untitled thread",
         None => true,
     }
 }

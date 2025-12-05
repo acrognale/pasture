@@ -32,7 +32,7 @@ export const formatSessionPreview = (
   value: string | null | undefined
 ): string => {
   if (!value) {
-    return 'Untitled session';
+    return 'Untitled thread';
   }
 
   if (value.length <= SESSION_PREVIEW_MAX_LENGTH) {
@@ -65,5 +65,5 @@ export const resolveSessionLabel = (
     return { text: normalizedFallback, source: 'fallback' };
   }
 
-  return { text: 'Untitled session', source: 'fallback' };
+  return { text: 'Untitled thread', source: 'fallback' };
 };

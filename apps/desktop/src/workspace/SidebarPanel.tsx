@@ -159,7 +159,7 @@ export function SidebarPanel({
         threadId: data.threadId,
         workspacePath: normalizedWorkspacePath || workspacePath,
         currentConversationId: data.conversationId,
-        preview: 'Untitled session',
+        preview: 'Untitled thread',
         title: null,
         timestamp: new Date().toISOString(),
         conversationCount: 1,
@@ -306,7 +306,7 @@ export function SidebarPanel({
       <ScrollArea className="flex min-h-0 flex-1 flex-col bg-card/60">
         <SidebarGroup className="px-2 py-2">
           <SidebarGroupLabel className="flex w-full items-center gap-2">
-            <span>Sessions</span>
+            <span>Threads</span>
             <div className="ml-auto flex items-center gap-1">
               <Button
                 size="sm"
@@ -344,7 +344,7 @@ export function SidebarPanel({
               </SidebarMenu>
             ) : threadsError ? (
               <div className="px-2 space-y-2 text-xs text-destructive">
-                <p>Failed to load sessions: {threadsError.message}</p>
+                <p>Failed to load threads: {threadsError.message}</p>
                 <Button
                   size="sm"
                   variant="outline"
@@ -488,9 +488,9 @@ function SidebarConversationMenuItem({
               event.stopPropagation();
               onClose(session.threadId);
             }}
-            aria-label="Close session"
+            aria-label="Close thread"
           >
-            <span className="sr-only">Close session</span>
+            <span className="sr-only">Close thread</span>
             <XIcon className="h-4 w-4" />
           </Button>
         ) : null}

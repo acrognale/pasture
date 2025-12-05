@@ -90,7 +90,7 @@ export function ConversationProvider({
           const preview =
             threads?.items.find((item) => item.threadId === threadId)
               ?.preview ?? '';
-          return preview.trim() === '' || preview === 'Untitled session';
+          return preview.trim() === '' || preview === 'Untitled thread';
         }
 
         const summaries =
@@ -101,7 +101,7 @@ export function ConversationProvider({
           summaries?.items.find(
             (item) => item.conversationId === conversationId
           )?.preview ?? '';
-        return preview.trim() === '' || preview === 'Untitled session';
+        return preview.trim() === '' || preview === 'Untitled thread';
       }
 
       return true;

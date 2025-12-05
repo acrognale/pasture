@@ -53,7 +53,7 @@ const ACTIVE_CONVERSATION_ID = 'conversation-active';
 const NEW_CONVERSATION_ID = 'conversation-new';
 
 describe('SidebarPanel sessions', () => {
-  test('activates a newly created session immediately', async () => {
+  test('activates a newly created thread immediately', async () => {
     const now = new Date().toISOString();
 
     const threads: ListThreadsResponse = {
@@ -109,7 +109,7 @@ describe('SidebarPanel sessions', () => {
     await markThreadOpenInTest(NEW_THREAD_ID);
 
     const newSessionButton = await screen.findByRole('button', {
-      name: /Untitled session/i,
+      name: /Untitled thread/i,
     });
 
     expect(newSessionButton).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe('SidebarPanel sessions', () => {
     });
   });
 
-  test('updates session preview after the first user message', async () => {
+  test('updates thread preview after the first user message', async () => {
     const now = new Date().toISOString();
 
     const threads: ListThreadsResponse = {
@@ -180,7 +180,7 @@ describe('SidebarPanel sessions', () => {
     await markThreadOpenInTest(NEW_THREAD_ID);
 
     const newSessionButton = await screen.findByRole('button', {
-      name: /Untitled session/i,
+      name: /Untitled thread/i,
     });
 
     await waitFor(() => {

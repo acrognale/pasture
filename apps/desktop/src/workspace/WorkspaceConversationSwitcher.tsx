@@ -79,8 +79,8 @@ export function WorkspaceConversationSwitcher() {
     >
       <CommandInput placeholder="Open thread…" />
       <CommandList>
-        <CommandEmpty>No sessions found.</CommandEmpty>
-        <CommandGroup heading="Sessions">
+        <CommandEmpty>No threads found.</CommandEmpty>
+        <CommandGroup heading="Threads">
           {items.map((session) => {
             const { text, source } = resolveSessionLabel(
               session.title,

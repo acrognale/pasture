@@ -184,7 +184,7 @@ pub async fn list_threads(
                 .preview
                 .clone()
                 .or_else(|| thread.title.clone())
-                .unwrap_or_else(|| "Untitled session".to_string()),
+                .unwrap_or_else(|| "Untitled thread".to_string()),
             timestamp: thread.updated_at.clone(),
             conversation_count: thread.conversations.len(),
         })

@@ -71,7 +71,7 @@ export const mapThreadToConversationSummary = (
   thread: ThreadSummary,
   normalizedWorkspace: string | null
 ): ConversationSummary => {
-  const label = thread.title || thread.preview || 'Untitled session';
+  const label = thread.title || thread.preview || 'Untitled thread';
   return {
     conversationId: thread.currentConversationId,
     path: '',

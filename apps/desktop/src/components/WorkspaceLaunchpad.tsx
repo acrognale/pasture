@@ -45,8 +45,8 @@ const TIPS = [
     Press <Kbd>Ctrl+Tab</Kbd> to cycle through recent conversations.
   </>,
   <>
-    The sidebar only shows active sessions - use <Kbd>⌘P</Kbd> to resume
-    previous ones.
+    The sidebar only shows active threads - use <Kbd>⌘P</Kbd> to resume previous
+    ones.
   </>,
 ];
 
