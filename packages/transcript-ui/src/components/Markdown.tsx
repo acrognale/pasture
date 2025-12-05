@@ -16,7 +16,10 @@ export function Markdown({
   className,
   streaming = false,
 }: MarkdownProps) {
-  const wrapperClass = cn('font-transcript leading-transcript', className);
+  const wrapperClass = cn(
+    'font-transcript leading-transcript break-words',
+    className
+  );
 
   // Use Streamdown for streaming content (client-side animation)
   // Use react-markdown for static content (SSR-friendly, no JS chunks needed)

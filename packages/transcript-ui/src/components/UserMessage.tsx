@@ -170,7 +170,7 @@ export function UserMessage({
                   disabled={isActionPending}
                 />
               ) : (
-                <div className="whitespace-pre-wrap leading-transcript font-transcript text-transcript-base text-foreground">
+                <div className="whitespace-pre-wrap break-words leading-transcript font-transcript text-transcript-base text-foreground">
                   {message}
                 </div>
               )}

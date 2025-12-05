@@ -1,7 +1,6 @@
 import type { TranscriptExecApprovalCell } from '../types';
 import { ApprovalActions } from './ApprovalActions';
 import { Cell } from './Cell';
-import { CellIcon } from './CellIcon';
 
 type ExecutionApprovalProps = {
   cell: TranscriptExecApprovalCell;
@@ -33,19 +32,23 @@ export function ExecutionApproval({
     : '(command pending)';
 
   return (
-    <Cell icon={<CellIcon status="warning" />}>
+    <Cell>
       <div className="space-y-2">
-        <div className="text-foreground">$ {commandText}</div>
-        {cell.cwd ? (
-          <div className="text-xs text-muted-foreground pl-2">
-            cwd: {cell.cwd}
+        <div className="text-warning-foreground whitespace-pre-wrap leading-transcript">
+          {cell.reason ?? 'The agent wants to execute a command.'}
+        </div>
+        <div className="rounded-transcript border border-border/60 bg-card/60">
+          <div className="px-1.5 py-1 space-y-0.5">
+            <div className="text-transcript-base text-foreground font-mono">
+              $ {commandText}
+            </div>
+            {cell.cwd ? (
+              <div className="text-xs text-muted-foreground">
+                cwd: {cell.cwd}
+              </div>
+            ) : null}
           </div>
-        ) : null}
-        {cell.reason ? (
-          <div className="text-warning-foreground whitespace-pre-wrap leading-transcript">
-            {cell.reason}
-          </div>
-        ) : null}
+        </div>
         <ApprovalActions
           decision={cell.decision}
           approvalType="exec"
