@@ -180,7 +180,8 @@ function Sidebar({
       <div
         data-slot="sidebar"
         className={cn(
-          'bg-sidebar text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col',
+          // Prevent long nowrap content from expanding intrinsic min-width
+          'bg-sidebar text-sidebar-foreground flex h-full w-(--sidebar-width) min-w-0 max-w-(--sidebar-width) shrink-0 flex-col overflow-hidden',
           className
         )}
         style={style}
@@ -218,7 +219,7 @@ function Sidebar({
 
   return (
     <div
-      className="group peer text-sidebar-foreground hidden md:block"
+      className="group peer text-sidebar-foreground hidden md:block min-w-0"
       data-state={state}
       data-collapsible={state === 'collapsed' ? collapsible : ''}
       data-variant={variant}
@@ -392,7 +393,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<'div'>) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        'flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden',
+        'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden group-data-[collapsible=icon]:overflow-hidden',
         className
       )}
       {...props}
@@ -463,7 +464,7 @@ function SidebarGroupContent({
     <div
       data-slot="sidebar-group-content"
       data-sidebar="group-content"
-      className={cn('w-full text-sm', className)}
+      className={cn('w-full min-w-0 text-sm', className)}
       {...props}
     />
   );

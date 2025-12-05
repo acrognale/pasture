@@ -302,8 +302,8 @@ export function SidebarPanel({
   }, [latestDiff, turnDiffHistory, workspacePath]);
 
   return (
-    <div className="flex h-full flex-col">
-      <ScrollArea className="flex min-h-0 flex-1 flex-col bg-card/60">
+    <div className="flex h-full min-w-0 flex-col">
+      <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-card/60">
         <SidebarGroup className="px-2 py-2">
           <SidebarGroupLabel className="flex w-full items-center gap-2">
             <span>Threads</span>

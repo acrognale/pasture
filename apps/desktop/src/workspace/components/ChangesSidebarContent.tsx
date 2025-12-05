@@ -86,28 +86,31 @@ export function ChangesSidebarContent({
             <li key={file.id}>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground transition-colors"
+                className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-md px-2 py-2 text-left text-xs transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground"
                 onClick={() => onFileClick?.(file)}
               >
                 <FileStatusIcon status={status} />
                 <span
-                  className="flex-1 min-w-0 flex items-center gap-1 text-foreground"
+                  className="min-w-0 overflow-hidden flex items-baseline"
                   title={relativePath}
                 >
                   {dir ? (
                     <span
-                      className="truncate text-muted-foreground"
-                      dir="rtl"
-                      style={{ unicodeBidi: 'isolate' }}
+                      className="flex-1 min-w-0 truncate text-muted-foreground"
+                      style={{
+                        direction: 'rtl',
+                        textAlign: 'left',
+                        unicodeBidi: 'plaintext',
+                      }}
                     >
                       {dir}
                     </span>
                   ) : null}
-                  <span className="shrink-0 font-medium text-foreground">
+                  <span className="shrink-0 whitespace-nowrap font-medium text-foreground">
                     {fileName}
                   </span>
                 </span>
-                <span className="flex shrink-0 items-center gap-2 text-[10px]">
+                <span className="flex shrink-0 whitespace-nowrap items-center gap-1.5 text-[10px] tabular-nums">
                   <span className="text-success-foreground">
                     +{stats.added}
                   </span>

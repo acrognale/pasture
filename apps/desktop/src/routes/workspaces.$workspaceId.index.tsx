@@ -36,7 +36,7 @@ function RouteComponent() {
             threadId: data.threadId,
             workspacePath: normalizedWorkspacePath || workspacePath,
             currentConversationId: data.conversationId,
-             preview: 'Untitled thread',
+            preview: 'Untitled thread',
             title: null,
             timestamp: new Date().toISOString(),
             conversationCount: 1,
@@ -72,7 +72,7 @@ function RouteComponent() {
     onError: (error: Error) => {
       const description =
         error instanceof Error ? error.message : 'Please try again.';
-       toast.error('Failed to create new thread.', { description });
+      toast.error('Failed to create new thread.', { description });
     },
   });
 
@@ -96,10 +96,10 @@ function RouteComponent() {
         {/* Header */}
         <div className="space-y-3">
           <h1 className="text-lg font-semibold">Choose a thread to begin</h1>
-           <p className="text-xs text-muted-foreground">
-             Start a new thread in this workspace or open an existing one.
-             Conversations will appear here once a thread is selected.
-           </p>
+          <p className="text-xs text-muted-foreground">
+            Start a new thread in this workspace or open an existing one.
+            Conversations will appear here once a thread is selected.
+          </p>
         </div>
 
         {/* Actions */}
@@ -117,12 +117,12 @@ function RouteComponent() {
               {newThreadMutation.isPending ? (
                 <>
                   <Loader2Icon className="h-4 w-4 animate-spin" />
-                   Creating thread…
+                  Creating thread…
                 </>
               ) : (
                 <>
                   <PlusIcon className="h-4 w-4" />
-                   Start new thread
+                  Start new thread
                 </>
               )}
             </Button>
@@ -141,15 +141,15 @@ function RouteComponent() {
         {/* Tip */}
         <div className="rounded-lg border border-border/40 bg-[var(--cream-50)] dark:bg-[var(--cream-900)]/20 px-4 py-3">
           <p className="text-xs text-foreground/70">
-             <span className="font-medium text-foreground">Tip:</span> Use{' '}
-             <kbd className="rounded bg-background/60 px-1 py-0.5 font-mono text-[10px]">
-               ⌘N
-             </kbd>{' '}
-             to start a new thread or{' '}
-             <kbd className="rounded bg-background/60 px-1 py-0.5 font-mono text-[10px]">
-               ⌘P
-             </kbd>{' '}
-             to quickly switch between threads.
+            <span className="font-medium text-foreground">Tip:</span> Use{' '}
+            <kbd className="rounded bg-background/60 px-1 py-0.5 font-mono text-[10px]">
+              ⌘N
+            </kbd>{' '}
+            to start a new thread or{' '}
+            <kbd className="rounded bg-background/60 px-1 py-0.5 font-mono text-[10px]">
+              ⌘P
+            </kbd>{' '}
+            to quickly switch between threads.
           </p>
         </div>
       </div>
