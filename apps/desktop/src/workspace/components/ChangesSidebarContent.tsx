@@ -67,7 +67,7 @@ export function ChangesSidebarContent({
 }: ChangesSidebarContentProps) {
   if (files.length === 0) {
     return (
-      <div className="flex-1 px-4 py-6 text-center text-xs text-muted-foreground">
+      <div className="px-2 py-4 text-center text-xs text-muted-foreground">
         <p>No changes yet</p>
         <p className="mt-2 text-[10px]">
           Changes will appear here as files are modified
@@ -77,7 +77,7 @@ export function ChangesSidebarContent({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-2 py-2">
+    <div className="px-0 py-2">
       <ul className="flex flex-col gap-1">
         {files.map(({ file, stats, relativePath }) => {
           const status = getFileStatus(file);
@@ -86,7 +86,7 @@ export function ChangesSidebarContent({
             <li key={file.id}>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs bg-background/50 hover:bg-muted/40 transition-colors"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground transition-colors"
                 onClick={() => onFileClick?.(file)}
               >
                 <FileStatusIcon status={status} />
