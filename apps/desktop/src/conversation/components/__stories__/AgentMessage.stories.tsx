@@ -1,9 +1,5 @@
+import { Cell, type TranscriptAgentMessageCell } from '@pasture/transcript-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import {
-  type TranscriptAgentMessageCell,
-  Cell,
-} from '@pasture/transcript-ui';
-
 import { MessageCommentProvider } from '~/conversation/comments/MessageCommentContext';
 import { MessageCommentDraftProvider } from '~/conversation/comments/MessageCommentDraftContext';
 

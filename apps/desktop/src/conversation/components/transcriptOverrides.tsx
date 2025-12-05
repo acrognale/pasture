@@ -1,8 +1,8 @@
 import {
   Cell,
   CellIcon,
-  type TranscriptGenericCell,
   type TranscriptAgentMessageCell,
+  type TranscriptGenericCell,
   type TranscriptToolCell,
   type TranscriptViewOverrides,
   safeStringify,
