@@ -38,16 +38,12 @@ import {
 type ConversationPaneProps = {
   workspacePath: string;
   conversationId: string;
-  rightSidebarVisible?: boolean;
-  rightSidebarCollapsed?: boolean;
   onConversationForked?: (conversationId: string) => void;
 };
 
 function ConversationPaneContent({
   workspacePath,
   conversationId,
-  rightSidebarVisible,
-  rightSidebarCollapsed,
   onConversationForked,
 }: ConversationPaneProps) {
   const { getConversationStore } = useWorkspaceActions();
@@ -345,8 +341,6 @@ function ConversationPaneContent({
               conversationId={conversationId}
               isTurnActive={isTurnActive}
               interruptPending={interruptPending}
-              rightSidebarVisible={rightSidebarVisible}
-              rightSidebarCollapsed={rightSidebarCollapsed}
               stopButtonId="interrupt-conversation-button"
               onInterrupt={handleInterrupt}
               onScrollToBottom={handleScrollToBottom}

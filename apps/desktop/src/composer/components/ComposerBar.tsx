@@ -43,8 +43,6 @@ export interface ComposerBarProps {
   conversationId: string | null;
   isTurnActive?: boolean;
   interruptPending?: boolean;
-  rightSidebarVisible?: boolean;
-  rightSidebarCollapsed?: boolean;
   stopButtonId?: string;
   onInterrupt: () => void;
   onScrollToBottom: () => void;
@@ -225,8 +223,6 @@ export function ComposerBar({
   conversationId,
   isTurnActive: isTurnActiveProp,
   interruptPending: interruptPendingProp,
-  rightSidebarVisible,
-  rightSidebarCollapsed,
   stopButtonId,
   onInterrupt,
   onScrollToBottom,
@@ -633,8 +629,6 @@ export function ComposerBar({
               conversationId={conversationId}
               composerConfig={composerConfig}
               disabled={isMutationPending || isTurnActive || disabled}
-              rightSidebarVisible={rightSidebarVisible}
-              rightSidebarCollapsed={rightSidebarCollapsed}
               onUpdate={handleComposerUpdate}
             />
           </div>

@@ -98,14 +98,10 @@ export interface ModelConfigSelectorProps {
   composerConfig?: ComposerTurnConfig;
   disabled?: boolean;
   onUpdate?: (config: ComposerUpdate) => void;
-  rightSidebarVisible?: boolean;
-  rightSidebarCollapsed?: boolean;
 }
 
 const SIDEBAR_AUTO_COLLAPSE_WIDTH = 876;
 const LEFT_SIDEBAR_WIDTH = 288; // 18rem
-const RIGHT_SIDEBAR_EXPANDED_WIDTH = 288; // 18rem
-const RIGHT_SIDEBAR_COLLAPSED_WIDTH = 48; // 12
 const BASE_APPROVAL_WIDTH = 600;
 const REASONING_OFFSET = 65;
 
@@ -135,8 +131,6 @@ export function ModelConfigSelector({
   composerConfig: composerConfigProp,
   disabled: disabledProp,
   onUpdate,
-  rightSidebarVisible,
-  rightSidebarCollapsed,
 }: ModelConfigSelectorProps) {
   const composerConfig = useMemo(
     () => composerConfigProp ?? createDefaultComposerConfig(),
@@ -246,24 +240,15 @@ export function ModelConfigSelector({
   // Sidebar only reduces available width while it is open and wider than its auto-collapse threshold.
   const sidebarConsumesSpace =
     sidebarOpen && fallbackViewportWidth > SIDEBAR_AUTO_COLLAPSE_WIDTH;
-  const rightSidebarIsVisible = Boolean(
-    rightSidebarVisible && fallbackViewportWidth >= 768
-  );
-  const rightSidebarWidth = rightSidebarIsVisible
-    ? rightSidebarCollapsed
-      ? RIGHT_SIDEBAR_COLLAPSED_WIDTH
-      : RIGHT_SIDEBAR_EXPANDED_WIDTH
-    : 0;
 
   const width = fallbackViewportWidth;
 
   // Determine layout based on viewport width (keeps dropdowns visible on larger screens).
   const showIconOnly = width < COMPOSER_BREAKPOINTS.MEDIUM;
 
-  const approvalsBreakpoint =
-    (sidebarConsumesSpace
-      ? BASE_APPROVAL_WIDTH + LEFT_SIDEBAR_WIDTH
-      : BASE_APPROVAL_WIDTH) + rightSidebarWidth;
+  const approvalsBreakpoint = sidebarConsumesSpace
+    ? BASE_APPROVAL_WIDTH + LEFT_SIDEBAR_WIDTH
+    : BASE_APPROVAL_WIDTH;
   const reasoningBreakpoint = approvalsBreakpoint - REASONING_OFFSET;
 
   // Move approvals into the settings popover when space is constrained.

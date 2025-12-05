@@ -29,12 +29,21 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '~/components/ui/tooltip';
-import { useConversationIsRunning } from '~/conversation/store/hooks';
+import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
+import {
+  useConversationHasTurnDiffHistory,
+  useConversationIsRunning,
+  useConversationLatestTurnDiff,
+  useConversationTurnDiffHistory,
+} from '~/conversation/store/hooks';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
+import { makePathRelative } from '~/lib/utils';
 import { resolveSessionLabel } from '~/lib/workspaces';
+import { buildFileDiffStats, parseUnifiedDiff } from '~/review/diff';
+import { ChangesSidebarContent } from '~/workspace/components/ChangesSidebarContent';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
 
 import { OPEN_WORKSPACE_THREAD_SWITCHER_EVENT } from './WorkspaceConversationSwitcher';
@@ -42,6 +51,7 @@ import {
   useWorkspace,
   useWorkspaceActions,
   useWorkspaceKeys,
+  useWorkspaceThreadConversationId,
 } from './WorkspaceProvider';
 import {
   type WorkspaceThreadsState,
@@ -71,6 +81,8 @@ export function SidebarPanel({
     typeof threadMatch?.params?.threadId === 'string'
       ? threadMatch.params.threadId
       : null;
+
+  const activeConversationId = useWorkspaceThreadConversationId(activeThreadId);
 
   const sessions: ThreadSummary[] = useMemo(
     () => threads.items ?? [],
@@ -211,6 +223,19 @@ export function SidebarPanel({
     handleNewConversationShortcut
   );
 
+  const [isChangesCollapsed, setIsChangesCollapsed] = useState(false);
+
+  const handleToggleChangesPanelShortcut = useCallback(() => {
+    setIsChangesCollapsed((previous) => !previous);
+    return true;
+  }, []);
+
+  useNamedShortcut(
+    'workspace.toggleChangesSidebar',
+    undefined,
+    handleToggleChangesPanelShortcut
+  );
+
   const handleOpenConversationSelector = useCallback(() => {
     if (typeof window === 'undefined') {
       return;
@@ -223,13 +248,66 @@ export function SidebarPanel({
     return true;
   });
 
+  const conversationIdForDiffs = activeConversationId ?? '';
+  const hasReviewHistory = useConversationHasTurnDiffHistory(
+    conversationIdForDiffs
+  );
+  const turnDiffHistory = useConversationTurnDiffHistory(
+    conversationIdForDiffs
+  );
+  const latestDiff = useConversationLatestTurnDiff(conversationIdForDiffs);
+
+  const processedFiles = useMemo(() => {
+    if (!turnDiffHistory.length && !latestDiff?.unifiedDiff) {
+      return [];
+    }
+
+    const sortedHistory = [...turnDiffHistory];
+    if (latestDiff && !turnDiffHistory.includes(latestDiff)) {
+      sortedHistory.push(latestDiff);
+    }
+
+    sortedHistory.sort((a, b) => a.turnNumber - b.turnNumber);
+
+    const statsByPath = new Map<string, { added: number; removed: number }>();
+    const latestFileByPath = new Map<
+      string,
+      ReturnType<typeof parseUnifiedDiff>['files'][number]
+    >();
+
+    sortedHistory.forEach((turnDiff) => {
+      if (!turnDiff.unifiedDiff) return;
+      const parsed = parseUnifiedDiff(turnDiff.unifiedDiff);
+      const fileStats = buildFileDiffStats(parsed.files);
+
+      parsed.files.forEach((file) => {
+        const path = file.displayPath;
+        const previous = statsByPath.get(path) ?? { added: 0, removed: 0 };
+        const stats = fileStats.get(file.id) ?? { added: 0, removed: 0 };
+        statsByPath.set(path, {
+          added: previous.added + stats.added,
+          removed: previous.removed + stats.removed,
+        });
+        latestFileByPath.set(path, { ...file, id: path });
+      });
+    });
+
+    return Array.from(latestFileByPath.entries())
+      .map(([path, file]) => ({
+        file,
+        stats: statsByPath.get(path) ?? { added: 0, removed: 0 },
+        relativePath: makePathRelative(workspacePath, path),
+      }))
+      .sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  }, [latestDiff, turnDiffHistory, workspacePath]);
+
   return (
     <div className="flex h-full flex-col">
       <ScrollArea className="flex min-h-0 flex-1 flex-col bg-card/60">
         <SidebarGroup className="px-2 py-2">
-          <SidebarGroupLabel className="flex items-center justify-between gap-2">
+          <SidebarGroupLabel className="flex w-full items-center gap-2">
             <span>Sessions</span>
-            <div className="flex items-center gap-1">
+            <div className="ml-auto flex items-center gap-1">
               <Button
                 size="sm"
                 variant="ghost"
@@ -294,6 +372,44 @@ export function SidebarPanel({
             ) : null}
           </SidebarGroupContent>
         </SidebarGroup>
+        {activeConversationId ? (
+          <SidebarGroup className="px-2 py-2">
+            <SidebarGroupLabel className="flex w-full items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <span>Changes</span>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                  {processedFiles.length}
+                </span>
+              </span>
+              {hasReviewHistory ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => {
+                    dispatchOpenReviewOverlayEvent(activeConversationId);
+                  }}
+                >
+                  View All
+                </Button>
+              ) : null}
+            </SidebarGroupLabel>
+            {!isChangesCollapsed ? (
+              <SidebarGroupContent className="mt-2">
+                <ChangesSidebarContent
+                  files={processedFiles}
+                  onFileClick={(file) => {
+                    dispatchOpenReviewOverlayEvent(
+                      activeConversationId,
+                      file.displayPath
+                    );
+                  }}
+                />
+              </SidebarGroupContent>
+            ) : null}
+          </SidebarGroup>
+        ) : null}
       </ScrollArea>
       <div className="border-t border-border/60 px-3 py-2 flex justify-end">
         <Tooltip>
