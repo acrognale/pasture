@@ -14,6 +14,15 @@ import {
   type MessageCommentThreadHandle,
 } from './MessageCommentThread';
 
+const DRAFT_ANCHOR_ID = '__draft__';
+
+function escapeSelector(value: string) {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  return value.replace(/["\\]/g, '\\$&');
+}
+
 type AgentMessageProps = {
   cell: TranscriptAgentMessageCell;
   conversationId: string;
@@ -39,6 +48,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
   } | null>(null);
   const [pendingTarget, setPendingTarget] = useState<DraftTarget | null>(null);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+  const [anchorsById, setAnchorsById] = useState<Record<string, number>>({});
 
   const cellKey = cell.itemId ?? cell.id;
   const cellIdentifiers = useMemo(() => {
@@ -47,7 +57,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
     ids.add(cell.id);
     (cell.eventIds ?? []).forEach((ev) => ids.add(ev));
     return ids;
-  }, [cell.id, cell.itemId, cell.eventIds, cellKey]);
+  }, [cell.id, cell.eventIds, cellKey]);
 
   const commentsForCell = useMemo(
     () => comments.filter((comment) => cellIdentifiers.has(comment.cellId)),
@@ -285,8 +295,8 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
       .forEach((highlight) => {
         const isActive = highlight.dataset.commentId === activeCommentId;
         highlight.classList.toggle('ring-2', isActive);
-        highlight.classList.toggle('ring-warning-foreground/70', isActive);
-        highlight.classList.toggle('bg-warning-foreground/45', isActive);
+        highlight.classList.toggle('ring-transcript-comment/70', isActive);
+        highlight.classList.toggle('bg-transcript-comment/45', isActive);
         highlight.classList.toggle('shadow-sm', isActive);
       });
   }, [activeCommentId]);
@@ -330,7 +340,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
         const wrapper = document.createElement('mark');
         const baseClasses = comment.isSubmitted
           ? 'message-comment-highlight bg-muted-foreground/10 text-foreground/80 opacity-80 transition-all duration-200 box-decoration-clone'
-          : 'message-comment-highlight bg-warning-foreground/25 text-foreground transition-all duration-200 box-decoration-clone';
+          : 'message-comment-highlight bg-transcript-comment/25 text-foreground transition-all duration-200 box-decoration-clone';
         let roundingClasses = '';
         if (position === 'single') {
           roundingClasses = 'rounded-sm px-0.5';
@@ -415,6 +425,75 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
     };
   }, [isDraftOpen, draftTarget, wrapTextNodesInRange]);
 
+  const computeAnchors = useCallback(() => {
+    const root = messageRef.current;
+    if (!root) return;
+
+    const next: Record<string, number> = {};
+
+    const pickTop = (els: NodeListOf<HTMLElement>) => {
+      let top = Number.POSITIVE_INFINITY;
+      els.forEach((el) => {
+        const rects = el.getClientRects();
+        for (let i = 0; i < rects.length; i += 1) {
+          top = Math.min(top, rects[i]!.top);
+        }
+        top = Math.min(top, el.getBoundingClientRect().top);
+      });
+      return Number.isFinite(top) ? top : null;
+    };
+
+    for (const comment of commentsForCell) {
+      const els = root.querySelectorAll<HTMLElement>(
+        `.message-comment-highlight[data-comment-id="${escapeSelector(comment.id)}"]`
+      );
+      const top = els.length ? pickTop(els) : null;
+      if (top != null) {
+        next[comment.id] = top;
+      }
+    }
+
+    if (isDraftOpen) {
+      const draftEls = root.querySelectorAll<HTMLElement>(
+        '.message-draft-highlight'
+      );
+      const top = draftEls.length ? pickTop(draftEls) : null;
+      if (top != null) {
+        next[DRAFT_ANCHOR_ID] = top;
+      }
+    }
+
+    setAnchorsById(next);
+  }, [commentsForCell, isDraftOpen]);
+
+  // Recompute after highlights are (re)applied
+  useEffect(() => {
+    const raf = requestAnimationFrame(computeAnchors);
+    return () => cancelAnimationFrame(raf);
+  }, [computeAnchors, draftTarget]);
+
+  // Recompute on layout/resize changes
+  useEffect(() => {
+    const root = messageRef.current;
+    if (!root) return undefined;
+
+    let raf = 0;
+    const schedule = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(computeAnchors);
+    };
+
+    const ro = new ResizeObserver(schedule);
+    ro.observe(root);
+    window.addEventListener('resize', schedule);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener('resize', schedule);
+    };
+  }, [computeAnchors]);
+
   return (
     <Cell className="group">
       <div className="flex items-start gap-4 relative">
@@ -471,6 +550,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
               onDeleteComment={removeComment}
               activeCommentId={activeCommentId}
               onCommentHover={handleSidebarHover}
+              anchorsById={anchorsById}
             />
           </div>
         ) : null}

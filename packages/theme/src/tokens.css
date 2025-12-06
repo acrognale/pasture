@@ -423,6 +423,7 @@
   --color-transcript-tool-secondary-foreground: var(
     --color-transcript-tool-secondary-foreground
   );
+  --color-transcript-comment: var(--color-blue-500);
 
   /* Radii */
   --radius: var(--radius);

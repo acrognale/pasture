@@ -1,6 +1,13 @@
 import type { MessageComment } from '@pasture/protocol';
 import { MessageSquareQuoteIcon } from 'lucide-react';
-import { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { forwardRef } from 'react';
 import type { ForwardedRef } from 'react';
 import { Button } from '~/components/ui/button';
@@ -17,11 +24,14 @@ export type MessageCommentThreadProps = {
   onDeleteComment: (id: string) => void;
   activeCommentId: string | null;
   onCommentHover: (id: string | null) => void;
+  anchorsById?: Record<string, number>;
 };
 
 export type MessageCommentThreadHandle = {
   expandResolved: () => void;
 };
+
+const DRAFT_ANCHOR_ID = '__draft__';
 
 function MessageCommentThreadInner(
   {
@@ -34,6 +44,7 @@ function MessageCommentThreadInner(
     onDeleteComment,
     activeCommentId,
     onCommentHover,
+    anchorsById = {},
   }: MessageCommentThreadProps,
   ref: ForwardedRef<MessageCommentThreadHandle>
 ) {
@@ -42,6 +53,9 @@ function MessageCommentThreadInner(
     () => hasUnresolved || isDraftOpen
   );
   const previousHasUnresolvedRef = useRef(hasUnresolved);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef(new Map<string, HTMLDivElement>());
+  const [marginsById, setMarginsById] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const previousHasUnresolved = previousHasUnresolvedRef.current;
@@ -72,6 +86,81 @@ function MessageCommentThreadInner(
     comments.length > 0 && !hasUnresolved && !isDraftOpen;
   const isCollapsed = showResolvedBubble && !showResolvedThread;
 
+  type ThreadItem =
+    | { kind: 'comment'; id: string; comment: MessageComment }
+    | { kind: 'draft'; id: string };
+
+  const items = useMemo<ThreadItem[]>(() => {
+    const commentItems: ThreadItem[] = comments.map((comment) => ({
+      kind: 'comment',
+      id: comment.id,
+      comment,
+    }));
+    if (isDraftOpen) {
+      commentItems.push({ kind: 'draft' as const, id: DRAFT_ANCHOR_ID });
+    }
+    return commentItems;
+  }, [comments, isDraftOpen]);
+
+  const sortedItems = useMemo(() => {
+    const getY = (id: string) => anchorsById[id] ?? Number.POSITIVE_INFINITY;
+
+    return [...items].sort((a, b) => {
+      const ay = getY(a.id);
+      const by = getY(b.id);
+      if (ay !== by) return ay - by;
+
+      if (a.kind === 'comment' && b.kind === 'comment') {
+        const ao = a.comment.selectionStartOffset ?? Number.POSITIVE_INFINITY;
+        const bo = b.comment.selectionStartOffset ?? Number.POSITIVE_INFINITY;
+        if (ao !== bo) return ao - bo;
+        return (a.comment.createdAt ?? '').localeCompare(
+          b.comment.createdAt ?? ''
+        );
+      }
+
+      return a.id.localeCompare(b.id);
+    });
+  }, [anchorsById, items]);
+
+  useLayoutEffect(() => {
+    let raf = 0;
+
+    const run = () => {
+      const listEl = listRef.current;
+      if (!listEl) return;
+
+      if (showResolvedBubble && isCollapsed) {
+        setMarginsById({});
+        return;
+      }
+
+      const listTop = listEl.getBoundingClientRect().top;
+      const styles = getComputedStyle(listEl);
+      const gap = parseFloat(styles.rowGap || '0') || 0;
+
+      let cursor = 0;
+      const next: Record<string, number> = {};
+
+      for (const item of sortedItems) {
+        const el = itemRefs.current.get(item.id);
+        const height = el?.offsetHeight ?? 0;
+        const anchorY = anchorsById[item.id];
+        const desiredTop = anchorY != null ? anchorY - listTop : cursor;
+        const marginTop = Math.max(desiredTop - cursor, 0);
+
+        next[item.id] = marginTop;
+        cursor = cursor + marginTop + height + gap;
+      }
+
+      setMarginsById(next);
+    };
+
+    raf = requestAnimationFrame(run);
+
+    return () => cancelAnimationFrame(raf);
+  }, [anchorsById, sortedItems, showResolvedBubble, isCollapsed, draftText]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -86,9 +175,9 @@ function MessageCommentThreadInner(
 
   return (
     <div className="flex flex-col gap-2.5">
-      {comments.length > 0 ? (
+      {comments.length > 0 || isDraftOpen ? (
         <>
-          {showResolvedBubble ? (
+          {comments.length > 0 && showResolvedBubble ? (
             <button
               type="button"
               className={cn(
@@ -114,95 +203,111 @@ function MessageCommentThreadInner(
                 ? 'max-h-0 opacity-0 pointer-events-none'
                 : 'max-h-none opacity-100'
             )}
+            ref={listRef}
           >
-            {comments.map((comment, index) => (
-              <div key={comment.id} className="relative">
-                {/* Thread connector line */}
-                {index > 0 && (
-                  <div className="absolute left-3 -top-2.5 h-2.5 w-0.5 bg-warning-foreground/30" />
-                )}
+            {sortedItems.map((item) => {
+              const marginTop = marginsById[item.id] ?? 0;
+              const isComment = item.kind === 'comment';
+              const comment = item.kind === 'comment' ? item.comment : null;
+
+              return (
                 <div
-                  onMouseEnter={() => onCommentHover(comment.id)}
-                  onMouseLeave={() => onCommentHover(null)}
-                  className={cn(
-                    'animate-in fade-in-50 slide-in-from-right-2 duration-200',
-                    'rounded-md border border-border/60 px-3 py-2.5 shadow-sm',
-                    'transition-all duration-200 ease-out group',
-                    comment.isSubmitted
-                      ? 'border-l-[3px] border-l-muted-foreground/70 bg-muted/40 opacity-75'
-                      : 'border-l-[3px] border-l-warning-foreground bg-muted/60',
-                    activeCommentId === comment.id
-                      ? 'scale-[1.01] ring-2 ring-warning-foreground/60 shadow-md shadow-warning-foreground/20 bg-background'
-                      : 'hover:shadow-md hover:bg-background'
-                  )}
+                  key={item.id}
+                  className="relative transition-[margin-top] duration-200 ease-out"
+                  style={{ marginTop }}
+                  ref={(node) => {
+                    if (!node) {
+                      itemRefs.current.delete(item.id);
+                    } else {
+                      itemRefs.current.set(item.id, node);
+                    }
+                  }}
                 >
-                  {/* Comment header with icon */}
-                  <div className="flex items-start gap-2">
-                    <MessageSquareQuoteIcon
+                  {isComment && comment ? (
+                    <div
+                      onMouseEnter={() => onCommentHover(comment.id)}
+                      onMouseLeave={() => onCommentHover(null)}
                       className={cn(
-                        'size-3.5 shrink-0 mt-0.5',
+                        'animate-in fade-in-50 slide-in-from-right-2 duration-200',
+                        'rounded-md border border-border/60 px-3 py-2.5 shadow-sm',
+                        'transition-all duration-200 ease-out group',
                         comment.isSubmitted
-                          ? 'text-muted-foreground'
-                          : 'text-warning-foreground'
+                          ? 'border-l-[3px] border-l-muted-foreground/70 bg-muted/40 opacity-75'
+                          : 'border-l-[3px] border-l-transcript-comment bg-muted/60',
+                        activeCommentId === comment.id
+                          ? 'scale-[1.01] ring-2 ring-transcript-comment/60 shadow-md shadow-transcript-comment/20 bg-background'
+                          : 'hover:shadow-md hover:bg-background'
                       )}
-                    />
-                    <p className="min-w-0 whitespace-pre-wrap break-words text-transcript-base leading-relaxed">
-                      {comment.commentText}
-                    </p>
-                  </div>
-
-                  {/* Quoted snippet as styled blockquote */}
-                  <blockquote className="mt-2.5 ml-5 border-l-2 border-muted pl-2.5 text-transcript-micro text-muted-foreground italic leading-snug break-words">
-                    "{comment.selectionPreview || comment.selectionText}"
-                  </blockquote>
-
-                  {/* Actions */}
-                  <div className="mt-2 flex items-center justify-end">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 px-1.5 text-transcript-micro text-muted-foreground hover:text-foreground"
-                      onClick={() => onDeleteComment(comment.id)}
                     >
-                      Remove
-                    </Button>
-                  </div>
+                      <div className="flex items-start gap-2">
+                        <MessageSquareQuoteIcon
+                          className={cn(
+                            'size-3.5 shrink-0 mt-0.5',
+                            comment.isSubmitted
+                              ? 'text-muted-foreground'
+                              : 'text-transcript-comment'
+                          )}
+                        />
+                        <p className="min-w-0 whitespace-pre-wrap break-words text-transcript-base leading-relaxed">
+                          {comment.commentText}
+                        </p>
+                      </div>
+
+                      <blockquote className="mt-2.5 ml-5 border-l-2 border-muted pl-2.5 text-transcript-micro text-muted-foreground italic leading-snug break-words">
+                        "{comment.selectionPreview || comment.selectionText}"
+                      </blockquote>
+
+                      <div className="mt-2 flex items-center justify-end">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-1.5 text-transcript-micro text-muted-foreground hover:text-foreground"
+                          onClick={() => onDeleteComment(comment.id)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <form
+                      className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/50 p-3"
+                      onSubmit={handleSubmit}
+                    >
+                      <Textarea
+                        value={draftText}
+                        rows={3}
+                        className="resize-none bg-background border-border/60 focus:border-ring"
+                        onChange={(event) => setDraftText(event.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Add your comment..."
+                        autoFocus
+                      />
+                      <div className="flex items-center justify-end gap-2 text-xs">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={onCancelDraft}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={!draftText.trim()}
+                        >
+                          Save comment
+                        </Button>
+                      </div>
+                    </form>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
-      ) : null}
-      {isDraftOpen ? (
-        <form
-          className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/50 p-3"
-          onSubmit={handleSubmit}
-        >
-          <Textarea
-            value={draftText}
-            rows={3}
-            className="resize-none bg-background border-border/60 focus:border-ring"
-            onChange={(event) => setDraftText(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Add your comment..."
-            autoFocus
-          />
-          <div className="flex items-center justify-end gap-2 text-xs">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={onCancelDraft}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" size="sm" disabled={!draftText.trim()}>
-              Save comment
-            </Button>
-          </div>
-        </form>
       ) : null}
     </div>
   );

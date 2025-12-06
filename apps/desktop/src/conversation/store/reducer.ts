@@ -1296,14 +1296,7 @@ function applyConversationEvent(
       onAgentMessageDelta(draft, event, eventId, turnId, timestamp);
       break;
     case 'agent_message':
-      onAgentMessage(
-        draft,
-        event,
-        eventId,
-        turnId,
-        timestamp,
-        conversationId
-      );
+      onAgentMessage(draft, event, eventId, turnId, timestamp, conversationId);
       break;
     case 'agent_reasoning_delta':
     case 'agent_reasoning_raw_content_delta':

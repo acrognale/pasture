@@ -14,9 +14,9 @@ export const buildMessageCommentsPrompt = (
     return null;
   }
 
-  const segments = comments.map((comment) => {
+  const segments = comments.map((comment, idx) => {
     const snippet = truncate(comment.selectionPreview || comment.selectionText);
-    return `- Message snippet: "${snippet}"\n  Comment: ${comment.commentText}`;
+    return `- Message snippet: "${snippet}"\n  Comment ${idx + 1}: ${comment.commentText}`;
   });
 
   return `I have a few comments on your previous response:\n${segments.join('\n')}\n\nPlease address each comment before continuing.`;
