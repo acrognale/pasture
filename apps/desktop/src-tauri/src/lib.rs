@@ -39,6 +39,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             // Set traffic light positioning to match the legacy Electron app (x: 20, y: 22)
             #[cfg(target_os = "macos")]
