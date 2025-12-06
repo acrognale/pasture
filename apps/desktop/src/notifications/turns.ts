@@ -4,7 +4,6 @@ import {
   requestPermission,
   sendNotification,
 } from '@tauri-apps/plugin-notification';
-
 import { isTauriEnvironment } from '~/codex/events';
 
 const UNTITLED = 'Untitled thread';
@@ -48,7 +47,10 @@ const appWindowNotFocused = async (): Promise<boolean> => {
     const window = getCurrentWindow();
     return !(await window.isFocused());
   } catch (error) {
-    console.warn('Failed to determine window focus state; defaulting to notify', error);
+    console.warn(
+      'Failed to determine window focus state; defaulting to notify',
+      error
+    );
     return true;
   }
 };

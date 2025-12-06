@@ -25,9 +25,9 @@ import {
   isThreadMetadataUpdatedEvent,
   subscribeToCodexEvents,
 } from '~/codex/events';
-import { notifyTurnError, notifyTurnFinished } from '~/notifications/turns';
 import { copyToClipboard } from '~/lib/utils';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
+import { notifyTurnError, notifyTurnFinished } from '~/notifications/turns';
 import {
   updateConversationPreview,
   updateConversationTimestamp,
@@ -78,11 +78,17 @@ export function ConversationProvider({
     const conversationsKey = keys.conversations();
     const threadsKey = keys.threads();
 
-    const getThreadTitle = (threadId: string | null | undefined): string | null => {
+    const getThreadTitle = (
+      threadId: string | null | undefined
+    ): string | null => {
       if (!threadId) return null;
 
-      const threads = queryClient.getQueryData<{ items: ThreadSummary[] }>(threadsKey);
-      return threads?.items.find((item) => item.threadId === threadId)?.title ?? null;
+      const threads = queryClient.getQueryData<{ items: ThreadSummary[] }>(
+        threadsKey
+      );
+      return (
+        threads?.items.find((item) => item.threadId === threadId)?.title ?? null
+      );
     };
 
     const shouldApplyPreviewUpdate = (
