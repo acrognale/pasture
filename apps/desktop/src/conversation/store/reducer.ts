@@ -107,6 +107,8 @@ export type ConversationSideEffect = {
 export type ConversationControllerState = {
   conversation: ConversationState;
   conversationId: string | null;
+  /** Monotonic counter for agent messages within this conversation; used to derive stable message IDs. */
+  agentMessageOrdinal: number;
   sideEffects: ConversationSideEffect[];
   retryStatusHeader: string | null;
   reasoningBuffer: string;
@@ -145,6 +147,7 @@ export const createConversationControllerState = (
 ): ConversationControllerState => ({
   conversation: createInitialConversationState(),
   conversationId: options?.conversationId ?? null,
+  agentMessageOrdinal: 0,
   sideEffects: [],
   retryStatusHeader: null,
   reasoningBuffer: '',
@@ -446,11 +449,18 @@ function onAgentMessage(
   event: AgentMessageEvent,
   eventId: string,
   turnId: string,
-  timestamp: string
+  timestamp: string,
+  conversationId: string | null | undefined
 ): void {
+  const conversationKey =
+    draft.conversationId ?? conversationId ?? 'unknown-conversation';
+  const messageId = `agent::${conversationKey}::${draft.agentMessageOrdinal}`;
+  draft.agentMessageOrdinal += 1;
+
   const open = getOpenAgentCell(draft);
   if (open && open.location.turnId === turnId) {
     open.cell.message = event.message;
+    open.cell.itemId = open.cell.itemId ?? messageId;
     appendEventId(draft, open.cell, eventId);
     closeActiveAgentCell(draft);
     draft.conversation.transcript.openUserMessageCell = null;
@@ -464,7 +474,7 @@ function onAgentMessage(
     eventIds: [eventId],
     message: event.message,
     streaming: false,
-    itemId: null,
+    itemId: messageId,
   };
   appendCell(draft, turnId, entry);
   draft.conversation.transcript.openUserMessageCell = null;
@@ -1256,6 +1266,7 @@ function applyConversationEvent(
   context: EventApplicationContext
 ) {
   const { event, conversationId } = payload;
+  console.log('applyConversationEvent', payload);
   const turnId = payload.turnId ?? 'unknown-turn';
   const eventId = payload.eventId;
   const timestamp = now();
@@ -1285,7 +1296,14 @@ function applyConversationEvent(
       onAgentMessageDelta(draft, event, eventId, turnId, timestamp);
       break;
     case 'agent_message':
-      onAgentMessage(draft, event, eventId, turnId, timestamp);
+      onAgentMessage(
+        draft,
+        event,
+        eventId,
+        turnId,
+        timestamp,
+        conversationId
+      );
       break;
     case 'agent_reasoning_delta':
     case 'agent_reasoning_raw_content_delta':

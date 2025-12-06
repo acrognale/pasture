@@ -21,7 +21,7 @@ type AgentMessageProps = {
 
 export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
   const message = cell.message ?? '';
-  const { commentsByCell, removeComment } = useMessageComments();
+  const { comments, removeComment } = useMessageComments();
   const {
     draftTarget,
     draftCommentText,
@@ -40,12 +40,21 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
   const [pendingTarget, setPendingTarget] = useState<DraftTarget | null>(null);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
 
+  const cellKey = cell.itemId ?? cell.id;
+  const cellIdentifiers = useMemo(() => {
+    const ids = new Set<string>();
+    ids.add(cellKey);
+    ids.add(cell.id);
+    (cell.eventIds ?? []).forEach((ev) => ids.add(ev));
+    return ids;
+  }, [cell.id, cell.itemId, cell.eventIds, cellKey]);
+
   const commentsForCell = useMemo(
-    () => commentsByCell.get(cell.id) ?? [],
-    [cell.id, commentsByCell]
+    () => comments.filter((comment) => cellIdentifiers.has(comment.cellId)),
+    [comments, cellIdentifiers]
   );
 
-  const isDraftOpen = draftTarget?.cellId === cell.id;
+  const isDraftOpen = draftTarget?.cellId === cellKey;
 
   const clearSelectionUi = useCallback(() => {
     setBubblePosition(null);
@@ -229,7 +238,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
 
     const target: DraftTarget = {
       conversationId,
-      cellId: cell.id,
+      cellId: cellKey,
       selectionText,
       selectionPreview,
       selectionStartOffset: Number.isFinite(absoluteStart)
@@ -245,7 +254,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
       left: Math.max(left, 0),
     });
   }, [
-    cell.id,
+    cellKey,
     cell.streaming,
     clearSelectionUi,
     conversationId,
