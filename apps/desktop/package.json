@@ -1,6 +1,6 @@
 {
   "name": "@pasture/desktop",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Pasture desktop GUI for Codex",
   "type": "module",
