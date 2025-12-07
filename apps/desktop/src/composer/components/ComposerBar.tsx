@@ -26,6 +26,7 @@ import {
   type ComposerTurnConfig,
   createDefaultComposerConfig,
 } from '../config';
+import { type HandoffCommandResult } from '../slash-commands';
 import { type SlashCommandInvocation } from '../types';
 import { ComposerEditor, type ComposerEditorHandle } from './ComposerEditor';
 import { ModelConfigSelector } from './ModelConfigSelector';
@@ -49,6 +50,8 @@ export interface ComposerBarProps {
   focusInput?: boolean;
   onRequestFocus?: () => void;
   onComposerReady?: (controls: ComposerBarControls | null) => void;
+  onHandoffComplete?: (result: HandoffCommandResult) => void;
+  onHandoffStatusChange?: (running: boolean) => void;
 }
 
 const formatTokens = (value: number | null) => {
@@ -229,6 +232,8 @@ export function ComposerBar({
   focusInput,
   onRequestFocus,
   onComposerReady,
+  onHandoffComplete,
+  onHandoffStatusChange,
 }: ComposerBarProps) {
   const authState = useAuthState();
   const { query: composerQuery, updateComposer } = useComposerConfig(
@@ -344,16 +349,33 @@ export function ComposerBar({
       }
 
       try {
-        await slashCommands.execute({
+        if (invocation.name === 'handoff') {
+          onHandoffStatusChange?.(true);
+        }
+        const result = await slashCommands.execute({
           conversationId,
           invocation,
         });
+
+        if (result && result.type === 'handoff') {
+          onHandoffComplete?.(result);
+        }
       } catch (error) {
         slashCommands.notifyFailure(command, error);
         throw error;
+      } finally {
+        if (invocation.name === 'handoff') {
+          onHandoffStatusChange?.(false);
+        }
       }
     },
-    [conversationId, isTurnActive, slashCommands]
+    [
+      conversationId,
+      isTurnActive,
+      onHandoffComplete,
+      onHandoffStatusChange,
+      slashCommands,
+    ]
   );
 
   const appendComposerAttachments = useCallback(

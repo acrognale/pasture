@@ -18,7 +18,7 @@ describe('useSlashCommands', () => {
       wrapper,
     });
 
-    await result.current.execute({
+    const response = await result.current.execute({
       conversationId: 'slash-command-conversation',
       invocation: { name: 'compact', args: null },
     });
@@ -26,5 +26,36 @@ describe('useSlashCommands', () => {
     expect(mockCodex.stub.compactConversation).toHaveBeenCalledWith({
       conversationId: 'slash-command-conversation',
     });
+    expect(response).toEqual({ type: 'noop' });
+  });
+
+  test("executes the '/handoff' command via Codex and returns result", async () => {
+    const queryClient = createTestQueryClient();
+
+    const wrapper = ({ children }: { children?: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useSlashCommands('/tmp/workspace'), {
+      wrapper,
+    });
+
+    const response = await result.current.execute({
+      conversationId: 'conversation-123',
+      invocation: { name: 'handoff', args: 'refine this' },
+    });
+
+    expect(mockCodex.stub.handoffConversation).toHaveBeenCalledWith({
+      conversationId: 'conversation-123',
+      goal: 'refine this',
+    });
+    expect(response).toEqual(
+      expect.objectContaining({
+        type: 'handoff',
+        threadId: 'handoff-thread',
+        conversationId: 'handoff-conversation',
+        composerDraft: 'Continue here',
+      })
+    );
   });
 });

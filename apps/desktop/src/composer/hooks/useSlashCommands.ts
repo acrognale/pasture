@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import {
   type SlashCommandDefinition,
   type SlashCommandInvocation,
+  type SlashCommandResult,
   findSlashCommand,
   listSlashCommands,
 } from '../slash-commands';
@@ -25,13 +26,13 @@ export const useSlashCommands = (workspacePath: string) => {
   const execute = async ({
     conversationId,
     invocation,
-  }: ExecuteOptions): Promise<void> => {
+  }: ExecuteOptions): Promise<SlashCommandResult | void> => {
     const command = resolve(invocation.name);
     if (!command) {
       throw new Error(`Unknown slash command: /${invocation.name}`);
     }
 
-    await command.run({
+    return await command.run({
       conversationId,
       args: invocation.args,
       queryClient,

@@ -83,6 +83,10 @@ codex_command_descriptors! {
         params: turns::CompactConversationParams,
         result: (),
     },
+    turns::handoff_conversation {
+        params: turns::HandoffConversationParams,
+        result: turns::HandoffConversationResponse,
+    },
     turns::interrupt_conversation {
         params: turns::InterruptConversationParams,
         result: turns::InterruptConversationResponse,

@@ -38,8 +38,8 @@ const TIPS = [
   </>,
   <>Paste images directly into the composer using your clipboard.</>,
   <>
-    Use <Code>/compact</Code> to clean up long conversations and free up
-    context.
+    Use <Code>/handoff</Code> to spin up a focused new thread using your current
+    conversation as context.
   </>,
   <>
     Press <Kbd>Ctrl+Tab</Kbd> to cycle through recent conversations.

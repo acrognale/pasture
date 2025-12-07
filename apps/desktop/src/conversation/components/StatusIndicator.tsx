@@ -76,13 +76,21 @@ export function StatusIndicator({
     conversationId ?? null
   );
   const isConversationBound = conversationId !== undefined;
-  const running = isConversationBound ? conversationIsRunning : runningProp;
-  const startedAt = isConversationBound
-    ? conversationState.activeTurnStartedAt
-    : startedAtProp;
-  const header = isConversationBound
-    ? conversationState.statusHeader
-    : headerProp;
+
+  const running =
+    runningProp || (isConversationBound ? conversationIsRunning : runningProp);
+
+  const startedAt = runningProp
+    ? startedAtProp
+    : isConversationBound
+      ? conversationState.activeTurnStartedAt
+      : startedAtProp;
+
+  const header = runningProp
+    ? headerProp
+    : isConversationBound
+      ? conversationState.statusHeader
+      : headerProp;
   const elapsedSeconds = useElapsedSeconds({ running, startedAt });
 
   const formattedElapsed = useMemo(

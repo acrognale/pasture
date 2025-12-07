@@ -13,6 +13,8 @@ import type {
   GetComposerConfigParams,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
+  HandoffConversationParams,
+  HandoffConversationResponse,
   InitializeThreadParams,
   InitializeThreadResponse,
   InterruptConversationParams,
@@ -163,6 +165,14 @@ export namespace Codex {
     params: CompactConversationParams
   ): Promise<void> {
     return await invoke<void>('compact_conversation', { params });
+  }
+
+  export async function handoffConversation(
+    params: HandoffConversationParams
+  ): Promise<HandoffConversationResponse> {
+    return await invoke<HandoffConversationResponse>('handoff_conversation', {
+      params,
+    });
   }
 
   export async function interruptConversation(

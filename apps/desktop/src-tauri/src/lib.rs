@@ -7,6 +7,7 @@ mod db;
 mod domain;
 mod env;
 mod errors;
+mod handoff;
 mod menu;
 mod message_comments;
 mod review;
@@ -124,6 +125,7 @@ pub fn run() {
             commands::turns::send_user_message,
             commands::turns::interrupt_conversation,
             commands::turns::compact_conversation,
+            commands::turns::handoff_conversation,
             commands::images::save_pasted_image,
             commands::composer::get_composer_config,
             commands::composer::update_composer_config,

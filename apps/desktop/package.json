@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tauri build",
     "copy:app": "ditto ../../target/release/bundle/macos/Pasture.app /Applications/Pasture.app",
-    "dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
+    "dev": "CODEX_HOME=$HOME/.codex-dev tauri dev --config src-tauri/tauri.dev.conf.json",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
     "generate:types": "cd src-tauri && cargo run --bin ts-export --quiet",
