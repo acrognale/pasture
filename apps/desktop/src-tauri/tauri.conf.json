@@ -110,6 +110,15 @@
           ]
         },
         {
+          "identifier": "notification",
+          "windows": [
+            "*"
+          ],
+          "permissions": [
+            "notification:default"
+          ]
+        },
+        {
           "identifier": "clipboard-manager",
           "windows": [
             "*"

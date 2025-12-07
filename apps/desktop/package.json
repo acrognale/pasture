@@ -43,6 +43,7 @@
     "@tanstack/router-plugin": "^1.139.12",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.0.0",
+    "@tauri-apps/plugin-notification": "^2.0.0",
     "@tauri-apps/plugin-process": "^2.0.0",
     "@vitejs/plugin-react": "^5.1.0",
     "class-variance-authority": "^0.7.1",

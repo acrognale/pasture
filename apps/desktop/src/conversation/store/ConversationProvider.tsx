@@ -27,6 +27,7 @@ import {
 } from '~/codex/events';
 import { copyToClipboard } from '~/lib/utils';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
+import { notifyTurnError, notifyTurnFinished } from '~/notifications/turns';
 import {
   updateConversationPreview,
   updateConversationTimestamp,
@@ -76,6 +77,19 @@ export function ConversationProvider({
 
     const conversationsKey = keys.conversations();
     const threadsKey = keys.threads();
+
+    const getThreadTitle = (
+      threadId: string | null | undefined
+    ): string | null => {
+      if (!threadId) return null;
+
+      const threads = queryClient.getQueryData<{ items: ThreadSummary[] }>(
+        threadsKey
+      );
+      return (
+        threads?.items.find((item) => item.threadId === threadId)?.title ?? null
+      );
+    };
 
     const shouldApplyPreviewUpdate = (
       conversationId: string,
@@ -162,6 +176,23 @@ export function ConversationProvider({
         const approvalRequest = mapConversationEventToApprovalRequest(payload);
         if (approvalRequest) {
           approvalsStore.getState().enqueue(approvalRequest);
+        }
+
+        const threadTitle = threadId ? getThreadTitle(threadId) : null;
+        const preview = derivePreviewFromEvent(payload.event);
+
+        if (payload.event.type === 'task_complete') {
+          void notifyTurnFinished({ threadTitle, body: preview });
+        } else if (
+          payload.event.type === 'stream_error' ||
+          payload.event.type === 'error'
+        ) {
+          const body =
+            preview ??
+            (payload.event.type === 'error'
+              ? payload.event.message
+              : payload.event.message);
+          void notifyTurnError({ threadTitle, body });
         }
 
         runSideEffects(store.getState().drainSideEffects());
