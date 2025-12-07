@@ -6,6 +6,15 @@ export type SlashCommandInvocation = {
   args: string | null;
 };
 
+export type HandoffCommandResult = {
+  type: 'handoff';
+  threadId: string;
+  conversationId: string;
+  composerDraft: string;
+};
+
+export type SlashCommandResult = HandoffCommandResult | { type: 'noop' };
+
 type SlashCommandContext = {
   conversationId: string;
   args: string | null;
@@ -18,7 +27,7 @@ export type SlashCommandDefinition = {
   label: string;
   description: string;
   availableDuringTurn: boolean;
-  run: (context: SlashCommandContext) => Promise<void>;
+  run: (context: SlashCommandContext) => Promise<SlashCommandResult | void>;
 };
 
 const COMMANDS: readonly SlashCommandDefinition[] = [
@@ -30,6 +39,37 @@ const COMMANDS: readonly SlashCommandDefinition[] = [
     run: async ({ conversationId }) => {
       // NOTE: Status updates now come from backend events via ConversationStoreProvider
       await Codex.compactConversation({ conversationId });
+      return { type: 'noop' as const };
+    },
+  },
+  {
+    id: 'handoff',
+    label: 'Handoff to new thread',
+    description:
+      'Start a new focused thread using this conversation as context',
+    availableDuringTurn: false,
+    run: async ({ conversationId, args }) => {
+      const goal = args ?? null;
+
+      const {
+        threadId,
+        conversationId: newConversationId,
+        composerDraft,
+        title,
+      } = await Codex.handoffConversation({
+        conversationId,
+        goal,
+      });
+
+      // Future: title may be used for optimistic UI.
+      void title;
+
+      return {
+        type: 'handoff' as const,
+        threadId,
+        conversationId: newConversationId,
+        composerDraft,
+      };
     },
   },
 ] as const;

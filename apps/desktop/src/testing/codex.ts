@@ -6,6 +6,7 @@ import type { ComposerTurnConfigPayload } from '@pasture/protocol';
 import type { ConversationEventPayload } from '@pasture/protocol';
 import type { EventMsg } from '@pasture/protocol';
 import type { GetTurnDiffRangeResponse } from '@pasture/protocol';
+import type { HandoffConversationResponse } from '@pasture/protocol';
 import type { InitializeThreadResponse } from '@pasture/protocol';
 import type { InterruptConversationResponse } from '@pasture/protocol';
 import type { ListThreadConversationsResponse } from '@pasture/protocol';
@@ -80,6 +81,13 @@ const createDefaultInitializeThreadResponse = (): InitializeThreadResponse => ({
   reasoningSummary: 'auto' satisfies ReasoningSummary,
 });
 
+const createDefaultHandoffResponse = (): HandoffConversationResponse => ({
+  threadId: 'handoff-thread',
+  conversationId: 'handoff-conversation',
+  composerDraft: 'Continue here',
+  title: 'Handoff thread',
+});
+
 const createDefaultComposerConfigPayload = (): ComposerTurnConfigPayload => ({
   model: null,
   reasoningEffort: null,
@@ -116,6 +124,7 @@ const mockCodexNamespace = {
     reasoningSummary: 'auto' satisfies ReasoningSummary,
   })),
   compactConversation: defineStub(async () => undefined),
+  handoffConversation: defineStub(async () => createDefaultHandoffResponse()),
   sendUserMessage: defineStub(async () => undefined),
   savePastedImage: defineStub(async () => ({
     path: '/tmp/mock-image.png',

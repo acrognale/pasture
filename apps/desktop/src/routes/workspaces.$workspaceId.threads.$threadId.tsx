@@ -71,6 +71,7 @@ function RouteComponent() {
     <ConversationPane
       workspacePath={workspacePath}
       conversationId={conversationId}
+      threadId={threadId}
       onConversationForked={setConversationId}
     />
   );

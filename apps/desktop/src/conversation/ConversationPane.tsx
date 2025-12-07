@@ -1,16 +1,25 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   ComposerBar,
   type ComposerBarControls,
 } from '~/composer/components/ComposerBar';
+import type { HandoffCommandResult } from '~/composer/slash-commands';
 import { MessageCommentProvider } from '~/conversation/comments/MessageCommentContext';
 import { useMessageComments } from '~/conversation/comments/MessageCommentContext';
 import { MessageCommentDraftProvider } from '~/conversation/comments/MessageCommentDraftContext';
 import { buildMessageCommentsPrompt } from '~/conversation/comments/utils';
 import { useNamedShortcut } from '~/keyboard/hooks';
+import { encodeWorkspaceId } from '~/lib/routing';
 import { copyToClipboard } from '~/lib/utils';
-import { useWorkspaceActions } from '~/workspace';
+import {
+  sortThreadsByTimestamp,
+  useWorkspaceActions,
+  useWorkspaceKeys,
+} from '~/workspace';
+import type { WorkspaceThreadsState } from '~/workspace';
 
 import { ConversationCommentFeedbackFooter } from './components/ConversationCommentFeedbackFooter';
 import { ConversationDevCommandMenu } from './components/ConversationDevCommandMenu';
@@ -25,6 +34,7 @@ import {
   OPEN_REVIEW_OVERLAY_EVENT,
   type OpenReviewOverlayDetail,
 } from './events';
+import { setHandoffDraft, takeHandoffDraft } from './handoffDraftStore';
 import { useInterruptConversation } from './hooks/useInterruptConversation';
 import { useQueueableSendMessage } from './hooks/useQueueableSendMessage';
 import { useReplay } from './replay';
@@ -38,19 +48,29 @@ import {
 type ConversationPaneProps = {
   workspacePath: string;
   conversationId: string;
+  threadId?: string | null;
   onConversationForked?: (conversationId: string) => void;
 };
 
 function ConversationPaneContent({
   workspacePath,
   conversationId,
+  threadId,
   onConversationForked,
 }: ConversationPaneProps) {
-  const { getConversationStore } = useWorkspaceActions();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const keys = useWorkspaceKeys();
+  const { getConversationStore, markThreadOpen } = useWorkspaceActions();
   const { interruptConversation, isPending: interruptPending } =
     useInterruptConversation(conversationId);
   const [expandedTurnsByConversation, setExpandedTurnsByConversation] =
     useState<Record<string, Record<string, boolean>>>({});
+  const [handoffStatus, setHandoffStatus] = useState<{
+    running: boolean;
+    startedAt: string | null;
+    header: string | null;
+  }>({ running: false, startedAt: null, header: null });
   const transcriptHandleRef = useRef<ConversationTranscriptHandle | null>(null);
   const [composerControls, setComposerControls] =
     useState<ComposerBarControls | null>(null);
@@ -272,6 +292,66 @@ function ConversationPaneContent({
     handleToggleCommandMenuShortcut
   );
 
+  const handleHandoffComplete = useCallback(
+    (result: HandoffCommandResult) => {
+      const {
+        threadId: newThreadId,
+        conversationId: newConversationId,
+        composerDraft,
+      } = result;
+
+      markThreadOpen(newThreadId);
+
+      queryClient.setQueryData<WorkspaceThreadsState | undefined>(
+        keys.threads(),
+        (state) => {
+          const now = new Date().toISOString();
+          const existingItems = state?.items ?? [];
+          const filtered = existingItems.filter(
+            (item) => item.threadId !== newThreadId
+          );
+
+          const optimistic = {
+            threadId: newThreadId,
+            workspacePath,
+            currentConversationId: newConversationId,
+            preview: 'Untitled thread',
+            title: null,
+            timestamp: now,
+            conversationCount: 1,
+          };
+
+          return {
+            items: sortThreadsByTimestamp([optimistic, ...filtered]),
+          };
+        }
+      );
+
+      setHandoffDraft(newThreadId, composerDraft);
+
+      void router.navigate({
+        to: '/workspaces/$workspaceId/threads/$threadId',
+        params: {
+          workspaceId: encodeWorkspaceId(workspacePath),
+          threadId: newThreadId,
+        },
+      });
+    },
+    [keys, markThreadOpen, queryClient, router, workspacePath]
+  );
+
+  const handleHandoffStatusChange = useCallback((running: boolean) => {
+    if (running) {
+      setHandoffStatus({
+        running: true,
+        startedAt: new Date().toISOString(),
+        header: 'Generating handoff prompt…',
+      });
+    } else {
+      setHandoffStatus({ running: false, startedAt: null, header: null });
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -312,6 +392,23 @@ function ConversationPaneContent({
     previousRunningState.current = isTurnActive;
   }, [isTurnActive, queuedUserMessages.length, sendNextQueuedIfIdle]);
 
+  useEffect(() => {
+    if (!threadId || !composerControls) {
+      return;
+    }
+
+    const draft = takeHandoffDraft(threadId);
+    if (!draft) {
+      return;
+    }
+
+    const existing = composerControls.getDraft().trim();
+    const next = existing ? `${existing}\n\n${draft}` : draft;
+    composerControls.setDraft(next);
+    composerControls.focus();
+    handleScrollToBottom();
+  }, [composerControls, handleScrollToBottom, threadId]);
+
   return (
     <>
       <div className="flex flex-1 flex-col h-full overflow-hidden relative">
@@ -330,6 +427,9 @@ function ConversationPaneContent({
           <div className="shrink-0 bg-background px-4 pb-4 space-y-3">
             <StatusIndicator
               conversationId={conversationId}
+              running={handoffStatus.running}
+              startedAt={handoffStatus.startedAt}
+              header={handoffStatus.header}
               onInterrupt={handleInterrupt}
             />
             <ConversationCommentFeedbackFooter
@@ -347,6 +447,8 @@ function ConversationPaneContent({
               onComposerReady={(controls) => {
                 setComposerControls(controls);
               }}
+              onHandoffComplete={handleHandoffComplete}
+              onHandoffStatusChange={handleHandoffStatusChange}
             />
           </div>
         </div>

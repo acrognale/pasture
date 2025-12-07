@@ -508,6 +508,84 @@ pub async fn handle_preview_and_title(
     });
 }
 
+/// Apply optional metadata returned by a Handoff plan to the newly created thread.
+pub async fn apply_handoff_metadata(
+    ctx: &WorkspaceContext,
+    app_handle: &AppHandle,
+    thread: &Thread,
+    conversation_id: &ConversationId,
+    plan: &crate::handoff::HandoffPlan,
+) {
+    let mut next = thread.clone();
+    let mut updated = false;
+
+    if let Some(title) = plan
+        .title
+        .as_ref()
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+    {
+        if is_missing_title(&next.title) {
+            next.title = Some(title.to_string());
+            updated = true;
+        }
+    }
+
+    let preview_source = plan
+        .preview
+        .as_deref()
+        .unwrap_or_else(|| plan.composer_prompt.as_str());
+
+    if let Some(preview) = preview_source
+        .trim()
+        .split('\n')
+        .next()
+        .map(truncate_preview)
+        .filter(|value| !value.is_empty())
+    {
+        let existing = next.preview.as_deref().unwrap_or("");
+        if existing.is_empty() || existing == "Untitled thread" {
+            next.preview = Some(preview.clone());
+            updated = true;
+        }
+    }
+
+    if !updated {
+        return;
+    }
+
+    next.updated_at = Utc::now().to_rfc3339();
+
+    if let Err(err) = save(ctx.db(), &ctx.path, &next).await {
+        log::debug!(
+            "Failed to persist handoff metadata for thread {}: {}",
+            thread.id.as_str(),
+            err
+        );
+        return;
+    }
+
+    if let Err(err) = app_handle.emit(
+        "codex-event",
+        CodexEvent::ThreadMetadataUpdated {
+            payload: ThreadMetadataPayload {
+                thread_id: next.id.as_str().to_string(),
+                conversation_id: conversation_id.to_string(),
+                workspace_path: ctx.path.as_str().to_string(),
+                title: next.title.clone(),
+                preview: next.preview.clone(),
+                timestamp: next.updated_at.clone(),
+            },
+        },
+    ) {
+        log::debug!(
+            "Failed to emit thread metadata update for handoff thread {}: {}",
+            thread.id.as_str(),
+            err
+        );
+    }
+}
+
 // ============================================================
 // Database Operations
 // ============================================================
@@ -945,6 +1023,15 @@ fn is_missing_title(title: &Option<String>) -> bool {
         Some(existing) => existing.trim().is_empty() || existing == "Untitled thread",
         None => true,
     }
+}
+
+fn truncate_preview(value: &str) -> String {
+    const MAX_CHARS: usize = 200;
+    let mut preview: String = value.chars().take(MAX_CHARS).collect();
+    if value.chars().count() > MAX_CHARS {
+        preview.push_str("...");
+    }
+    preview
 }
 
 // ============================================================

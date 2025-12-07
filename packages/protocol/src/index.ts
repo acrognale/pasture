@@ -59,6 +59,8 @@ export type { GetHistoryEntryResponseEvent } from './GetHistoryEntryResponseEven
 export type { GetTurnDiffRangeParams } from './GetTurnDiffRangeParams';
 export type { GetTurnDiffRangeResponse } from './GetTurnDiffRangeResponse';
 export type { GhostCommit } from './GhostCommit';
+export type { HandoffConversationParams } from './HandoffConversationParams';
+export type { HandoffConversationResponse } from './HandoffConversationResponse';
 export type { HistoryEntry } from './HistoryEntry';
 export type { ImageContent } from './ImageContent';
 export type { InitializeThreadParams } from './InitializeThreadParams';

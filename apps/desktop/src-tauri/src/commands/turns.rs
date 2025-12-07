@@ -16,6 +16,8 @@ use ts_rs::TS;
 use crate::context::WorkspaceContext;
 use crate::errors::AppError;
 use crate::errors::AppResult;
+use crate::handoff::HandoffPlanInput;
+use crate::handoff::plan_handoff;
 use crate::state::AppState;
 use crate::threads;
 use crate::turns::TurnOverrides;
@@ -61,6 +63,26 @@ pub struct SendUserMessageParams {
 #[serde(rename_all = "camelCase")]
 pub struct CompactConversationParams {
     pub conversation_id: String,
+}
+
+/// Parameters accepted when planning a handoff.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct HandoffConversationParams {
+    pub conversation_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goal: Option<String>,
+}
+
+/// Response returned after planning a handoff.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct HandoffConversationResponse {
+    pub thread_id: String,
+    pub conversation_id: ConversationId,
+    pub composer_draft: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 /// Parameters accepted when interrupting a conversation.
@@ -176,6 +198,54 @@ pub async fn compact_conversation(
     .await?;
 
     Ok(())
+}
+
+/// Plan a handoff and create a new thread with a drafted composer prompt.
+#[tauri::command]
+pub async fn handoff_conversation(
+    params: HandoffConversationParams,
+    app: State<'_, AppState>,
+    app_handle: AppHandle,
+) -> AppResult<HandoffConversationResponse> {
+    use crate::codex_config::NewThreadOptions;
+
+    let conversation_id =
+        ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
+            message: format!("Invalid conversation ID: {}", e),
+        })?;
+
+    let workspace_path = if let Some(workspace_path) =
+        threads::workspace_path_for_conversation(&app.db, &conversation_id).await?
+    {
+        workspace_path
+    } else {
+        return Err(AppError::Validation {
+            message: format!("No workspace found for conversation {}", conversation_id),
+        });
+    };
+
+    let ctx = WorkspaceContext::new(workspace_path, &app);
+
+    let plan_input = HandoffPlanInput::from_conversation(
+        &ctx,
+        &conversation_id,
+        params.goal.unwrap_or_default(),
+    )
+    .await?;
+
+    let plan = plan_handoff(&ctx, &conversation_id, plan_input).await?;
+
+    let options = NewThreadOptions::default();
+    let (thread, new_conv) = threads::create(&ctx, options, app_handle.clone()).await?;
+
+    threads::apply_handoff_metadata(&ctx, &app_handle, &thread, &conversation_id, &plan).await;
+
+    Ok(HandoffConversationResponse {
+        thread_id: thread.id.as_str().to_string(),
+        conversation_id: new_conv.conversation_id,
+        composer_draft: plan.composer_prompt,
+        title: plan.title,
+    })
 }
 
 /// Interrupt an active conversation.
