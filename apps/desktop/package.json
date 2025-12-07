@@ -11,7 +11,7 @@
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
     "generate:types": "cd src-tauri && cargo run --bin ts-export --quiet",
-    "knip": "knip",
+  "knip": "knip",
     "lint": "eslint .",
     "package": "tauri build",
     "preview": "vite preview",

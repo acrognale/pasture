@@ -17,6 +17,10 @@
   @apply rounded-none border-0;
 }
 
+[data-streamdown='code-block-body'] {
+  padding: 0.25rem;
+}
+
 /* Headings */
 [data-streamdown='heading-1'],
 #transcript h1 {
@@ -148,8 +152,8 @@
 [data-streamdown='code-block'],
 #transcript pre {
   position: relative;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 [data-streamdown='code-block'] pre,
@@ -157,7 +161,7 @@
   overflow-x: auto;
   border-radius: var(--radius-lg);
   background-color: var(--muted);
-  padding: 1rem;
+  padding: 0.5rem;
   white-space: pre-wrap;
 }
 
@@ -174,9 +178,9 @@ pre:has(> code.hljs),
   overflow-x: auto;
   border-radius: var(--radius-lg);
   background-color: var(--muted);
-  padding: 1rem;
-  margin-top: 0.5rem;
-  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  margin-top: 0;
+  margin-bottom: 0;
   white-space: pre-wrap;
 }
 
