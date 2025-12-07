@@ -24,14 +24,8 @@
     "framer-motion": "^12.23.24",
     "highlight.js": "^11.11.1",
     "lucide-react": "^0.553.0",
-    "react-markdown": "^10.1.0",
-    "rehype-highlight": "^7.0.2",
-    "remark-breaks": "^4.0.0",
-    "remark-directive": "^4.0.0",
-    "remark-gfm": "^4.0.1",
     "streamdown": "^1.6.10",
-    "tailwind-merge": "^3.4.0",
-    "unified": "^11.0.5"
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@pasture/configs": "workspace:*",
@@ -46,7 +40,7 @@
     "vitest": "^3.0.5"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
   }
 }

@@ -508,11 +508,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
             handleSelection();
           }}
         >
-          {message ? (
-            <Markdown streaming={cell.streaming}>{message}</Markdown>
-          ) : (
-            <div className="text-muted-foreground"> </div>
-          )}
+          <Markdown streaming={cell.streaming}>{message ?? ''}</Markdown>
           {message && (
             <div className="flex justify-end mt-0.5">
               <CopyButton

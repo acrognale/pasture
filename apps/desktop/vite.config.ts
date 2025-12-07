@@ -28,6 +28,7 @@ export default defineConfig(({ command }) => {
       alias: {
         '~': path.resolve(__dirname, './src'),
       },
+      dedupe: ['react', 'react-dom'],
     },
     clearScreen: false,
     optimizeDeps: {

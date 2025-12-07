@@ -1,8 +1,4 @@
 import { cn } from '@pasture/theme';
-import ReactMarkdown from 'react-markdown';
-import rehypeHighlight from 'rehype-highlight';
-import remarkBreaks from 'remark-breaks';
-import remarkGfm from 'remark-gfm';
 import { Streamdown } from 'streamdown';
 
 type MarkdownProps = {
@@ -21,29 +17,15 @@ export function Markdown({
     className
   );
 
-  // Use Streamdown for streaming content (client-side animation)
-  // Use react-markdown for static content (SSR-friendly, no JS chunks needed)
-  if (streaming) {
-    return (
-      <div className={wrapperClass}>
-        <Streamdown
-          isAnimating={streaming}
-          className="font-transcript leading-transcript"
-        >
-          {children}
-        </Streamdown>
-      </div>
-    );
-  }
-
   return (
     <div className={wrapperClass}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        rehypePlugins={[rehypeHighlight]}
+      <Streamdown
+        mode={streaming ? 'streaming' : 'static'}
+        isAnimating={streaming}
+        className="font-transcript leading-transcript"
       >
         {children}
-      </ReactMarkdown>
+      </Streamdown>
     </div>
   );
 }

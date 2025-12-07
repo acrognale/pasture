@@ -1266,14 +1266,10 @@ function applyConversationEvent(
   context: EventApplicationContext
 ) {
   const { event, conversationId } = payload;
-  console.log('applyConversationEvent', payload);
   const turnId = payload.turnId ?? 'unknown-turn';
   const eventId = payload.eventId;
   const timestamp = now();
   const ingestOnDraft = (nextPayload: ConversationEventPayload) => {
-    if (import.meta.env.DEV) {
-      (draft as ConversationControllerState).ingestedEvents.push(nextPayload);
-    }
     applyConversationEvent(draft, nextPayload, context);
   };
 
@@ -1408,9 +1404,6 @@ export const ingestConversationEvent = (
   context: ConversationEventContext
 ): ConversationControllerState =>
   produce(state, (draft) => {
-    if (import.meta.env.DEV) {
-      (draft as ConversationControllerState).ingestedEvents.push(payload);
-    }
     applyConversationEvent(draft, payload, context);
   });
 
