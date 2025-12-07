@@ -20,7 +20,14 @@ const normalizeBody = (body?: string | null): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
+const supportsNotifications = (): boolean =>
+  typeof window !== 'undefined' && 'Notification' in window;
+
 const ensurePermission = async (): Promise<boolean> => {
+  if (!supportsNotifications()) {
+    return false;
+  }
+
   if (permissionGranted !== null) return permissionGranted;
 
   if (permissionRequestInFlight) {
@@ -57,6 +64,7 @@ const appWindowNotFocused = async (): Promise<boolean> => {
 
 const shouldNotify = async (): Promise<boolean> => {
   if (!isTauriEnvironment()) return false;
+  if (!supportsNotifications()) return false;
   if (!(await appWindowNotFocused())) return false;
   return ensurePermission();
 };
@@ -94,6 +102,7 @@ export const notifyTurnError = async (
  */
 export const warmUpNotificationPermission = async (): Promise<boolean> => {
   if (!isTauriEnvironment()) return false;
+  if (!supportsNotifications()) return false;
   try {
     return await ensurePermission();
   } catch (error) {
