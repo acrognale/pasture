@@ -62,8 +62,6 @@ Please address each comment before continuing.
 
 ### Comment on Files
 
-<img src="screenshots/file-commenting.png" width="100%" />
-
 Comment on diffs of the agent's activity, just like a GitHub PR. Hover over any line, click the plus, and add your feedback. When you hit "Submit", it consolidates everything into a single message for the agent:
 
 ```
@@ -76,6 +74,7 @@ Please address each comment before continuing.
 
 I've found this useful for batching up changes after a turn instead of stopping the agent every time I spot something. You can also compare against previous turns—like Gerrit patchsets—rather than just the base workspace.
 
+<img src="screenshots/file-commenting.png" width="100%" />
 
 ### Sharing
 
