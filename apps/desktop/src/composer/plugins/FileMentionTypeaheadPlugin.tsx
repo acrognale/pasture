@@ -17,8 +17,12 @@ import { createPortal } from 'react-dom';
 import { Codex } from '~/codex/client';
 import { cn } from '~/lib/utils';
 
-import { FILE_MENTION_TRIGGER, SLASH_TRIGGER, buildFileLabel } from '../mentions';
 import { $createFileMentionNode } from '../components/FileMentionNode';
+import {
+  FILE_MENTION_TRIGGER,
+  SLASH_TRIGGER,
+  buildFileLabel,
+} from '../mentions';
 
 class FileMentionOption extends MenuOption {
   path: string;

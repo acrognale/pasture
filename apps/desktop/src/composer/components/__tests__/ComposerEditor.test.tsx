@@ -2,8 +2,8 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, test } from 'vitest';
-import { renderWithProviders } from '~/testing/harness';
 import { mockCodex } from '~/testing/codex';
+import { renderWithProviders } from '~/testing/harness';
 
 import { ComposerEditor } from '../ComposerEditor';
 
