@@ -20,7 +20,13 @@ import type {
   ListMessageCommentsResponse,
   MessageComment,
 } from '@pasture/protocol';
-import type { WorkspaceSettings } from '@pasture/protocol';
+import type {
+  SearchWorkspaceFilesParams,
+  SearchWorkspaceSymbolsParams,
+  WorkspaceFileHit,
+  WorkspaceSettings,
+  WorkspaceSymbolHit,
+} from '@pasture/protocol';
 import { vi } from 'vitest';
 
 type AsyncFn<TArgs extends unknown[], TResult> = (
@@ -195,6 +201,14 @@ const mockCodexNamespace = {
   setMessageCommentsSubmitted: defineStub(async () => undefined),
   deleteMessageComment: defineStub(async () => undefined),
   getAuthState: defineStub(async () => createDefaultAuthState()),
+  searchWorkspaceFiles: defineStub<
+    [SearchWorkspaceFilesParams],
+    WorkspaceFileHit[]
+  >(async () => []),
+  searchWorkspaceSymbols: defineStub<
+    [SearchWorkspaceSymbolsParams],
+    WorkspaceSymbolHit[]
+  >(async () => []),
   workspace: {
     listRecentWorkspaces: defineStub(async () => []),
     openWorkspace: defineStub(async () => '/tmp/workspace'),
