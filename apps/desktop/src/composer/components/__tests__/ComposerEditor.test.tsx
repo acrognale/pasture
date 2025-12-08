@@ -37,4 +37,36 @@ describe('ComposerEditor', () => {
 
     await waitFor(() => expect(textbox.textContent).toBe('/compact '));
   });
+
+  test('does not show slash command menu when slash is not the first character', async () => {
+    const user = userEvent.setup();
+
+    const TestComposer = () => {
+      const [draft, setDraft] = useState('');
+      return (
+        <ComposerEditor
+          value={draft}
+          onChange={setDraft}
+          onSubmit={() => undefined}
+          workspacePath="/tmp/workspace"
+          conversationId="slash-conversation"
+          isTurnActive={false}
+        />
+      );
+    };
+
+    renderWithProviders(<TestComposer />);
+
+    const textbox = screen.getByRole('textbox');
+    await user.click(textbox);
+    await user.type(textbox, 'hello /co');
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('option', {
+          name: /compact conversation/i,
+        })
+      ).not.toBeInTheDocument();
+    });
+  });
 });
