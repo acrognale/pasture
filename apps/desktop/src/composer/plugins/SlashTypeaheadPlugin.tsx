@@ -65,13 +65,18 @@ export const SlashTypeaheadPlugin = ({
         return null;
       }
 
+      const fullValue = currentValue() ?? '';
+      if (!fullValue.startsWith('/')) {
+        return null;
+      }
+
       return {
         leadOffset: match.index + match[1].length,
         matchingString: match[2],
         replaceableString: match[0].slice(match[1].length),
       };
     },
-    [slashMenuEnabled]
+    [currentValue, slashMenuEnabled]
   );
 
   const slashOptions = useMemo(() => {
