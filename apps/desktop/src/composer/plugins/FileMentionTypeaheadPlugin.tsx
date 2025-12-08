@@ -5,19 +5,23 @@ import {
   type MenuTextMatch,
   type TypeaheadMenuPluginProps,
 } from '@lexical/react/LexicalTypeaheadMenuPlugin';
-import { $getRoot } from 'lexical';
+import {
+  $createTextNode,
+  $getRoot,
+  $getSelection,
+  $isRangeSelection,
+} from 'lexical';
 import type { TextNode } from 'lexical';
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Codex } from '~/codex/client';
 import { cn } from '~/lib/utils';
 
+import { $createFileMentionNode } from '../components/FileMentionNode';
 import {
-  FILE_MENTION_INSERTION_PATTERN,
   FILE_MENTION_TRIGGER,
   SLASH_TRIGGER,
   buildFileLabel,
-  updateRootText,
 } from '../mentions';
 
 class FileMentionOption extends MenuOption {
@@ -131,26 +135,39 @@ export const FileMentionTypeaheadPlugin = ({
   const handleFileMentionSelect = useCallback<
     TypeaheadMenuPluginProps<FileMentionOption>['onSelectOption']
   >(
-    (option: FileMentionOption, _node: TextNode | null, closeMenu) => {
-      const current = currentValue() ?? '';
-      const next = current.replace(
-        FILE_MENTION_INSERTION_PATTERN,
-        (_match, prefix: string) => `${prefix}@${option.path} `
-      );
+    (option: FileMentionOption, node: TextNode | null, closeMenu) => {
+      if (!editor) {
+        onChange(currentValue());
+        closeMenu();
+        setFileMentionQuery(null);
+        return;
+      }
 
-      const draft =
-        next === current
-          ? `${current}${
-              current.endsWith(' ') || current.length === 0 ? '' : ' '
-            }@${option.path} `
-          : next;
-
-      onChange(draft);
-      updateRootText(editor, draft);
       editor.update(() => {
-        $getRoot().selectEnd();
-        editor.getRootElement()?.focus();
+        const selection = $getSelection();
+        const mentionNode = $createFileMentionNode({
+          path: option.path,
+          label: option.label,
+        });
+
+        if (node) {
+          node.replace(mentionNode);
+        } else if ($isRangeSelection(selection)) {
+          selection.insertNodes([mentionNode]);
+        } else {
+          $getRoot().append(mentionNode);
+        }
+
+        const trailingSpace = $createTextNode(' ');
+        mentionNode.insertAfter(trailingSpace);
+        trailingSpace.select();
       });
+
+      editor.getEditorState().read(() => {
+        const text = $getRoot().getTextContent();
+        onChange(text);
+      });
+
       closeMenu();
       setFileMentionQuery(null);
     },
