@@ -56,6 +56,7 @@ function MessageCommentThreadInner(
   const listRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef(new Map<string, HTMLDivElement>());
   const [marginsById, setMarginsById] = useState<Record<string, number>>({});
+  const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const previousHasUnresolved = previousHasUnresolvedRef.current;
@@ -69,6 +70,20 @@ function MessageCommentThreadInner(
 
     previousHasUnresolvedRef.current = hasUnresolved;
   }, [hasUnresolved, isDraftOpen]);
+
+  useEffect(() => {
+    if (!isDraftOpen) {
+      return;
+    }
+
+    const raf = requestAnimationFrame(() => {
+      draftTextareaRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+    };
+  }, [isDraftOpen]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -135,7 +150,16 @@ function MessageCommentThreadInner(
         return;
       }
 
-      const listTop = listEl.getBoundingClientRect().top;
+      const scrollEl = listEl.closest(
+        '[data-conversation-transcript]'
+      ) as HTMLDivElement | null;
+      const scrollElTop = scrollEl?.getBoundingClientRect().top ?? 0;
+      const scrollTop = scrollEl?.scrollTop ?? 0;
+
+      const listTopViewport = listEl.getBoundingClientRect().top;
+      const listTop = scrollEl
+        ? listTopViewport - scrollElTop + scrollTop
+        : listTopViewport;
       const styles = getComputedStyle(listEl);
       const gap = parseFloat(styles.rowGap || '0') || 0;
 
@@ -159,7 +183,7 @@ function MessageCommentThreadInner(
     raf = requestAnimationFrame(run);
 
     return () => cancelAnimationFrame(raf);
-  }, [anchorsById, sortedItems, showResolvedBubble, isCollapsed, draftText]);
+  }, [anchorsById, sortedItems, showResolvedBubble, isCollapsed]);
 
   useImperativeHandle(
     ref,
@@ -275,13 +299,13 @@ function MessageCommentThreadInner(
                       onSubmit={handleSubmit}
                     >
                       <Textarea
+                        ref={draftTextareaRef}
                         value={draftText}
                         rows={3}
                         className="resize-none bg-background border-border/60 focus:border-ring"
                         onChange={(event) => setDraftText(event.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="Add your comment..."
-                        autoFocus
                       />
                       <div className="flex items-center justify-end gap-2 text-xs">
                         <Button

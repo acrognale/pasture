@@ -429,6 +429,15 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
     const root = messageRef.current;
     if (!root) return;
 
+    const scrollEl = root.closest(
+      '[data-conversation-transcript]'
+    ) as HTMLDivElement | null;
+    const scrollElTop = scrollEl?.getBoundingClientRect().top ?? 0;
+    const scrollTop = scrollEl?.scrollTop ?? 0;
+
+    const toScrollSpace = (viewportTop: number) =>
+      scrollEl ? viewportTop - scrollElTop + scrollTop : viewportTop;
+
     const next: Record<string, number> = {};
 
     const pickTop = (els: NodeListOf<HTMLElement>) => {
@@ -449,7 +458,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
       );
       const top = els.length ? pickTop(els) : null;
       if (top != null) {
-        next[comment.id] = top;
+        next[comment.id] = toScrollSpace(top);
       }
     }
 
@@ -459,7 +468,7 @@ export function AgentMessage({ cell, conversationId }: AgentMessageProps) {
       );
       const top = draftEls.length ? pickTop(draftEls) : null;
       if (top != null) {
-        next[DRAFT_ANCHOR_ID] = top;
+        next[DRAFT_ANCHOR_ID] = toScrollSpace(top);
       }
     }
 
