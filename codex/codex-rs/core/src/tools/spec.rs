@@ -639,7 +639,9 @@ fn create_read_thread_tool() -> ToolSpec {
 
     ToolSpec::Function(ResponsesApiTool {
         name: "read_thread".to_string(),
-        description: "Fetches a prior Codex thread and returns relevant context based on your instructions.".to_string(),
+        description:
+            "Fetches a prior Codex thread and returns relevant context based on your instructions."
+                .to_string(),
         strict: false,
         parameters: JsonSchema::Object {
             properties,

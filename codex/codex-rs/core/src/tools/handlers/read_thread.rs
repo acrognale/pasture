@@ -1,11 +1,13 @@
 use async_trait::async_trait;
-use codex_protocol::models::{ContentItem, ResponseItem};
+use codex_protocol::models::ContentItem;
+use codex_protocol::models::ResponseItem;
 use codex_protocol::protocol::EventMsg;
 use futures::StreamExt;
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::client_common::{Prompt, ResponseEvent};
+use crate::client_common::Prompt;
+use crate::client_common::ResponseEvent;
 use crate::codex::TurnContext;
 use crate::function_tool::FunctionCallError;
 use crate::rollout::find_conversation_path_by_id_str;
