@@ -15,10 +15,6 @@ Pasture is a GUI for Codex.
   - `@pasture/configs` – shared configuration files used by all apps.
 - `codex/` – Vendored Codex workspace (CLI, runtime crates, SDK, docs). Reference this when you need to inspect upstream Codex behavior.
 
-## Codex Code
-
-If the user instructs you to take a look at the Codex code, such as the TUI, inspect the Codex crates from `~/.cargo/git/checkouts/codex-<hash>`.
-
 ## Environment & Commands
 
 Node version: 22.14.0
