@@ -669,6 +669,15 @@ impl Session {
         self.tx_event.clone()
     }
 
+    pub(crate) async fn codex_home(&self) -> PathBuf {
+        let state = self.state.lock().await;
+        state
+            .session_configuration
+            .original_config_do_not_use
+            .codex_home
+            .clone()
+    }
+
     /// Ensure all rollout writes are durably flushed.
     pub(crate) async fn flush_rollout(&self) {
         let recorder = {

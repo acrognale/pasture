@@ -20,6 +20,7 @@ import type { RateLimitSnapshot } from '@pasture/protocol';
 import type { ReasoningContentDeltaEvent } from '@pasture/protocol';
 import type { ReasoningRawContentDeltaEvent } from '@pasture/protocol';
 import type { ReasoningSummary } from '@pasture/protocol';
+import type { ReadThreadEndEvent } from '@pasture/protocol';
 import type { SessionConfiguredEvent } from '@pasture/protocol';
 import type { StreamErrorEvent } from '@pasture/protocol';
 import type { TaskCompleteEvent } from '@pasture/protocol';
@@ -1012,6 +1013,52 @@ function onPatchApplyEnd(
   appendCell(draft, turnId, cell);
 }
 
+function onReadThreadEnd(
+  draft: Draft<ConversationControllerState>,
+  event: ReadThreadEndEvent,
+  eventId: string,
+  turnId: string,
+  timestamp: string
+): void {
+  const transcript = draft.conversation.transcript as TranscriptState;
+  const target = findToolCellByCallId(
+    transcript,
+    turnId,
+    'read-thread',
+    event.call_id
+  );
+
+  const resultText = event.success
+    ? event.summary
+    : event.error_message ?? '';
+
+  if (target) {
+    target.cell.status = event.success ? 'succeeded' : 'failed';
+    target.cell.result = resultText;
+    target.cell.query = event.instructions ?? '';
+    target.cell.path = event.thread_ref ?? '';
+    appendEventId(draft, target.cell, eventId);
+    return;
+  }
+
+  const cell: TranscriptToolCell = {
+    id: eventId,
+    kind: 'tool',
+    timestamp,
+    eventIds: [eventId],
+    toolType: 'read-thread',
+    status: event.success ? 'succeeded' : 'failed',
+    callId: event.call_id,
+    invocation: null,
+    result: resultText,
+    duration: null,
+    path: event.thread_ref ?? '',
+    query: event.instructions ?? '',
+    itemId: null,
+  };
+  appendCell(draft, turnId, cell);
+}
+
 function onPatchApprovalRequest(
   draft: Draft<ConversationControllerState>,
   event: ApplyPatchApprovalRequestEvent,
@@ -1266,6 +1313,15 @@ function applyConversationEvent(
   context: EventApplicationContext
 ) {
   const { event, conversationId } = payload;
+
+  if (event.type === 'item_started') {
+    console.log(
+      `[event] ${event.item.type}`,
+      JSON.stringify(event.item).slice(0, 100)
+    );
+  } else if (!event.type.includes('delta')) {
+    console.log(`[event] ${event.type}`, JSON.stringify(payload).slice(0, 100));
+  }
   const turnId = payload.turnId ?? 'unknown-turn';
   const eventId = payload.eventId;
   const timestamp = now();
@@ -1363,6 +1419,9 @@ function applyConversationEvent(
       break;
     case 'patch_apply_end':
       onPatchApplyEnd(draft, event, eventId, turnId, timestamp);
+      break;
+    case 'read_thread_end':
+      onReadThreadEnd(draft, event, eventId, turnId, timestamp);
       break;
     case 'apply_patch_approval_request':
       onPatchApprovalRequest(draft, event, eventId, turnId, timestamp);

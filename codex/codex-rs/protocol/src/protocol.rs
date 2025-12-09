@@ -550,6 +550,9 @@ pub enum EventMsg {
     /// Notification that a patch application has finished.
     PatchApplyEnd(PatchApplyEndEvent),
 
+    /// Result of a read_thread tool invocation (single-shot).
+    ReadThreadEnd(ReadThreadEndEvent),
+
     TurnDiff(TurnDiffEvent),
 
     /// Response to GetHistoryEntryRequest.
@@ -1492,6 +1495,30 @@ pub struct StreamErrorEvent {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
 pub struct StreamInfoEvent {
     pub message: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
+pub struct ReadThreadEndEvent {
+    /// Identifier for the read_thread tool call.
+    pub call_id: String,
+    /// Turn ID that this call belongs to.
+    /// Uses `#[serde(default)]` for backwards compatibility.
+    #[serde(default)]
+    pub turn_id: String,
+    /// The thread reference requested (UUID string for local threads).
+    #[serde(default)]
+    pub thread_ref: String,
+    /// The user-provided instructions (may be truncated in UI if long).
+    #[serde(default)]
+    pub instructions: String,
+    /// Final extracted summary when successful.
+    #[serde(default)]
+    pub summary: String,
+    /// Whether the tool execution succeeded.
+    pub success: bool,
+    /// Error message when `success` is false.
+    #[serde(default)]
+    pub error_message: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]

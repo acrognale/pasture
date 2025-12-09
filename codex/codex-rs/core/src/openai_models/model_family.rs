@@ -212,6 +212,7 @@ pub fn find_family_for_model(slug: &str) -> ModelFamily {
                 "grep_files".to_string(),
                 "list_dir".to_string(),
                 "read_file".to_string(),
+                "read_thread".to_string(),
                 "test_sync_tool".to_string(),
             ],
             supports_parallel_tool_calls: true,
@@ -279,6 +280,12 @@ pub fn find_family_for_model(slug: &str) -> ModelFamily {
             support_verbosity: false,
             truncation_policy: TruncationPolicy::Tokens(10_000),
             context_window: Some(CONTEXT_WINDOW_272K),
+            experimental_supported_tools: vec![
+                "grep_files".to_string(),
+                "list_dir".to_string(),
+                "read_file".to_string(),
+                "read_thread".to_string(),
+            ],
         )
     } else if slug.starts_with("gpt-5.1") {
         model_family!(
@@ -293,6 +300,12 @@ pub fn find_family_for_model(slug: &str) -> ModelFamily {
             shell_type: ConfigShellToolType::ShellCommand,
             supports_parallel_tool_calls: true,
             context_window: Some(CONTEXT_WINDOW_272K),
+            experimental_supported_tools: vec![
+                "grep_files".to_string(),
+                "list_dir".to_string(),
+                "read_file".to_string(),
+                "read_thread".to_string(),
+            ],
         )
     } else if slug.starts_with("gpt-5") {
         model_family!(

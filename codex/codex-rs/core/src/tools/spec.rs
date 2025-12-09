@@ -4,6 +4,7 @@ use crate::features::Feature;
 use crate::features::Features;
 use crate::openai_models::model_family::ModelFamily;
 use crate::tools::handlers::PLAN_TOOL;
+use crate::tools::handlers::ReadThreadHandler;
 use crate::tools::handlers::apply_patch::ApplyPatchToolType;
 use crate::tools::handlers::apply_patch::create_apply_patch_freeform_tool;
 use crate::tools::handlers::apply_patch::create_apply_patch_json_tool;
@@ -621,6 +622,33 @@ fn create_read_file_tool() -> ToolSpec {
     })
 }
 
+fn create_read_thread_tool() -> ToolSpec {
+    let mut properties = BTreeMap::new();
+    properties.insert(
+        "ref".to_string(),
+        JsonSchema::String {
+            description: Some("Thread id (UUID) or URL reference.".to_string()),
+        },
+    );
+    properties.insert(
+        "instructions".to_string(),
+        JsonSchema::String {
+            description: Some("What to extract from the thread.".to_string()),
+        },
+    );
+
+    ToolSpec::Function(ResponsesApiTool {
+        name: "read_thread".to_string(),
+        description: "Fetches a prior Codex thread and returns relevant context based on your instructions.".to_string(),
+        strict: false,
+        parameters: JsonSchema::Object {
+            properties,
+            required: Some(vec!["ref".to_string(), "instructions".to_string()]),
+            additional_properties: Some(false.into()),
+        },
+    })
+}
+
 fn create_list_dir_tool() -> ToolSpec {
     let mut properties = BTreeMap::new();
     properties.insert(
@@ -1067,6 +1095,15 @@ pub(crate) fn build_specs(
         let read_file_handler = Arc::new(ReadFileHandler);
         builder.push_spec_with_parallel_support(create_read_file_tool(), true);
         builder.register_handler("read_file", read_file_handler);
+    }
+
+    if config
+        .experimental_supported_tools
+        .contains(&"read_thread".to_string())
+    {
+        let read_thread_handler = Arc::new(ReadThreadHandler);
+        builder.push_spec_with_parallel_support(create_read_thread_tool(), true);
+        builder.register_handler("read_thread", read_thread_handler);
     }
 
     if config

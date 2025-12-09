@@ -86,6 +86,7 @@ pub(crate) fn should_persist_event_msg(ev: &EventMsg) -> bool {
         | EventMsg::ItemCompleted(_)
         | EventMsg::AgentMessageContentDelta(_)
         | EventMsg::ReasoningContentDelta(_)
-        | EventMsg::ReasoningRawContentDelta(_) => false,
+        | EventMsg::ReasoningRawContentDelta(_)
+        | EventMsg::ReadThreadEnd(_) => false,
     }
 }
