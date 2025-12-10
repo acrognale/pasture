@@ -46,17 +46,7 @@ pub(crate) fn should_persist_event_msg(ev: &EventMsg) -> bool {
         | EventMsg::EnteredReviewMode(_)
         | EventMsg::ExitedReviewMode(_)
         | EventMsg::UndoCompleted(_)
-        | EventMsg::TurnAborted(_) => true,
-        EventMsg::Error(_)
-        | EventMsg::Warning(_)
-        | EventMsg::TaskStarted(_)
-        | EventMsg::TaskComplete(_)
-        | EventMsg::AgentMessageDelta(_)
-        | EventMsg::AgentReasoningDelta(_)
-        | EventMsg::AgentReasoningRawContentDelta(_)
-        | EventMsg::AgentReasoningSectionBreak(_)
         | EventMsg::RawResponseItem(_)
-        | EventMsg::SessionConfigured(_)
         | EventMsg::McpToolCallBegin(_)
         | EventMsg::McpToolCallEnd(_)
         | EventMsg::WebSearchBegin(_)
@@ -84,9 +74,19 @@ pub(crate) fn should_persist_event_msg(ev: &EventMsg) -> bool {
         | EventMsg::DeprecationNotice(_)
         | EventMsg::ItemStarted(_)
         | EventMsg::ItemCompleted(_)
+        | EventMsg::ReadThreadEnd(_)
+        | EventMsg::TurnAborted(_) => true,
+        EventMsg::Error(_)
+        | EventMsg::Warning(_)
+        | EventMsg::SessionConfigured(_)
+        | EventMsg::TaskStarted(_)
+        | EventMsg::TaskComplete(_)
+        | EventMsg::AgentMessageDelta(_)
+        | EventMsg::AgentReasoningDelta(_)
+        | EventMsg::AgentReasoningRawContentDelta(_)
         | EventMsg::AgentMessageContentDelta(_)
         | EventMsg::ReasoningContentDelta(_)
         | EventMsg::ReasoningRawContentDelta(_)
-        | EventMsg::ReadThreadEnd(_) => false,
+        | EventMsg::AgentReasoningSectionBreak(_) => false,
     }
 }
