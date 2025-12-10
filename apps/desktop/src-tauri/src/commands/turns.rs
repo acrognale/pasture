@@ -86,6 +86,8 @@ pub struct HandoffConversationResponse {
     pub composer_draft: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goal: Option<String>,
 }
 
 /// Parameters accepted when interrupting a conversation.
@@ -314,6 +316,7 @@ pub async fn handoff_conversation(
         conversation_id: new_conv.conversation_id,
         composer_draft,
         title: plan.title,
+        goal: params.goal,
     })
 }
 

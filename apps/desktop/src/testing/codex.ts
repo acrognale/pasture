@@ -92,6 +92,7 @@ const createDefaultHandoffResponse = (): HandoffConversationResponse => ({
   conversationId: 'handoff-conversation',
   composerDraft: 'Continue here',
   title: 'Handoff thread',
+  goal: 'Refine this work',
 });
 
 const createDefaultComposerConfigPayload = (): ComposerTurnConfigPayload => ({

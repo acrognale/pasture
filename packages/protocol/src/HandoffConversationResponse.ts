@@ -10,4 +10,5 @@ export type HandoffConversationResponse = {
   conversationId: ConversationId;
   composerDraft: string;
   title: string | null;
+  goal: string | null;
 };

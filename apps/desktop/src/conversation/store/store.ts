@@ -30,6 +30,12 @@ type ConversationStoreActions = {
   popQueuedUserMessage: () => QueuedUserMessage | null;
   clearQueuedUserMessages: () => void;
   setSendingUserMessage: (isSending: boolean) => void;
+  attachHandoffDestination: (params: {
+    threadId: string;
+    conversationId: string;
+    goal: string | null;
+    title: string | null;
+  }) => void;
 };
 
 export type ConversationStoreState = ConversationControllerState &
@@ -124,6 +130,37 @@ export const createConversationStore = (
       setSendingUserMessage: (isSending: boolean) =>
         updateData((draft) => {
           draft.isSendingUserMessage = isSending;
+        }),
+      attachHandoffDestination: ({ threadId, conversationId, goal, title }) =>
+        updateData((draft) => {
+          const transcript = draft.conversation.transcript;
+          const turnOrder = transcript.turnOrder;
+          for (let i = turnOrder.length - 1; i >= 0; i -= 1) {
+            const turnId = turnOrder[i];
+            const turn = transcript.turns[turnId];
+            if (!turn) continue;
+            for (let j = turn.cells.length - 1; j >= 0; j -= 1) {
+              const cell = turn.cells[j];
+              if (cell.kind !== 'handoff') {
+                continue;
+              }
+              if (
+                cell.targetThreadId &&
+                cell.targetConversationId
+              ) {
+                continue;
+              }
+              cell.targetThreadId = threadId;
+              cell.targetConversationId = conversationId;
+              if (!cell.goal && goal) {
+                cell.goal = goal;
+              }
+              if (!cell.title && title) {
+                cell.title = title;
+              }
+              return;
+            }
+          }
         }),
     };
   });

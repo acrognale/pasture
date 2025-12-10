@@ -55,6 +55,8 @@ describe('useSlashCommands', () => {
         threadId: 'handoff-thread',
         conversationId: 'handoff-conversation',
         composerDraft: 'Continue here',
+        goal: 'refine this',
+        title: 'Handoff thread',
       })
     );
   });

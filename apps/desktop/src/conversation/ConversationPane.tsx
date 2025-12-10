@@ -324,6 +324,8 @@ function ConversationPaneContent({
         threadId: newThreadId,
         conversationId: newConversationId,
         composerDraft,
+        goal,
+        title,
       } = result;
 
       markThreadOpen(newThreadId);
@@ -353,6 +355,16 @@ function ConversationPaneContent({
         }
       );
 
+      const store = getConversationStore(conversationId);
+      store
+        .getState()
+        .attachHandoffDestination({
+          threadId: newThreadId,
+          conversationId: newConversationId,
+          goal,
+          title,
+        });
+
       setHandoffDraft(newThreadId, composerDraft);
 
       void router.navigate({
@@ -363,7 +375,15 @@ function ConversationPaneContent({
         },
       });
     },
-    [keys, markThreadOpen, queryClient, router, workspacePath]
+    [
+      conversationId,
+      getConversationStore,
+      keys,
+      markThreadOpen,
+      queryClient,
+      router,
+      workspacePath,
+    ]
   );
 
   const handleHandoffStatusChange = useCallback((running: boolean) => {

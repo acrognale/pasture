@@ -63,7 +63,6 @@ pub(crate) fn should_persist_event_msg(ev: &EventMsg) -> bool {
         | EventMsg::PatchApplyEnd(_)
         | EventMsg::TurnDiff(_)
         | EventMsg::GetHistoryEntryResponse(_)
-        | EventMsg::HandoffPlan(_)
         | EventMsg::UndoStarted(_)
         | EventMsg::McpListToolsResponse(_)
         | EventMsg::McpStartupUpdate(_)
@@ -76,6 +75,7 @@ pub(crate) fn should_persist_event_msg(ev: &EventMsg) -> bool {
         | EventMsg::ItemStarted(_)
         | EventMsg::ItemCompleted(_)
         | EventMsg::ReadThreadEnd(_)
+        | EventMsg::HandoffPlan(_)
         | EventMsg::TurnAborted(_) => true,
         EventMsg::Error(_)
         | EventMsg::Warning(_)

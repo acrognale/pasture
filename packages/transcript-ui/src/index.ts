@@ -14,6 +14,7 @@ export { Errors } from './components/Errors';
 export { ExecutionApproval } from './components/ExecutionApproval';
 export { ExecutionResult } from './components/ExecutionResult';
 export { ExplorationCell } from './components/ExplorationCell';
+export { HandoffCard } from './components/HandoffCard';
 export { ImagePreview } from './components/ImagePreview';
 export { Markdown } from './components/Markdown';
 export {
