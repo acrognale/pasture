@@ -35,6 +35,7 @@ pub(crate) enum TaskKind {
     Regular,
     Review,
     Compact,
+    Handoff,
 }
 
 #[derive(Clone)]

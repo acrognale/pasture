@@ -20,6 +20,7 @@ import type { ExecCommandEndEvent } from './ExecCommandEndEvent';
 import type { ExecCommandOutputDeltaEvent } from './ExecCommandOutputDeltaEvent';
 import type { ExitedReviewModeEvent } from './ExitedReviewModeEvent';
 import type { GetHistoryEntryResponseEvent } from './GetHistoryEntryResponseEvent';
+import type { HandoffPlanEvent } from './HandoffPlanEvent';
 import type { ItemCompletedEvent } from './ItemCompletedEvent';
 import type { ItemStartedEvent } from './ItemStartedEvent';
 import type { ListCustomPromptsResponseEvent } from './ListCustomPromptsResponseEvent';
@@ -110,4 +111,5 @@ export type EventMsg =
   | ({ type: 'item_completed' } & ItemCompletedEvent)
   | ({ type: 'agent_message_content_delta' } & AgentMessageContentDeltaEvent)
   | ({ type: 'reasoning_content_delta' } & ReasoningContentDeltaEvent)
-  | ({ type: 'reasoning_raw_content_delta' } & ReasoningRawContentDeltaEvent);
+  | ({ type: 'reasoning_raw_content_delta' } & ReasoningRawContentDeltaEvent)
+  | ({ type: 'handoff_plan' } & HandoffPlanEvent);

@@ -5,6 +5,7 @@ use std::sync::Weak;
 use chrono::Utc;
 use codex_core::CodexConversation;
 use codex_protocol::ConversationId;
+use codex_protocol::protocol::HandoffPlanEvent;
 use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
 use serde::Deserialize;
@@ -14,6 +15,7 @@ use tauri::Emitter;
 use tauri::Manager;
 use tokio::sync::Mutex;
 use tokio::sync::oneshot;
+use tokio::time::Duration;
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -71,6 +73,7 @@ pub struct Subscription {
 pub struct EventRouter {
     by_id: Arc<Mutex<HashMap<Uuid, Subscription>>>,
     by_conversation: Arc<Mutex<HashMap<ConversationId, Uuid>>>,
+    handoff_waiters: Arc<Mutex<HashMap<ConversationId, Vec<oneshot::Sender<HandoffPlanEvent>>>>>,
 }
 
 impl EventRouter {
@@ -78,6 +81,7 @@ impl EventRouter {
         Self {
             by_id: Arc::new(Mutex::new(HashMap::new())),
             by_conversation: Arc::new(Mutex::new(HashMap::new())),
+            handoff_waiters: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -147,6 +151,35 @@ impl EventRouter {
                 Ok(())
             }
             None => Err(format!("Subscription not found: {}", subscription_id)),
+        }
+    }
+
+    pub async fn wait_for_handoff_plan(
+        &self,
+        conversation_id: &ConversationId,
+    ) -> Result<HandoffPlanEvent, String> {
+        let (tx, rx) = oneshot::channel();
+        {
+            let mut waiters = self.handoff_waiters.lock().await;
+            waiters
+                .entry(*conversation_id)
+                .or_default()
+                .push(tx);
+        }
+
+        match tokio::time::timeout(Duration::from_secs(60), rx).await {
+            Ok(Ok(event)) => Ok(event),
+            Ok(Err(_)) => Err("handoff waiter cancelled".to_string()),
+            Err(_) => {
+                let mut waiters = self.handoff_waiters.lock().await;
+                if let Some(list) = waiters.get_mut(conversation_id) {
+                    list.retain(|sender| !sender.is_closed());
+                    if list.is_empty() {
+                        waiters.remove(conversation_id);
+                    }
+                }
+                Err("Timed out waiting for handoff plan".to_string())
+            }
         }
     }
 
@@ -225,6 +258,10 @@ impl EventRouter {
                         }
 
                         router
+                            .notify_handoff_waiters(&conversation_id, &event.msg)
+                            .await;
+
+                        router
                             .handle_special_events(&conversation_id, &event, &app_handle)
                             .await;
                     }
@@ -245,6 +282,24 @@ impl EventRouter {
         } else {
             let mut by_fork = self.by_conversation.lock().await;
             by_fork.retain(|_, id| id != subscription_id);
+        }
+    }
+
+    async fn notify_handoff_waiters(
+        &self,
+        conversation_id: &ConversationId,
+        event: &EventMsg,
+    ) {
+        if let EventMsg::HandoffPlan(plan) = event {
+            let mut waiters = self.handoff_waiters.lock().await;
+            if let Some(list) = waiters.get_mut(conversation_id) {
+                if let Some(sender) = list.pop() {
+                    let _ = sender.send(plan.clone());
+                }
+                if list.is_empty() {
+                    waiters.remove(conversation_id);
+                }
+            }
         }
     }
 
