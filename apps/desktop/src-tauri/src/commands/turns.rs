@@ -254,15 +254,18 @@ pub async fn handoff_conversation(
             }
         };
 
-    let candidate_files =
-        collect_candidate_files_from_snapshots(&ctx, &conversation_id).await.unwrap_or_default();
+    let candidate_files = collect_candidate_files_from_snapshots(&ctx, &conversation_id)
+        .await
+        .unwrap_or_default();
 
     // Ensure subscription so we can receive the handoff plan event.
-    let conversation = app.conversations.get_conversation(conversation_id).await.map_err(
-        |_| AppError::NotFound {
+    let conversation = app
+        .conversations
+        .get_conversation(conversation_id)
+        .await
+        .map_err(|_| AppError::NotFound {
             entity: "conversation",
-        },
-    )?;
+        })?;
     let _ = app
         .events
         .ensure_subscription(

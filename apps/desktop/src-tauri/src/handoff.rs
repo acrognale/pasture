@@ -121,11 +121,7 @@ async fn git_diff_names(
         }
     }
 
-    if paths.is_empty() {
-        None
-    } else {
-        Some(paths)
-    }
+    if paths.is_empty() { None } else { Some(paths) }
 }
 
 fn normalize_workspace_path(workspace_path: &Path, path: &Path) -> Option<String> {

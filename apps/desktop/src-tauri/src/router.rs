@@ -5,9 +5,9 @@ use std::sync::Weak;
 use chrono::Utc;
 use codex_core::CodexConversation;
 use codex_protocol::ConversationId;
-use codex_protocol::protocol::HandoffPlanEvent;
 use codex_protocol::protocol::Event;
 use codex_protocol::protocol::EventMsg;
+use codex_protocol::protocol::HandoffPlanEvent;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::AppHandle;
@@ -161,10 +161,7 @@ impl EventRouter {
         let (tx, rx) = oneshot::channel();
         {
             let mut waiters = self.handoff_waiters.lock().await;
-            waiters
-                .entry(*conversation_id)
-                .or_default()
-                .push(tx);
+            waiters.entry(*conversation_id).or_default().push(tx);
         }
 
         match tokio::time::timeout(Duration::from_secs(60), rx).await {
@@ -285,11 +282,7 @@ impl EventRouter {
         }
     }
 
-    async fn notify_handoff_waiters(
-        &self,
-        conversation_id: &ConversationId,
-        event: &EventMsg,
-    ) {
+    async fn notify_handoff_waiters(&self, conversation_id: &ConversationId, event: &EventMsg) {
         if let EventMsg::HandoffPlan(plan) = event {
             let mut waiters = self.handoff_waiters.lock().await;
             if let Some(list) = waiters.get_mut(conversation_id) {
