@@ -86,6 +86,14 @@ export class FileMentionNode extends DecoratorNode<React.ReactElement> {
   getTextContent(): string {
     return `@${this.__path}`;
   }
+
+  getPath(): string {
+    return this.__path;
+  }
+
+  getLabel(): string {
+    return this.__label;
+  }
 }
 
 export const $createFileMentionNode = ({ path, label }: FileMentionPayload) =>

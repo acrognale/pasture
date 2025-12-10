@@ -146,6 +146,7 @@ export type { TaskStartedEvent } from './TaskStartedEvent';
 export type { TextContent } from './TextContent';
 export type { TextResourceContents } from './TextResourceContents';
 export type { ThreadId } from './ThreadId';
+export type { ThreadMention } from './ThreadMention';
 export type { ThreadMetadataPayload } from './ThreadMetadataPayload';
 export type { ThreadSummary } from './ThreadSummary';
 export type { TokenCountEvent } from './TokenCountEvent';

@@ -9,8 +9,11 @@ import {
 import { useEffect } from 'react';
 
 import type { FileMentionNode } from '../components/FileMentionNode';
+import type { ThreadMentionNode } from '../components/ThreadMentionNode';
 import type { SymbolMentionNode } from '../components/SymbolMentionNode';
 import { isMentionNode } from '../mentions';
+
+type MentionNode = FileMentionNode | SymbolMentionNode | ThreadMentionNode;
 
 type Props = {
   onEscape?: () => boolean;
@@ -34,10 +37,7 @@ export const KeybindingsPlugin = ({ onEscape, onSubmit }: Props) => {
               const anchorNode = selection.anchor.getNode();
               const anchorOffset = selection.anchor.offset;
 
-              const findTarget = ():
-                | FileMentionNode
-                | SymbolMentionNode
-                | null => {
+              const findTarget = (): MentionNode | null => {
                 if (isMentionNode(anchorNode)) {
                   return anchorNode;
                 }
@@ -63,9 +63,7 @@ export const KeybindingsPlugin = ({ onEscape, onSubmit }: Props) => {
                   parent.getPreviousSibling() &&
                   isMentionNode(parent.getPreviousSibling())
                 ) {
-                  return parent.getPreviousSibling() as
-                    | FileMentionNode
-                    | SymbolMentionNode;
+                  return parent.getPreviousSibling() as MentionNode;
                 }
                 return null;
               };

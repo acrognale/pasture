@@ -83,8 +83,9 @@ export function ReadThreadResult({ cell }: ReadThreadResultProps) {
           <div className="border-t border-border/60 bg-background/40 px-1.5 py-1.5">
             <Markdown
               className="prose prose-invert max-w-none text-transcript-base text-foreground prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-pre:bg-muted/40"
-              text={summary}
-            />
+            >
+              {summary}
+            </Markdown>
           </div>
         ) : (
           <div className="border-t border-border/60 bg-background/40 px-1.5 py-1.5">

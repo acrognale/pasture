@@ -1498,6 +1498,14 @@ pub struct StreamInfoEvent {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
+pub struct ThreadMention {
+    /// Unique identifier for the target thread (UUID string for local threads).
+    pub thread_id: String,
+    /// Human-friendly label shown in the UI (typically the thread title).
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
 pub struct ReadThreadEndEvent {
     /// Identifier for the read_thread tool call.
     pub call_id: String,

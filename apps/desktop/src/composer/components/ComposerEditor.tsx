@@ -17,16 +17,16 @@ import {
 } from 'react';
 import type React from 'react';
 import { FileMentionNode } from '~/composer/components/FileMentionNode';
+import { ThreadMentionNode } from '~/composer/components/ThreadMentionNode';
 import { SymbolMentionNode } from '~/composer/components/SymbolMentionNode';
 import { getExpandedTextForSend, updateRootText } from '~/composer/mentions';
 import { EditablePlugin } from '~/composer/plugins/EditablePlugin';
 import { ExternalValuePlugin } from '~/composer/plugins/ExternalValuePlugin';
-import { FileMentionTypeaheadPlugin } from '~/composer/plugins/FileMentionTypeaheadPlugin';
+import { MentionPalettePlugin } from '~/composer/plugins/MentionPalettePlugin';
 import { KeybindingsPlugin } from '~/composer/plugins/KeybindingsPlugin';
 import { OnChangePlugin } from '~/composer/plugins/OnChangePlugin';
 import { RegistrationPlugin } from '~/composer/plugins/RegistrationPlugin';
 import { SlashTypeaheadPlugin } from '~/composer/plugins/SlashTypeaheadPlugin';
-import { SymbolMentionTypeaheadPlugin } from '~/composer/plugins/SymbolMentionTypeaheadPlugin';
 import { cn } from '~/lib/utils';
 
 export type ComposerEditorHandle = {
@@ -110,7 +110,7 @@ export const ComposerEditor = forwardRef<
           throw error;
         },
         theme: emptyTheme,
-        nodes: [FileMentionNode, SymbolMentionNode],
+        nodes: [FileMentionNode, SymbolMentionNode, ThreadMentionNode],
       }),
       []
     );
@@ -234,14 +234,7 @@ export const ComposerEditor = forwardRef<
           onChange={setCurrentValue}
           currentValue={() => valueRef.current}
         />
-        <FileMentionTypeaheadPlugin
-          workspacePath={workspacePath}
-          disabled={disabled}
-          ariaBusy={ariaBusy}
-          onChange={setCurrentValue}
-          currentValue={() => valueRef.current}
-        />
-        <SymbolMentionTypeaheadPlugin
+        <MentionPalettePlugin
           workspacePath={workspacePath}
           disabled={disabled}
           ariaBusy={ariaBusy}
