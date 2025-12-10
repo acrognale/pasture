@@ -4,6 +4,7 @@ import type { ParsedCommand } from '@pasture/protocol';
 import type {
   TranscriptAgentReasoningCell,
   TranscriptExecCommandCell,
+  TranscriptHandoffCell,
   TranscriptPlanCell,
   TranscriptState,
   TranscriptTaskCell,
@@ -262,6 +263,21 @@ const expectUserCell = (cell: unknown): TranscriptUserMessageCell => {
   return cell as TranscriptUserMessageCell;
 };
 
+const expectHandoffCell = (cell: unknown): TranscriptHandoffCell => {
+  if (!cell || typeof cell !== 'object') {
+    throw new Error('Expected transcript cell');
+  }
+
+  const handoffCell = cell as { kind?: unknown };
+  if (handoffCell.kind !== 'handoff') {
+    throw new Error(
+      `Expected handoff cell, received "${describeKind(handoffCell.kind)}"`
+    );
+  }
+
+  return cell as TranscriptHandoffCell;
+};
+
 describe('reasoning summary format', () => {
   it('derives experimental format for codex-family models', () => {
     const controller = createTestController();
@@ -432,6 +448,32 @@ describe('web search integration', () => {
     expect(cell?.callId).toBe('search-1');
     expect(cell?.itemId).toBe('search-1');
     expect(cell?.query).toBe('find docs');
+  });
+});
+
+describe('handoff plan integration', () => {
+  it('creates a handoff cell when a handoff_plan event is received', () => {
+    const controller = createTestController();
+    let state = controller.conversation.transcript;
+
+    const handoffEvent: EventMsg = {
+      type: 'handoff_plan',
+      title: 'Refactor auth flows',
+      handoff_prompt: 'You are taking over work on auth.',
+      preview: 'Refactor authentication flows for SSO.',
+      relevant_files: [],
+    };
+
+    state = applyEvent(controller, handoffEvent, 'handoff-1', 1, 'turn-1');
+
+    const cells = cellsOf(state);
+    expect(cells).toHaveLength(1);
+    const cell = expectHandoffCell(cells[0]);
+    expect(cell.title).toBe('Refactor auth flows');
+    expect(cell.preview).toBe('Refactor authentication flows for SSO.');
+    expect(cell.goal).toBeNull();
+    expect(cell.targetThreadId).toBeNull();
+    expect(cell.targetConversationId).toBeNull();
   });
 });
 

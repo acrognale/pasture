@@ -11,6 +11,8 @@ export type HandoffCommandResult = {
   threadId: string;
   conversationId: string;
   composerDraft: string;
+  goal: string | null;
+  title: string | null;
 };
 
 export type SlashCommandResult = HandoffCommandResult | { type: 'noop' };
@@ -49,7 +51,7 @@ const COMMANDS: readonly SlashCommandDefinition[] = [
       'Start a new focused thread using this conversation as context',
     availableDuringTurn: false,
     run: async ({ conversationId, args }) => {
-      const goal = args ?? null;
+      const goal = args && args.trim().length > 0 ? args.trim() : null;
 
       const {
         threadId,
@@ -69,6 +71,8 @@ const COMMANDS: readonly SlashCommandDefinition[] = [
         threadId,
         conversationId: newConversationId,
         composerDraft,
+        goal,
+        title: title ?? null,
       };
     },
   },

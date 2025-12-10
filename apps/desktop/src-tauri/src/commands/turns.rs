@@ -5,6 +5,7 @@ use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::AskForApproval;
+use codex_protocol::protocol::Op;
 use codex_protocol::protocol::TurnAbortReason;
 use codex_protocol::user_input::UserInput as CoreUserInput;
 use sea_orm::EntityTrait;
@@ -18,8 +19,8 @@ use crate::context::WorkspaceContext;
 use crate::db::schema;
 use crate::errors::AppError;
 use crate::errors::AppResult;
-use crate::handoff::HandoffPlanInput;
-use crate::handoff::plan_handoff;
+use crate::handoff::HandoffPlan;
+use crate::handoff::collect_candidate_files_from_snapshots;
 use crate::state::AppState;
 use crate::threads;
 use crate::turns::TurnOverrides;
@@ -85,6 +86,8 @@ pub struct HandoffConversationResponse {
     pub composer_draft: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub goal: Option<String>,
 }
 
 /// Parameters accepted when interrupting a conversation.
@@ -251,14 +254,45 @@ pub async fn handoff_conversation(
             }
         };
 
-    let plan_input = HandoffPlanInput::from_conversation(
-        &ctx,
-        &conversation_id,
-        params.goal.unwrap_or_default(),
-    )
-    .await?;
+    let candidate_files = collect_candidate_files_from_snapshots(&ctx, &conversation_id)
+        .await
+        .unwrap_or_default();
 
-    let plan = plan_handoff(&ctx, &conversation_id, plan_input).await?;
+    // Ensure subscription so we can receive the handoff plan event.
+    let conversation = app
+        .conversations
+        .get_conversation(conversation_id)
+        .await
+        .map_err(|_| AppError::NotFound {
+            entity: "conversation",
+        })?;
+    let _ = app
+        .events
+        .ensure_subscription(
+            conversation_id,
+            conversation.clone(),
+            app_handle.clone(),
+            conversation_id.to_string(),
+        )
+        .await;
+
+    // Submit the handoff op.
+    conversation
+        .submit(Op::Handoff {
+            goal: params.goal.clone(),
+            candidate_files: candidate_files.clone(),
+        })
+        .await
+        .map_err(|e| AppError::Codex(format!("Failed to plan handoff: {}", e)))?;
+
+    // Wait for the handoff plan event from Codex.
+    let plan_event = app
+        .events
+        .wait_for_handoff_plan(&conversation_id)
+        .await
+        .map_err(|err| AppError::Codex(err.to_string()))?;
+
+    let plan = HandoffPlan::from(plan_event);
 
     let options = NewThreadOptions::default();
     let (thread, new_conv) = threads::create(&ctx, options, app_handle.clone()).await?;
@@ -285,6 +319,7 @@ pub async fn handoff_conversation(
         conversation_id: new_conv.conversation_id,
         composer_draft,
         title: plan.title,
+        goal: params.goal,
     })
 }
 

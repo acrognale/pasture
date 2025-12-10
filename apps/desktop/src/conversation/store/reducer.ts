@@ -12,7 +12,10 @@ import type { ExecApprovalRequestEvent } from '@pasture/protocol';
 import type { ExecCommandBeginEvent } from '@pasture/protocol';
 import type { ExecCommandEndEvent } from '@pasture/protocol';
 import type { ExecCommandOutputDeltaEvent } from '@pasture/protocol';
-import type { McpToolCallBeginEvent } from '@pasture/protocol';
+import type {
+  HandoffPlanEvent,
+  McpToolCallBeginEvent,
+} from '@pasture/protocol';
 import type { McpToolCallEndEvent } from '@pasture/protocol';
 import type { PatchApplyBeginEvent } from '@pasture/protocol';
 import type { PatchApplyEndEvent } from '@pasture/protocol';
@@ -44,6 +47,7 @@ import type {
   TranscriptExecApprovalCell,
   TranscriptExecCommandCell,
   TranscriptExplorationCall,
+  TranscriptHandoffCell,
   TranscriptPatchApprovalCell,
   TranscriptPatchCell,
   TranscriptPlanCell,
@@ -791,6 +795,30 @@ function onPlanUpdate(
   appendCell(draft, turnId, entry);
 }
 
+function onHandoffPlan(
+  draft: Draft<ConversationControllerState>,
+  event: HandoffPlanEvent & { type: 'handoff_plan' },
+  eventId: string,
+  turnId: string,
+  timestamp: string
+): void {
+  const transcript = draft.conversation.transcript as TranscriptState;
+  const cell: TranscriptHandoffCell = {
+    id: eventId,
+    kind: 'handoff',
+    timestamp,
+    eventIds: [eventId],
+    title: event.title,
+    goal: null,
+    preview: event.preview,
+    handoffPrompt: event.handoff_prompt,
+    targetThreadId: null,
+    targetConversationId: null,
+  };
+  appendCell(draft, turnId, cell);
+  transcript.activeTurnId = turnId;
+}
+
 function onTurnAborted(
   draft: Draft<ConversationControllerState>,
   event: TurnAbortedEvent,
@@ -1375,6 +1403,11 @@ function applyConversationEvent(
       break;
     case 'plan_update':
       onPlanUpdate(draft, event, eventId, turnId, timestamp);
+      break;
+    case 'handoff_plan':
+      // Attach the raw handoff plan to the transcript; destination thread
+      // metadata is patched in later once the Tauri handoff completes.
+      onHandoffPlan(draft, event, eventId, turnId, timestamp);
       break;
     case 'token_count':
       onTokenCount(draft, event, eventId, timestamp);

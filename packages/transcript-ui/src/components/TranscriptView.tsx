@@ -9,6 +9,7 @@ import type {
   TranscriptExecApprovalCell,
   TranscriptExecCommandCell,
   TranscriptGenericCell,
+  TranscriptHandoffCell,
   TranscriptPatchApprovalCell,
   TranscriptPatchCell,
   TranscriptPlanCell,
@@ -24,6 +25,7 @@ import { Errors } from './Errors';
 import { ExecutionApproval } from './ExecutionApproval';
 import { ExecutionResult } from './ExecutionResult';
 import { ExplorationCell } from './ExplorationCell';
+import { HandoffCard } from './HandoffCard';
 import { Patches } from './Patches';
 import { PlanUpdate } from './PlanUpdate';
 import { ReadThreadResult } from './ReadThreadResult';
@@ -71,6 +73,7 @@ export type TranscriptViewOverrides = {
   ) => ReactNode;
   tool?: (props: OverrideProps<TranscriptToolCell>) => ReactNode;
   generic?: (props: OverrideProps<TranscriptGenericCell>) => ReactNode;
+  handoff?: (props: OverrideProps<TranscriptHandoffCell>) => ReactNode;
 };
 
 export type TranscriptViewProps = Omit<TranscriptListProps, 'renderCell'> & {
@@ -172,6 +175,8 @@ export function TranscriptView({
         return <StatusEvents cell={cell} />;
       case 'error':
         return <Errors cell={cell} />;
+      case 'handoff':
+        return <HandoffCard cell={cell} />;
       case 'generic': {
         const execLike = coerceGenericToExecCell(cell);
         return <ExecutionResult cell={execLike} />;

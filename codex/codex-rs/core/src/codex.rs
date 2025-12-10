@@ -1552,6 +1552,12 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
             Op::Compact => {
                 handlers::compact(&sess, sub.id.clone()).await;
             }
+            Op::Handoff {
+                goal,
+                candidate_files,
+            } => {
+                handlers::handoff(&sess, sub.id.clone(), goal, candidate_files).await;
+            }
             Op::RunUserShellCommand { command } => {
                 handlers::run_user_shell_command(
                     &sess,
@@ -1594,6 +1600,7 @@ mod handlers {
     use crate::mcp::collect_mcp_snapshot_from_manager;
     use crate::review_prompts::resolve_review_request;
     use crate::tasks::CompactTask;
+    use crate::tasks::HandoffTask;
     use crate::tasks::RegularTask;
     use crate::tasks::UndoTask;
     use crate::tasks::UserShellCommandTask;
@@ -1859,6 +1866,27 @@ mod handlers {
                 text: turn_context.compact_prompt().to_string(),
             }],
             CompactTask,
+        )
+        .await;
+    }
+
+    pub async fn handoff(
+        sess: &Arc<Session>,
+        sub_id: String,
+        goal: Option<String>,
+        candidate_files: Vec<String>,
+    ) {
+        let turn_context = sess
+            .new_turn_with_sub_id(sub_id, SessionSettingsUpdate::default())
+            .await;
+
+        let input_goal = goal.unwrap_or_default();
+        let input = vec![UserInput::Text { text: input_goal }];
+
+        sess.spawn_task(
+            Arc::clone(&turn_context),
+            input,
+            HandoffTask::new(candidate_files),
         )
         .await;
     }

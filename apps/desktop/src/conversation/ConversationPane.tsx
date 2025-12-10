@@ -324,6 +324,8 @@ function ConversationPaneContent({
         threadId: newThreadId,
         conversationId: newConversationId,
         composerDraft,
+        goal,
+        title,
       } = result;
 
       markThreadOpen(newThreadId);
@@ -332,6 +334,8 @@ function ConversationPaneContent({
         keys.threads(),
         (state) => {
           const now = new Date().toISOString();
+          const normalizedTitle = title?.trim() || null;
+          const preview = normalizedTitle || goal?.trim() || 'Untitled thread';
           const existingItems = state?.items ?? [];
           const filtered = existingItems.filter(
             (item) => item.threadId !== newThreadId
@@ -341,8 +345,8 @@ function ConversationPaneContent({
             threadId: newThreadId,
             workspacePath,
             currentConversationId: newConversationId,
-            preview: 'Untitled thread',
-            title: null,
+            preview,
+            title: normalizedTitle,
             timestamp: now,
             conversationCount: 1,
           };
@@ -352,6 +356,14 @@ function ConversationPaneContent({
           };
         }
       );
+
+      const store = getConversationStore(conversationId);
+      store.getState().attachHandoffDestination({
+        threadId: newThreadId,
+        conversationId: newConversationId,
+        goal,
+        title,
+      });
 
       setHandoffDraft(newThreadId, composerDraft);
 
@@ -363,7 +375,15 @@ function ConversationPaneContent({
         },
       });
     },
-    [keys, markThreadOpen, queryClient, router, workspacePath]
+    [
+      conversationId,
+      getConversationStore,
+      keys,
+      markThreadOpen,
+      queryClient,
+      router,
+      workspacePath,
+    ]
   );
 
   const handleHandoffStatusChange = useCallback((running: boolean) => {

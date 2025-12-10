@@ -40,7 +40,8 @@ export type TranscriptCellKind =
   | 'patch'
   | 'patch-approval'
   | 'tool'
-  | 'generic';
+  | 'generic'
+  | 'handoff';
 
 type BaseTranscriptCell = {
   id: string;
@@ -195,6 +196,34 @@ export type TranscriptGenericCell = BaseTranscriptCell & {
   payload: Record<string, any>;
 };
 
+export type TranscriptHandoffCell = BaseTranscriptCell & {
+  kind: 'handoff';
+  /**
+   * Title proposed for the new thread, if any.
+   */
+  title: string | null;
+  /**
+   * User-provided goal for the handoff, when available.
+   */
+  goal: string | null;
+  /**
+   * Short preview or summary of the handoff context.
+   */
+  preview: string | null;
+  /**
+   * Full handoff prompt used to initialize the new thread.
+   */
+  handoffPrompt: string | null;
+  /**
+   * Destination thread identifier, once created.
+   */
+  targetThreadId: string | null;
+  /**
+   * Destination Codex conversation identifier, once created.
+   */
+  targetConversationId: string | null;
+};
+
 export type TranscriptCell =
   | TranscriptSessionConfiguredCell
   | TranscriptUserMessageCell
@@ -209,7 +238,8 @@ export type TranscriptCell =
   | TranscriptPatchCell
   | TranscriptPatchApprovalCell
   | TranscriptToolCell
-  | TranscriptGenericCell;
+  | TranscriptGenericCell
+  | TranscriptHandoffCell;
 
 export type TranscriptReasoningSummaryFormat = 'none' | 'experimental';
 

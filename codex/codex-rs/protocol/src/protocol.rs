@@ -191,6 +191,17 @@ pub enum Op {
     /// to generate a summary which will be returned as an AgentMessage event.
     Compact,
 
+    /// Plan a handoff to a new thread using the current conversation context.
+    /// The agent returns a concise prompt and relevant files to seed the new thread.
+    Handoff {
+        /// Optional goal for the new thread provided by the user.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        goal: Option<String>,
+        /// Candidate repo files that the planner may choose from.
+        #[serde(default)]
+        candidate_files: Vec<String>,
+    },
+
     /// Request Codex to undo a turn (turn are stacked so it is the same effect as CMD + Z).
     Undo,
 
@@ -585,6 +596,9 @@ pub enum EventMsg {
     AgentMessageContentDelta(AgentMessageContentDeltaEvent),
     ReasoningContentDelta(ReasoningContentDeltaEvent),
     ReasoningRawContentDelta(ReasoningRawContentDeltaEvent),
+
+    /// Result of a handoff planning task containing the prompt and relevant files.
+    HandoffPlan(HandoffPlanEvent),
 }
 
 /// Codex errors that we expose to clients.
@@ -1078,6 +1092,24 @@ pub struct ResumedHistory {
     pub conversation_id: ConversationId,
     pub history: Vec<RolloutItem>,
     pub rollout_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
+pub struct HandoffFileRef {
+    pub path: String,
+    #[serde(default)]
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
+pub struct HandoffPlanEvent {
+    #[serde(default)]
+    pub title: Option<String>,
+    pub handoff_prompt: String,
+    #[serde(default)]
+    pub preview: Option<String>,
+    #[serde(default)]
+    pub relevant_files: Vec<HandoffFileRef>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]

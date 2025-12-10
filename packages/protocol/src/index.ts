@@ -61,6 +61,8 @@ export type { GetTurnDiffRangeResponse } from './GetTurnDiffRangeResponse';
 export type { GhostCommit } from './GhostCommit';
 export type { HandoffConversationParams } from './HandoffConversationParams';
 export type { HandoffConversationResponse } from './HandoffConversationResponse';
+export type { HandoffFileRef } from './HandoffFileRef';
+export type { HandoffPlanEvent } from './HandoffPlanEvent';
 export type { HistoryEntry } from './HistoryEntry';
 export type { ImageContent } from './ImageContent';
 export type { InitializeThreadParams } from './InitializeThreadParams';

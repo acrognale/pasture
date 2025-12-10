@@ -3,6 +3,7 @@ import {
   CellIcon,
   type TranscriptAgentMessageCell,
   type TranscriptGenericCell,
+  type TranscriptHandoffCell,
   type TranscriptToolCell,
   type TranscriptViewOverrides,
   safeStringify,
@@ -10,6 +11,7 @@ import {
 
 import { AgentMessage } from './AgentMessage';
 import { ExecutionApprovalContainer } from './ExecutionApprovalContainer';
+import { HandoffCell } from './HandoffCell';
 import { PatchesContainer } from './PatchesContainer';
 import { Tools } from './Tools';
 import { UserMessageContainer } from './UserMessageContainer';
@@ -54,4 +56,5 @@ export const createTranscriptOverrides = ({
   'patch-approval': ({ cell }) => <PatchesContainer cell={cell} />,
   tool: ({ cell }) => renderToolCell(cell),
   generic: ({ cell }) => renderGenericCell(cell),
+  handoff: ({ cell }) => <HandoffCell cell={cell as TranscriptHandoffCell} />,
 });
