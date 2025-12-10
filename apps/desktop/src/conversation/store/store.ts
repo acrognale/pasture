@@ -144,10 +144,7 @@ export const createConversationStore = (
               if (cell.kind !== 'handoff') {
                 continue;
               }
-              if (
-                cell.targetThreadId &&
-                cell.targetConversationId
-              ) {
+              if (cell.targetThreadId && cell.targetConversationId) {
                 continue;
               }
               cell.targetThreadId = threadId;

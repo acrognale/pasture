@@ -21,11 +21,11 @@ import type {
 } from '../types';
 import { AgentMessage } from './AgentMessage';
 import { AgentReasoning } from './AgentReasoning';
-import { HandoffCard } from './HandoffCard';
 import { Errors } from './Errors';
 import { ExecutionApproval } from './ExecutionApproval';
 import { ExecutionResult } from './ExecutionResult';
 import { ExplorationCell } from './ExplorationCell';
+import { HandoffCard } from './HandoffCard';
 import { Patches } from './Patches';
 import { PlanUpdate } from './PlanUpdate';
 import { ReadThreadResult } from './ReadThreadResult';

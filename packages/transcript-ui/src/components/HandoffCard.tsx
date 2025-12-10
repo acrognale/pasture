@@ -8,7 +8,7 @@ type HandoffCardProps = {
 export function HandoffCard({ cell }: HandoffCardProps) {
   const { title, goal, preview } = cell;
 
-  const summary = goal && goal.trim().length > 0 ? goal : preview ?? '';
+  const summary = goal && goal.trim().length > 0 ? goal : (preview ?? '');
 
   return (
     <Cell>
@@ -30,4 +30,3 @@ export function HandoffCard({ cell }: HandoffCardProps) {
     </Cell>
   );
 }
-

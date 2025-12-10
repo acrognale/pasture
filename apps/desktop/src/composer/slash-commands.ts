@@ -11,8 +11,8 @@ export type HandoffCommandResult = {
   threadId: string;
   conversationId: string;
   composerDraft: string;
-   goal: string | null;
-   title: string | null;
+  goal: string | null;
+  title: string | null;
 };
 
 export type SlashCommandResult = HandoffCommandResult | { type: 'noop' };

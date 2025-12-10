@@ -56,7 +56,5 @@ export const createTranscriptOverrides = ({
   'patch-approval': ({ cell }) => <PatchesContainer cell={cell} />,
   tool: ({ cell }) => renderToolCell(cell),
   generic: ({ cell }) => renderGenericCell(cell),
-  handoff: ({ cell }) => (
-    <HandoffCell cell={cell as TranscriptHandoffCell} />
-  ),
+  handoff: ({ cell }) => <HandoffCell cell={cell as TranscriptHandoffCell} />,
 });

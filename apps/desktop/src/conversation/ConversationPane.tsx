@@ -335,8 +335,7 @@ function ConversationPaneContent({
         (state) => {
           const now = new Date().toISOString();
           const normalizedTitle = title?.trim() || null;
-          const preview =
-            normalizedTitle || goal?.trim() || 'Untitled thread';
+          const preview = normalizedTitle || goal?.trim() || 'Untitled thread';
           const existingItems = state?.items ?? [];
           const filtered = existingItems.filter(
             (item) => item.threadId !== newThreadId
@@ -359,14 +358,12 @@ function ConversationPaneContent({
       );
 
       const store = getConversationStore(conversationId);
-      store
-        .getState()
-        .attachHandoffDestination({
-          threadId: newThreadId,
-          conversationId: newConversationId,
-          goal,
-          title,
-        });
+      store.getState().attachHandoffDestination({
+        threadId: newThreadId,
+        conversationId: newConversationId,
+        goal,
+        title,
+      });
 
       setHandoffDraft(newThreadId, composerDraft);
 

@@ -12,7 +12,10 @@ import type { ExecApprovalRequestEvent } from '@pasture/protocol';
 import type { ExecCommandBeginEvent } from '@pasture/protocol';
 import type { ExecCommandEndEvent } from '@pasture/protocol';
 import type { ExecCommandOutputDeltaEvent } from '@pasture/protocol';
-import type { HandoffPlanEvent, McpToolCallBeginEvent } from '@pasture/protocol';
+import type {
+  HandoffPlanEvent,
+  McpToolCallBeginEvent,
+} from '@pasture/protocol';
 import type { McpToolCallEndEvent } from '@pasture/protocol';
 import type { PatchApplyBeginEvent } from '@pasture/protocol';
 import type { PatchApplyEndEvent } from '@pasture/protocol';
