@@ -10,6 +10,7 @@ mod errors;
 mod handoff;
 mod menu;
 mod message_comments;
+mod read_thread_backend;
 mod review;
 mod rollout;
 mod router;
@@ -28,6 +29,7 @@ use codex_core::AuthManager;
 use codex_core::ConversationManager;
 use codex_core::config::Config;
 use codex_core::config::ConfigOverrides;
+use codex_core::read_thread_backend::set_read_thread_backend;
 use codex_protocol::protocol::SessionSource;
 use symbol_index::SymbolIndexManager;
 use tauri::Manager;
@@ -65,11 +67,6 @@ pub fn run() {
                 base_config.cli_auth_credentials_store_mode,
             );
 
-            let conversation_manager = Arc::new(ConversationManager::new(
-                auth_manager.clone(),
-                SessionSource::VSCode,
-            ));
-
             let app_data_dir = app
                 .path()
                 .app_data_dir()
@@ -84,6 +81,16 @@ pub fn run() {
                 db::init::connect_and_migrate(&db_file).await
             })
             .map_err(|e| format!("Failed to initialize workspace database: {}", e))?;
+
+            // Install the read_thread backend for this process so codex-core can
+            // resolve Pasture thread refs without knowing about SeaORM.
+            let rt_backend = crate::read_thread_backend::make_backend(workspace_db.clone());
+            set_read_thread_backend(rt_backend);
+
+            let conversation_manager = Arc::new(ConversationManager::new(
+                auth_manager.clone(),
+                SessionSource::VSCode,
+            ));
 
             let event_router = Arc::new(router::EventRouter::new());
             let symbol_index = Arc::new(SymbolIndexManager::new());

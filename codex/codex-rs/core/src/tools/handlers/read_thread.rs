@@ -10,6 +10,7 @@ use crate::client_common::Prompt;
 use crate::client_common::ResponseEvent;
 use crate::codex::TurnContext;
 use crate::function_tool::FunctionCallError;
+use crate::read_thread_backend::read_thread_backend;
 use crate::rollout::find_conversation_path_by_id_str;
 use crate::rollout::recorder::RolloutRecorder;
 use crate::tools::context::ToolInvocation;
@@ -67,7 +68,7 @@ impl ToolHandler for ReadThreadHandler {
             ))
         })?;
 
-        let uuid = match uuid::Uuid::parse_str(&args.thread_ref) {
+        let _uuid = match uuid::Uuid::parse_str(&args.thread_ref) {
             Ok(id) => id,
             Err(_) => {
                 return Err(FunctionCallError::RespondToModel(
@@ -76,8 +77,24 @@ impl ToolHandler for ReadThreadHandler {
             }
         };
 
+        let backend = read_thread_backend().ok_or_else(|| {
+            FunctionCallError::RespondToModel(
+                "read_thread backend is not configured for this process".to_string(),
+            )
+        })?;
+
+        let conversation_id = backend
+            .current_conversation_id_for_thread(&args.thread_ref)
+            .await
+            .map_err(|err| {
+                FunctionCallError::RespondToModel(format!("failed to look up thread: {err}"))
+            })?
+            .ok_or_else(|| {
+                FunctionCallError::RespondToModel("thread not found for read_thread".to_string())
+            })?;
+
         let codex_home = session.codex_home().await;
-        let rollout_path = find_conversation_path_by_id_str(&codex_home, &uuid.to_string())
+        let rollout_path = find_conversation_path_by_id_str(&codex_home, &conversation_id)
             .await
             .map_err(|err| {
                 FunctionCallError::RespondToModel(format!(

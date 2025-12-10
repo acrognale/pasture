@@ -2,3 +2,8 @@
 members = ["apps/desktop/src-tauri"]
 resolver = "3"
 exclude = ["codex/codex-rs"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "Apache-2.0"

@@ -64,9 +64,9 @@ fn export_additional_types(out_dir: &Path) -> std::result::Result<(), ts_rs::Exp
     use codex_protocol::protocol::PatchApplyBeginEvent;
     use codex_protocol::protocol::PatchApplyEndEvent;
     use codex_protocol::protocol::ReadThreadEndEvent;
+    use codex_protocol::protocol::ThreadMention;
     use codex_protocol::protocol::TokenCountEvent;
     use codex_protocol::protocol::TurnAbortedEvent;
-    use codex_protocol::protocol::ThreadMention;
 
     export_type::<EventMsg>(out_dir)?;
     export_type::<ApplyPatchApprovalRequestEvent>(out_dir)?;
