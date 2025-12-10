@@ -86,29 +86,24 @@ export function ChangesSidebarContent({
             <li key={file.id}>
               <button
                 type="button"
-                className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 overflow-hidden rounded-md px-2 py-2 text-left text-xs transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground"
+                className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 overflow-hidden rounded-md px-2 py-2 text-left text-xs transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground"
                 onClick={() => onFileClick?.(file)}
               >
-                <FileStatusIcon status={status} />
+                <div className="mt-px">
+                  <FileStatusIcon status={status} />
+                </div>
                 <span
-                  className="min-w-0 overflow-hidden flex items-baseline"
+                  className="min-w-0 overflow-hidden flex flex-col"
                   title={relativePath}
                 >
-                  {dir ? (
-                    <span
-                      className="flex-1 min-w-0 truncate text-muted-foreground"
-                      style={{
-                        direction: 'rtl',
-                        textAlign: 'left',
-                        unicodeBidi: 'plaintext',
-                      }}
-                    >
-                      {dir}
-                    </span>
-                  ) : null}
-                  <span className="shrink-0 whitespace-nowrap font-medium text-foreground">
+                  <span className="truncate font-medium text-foreground">
                     {fileName}
                   </span>
+                  {dir ? (
+                    <span className="truncate text-[10px] text-muted-foreground">
+                      {dir.slice(0, -1)}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="flex shrink-0 whitespace-nowrap items-center gap-1.5 text-[10px] tabular-nums">
                   <span className="text-success-foreground">
