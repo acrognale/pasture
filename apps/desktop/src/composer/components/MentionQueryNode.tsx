@@ -4,7 +4,6 @@ import {
   ElementNode,
   type LexicalNode,
   type SerializedElementNode,
-  type SerializedLexicalNode,
   type Spread,
 } from 'lexical';
 

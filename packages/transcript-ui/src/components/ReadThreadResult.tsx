@@ -1,8 +1,7 @@
+import { cn } from '../lib/utils';
+import type { TranscriptToolCell } from '../types';
 import { Cell } from './Cell';
 import { Markdown } from './Markdown';
-
-import type { TranscriptToolCell } from '../types';
-import { cn } from '../lib/utils';
 
 type ReadThreadResultProps = {
   cell: TranscriptToolCell;
@@ -81,9 +80,7 @@ export function ReadThreadResult({ cell }: ReadThreadResultProps) {
 
         {summary ? (
           <div className="border-t border-border/60 bg-background/40 px-1.5 py-1.5">
-            <Markdown
-              className="prose prose-invert max-w-none text-transcript-base text-foreground prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-pre:bg-muted/40"
-            >
+            <Markdown className="prose prose-invert max-w-none text-transcript-base text-foreground prose-p:my-1 prose-ul:my-1 prose-li:my-0.5 prose-pre:bg-muted/40">
               {summary}
             </Markdown>
           </div>

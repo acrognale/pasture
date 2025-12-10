@@ -9,8 +9,8 @@ import {
 import { useEffect } from 'react';
 
 import type { FileMentionNode } from '../components/FileMentionNode';
-import type { ThreadMentionNode } from '../components/ThreadMentionNode';
 import type { SymbolMentionNode } from '../components/SymbolMentionNode';
+import type { ThreadMentionNode } from '../components/ThreadMentionNode';
 import { isMentionNode } from '../mentions';
 
 type MentionNode = FileMentionNode | SymbolMentionNode | ThreadMentionNode;

@@ -7,6 +7,34 @@ type ToolsProps = {
   cell: TranscriptToolCell;
 };
 
+const StatusBadge = ({ status }: { status: TranscriptToolCell['status'] }) => {
+  const isSuccess = status === 'succeeded';
+  const isRunning = status === 'running';
+  const color = isRunning
+    ? 'text-info-foreground'
+    : isSuccess
+      ? 'text-success-foreground'
+      : 'text-error-foreground';
+  const label = isRunning ? 'Running' : isSuccess ? 'Succeeded' : 'Failed';
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full bg-card/70 px-2 py-0.5 text-xs font-medium ${color}`}
+    >
+      <span
+        className={`inline-block size-1.5 rounded-full ${
+          isRunning
+            ? 'bg-info-foreground'
+            : isSuccess
+              ? 'bg-success-foreground'
+              : 'bg-error-foreground'
+        }`}
+      />
+      {label}
+    </span>
+  );
+};
+
 const formatResult = (value: unknown) => {
   if (value == null) {
     return null;
@@ -29,6 +57,10 @@ const formatResult = (value: unknown) => {
 };
 
 export function Tools({ cell }: ToolsProps) {
+  const [isThreadOpen, setIsThreadOpen] = useState(
+    cell.toolType === 'read-thread'
+  );
+
   const getIconStatus = () => {
     if (cell.status === 'succeeded') return 'success';
     if (cell.status === 'failed') return 'failure';
@@ -99,41 +131,14 @@ export function Tools({ cell }: ToolsProps) {
   }
 
   if (cell.toolType === 'read-thread') {
-    const StatusBadge = ({ status }: { status: TranscriptToolCell['status'] }) => {
-      const isSuccess = status === 'succeeded';
-      const isRunning = status === 'running';
-      const color = isRunning
-        ? 'text-info-foreground'
-        : isSuccess
-          ? 'text-success-foreground'
-          : 'text-error-foreground';
-      const label = isRunning ? 'Running' : isSuccess ? 'Succeeded' : 'Failed';
-
-      return (
-        <span
-          className={`inline-flex items-center gap-1 rounded-full bg-card/70 px-2 py-0.5 text-xs font-medium ${color}`}
-        >
-          <span
-            className={`inline-block size-1.5 rounded-full ${
-              isRunning
-                ? 'bg-info-foreground'
-                : isSuccess
-                  ? 'bg-success-foreground'
-                  : 'bg-error-foreground'
-            }`}
-          />
-          {label}
-        </span>
-      );
-    };
-
-    const instructions = typeof cell.query === 'string' ? cell.query.trim() : undefined;
+    const instructions =
+      typeof cell.query === 'string' ? cell.query.trim() : undefined;
     const threadRef =
-      typeof cell.path === 'string' && cell.path.trim().length > 0 ? cell.path : null;
+      typeof cell.path === 'string' && cell.path.trim().length > 0
+        ? cell.path
+        : null;
     const summary = formatResult(cell.result);
     const hasSummary = summary != null && summary.length > 0;
-
-    const [isOpen, setIsOpen] = useState(true);
 
     return (
       <Cell>
@@ -143,7 +148,9 @@ export function Tools({ cell }: ToolsProps) {
               <div className="inline-flex min-w-0 items-center gap-1 text-transcript-base text-foreground">
                 <span className="font-semibold">Read Thread</span>
                 {threadRef ? (
-                  <span className="text-xs text-muted-foreground">({threadRef})</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({threadRef})
+                  </span>
                 ) : null}
               </div>
               {instructions ? (
@@ -158,9 +165,9 @@ export function Tools({ cell }: ToolsProps) {
                 <button
                   type="button"
                   className="inline-flex size-4 items-center justify-center rounded-sm border border-transparent text-xs text-foreground/80 transition-colors hover:bg-foreground/5 hover:text-foreground"
-                  aria-label={isOpen ? 'Hide details' : 'Show details'}
-                  aria-expanded={isOpen}
-                  onClick={() => setIsOpen((open) => !open)}
+                  aria-label={isThreadOpen ? 'Hide details' : 'Show details'}
+                  aria-expanded={isThreadOpen}
+                  onClick={() => setIsThreadOpen((open) => !open)}
                 >
                   <svg viewBox="0 0 24 24" className="size-3">
                     <path
@@ -170,7 +177,7 @@ export function Tools({ cell }: ToolsProps) {
                       strokeLinejoin="round"
                       strokeWidth="2"
                       d={
-                        isOpen
+                        isThreadOpen
                           ? 'm7 20 5-5 5 5M7 4l5 5 5-5'
                           : 'M7 10l5-5 5 5M7 14l5 5 5-5'
                       }
@@ -181,16 +188,18 @@ export function Tools({ cell }: ToolsProps) {
             </div>
           </div>
 
-          {hasSummary && isOpen ? (
+          {hasSummary && isThreadOpen ? (
             <div className="border-t border-border/60 bg-background/40 px-1.5 py-1.5">
               <pre className="text-xs text-foreground overflow-x-auto leading-transcript whitespace-pre-wrap">
                 {summary}
               </pre>
             </div>
           ) : null}
-          {!hasSummary && isOpen ? (
+          {!hasSummary && isThreadOpen ? (
             <div className="border-t border-border/60 bg-background/40 px-1.5 py-1.5">
-              <div className="text-xs text-muted-foreground">No summary returned.</div>
+              <div className="text-xs text-muted-foreground">
+                No summary returned.
+              </div>
             </div>
           ) : null}
         </div>

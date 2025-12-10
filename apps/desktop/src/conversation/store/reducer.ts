@@ -1030,7 +1030,7 @@ function onReadThreadEnd(
 
   const resultText = event.success
     ? event.summary
-    : event.error_message ?? '';
+    : (event.error_message ?? '');
 
   if (target) {
     target.cell.status = event.success ? 'succeeded' : 'failed';

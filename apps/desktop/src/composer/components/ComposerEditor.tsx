@@ -17,14 +17,14 @@ import {
 } from 'react';
 import type React from 'react';
 import { FileMentionNode } from '~/composer/components/FileMentionNode';
-import { ThreadMentionNode } from '~/composer/components/ThreadMentionNode';
-import { SymbolMentionNode } from '~/composer/components/SymbolMentionNode';
 import { MentionQueryNode } from '~/composer/components/MentionQueryNode';
+import { SymbolMentionNode } from '~/composer/components/SymbolMentionNode';
+import { ThreadMentionNode } from '~/composer/components/ThreadMentionNode';
 import { getExpandedTextForSend, updateRootText } from '~/composer/mentions';
 import { EditablePlugin } from '~/composer/plugins/EditablePlugin';
 import { ExternalValuePlugin } from '~/composer/plugins/ExternalValuePlugin';
-import { MentionPalettePlugin } from '~/composer/plugins/MentionPalettePlugin';
 import { KeybindingsPlugin } from '~/composer/plugins/KeybindingsPlugin';
+import { MentionPalettePlugin } from '~/composer/plugins/MentionPalettePlugin';
 import { OnChangePlugin } from '~/composer/plugins/OnChangePlugin';
 import { RegistrationPlugin } from '~/composer/plugins/RegistrationPlugin';
 import { SlashTypeaheadPlugin } from '~/composer/plugins/SlashTypeaheadPlugin';
@@ -111,7 +111,12 @@ export const ComposerEditor = forwardRef<
           throw error;
         },
         theme: emptyTheme,
-        nodes: [FileMentionNode, SymbolMentionNode, ThreadMentionNode, MentionQueryNode],
+        nodes: [
+          FileMentionNode,
+          SymbolMentionNode,
+          ThreadMentionNode,
+          MentionQueryNode,
+        ],
       }),
       []
     );
@@ -240,7 +245,6 @@ export const ComposerEditor = forwardRef<
           disabled={disabled}
           ariaBusy={ariaBusy}
           onChange={setCurrentValue}
-          currentValue={() => valueRef.current}
         />
         <SlashTypeaheadPlugin
           workspacePath={workspacePath}

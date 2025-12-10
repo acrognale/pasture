@@ -44,11 +44,7 @@ export class ThreadMentionNode extends DecoratorNode<React.ReactElement> {
   }
 
   static clone(node: ThreadMentionNode): ThreadMentionNode {
-    return new ThreadMentionNode(
-      node.__threadId,
-      node.__label,
-      node.__key
-    );
+    return new ThreadMentionNode(node.__threadId, node.__label, node.__key);
   }
 
   static importJSON(
@@ -76,9 +72,7 @@ export class ThreadMentionNode extends DecoratorNode<React.ReactElement> {
   }
 
   decorate(): React.ReactElement {
-    return (
-      <ThreadMention threadId={this.__threadId} label={this.__label} />
-    );
+    return <ThreadMention threadId={this.__threadId} label={this.__label} />;
   }
 
   isInline(): boolean {

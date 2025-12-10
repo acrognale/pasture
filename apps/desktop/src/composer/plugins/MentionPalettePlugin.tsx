@@ -18,6 +18,10 @@ import { Codex } from '~/codex/client';
 import { cn } from '~/lib/utils';
 
 import {
+  $createMentionQueryNode,
+  $isMentionQueryNode,
+} from '../components/MentionQueryNode';
+import {
   type AnyMention,
   type FileMention,
   type SymbolMention,
@@ -25,16 +29,11 @@ import {
   buildFileLabel,
   createMentionNode,
 } from '../mentions';
-import {
-  $createMentionQueryNode,
-  $isMentionQueryNode,
-} from '../components/MentionQueryNode';
 
 type Props = {
   workspacePath: string;
   disabled?: boolean;
   ariaBusy?: boolean;
-  currentValue: () => string;
   onChange: (value: string) => void;
 };
 
@@ -93,9 +92,7 @@ const getAnchorRectForQueryKey = (
     }
   }
   return (
-    getCaretRect() ??
-    editor.getRootElement()?.getBoundingClientRect() ??
-    null
+    getCaretRect() ?? editor.getRootElement()?.getBoundingClientRect() ?? null
   );
 };
 
@@ -103,7 +100,6 @@ export const MentionPalettePlugin = ({
   workspacePath,
   disabled,
   ariaBusy,
-  currentValue,
   onChange,
 }: Props) => {
   const [editor] = useLexicalComposerContext();
@@ -164,11 +160,7 @@ export const MentionPalettePlugin = ({
       return;
     }
     const trimmed = query.trim();
-    if (!trimmed) {
-      setFileResults([]);
-      setSymbolResults([]);
-      return;
-    }
+    if (!trimmed) return;
     let cancelled = false;
     Codex.searchWorkspaceFiles({
       workspacePath,
@@ -235,6 +227,7 @@ export const MentionPalettePlugin = ({
   }, [query, threads]);
 
   const results: MentionResult[] = useMemo(() => {
+    const hasQuery = query.trim().length > 0;
     const items: MentionResult[] = [];
     const seen = new Set<string>();
 
@@ -246,24 +239,26 @@ export const MentionPalettePlugin = ({
       items.push(item);
     };
 
-    fileResults.forEach((m) =>
-      pushUnique({
-        id: `file-${m.path}`,
-        kind: m.kind,
-        title: m.label,
-        subtitle: m.path,
-        mention: m,
-      })
-    );
-    symbolResults.forEach((m) =>
-      pushUnique({
-        id: `symbol-${m.name}-${m.filePath}-${m.line}`,
-        kind: m.kind,
-        title: m.name,
-        subtitle: `${m.filePath}:${m.line}`,
-        mention: m,
-      })
-    );
+    if (hasQuery) {
+      fileResults.forEach((m) =>
+        pushUnique({
+          id: `file-${m.path}`,
+          kind: m.kind,
+          title: m.label,
+          subtitle: m.path,
+          mention: m,
+        })
+      );
+      symbolResults.forEach((m) =>
+        pushUnique({
+          id: `symbol-${m.name}-${m.filePath}-${m.line}`,
+          kind: m.kind,
+          title: m.name,
+          subtitle: `${m.filePath}:${m.line}`,
+          mention: m,
+        })
+      );
+    }
     filteredThreads.forEach((m) =>
       pushUnique({
         id: `thread-${m.threadId}`,
@@ -275,7 +270,7 @@ export const MentionPalettePlugin = ({
     );
 
     return items;
-  }, [fileResults, filteredThreads, symbolResults]);
+  }, [fileResults, filteredThreads, query, symbolResults]);
 
   // Keep refs in sync for stable handlers.
   useEffect(() => {

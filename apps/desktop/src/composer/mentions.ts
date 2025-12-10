@@ -16,17 +16,17 @@ import {
   type FileMentionNode,
 } from './components/FileMentionNode';
 import {
-  $createThreadMentionNode,
-  $isThreadMentionNode,
-  ThreadMentionNode,
-  type ThreadMentionPayload,
-} from './components/ThreadMentionNode';
-import {
   $createSymbolMentionNode,
   $isSymbolMentionNode,
   type SymbolMentionNode,
   formatSymbolLocation,
 } from './components/SymbolMentionNode';
+import {
+  $createThreadMentionNode,
+  $isThreadMentionNode,
+  ThreadMentionNode,
+  type ThreadMentionPayload,
+} from './components/ThreadMentionNode';
 
 export const SLASH_TRIGGER: RegExp = /(^|\s)\/([a-z0-9-]*)$/i;
 export const FILE_MENTION_TEXT_PATTERN: RegExp = /(^|[\s])@([^\s@]*\/[^\s@]+)/g;
@@ -107,9 +107,7 @@ export const mentionToSendText = (mention: AnyMention): string => {
   }
 };
 
-export const nodeToMention = (
-  node: LexicalNode
-): AnyMention | null => {
+export const nodeToMention = (node: LexicalNode): AnyMention | null => {
   if ($isFileMentionNode(node)) {
     return {
       kind: 'file',
