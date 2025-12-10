@@ -19,6 +19,7 @@ import type React from 'react';
 import { FileMentionNode } from '~/composer/components/FileMentionNode';
 import { ThreadMentionNode } from '~/composer/components/ThreadMentionNode';
 import { SymbolMentionNode } from '~/composer/components/SymbolMentionNode';
+import { MentionQueryNode } from '~/composer/components/MentionQueryNode';
 import { getExpandedTextForSend, updateRootText } from '~/composer/mentions';
 import { EditablePlugin } from '~/composer/plugins/EditablePlugin';
 import { ExternalValuePlugin } from '~/composer/plugins/ExternalValuePlugin';
@@ -110,7 +111,7 @@ export const ComposerEditor = forwardRef<
           throw error;
         },
         theme: emptyTheme,
-        nodes: [FileMentionNode, SymbolMentionNode, ThreadMentionNode],
+        nodes: [FileMentionNode, SymbolMentionNode, ThreadMentionNode, MentionQueryNode],
       }),
       []
     );

@@ -9,9 +9,10 @@ import {
   COMMAND_PRIORITY_NORMAL,
   KEY_DOWN_COMMAND,
   type LexicalEditor,
+  type LexicalNode,
+  type NodeKey,
 } from 'lexical';
-import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Codex } from '~/codex/client';
 import { cn } from '~/lib/utils';
@@ -24,6 +25,10 @@ import {
   buildFileLabel,
   createMentionNode,
 } from '../mentions';
+import {
+  $createMentionQueryNode,
+  $isMentionQueryNode,
+} from '../components/MentionQueryNode';
 
 type Props = {
   workspacePath: string;
@@ -56,6 +61,44 @@ const getCaretRect = (): DOMRect | null => {
   return rect;
 };
 
+const isAltGraph = (event: KeyboardEvent): boolean => {
+  try {
+    return typeof event.getModifierState === 'function'
+      ? event.getModifierState('AltGraph')
+      : false;
+  } catch {
+    return false;
+  }
+};
+
+const shouldIgnoreAtTrigger = (event: KeyboardEvent): boolean => {
+  // Allow AltGraph (common on EU keyboards) to still trigger '@'
+  const altGraph = isAltGraph(event);
+  if (event.metaKey) return true;
+  if (!altGraph && (event.ctrlKey || event.altKey)) return true;
+  return false;
+};
+
+const getAnchorRectForQueryKey = (
+  editor: LexicalEditor,
+  key: NodeKey | null
+): DOMRect | null => {
+  if (key) {
+    const el = editor.getElementByKey(key);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      if (!(rect.width === 0 && rect.height === 0)) {
+        return rect;
+      }
+    }
+  }
+  return (
+    getCaretRect() ??
+    editor.getRootElement()?.getBoundingClientRect() ??
+    null
+  );
+};
+
 export const MentionPalettePlugin = ({
   workspacePath,
   disabled,
@@ -72,10 +115,19 @@ export const MentionPalettePlugin = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 
+  // Source of truth for the active query pill.
+  const activeQueryNodeKeyRef = useRef<NodeKey | null>(null);
+
+  // Stable refs for command handlers to avoid stale closures.
+  const isOpenRef = useRef(false);
+  const closingRef = useRef(false);
+  const queryRef = useRef('');
+  const selectedIndexRef = useRef(0);
+  const resultsRef = useRef<MentionResult[]>([]);
+
   const [threads, setThreads] = useState<ThreadMention[]>([]);
   const [fileResults, setFileResults] = useState<FileMention[]>([]);
   const [symbolResults, setSymbolResults] = useState<SymbolMention[]>([]);
-  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Load threads once when enabled.
   useEffect(() => {
@@ -184,8 +236,18 @@ export const MentionPalettePlugin = ({
 
   const results: MentionResult[] = useMemo(() => {
     const items: MentionResult[] = [];
+    const seen = new Set<string>();
+
+    const pushUnique = (item: MentionResult) => {
+      if (seen.has(item.id)) {
+        return;
+      }
+      seen.add(item.id);
+      items.push(item);
+    };
+
     fileResults.forEach((m) =>
-      items.push({
+      pushUnique({
         id: `file-${m.path}`,
         kind: m.kind,
         title: m.label,
@@ -194,7 +256,7 @@ export const MentionPalettePlugin = ({
       })
     );
     symbolResults.forEach((m) =>
-      items.push({
+      pushUnique({
         id: `symbol-${m.name}-${m.filePath}-${m.line}`,
         kind: m.kind,
         title: m.name,
@@ -203,7 +265,7 @@ export const MentionPalettePlugin = ({
       })
     );
     filteredThreads.forEach((m) =>
-      items.push({
+      pushUnique({
         id: `thread-${m.threadId}`,
         kind: m.kind,
         title: m.label,
@@ -211,84 +273,194 @@ export const MentionPalettePlugin = ({
         mention: m,
       })
     );
+
     return items;
   }, [fileResults, filteredThreads, symbolResults]);
 
-  const closePalette = () => {
-    setIsOpen(false);
-    setQuery('');
-    setSelectedIndex(0);
-    setAnchorRect(null);
-    editor.focus(() => {
-      editor.getRootElement()?.focus();
-    });
+  // Keep refs in sync for stable handlers.
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+  useEffect(() => {
+    selectedIndexRef.current = selectedIndex;
+  }, [selectedIndex]);
+  useEffect(() => {
+    resultsRef.current = results;
+  }, [results]);
+
+  useEffect(() => {
+    const clamped = Math.min(
+      selectedIndexRef.current,
+      Math.max(results.length - 1, 0)
+    );
+    selectedIndexRef.current = clamped;
+    setSelectedIndex(clamped);
+  }, [results.length]);
+
+  type ClosePaletteOptions = {
+    selectReplacement?: boolean;
   };
 
-  const commitSelection = (result: MentionResult | undefined) => {
-    if (!result) return;
-    editor.update(() => {
-      const selection = $getSelection();
-      let targetAnchor: { key: string; offset: number } | null = null;
+  const closePalette = useCallback(
+    (
+      preserveQueryText = true,
+      options: ClosePaletteOptions = {},
+      keyOverride?: NodeKey | null
+    ) => {
+      const key = keyOverride ?? activeQueryNodeKeyRef.current;
 
-      if ($isRangeSelection(selection) && selection.isCollapsed()) {
-        targetAnchor = {
-          key: selection.anchor.key,
-          offset: selection.anchor.offset,
-        };
-        const anchorNode = selection.anchor.getNode();
-        if ($isTextNode(anchorNode) && selection.anchor.offset > 0) {
-          const text = anchorNode.getTextContent();
-          const before = selection.anchor.offset - 1;
-          if (text[before] === '@') {
-            const nextText =
-              text.slice(0, before) + text.slice(selection.anchor.offset);
-            anchorNode.setTextContent(nextText);
-            const newOffset = before;
-            selection.anchor.set(anchorNode.getKey(), newOffset, 'text');
-            selection.focus.set(anchorNode.getKey(), newOffset, 'text');
-            targetAnchor = { key: anchorNode.getKey(), offset: newOffset };
-          }
-        }
-      }
-
-      const mentionNode = createMentionNode(result.mention);
-      if (!mentionNode) return;
-      const trailing = $createTextNode(' ');
-
-      const freshSelection = $getSelection();
-      if ($isRangeSelection(freshSelection) && freshSelection.isCollapsed()) {
-        freshSelection.insertNodes([mentionNode, trailing]);
-        trailing.select();
+      if (!isOpenRef.current && !key) {
         return;
       }
 
-      if (targetAnchor) {
-        const node = $getNodeByKey(targetAnchor.key);
-        if ($isTextNode(node)) {
-          const textSelection = node.select(
-            targetAnchor.offset,
-            targetAnchor.offset
-          );
-          if (textSelection) {
-            textSelection.insertNodes([mentionNode, trailing]);
+      closingRef.current = true;
+      isOpenRef.current = false;
+
+      activeQueryNodeKeyRef.current = null;
+
+      if (key) {
+        editor.update(() => {
+          const node = $getNodeByKey(key);
+          if (!$isMentionQueryNode(node)) return;
+
+          const text = preserveQueryText ? node.getTextContent() : '';
+          const replacement = $createTextNode(text);
+          node.replace(replacement);
+
+          if (options.selectReplacement) {
+            const len = replacement.getTextContent().length;
+            replacement.select(len, len);
+          }
+        });
+      }
+
+      queryRef.current = '';
+      selectedIndexRef.current = 0;
+      setIsOpen(false);
+      setQuery('');
+      setSelectedIndex(0);
+      setAnchorRect(null);
+
+      closingRef.current = false;
+    },
+    [editor]
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const unregister = editor.registerUpdateListener(({ editorState }) => {
+      if (!isOpenRef.current || closingRef.current) {
+        return;
+      }
+
+      let shouldClose = false;
+      let preserveTextOnClose = true;
+      let nextQuery = '';
+      let anchorKey: NodeKey | null = null;
+
+      editorState.read(() => {
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection)) {
+          shouldClose = true;
+          preserveTextOnClose = true;
+          return;
+        }
+
+        const key = activeQueryNodeKeyRef.current;
+        if (!key) {
+          shouldClose = true;
+          preserveTextOnClose = false;
+          return;
+        }
+
+        const queryNode = $getNodeByKey(key);
+        if (!$isMentionQueryNode(queryNode)) {
+          shouldClose = true;
+          preserveTextOnClose = false;
+          return;
+        }
+
+        let current: LexicalNode | null = selection.anchor.getNode();
+        let inside = false;
+        while (current) {
+          if (current.getKey() === key) {
+            inside = true;
+            break;
+          }
+          current = current.getParent();
+        }
+        if (!inside) {
+          shouldClose = true;
+          preserveTextOnClose = true;
+          return;
+        }
+
+        anchorKey = key;
+        nextQuery = queryNode.getTextContent().replace(/^@/, '');
+      });
+
+      if (shouldClose) {
+        closePalette(preserveTextOnClose, { selectReplacement: false });
+        return;
+      }
+
+      if (nextQuery !== queryRef.current) {
+        queryRef.current = nextQuery;
+        setQuery(nextQuery);
+        selectedIndexRef.current = 0;
+        setSelectedIndex(0);
+      }
+      setAnchorRect(getAnchorRectForQueryKey(editor, anchorKey));
+    });
+    return () => unregister();
+  }, [closePalette, editor, isOpen]);
+
+  const commitSelection = useCallback(
+    (result: MentionResult | undefined, keyOverride?: NodeKey | null) => {
+      if (!result) return;
+      editor.update(() => {
+        const mentionNode = createMentionNode(result.mention);
+        if (!mentionNode) return;
+        const trailing = $createTextNode(' ');
+
+        const targetKey = keyOverride ?? activeQueryNodeKeyRef.current;
+        if (targetKey) {
+          const node = $getNodeByKey(targetKey);
+          if ($isMentionQueryNode(node)) {
+            node.replace(mentionNode);
+            mentionNode.insertAfter(trailing);
             trailing.select();
             return;
           }
         }
-      }
 
-      $getRoot().append(mentionNode);
-      mentionNode.insertAfter(trailing);
-      trailing.select();
-    });
-    editor.getEditorState().read(() => {
-      const text = $getRoot().getTextContent();
-      onChange(text);
-    });
-    closePalette();
-  };
+        const selection = $getSelection();
+        if ($isRangeSelection(selection) && selection.isCollapsed()) {
+          selection.insertNodes([mentionNode, trailing]);
+          trailing.select();
+          return;
+        }
 
-  // Open on "@" keystroke.
+        $getRoot().append(mentionNode);
+        mentionNode.insertAfter(trailing);
+        trailing.select();
+      });
+      editor.getEditorState().read(() => {
+        const text = $getRoot().getTextContent();
+        onChange(text);
+      });
+      activeQueryNodeKeyRef.current = null;
+      closePalette(false);
+    },
+    [closePalette, editor, onChange]
+  );
+
+  // Open on "@" keystroke + handle palette navigation
   useEffect(() => {
     if (!menuEnabled) {
       return;
@@ -296,45 +468,121 @@ export const MentionPalettePlugin = ({
     return editor.registerCommand(
       KEY_DOWN_COMMAND,
       (event: KeyboardEvent) => {
-        if (isOpen) {
+        // Always allow Backspace/Delete to remove an *empty* mention-query pill,
+        // even if the palette UI is not currently open.
+        if (event.key === 'Backspace' || event.key === 'Delete') {
+          let emptyQueryKey: NodeKey | null = null;
+
+          editor.getEditorState().read(() => {
+            const selection = $getSelection();
+            if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+              return;
+            }
+
+            let current: LexicalNode | null = selection.anchor.getNode();
+
+            while (current) {
+              if ($isMentionQueryNode(current)) {
+                const inner = current
+                  .getTextContent()
+                  .replace(/^@/, '')
+                  .replace(/\u200b/g, '')
+                  .trim();
+
+                if (inner.length === 0) {
+                  emptyQueryKey = current.getKey();
+                }
+                return;
+              }
+              current = current.getParent();
+            }
+          });
+
+          if (emptyQueryKey) {
+            event.preventDefault();
+            closePalette(false, { selectReplacement: true }, emptyQueryKey);
+            return true;
+          }
+        }
+
+        // Palette open: navigation + close handling.
+        if (isOpenRef.current) {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            const max = Math.max(resultsRef.current.length - 1, 0);
+            const next = Math.min(selectedIndexRef.current + 1, max);
+            selectedIndexRef.current = next;
+            setSelectedIndex(next);
+            return true;
+          }
+          if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            const next = Math.max(selectedIndexRef.current - 1, 0);
+            selectedIndexRef.current = next;
+            setSelectedIndex(next);
+            return true;
+          }
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            const items = resultsRef.current;
+            const keySnapshot = activeQueryNodeKeyRef.current;
+            commitSelection(items[selectedIndexRef.current], keySnapshot);
+            return true;
+          }
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            closePalette(true, { selectReplacement: true });
+            return true;
+          }
+        }
+
+        // Palette closed: only intercept '@'
+        if (isOpenRef.current) {
           return false;
         }
-        if (event.key !== '@' || event.metaKey || event.ctrlKey || event.altKey) {
+        if (event.key !== '@' || shouldIgnoreAtTrigger(event)) {
           return false;
         }
         event.preventDefault();
         editor.update(() => {
+          const queryNode = $createMentionQueryNode();
+          const key = queryNode.getKey();
           const selection = $getSelection();
           if ($isRangeSelection(selection)) {
-            selection.insertText('@');
+            selection.insertNodes([queryNode]);
+            const firstChild = queryNode.getFirstChild();
+            if ($isTextNode(firstChild)) {
+              firstChild.select();
+            } else {
+              queryNode.select();
+            }
           } else {
-            const textNode = $createTextNode('@');
-            $getRoot().append(textNode);
-            textNode.select();
+            $getRoot().append(queryNode);
+            queryNode.select();
           }
+          activeQueryNodeKeyRef.current = key;
+          isOpenRef.current = true;
+          queryRef.current = '';
+          selectedIndexRef.current = 0;
+
+          setIsOpen(true);
+          setQuery('');
+          setSelectedIndex(0);
+
+          setAnchorRect(
+            editor.getRootElement()?.getBoundingClientRect() ?? null
+          );
+
+          requestAnimationFrame(() => {
+            if (!isOpenRef.current) return;
+            setAnchorRect(getAnchorRectForQueryKey(editor, key));
+          });
         });
-        const caretRect =
-          getCaretRect() ?? editor.getRootElement()?.getBoundingClientRect() ?? null;
-        setAnchorRect(caretRect);
-        setIsOpen(true);
-        setQuery('');
-        setSelectedIndex(0);
         return true;
       },
       COMMAND_PRIORITY_NORMAL
     );
-  }, [editor, isOpen, menuEnabled]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const id = requestAnimationFrame(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        inputRef.current.select();
-      }
-    });
-    return () => cancelAnimationFrame(id);
-  }, [isOpen]);
+  }, [closePalette, commitSelection, editor, menuEnabled]);
 
   if (!menuEnabled || !isOpen || !anchorRect) {
     return null;
@@ -343,32 +591,11 @@ export const MentionPalettePlugin = ({
   const top = anchorRect.top - 8;
   const left = anchorRect.left;
 
-  const handleInputKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (
-    event
+  const handleClickResult = (
+    result: MentionResult,
+    keyOverride?: NodeKey | null
   ) => {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
-      return;
-    }
-    if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setSelectedIndex((prev) => Math.max(prev - 1, 0));
-      return;
-    }
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      commitSelection(results[selectedIndex]);
-      return;
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closePalette();
-    }
-  };
-
-  const handleClickResult = (result: MentionResult) => {
-    commitSelection(result);
+    commitSelection(result, keyOverride);
   };
 
   const renderKindBadge = (kind: AnyMention['kind']) => {
@@ -414,7 +641,7 @@ export const MentionPalettePlugin = ({
                 )}
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  handleClickResult(result);
+                  handleClickResult(result, activeQueryNodeKeyRef.current);
                 }}
               >
                 <span className="flex items-center gap-2 w-full">
@@ -433,20 +660,6 @@ export const MentionPalettePlugin = ({
               </button>
             ))
           )}
-        </div>
-        <div className="border-t border-border px-3 py-2">
-          <input
-            ref={inputRef}
-            type="text"
-            className="w-full bg-transparent text-transcript-base leading-transcript text-foreground placeholder:text-muted-foreground focus-visible:outline-none"
-            placeholder="Mention a file, symbol, or thread…"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setSelectedIndex(0);
-            }}
-            onKeyDown={handleInputKeyDown}
-          />
         </div>
       </div>
     </div>
