@@ -63,6 +63,8 @@ fn export_additional_types(out_dir: &Path) -> std::result::Result<(), ts_rs::Exp
     use codex_protocol::protocol::McpInvocation;
     use codex_protocol::protocol::PatchApplyBeginEvent;
     use codex_protocol::protocol::PatchApplyEndEvent;
+    use codex_protocol::protocol::ReadThreadEndEvent;
+    use codex_protocol::protocol::ThreadMention;
     use codex_protocol::protocol::TokenCountEvent;
     use codex_protocol::protocol::TurnAbortedEvent;
 
@@ -73,6 +75,8 @@ fn export_additional_types(out_dir: &Path) -> std::result::Result<(), ts_rs::Exp
     export_type::<ExecCommandEndEvent>(out_dir)?;
     export_type::<PatchApplyBeginEvent>(out_dir)?;
     export_type::<PatchApplyEndEvent>(out_dir)?;
+    export_type::<ReadThreadEndEvent>(out_dir)?;
+    export_type::<ThreadMention>(out_dir)?;
     export_type::<TurnAbortedEvent>(out_dir)?;
     export_type::<BackgroundEventEvent>(out_dir)?;
     export_type::<TokenCountEvent>(out_dir)?;

@@ -6,7 +6,13 @@ import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
-import { $getRoot, type LexicalEditor } from 'lexical';
+import {
+  $getRoot,
+  $getSelection,
+  $isRangeSelection,
+  type LexicalEditor,
+  type LexicalNode,
+} from 'lexical';
 import {
   forwardRef,
   useCallback,
@@ -17,16 +23,18 @@ import {
 } from 'react';
 import type React from 'react';
 import { FileMentionNode } from '~/composer/components/FileMentionNode';
+import { MentionQueryNode } from '~/composer/components/MentionQueryNode';
+import { $isMentionQueryNode } from '~/composer/components/MentionQueryNode';
 import { SymbolMentionNode } from '~/composer/components/SymbolMentionNode';
+import { ThreadMentionNode } from '~/composer/components/ThreadMentionNode';
 import { getExpandedTextForSend, updateRootText } from '~/composer/mentions';
 import { EditablePlugin } from '~/composer/plugins/EditablePlugin';
 import { ExternalValuePlugin } from '~/composer/plugins/ExternalValuePlugin';
-import { FileMentionTypeaheadPlugin } from '~/composer/plugins/FileMentionTypeaheadPlugin';
 import { KeybindingsPlugin } from '~/composer/plugins/KeybindingsPlugin';
+import { MentionPalettePlugin } from '~/composer/plugins/MentionPalettePlugin';
 import { OnChangePlugin } from '~/composer/plugins/OnChangePlugin';
 import { RegistrationPlugin } from '~/composer/plugins/RegistrationPlugin';
 import { SlashTypeaheadPlugin } from '~/composer/plugins/SlashTypeaheadPlugin';
-import { SymbolMentionTypeaheadPlugin } from '~/composer/plugins/SymbolMentionTypeaheadPlugin';
 import { cn } from '~/lib/utils';
 
 export type ComposerEditorHandle = {
@@ -49,6 +57,22 @@ type ComposerEditorProps = {
 };
 
 const emptyTheme = {};
+
+const isSelectionInsideMentionQuery = (editor: LexicalEditor | null): boolean =>
+  editor?.getEditorState().read(() => {
+    const selection = $getSelection();
+    if (!$isRangeSelection(selection)) {
+      return false;
+    }
+    let node: LexicalNode | null = selection.anchor.getNode();
+    while (node) {
+      if ($isMentionQueryNode(node)) {
+        return true;
+      }
+      node = node.getParent();
+    }
+    return false;
+  }) ?? false;
 
 export const ComposerEditor = forwardRef<
   ComposerEditorHandle,
@@ -110,7 +134,12 @@ export const ComposerEditor = forwardRef<
           throw error;
         },
         theme: emptyTheme,
-        nodes: [FileMentionNode, SymbolMentionNode],
+        nodes: [
+          FileMentionNode,
+          SymbolMentionNode,
+          ThreadMentionNode,
+          MentionQueryNode,
+        ],
       }),
       []
     );
@@ -133,6 +162,17 @@ export const ComposerEditor = forwardRef<
         const editor = editorRef.current;
         const isTestEnv =
           typeof process !== 'undefined' && process.env.NODE_ENV === 'test';
+        const insideMentionQuery =
+          isTestEnv && isSelectionInsideMentionQuery(editor);
+        const syncValueFromEditor = () => {
+          if (!editor) {
+            return;
+          }
+          editor.getEditorState().read(() => {
+            const text = $getRoot().getTextContent();
+            setCurrentValue(text);
+          });
+        };
 
         if (
           isTestEnv &&
@@ -140,6 +180,23 @@ export const ComposerEditor = forwardRef<
           !event.ctrlKey &&
           event.key.length === 1
         ) {
+          if (event.key === '@') {
+            // Let the mention palette create the query node without interference.
+            return;
+          }
+
+          if (insideMentionQuery && editor) {
+            event.preventDefault();
+            editor.update(() => {
+              const selection = $getSelection();
+              if ($isRangeSelection(selection)) {
+                selection.insertText(event.key);
+              }
+            });
+            syncValueFromEditor();
+            return;
+          }
+
           const next = `${valueRef.current}${event.key}`;
           setCurrentValue(next);
           if (editor) {
@@ -148,7 +205,20 @@ export const ComposerEditor = forwardRef<
               $getRoot().selectEnd();
             });
           }
+          return;
         } else if (isTestEnv && event.key === 'Backspace') {
+          if (insideMentionQuery && editor) {
+            event.preventDefault();
+            editor.update(() => {
+              const selection = $getSelection();
+              if ($isRangeSelection(selection)) {
+                selection.deleteCharacter(true);
+              }
+            });
+            syncValueFromEditor();
+            return;
+          }
+
           const next = valueRef.current.slice(0, -1);
           setCurrentValue(next);
           if (editor) {
@@ -157,6 +227,7 @@ export const ComposerEditor = forwardRef<
               $getRoot().selectEnd();
             });
           }
+          return;
         }
 
         if (event.key === 'Escape' && onEscape) {
@@ -234,19 +305,11 @@ export const ComposerEditor = forwardRef<
           onChange={setCurrentValue}
           currentValue={() => valueRef.current}
         />
-        <FileMentionTypeaheadPlugin
+        <MentionPalettePlugin
           workspacePath={workspacePath}
           disabled={disabled}
           ariaBusy={ariaBusy}
           onChange={setCurrentValue}
-          currentValue={() => valueRef.current}
-        />
-        <SymbolMentionTypeaheadPlugin
-          workspacePath={workspacePath}
-          disabled={disabled}
-          ariaBusy={ariaBusy}
-          onChange={setCurrentValue}
-          currentValue={() => valueRef.current}
         />
         <SlashTypeaheadPlugin
           workspacePath={workspacePath}

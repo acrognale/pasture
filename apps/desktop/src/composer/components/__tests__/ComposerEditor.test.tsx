@@ -66,7 +66,7 @@ describe('ComposerEditor', () => {
     await user.click(textbox);
     await user.type(textbox, '@ma');
 
-    const option = await screen.findByRole('option', {
+    const option = await screen.findByRole('button', {
       name: /src\/main\.ts/i,
     });
     await user.click(option);
@@ -108,5 +108,47 @@ describe('ComposerEditor', () => {
         })
       ).not.toBeInTheDocument();
     });
+  });
+
+  test('keeps focus in the composer while typing mention queries', async () => {
+    const user = userEvent.setup();
+
+    mockCodex.stub.listThreads.mockResolvedValue({ items: [] });
+    mockCodex.stub.searchWorkspaceFiles.mockResolvedValue([
+      { path: 'src/main.ts', score: 1 },
+    ]);
+    mockCodex.stub.searchWorkspaceSymbols.mockResolvedValue([]);
+
+    const TestComposer = () => {
+      const [draft, setDraft] = useState('');
+      return (
+        <ComposerEditor
+          value={draft}
+          onChange={setDraft}
+          onSubmit={() => undefined}
+          workspacePath="/tmp/workspace"
+          conversationId="mention-focus-conversation"
+          isTurnActive={false}
+        />
+      );
+    };
+
+    renderWithProviders(<TestComposer />);
+
+    const textbox = screen.getByRole('textbox');
+    await user.click(textbox);
+    await user.type(textbox, '@');
+
+    expect(document.activeElement).toBe(textbox);
+
+    await user.type(textbox, 'ma');
+
+    await waitFor(() =>
+      expect(mockCodex.stub.searchWorkspaceFiles).toHaveBeenCalledWith({
+        workspacePath: '/tmp/workspace',
+        query: 'ma',
+        limit: 6,
+      })
+    );
   });
 });

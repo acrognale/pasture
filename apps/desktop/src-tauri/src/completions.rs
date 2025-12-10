@@ -8,6 +8,7 @@ use codex_core::ResponseEvent;
 use codex_core::auth::CodexAuth;
 use codex_core::config::Config;
 use codex_core::content_items_to_text;
+use codex_core::openai_models::model_family::ModelFamily;
 use codex_core::openai_models::model_family::find_family_for_model;
 use codex_otel::otel_event_manager::OtelEventManager;
 use codex_protocol::ConversationId;
@@ -37,16 +38,18 @@ pub async fn generate_text(
     if let Some(model_config) = model_config {
         config.model = model_config.model;
         config.model_reasoning_effort = model_config.reasoning_effort;
-        config.model_family = find_family_for_model(&config.model);
     }
+    let model_family = find_family_for_model(&config.model).with_config_overrides(&config);
     let config = Arc::new(config);
 
     let auth = auth_manager.auth();
-    let otel_event_manager = build_otel_event_manager(&config, auth.clone(), conversation_id);
+    let otel_event_manager =
+        build_otel_event_manager(&config, &model_family, auth.clone(), conversation_id);
 
     let client = ModelClient::new(
         Arc::clone(&config),
         Some(auth_manager),
+        model_family.clone(),
         otel_event_manager,
         config.model_provider.clone(),
         config.model_reasoning_effort,
@@ -93,13 +96,14 @@ pub async fn generate_text(
 
 fn build_otel_event_manager(
     config: &Config,
+    model_family: &ModelFamily,
     auth: Option<CodexAuth>,
     conversation_id: ConversationId,
 ) -> OtelEventManager {
     OtelEventManager::new(
         conversation_id,
         config.model.as_str(),
-        config.model_family.slug.as_str(),
+        model_family.slug.as_str(),
         auth.as_ref().and_then(|a| a.get_account_id()),
         auth.as_ref().and_then(|a| a.get_account_email()),
         auth.as_ref().map(|a| a.mode),

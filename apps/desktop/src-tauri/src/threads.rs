@@ -1227,3 +1227,18 @@ async fn ensure_subscription(
         }
     }
 }
+
+pub async fn current_conversation_id_for_thread(
+    db: &DatabaseConnection,
+    thread_id: &ThreadId,
+) -> AppResult<Option<ConversationId>> {
+    let thread = schema::threads::Entity::find_by_id(thread_id.as_str().to_string())
+        .one(db)
+        .await
+        .map_err(|e| db_err("load thread by id", e))?;
+    if let Some(thread) = thread {
+        Ok(ConversationId::from_string(&thread.current_conversation_id).ok())
+    } else {
+        Ok(None)
+    }
+}

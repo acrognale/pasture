@@ -31,6 +31,7 @@ import type { McpToolCallEndEvent } from './McpToolCallEndEvent';
 import type { PatchApplyBeginEvent } from './PatchApplyBeginEvent';
 import type { PatchApplyEndEvent } from './PatchApplyEndEvent';
 import type { RawResponseItemEvent } from './RawResponseItemEvent';
+import type { ReadThreadEndEvent } from './ReadThreadEndEvent';
 import type { ReasoningContentDeltaEvent } from './ReasoningContentDeltaEvent';
 import type { ReasoningRawContentDeltaEvent } from './ReasoningRawContentDeltaEvent';
 import type { ReviewRequest } from './ReviewRequest';
@@ -94,6 +95,7 @@ export type EventMsg =
   | ({ type: 'stream_error' } & StreamErrorEvent)
   | ({ type: 'patch_apply_begin' } & PatchApplyBeginEvent)
   | ({ type: 'patch_apply_end' } & PatchApplyEndEvent)
+  | ({ type: 'read_thread_end' } & ReadThreadEndEvent)
   | ({ type: 'turn_diff' } & TurnDiffEvent)
   | ({ type: 'get_history_entry_response' } & GetHistoryEntryResponseEvent)
   | ({ type: 'mcp_list_tools_response' } & McpListToolsResponseEvent)

@@ -20,7 +20,10 @@ tauri-build = { version = "2.4.1", features = [] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.8.5", features = ["protocol-asset", "macos-private-api"] }
+tauri = { version = "2.8.5", features = [
+  "protocol-asset",
+  "macos-private-api",
+] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-decorum = "1.0"
@@ -57,18 +60,18 @@ sea-orm-migration = { version = "1.1", features = [
 migration = { path = "migration" }
 thiserror = "1"
 
-# Codex dependencies
-codex-core = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
-codex-otel = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
-codex-protocol = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
-codex-apply-patch = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
-codex-git = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
-codex-file-search = { git = "https://github.com/openai/codex.git", rev = "8f4e00e1f1ec787523ef5979eac14792c20410b6" }
+codex-core = { path = "../../../codex/codex-rs/core" }
+codex-otel = { path = "../../../codex/codex-rs/otel" }
+codex-protocol = { path = "../../../codex/codex-rs/protocol" }
+codex-apply-patch = { path = "../../../codex/codex-rs/apply-patch" }
+codex-git = { path = "../../../codex/codex-rs/utils/git" }
+codex-file-search = { path = "../../../codex/codex-rs/file-search" }
 futures = "0.3"
 ignore = "0.4"
 tree-sitter = "0.25.10"
 tree-sitter-rust = "0.24.0"
 tree-sitter-typescript = "0.23.2"
+async-trait = "0.1.89"
 
 [dev-dependencies]
 tempfile = "3"

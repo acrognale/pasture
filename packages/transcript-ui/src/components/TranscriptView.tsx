@@ -26,6 +26,7 @@ import { ExecutionResult } from './ExecutionResult';
 import { ExplorationCell } from './ExplorationCell';
 import { Patches } from './Patches';
 import { PlanUpdate } from './PlanUpdate';
+import { ReadThreadResult } from './ReadThreadResult';
 import { StatusEvents } from './StatusEvents';
 import { TaskLifecycle } from './TaskLifecycle';
 import { TranscriptList } from './TranscriptList';
@@ -156,6 +157,9 @@ export function TranscriptView({
           <ExecutionResult cell={cell} />
         );
       case 'tool': {
+        if (cell.toolType === 'read-thread') {
+          return <ReadThreadResult cell={cell} />;
+        }
         const execLike = coerceToolToExecCell(cell);
         return <ExecutionResult cell={execLike} />;
       }

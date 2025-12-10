@@ -7,6 +7,7 @@ use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::TurnAbortReason;
 use codex_protocol::user_input::UserInput as CoreUserInput;
+use sea_orm::EntityTrait;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::AppHandle;
@@ -14,6 +15,7 @@ use tauri::State;
 use ts_rs::TS;
 
 use crate::context::WorkspaceContext;
+use crate::db::schema;
 use crate::errors::AppError;
 use crate::errors::AppResult;
 use crate::handoff::HandoffPlanInput;
@@ -226,6 +228,29 @@ pub async fn handoff_conversation(
 
     let ctx = WorkspaceContext::new(workspace_path, &app);
 
+    let source_thread_id =
+        match schema::conversations::Entity::find_by_id(conversation_id.to_string())
+            .one(&app.db)
+            .await
+        {
+            Ok(Some(model)) => Some(model.thread_id),
+            Ok(None) => {
+                log::debug!(
+                    "No conversation found while computing handoff prefix for {}",
+                    conversation_id
+                );
+                None
+            }
+            Err(err) => {
+                log::debug!(
+                    "Failed to load conversation while computing handoff prefix for {}: {}",
+                    conversation_id,
+                    err
+                );
+                None
+            }
+        };
+
     let plan_input = HandoffPlanInput::from_conversation(
         &ctx,
         &conversation_id,
@@ -240,10 +265,25 @@ pub async fn handoff_conversation(
 
     threads::apply_handoff_metadata(&ctx, &app_handle, &thread, &conversation_id, &plan).await;
 
+    let composer_draft = if let Some(thread_id) = source_thread_id {
+        let prefix = format!(
+            "Continuing work from @thread:{}. If you need specific information about that thread that wasn't provided, use `read_thread` to get it.",
+            thread_id
+        );
+
+        if plan.composer_prompt.trim().is_empty() {
+            prefix
+        } else {
+            format!("{}\n\n{}", prefix, plan.composer_prompt)
+        }
+    } else {
+        plan.composer_prompt
+    };
+
     Ok(HandoffConversationResponse {
         thread_id: thread.id.as_str().to_string(),
         conversation_id: new_conv.conversation_id,
-        composer_draft: plan.composer_prompt,
+        composer_draft,
         title: plan.title,
     })
 }

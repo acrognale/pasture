@@ -180,6 +180,19 @@ function ConversationPaneContent({
     }
   }, [conversationId, getConversationStore]);
 
+  const handleCopyConversationId = useCallback(async () => {
+    const success = await copyToClipboard(conversationId);
+    if (success) {
+      toast.success('Conversation ID copied to clipboard', {
+        description: conversationId,
+      });
+    } else {
+      toast.error('Failed to copy conversation ID', {
+        description: 'Could not write to clipboard',
+      });
+    }
+  }, [conversationId]);
+
   const handleInterrupt = useCallback(() => {
     const queuedText = queuedUserMessages
       .map((message) => message.text)
@@ -218,6 +231,13 @@ function ConversationPaneContent({
   const devActions = useMemo(
     () => [
       {
+        id: 'copy-conversation-id',
+        label: 'Copy conversation ID',
+        onSelect: () => {
+          void handleCopyConversationId();
+        },
+      },
+      {
         id: 'copy-events-jsonl',
         label: 'Copy events JSONL',
         onSelect: () => {
@@ -236,7 +256,13 @@ function ConversationPaneContent({
         },
       },
     ],
-    [handleCopyEventsJsonl, isReplaying, startReplay, stopReplay]
+    [
+      handleCopyConversationId,
+      handleCopyEventsJsonl,
+      isReplaying,
+      startReplay,
+      stopReplay,
+    ]
   );
 
   const closeReviewShortcutOverrides = useMemo(
