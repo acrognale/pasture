@@ -334,6 +334,9 @@ function ConversationPaneContent({
         keys.threads(),
         (state) => {
           const now = new Date().toISOString();
+          const normalizedTitle = title?.trim() || null;
+          const preview =
+            normalizedTitle || goal?.trim() || 'Untitled thread';
           const existingItems = state?.items ?? [];
           const filtered = existingItems.filter(
             (item) => item.threadId !== newThreadId
@@ -343,8 +346,8 @@ function ConversationPaneContent({
             threadId: newThreadId,
             workspacePath,
             currentConversationId: newConversationId,
-            preview: 'Untitled thread',
-            title: null,
+            preview,
+            title: normalizedTitle,
             timestamp: now,
             conversationCount: 1,
           };
