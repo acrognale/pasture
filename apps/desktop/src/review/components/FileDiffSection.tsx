@@ -40,7 +40,7 @@ export function FileDiffSection({
     <div
       ref={registerRef}
       className={cn(
-        'overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm transition-shadow',
+        'scroll-mt-4 overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm transition-shadow',
         isActive ? 'ring-1 ring-primary/60' : ''
       )}
     >

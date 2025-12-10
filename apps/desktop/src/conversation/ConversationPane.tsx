@@ -517,6 +517,7 @@ function ConversationPaneContent({
         workspacePath={workspacePath}
         onRequestFeedback={handleReviewFeedback}
         focusFilePath={reviewFocusFilePath}
+        onFocusFilePathConsumed={() => setReviewFocusFilePath(null)}
       />
     </>
   );

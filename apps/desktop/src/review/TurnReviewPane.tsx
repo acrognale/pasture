@@ -12,6 +12,7 @@ type TurnReviewPaneProps = {
   disabled?: boolean;
   onClose?: () => void;
   focusFilePath?: string | null;
+  onFocusFilePathConsumed?: () => void;
 };
 
 const getInitialViewMode = (): DiffViewMode => {
@@ -27,6 +28,7 @@ export function TurnReviewPane({
   disabled,
   onClose,
   focusFilePath,
+  onFocusFilePathConsumed,
 }: TurnReviewPaneProps) {
   const { comments, selectedDiff } = useTurnReview();
   const commentCount = comments.length;
@@ -114,6 +116,7 @@ export function TurnReviewPane({
         workspacePath={workspacePath}
         viewMode={viewMode}
         focusFilePath={focusFilePath}
+        onFocusFilePathConsumed={onFocusFilePathConsumed}
       />
     </div>
   );

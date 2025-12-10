@@ -21,12 +21,14 @@ export type DiffContentSectionProps = {
   workspacePath: string;
   viewMode: DiffViewMode;
   focusFilePath?: string | null;
+  onFocusFilePathConsumed?: () => void;
 };
 
 export function DiffContentSection({
   workspacePath,
   viewMode,
   focusFilePath,
+  onFocusFilePathConsumed,
 }: DiffContentSectionProps) {
   const {
     conversationId,
@@ -186,12 +188,29 @@ export function DiffContentSection({
     if (!focusFilePath || !diffFiles.length) {
       return;
     }
+
     const target = diffFiles.find((file) => file.displayPath === focusFilePath);
-    if (target && target.id !== selectedFileId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedFileId(target.id);
+    if (target) {
+      if (target.id !== selectedFileId) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSelectedFileId(target.id);
+      } else {
+        // File is already selected, but we still need to scroll to it
+        // Reset lastScrolledFile to allow scrolling to the same file again
+        lastScrolledFile.current = null;
+        scrollToFile(target.id);
+      }
     }
-  }, [diffFiles, focusFilePath, selectedFileId]);
+
+    // Clear the focus path so clicking the same file again will work
+    onFocusFilePathConsumed?.();
+  }, [
+    diffFiles,
+    focusFilePath,
+    onFocusFilePathConsumed,
+    scrollToFile,
+    selectedFileId,
+  ]);
 
   // Scroll to selected file
   useEffect(() => {

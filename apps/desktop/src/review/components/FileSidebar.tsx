@@ -79,10 +79,7 @@ function collapseTree(node: FileTreeNode): FileTreeNode {
 
   // Now check if THIS node should be collapsed with its only child
   // Only collapse if: we have exactly one child, we're not a file, and the child is not a file
-  if (
-    collapsedChildren.size === 1 &&
-    !node.file
-  ) {
+  if (collapsedChildren.size === 1 && !node.file) {
     const [, onlyChild] = [...collapsedChildren][0];
     // Only collapse if the child is a pure directory (no file attached)
     if (!onlyChild.file) {
