@@ -352,9 +352,9 @@ export const MentionPalettePlugin = ({
       return;
     }
     const unregister = editor.registerUpdateListener(({ editorState }) => {
-    if (!isOpenRef.current || closingRef.current) {
-      return;
-    }
+      if (!isOpenRef.current || closingRef.current) {
+        return;
+      }
 
       let nextQuery = '';
       let anchorKey: NodeKey | null = null;
@@ -449,7 +449,7 @@ export const MentionPalettePlugin = ({
     return editor.registerCommand(
       KEY_DOWN_COMMAND,
       (event: KeyboardEvent) => {
-      // Always allow Backspace/Delete to remove an *empty* mention-query pill,
+        // Always allow Backspace/Delete to remove an *empty* mention-query pill,
         // even if the palette UI is not currently open.
         if (event.key === 'Backspace' || event.key === 'Delete') {
           let emptyQueryKey: NodeKey | null = null;

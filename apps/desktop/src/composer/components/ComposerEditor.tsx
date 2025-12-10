@@ -10,8 +10,8 @@ import {
   $getRoot,
   $getSelection,
   $isRangeSelection,
-  type LexicalNode,
   type LexicalEditor,
+  type LexicalNode,
 } from 'lexical';
 import {
   forwardRef,
