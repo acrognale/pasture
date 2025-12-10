@@ -161,6 +161,7 @@ export const MentionPalettePlugin = ({
     }
     const trimmed = query.trim();
     if (!trimmed) return;
+    console.log('[MentionPalette] searching', trimmed);
     let cancelled = false;
     Codex.searchWorkspaceFiles({
       workspacePath,
@@ -275,9 +276,11 @@ export const MentionPalettePlugin = ({
   // Keep refs in sync for stable handlers.
   useEffect(() => {
     isOpenRef.current = isOpen;
+    console.log('[MentionPalette] isOpen', isOpen);
   }, [isOpen]);
   useEffect(() => {
     queryRef.current = query;
+    console.log('[MentionPalette] query', query);
   }, [query]);
   useEffect(() => {
     selectedIndexRef.current = selectedIndex;
@@ -349,34 +352,26 @@ export const MentionPalettePlugin = ({
       return;
     }
     const unregister = editor.registerUpdateListener(({ editorState }) => {
-      if (!isOpenRef.current || closingRef.current) {
-        return;
-      }
+    if (!isOpenRef.current || closingRef.current) {
+      return;
+    }
 
-      let shouldClose = false;
-      let preserveTextOnClose = true;
       let nextQuery = '';
       let anchorKey: NodeKey | null = null;
 
       editorState.read(() => {
         const selection = $getSelection();
         if (!$isRangeSelection(selection)) {
-          shouldClose = true;
-          preserveTextOnClose = true;
           return;
         }
 
         const key = activeQueryNodeKeyRef.current;
         if (!key) {
-          shouldClose = true;
-          preserveTextOnClose = false;
           return;
         }
 
         const queryNode = $getNodeByKey(key);
         if (!$isMentionQueryNode(queryNode)) {
-          shouldClose = true;
-          preserveTextOnClose = false;
           return;
         }
 
@@ -389,20 +384,11 @@ export const MentionPalettePlugin = ({
           }
           current = current.getParent();
         }
-        if (!inside) {
-          shouldClose = true;
-          preserveTextOnClose = true;
-          return;
-        }
+        if (!inside) return;
 
         anchorKey = key;
         nextQuery = queryNode.getTextContent().replace(/^@/, '');
       });
-
-      if (shouldClose) {
-        closePalette(preserveTextOnClose, { selectReplacement: false });
-        return;
-      }
 
       if (nextQuery !== queryRef.current) {
         queryRef.current = nextQuery;
@@ -463,7 +449,7 @@ export const MentionPalettePlugin = ({
     return editor.registerCommand(
       KEY_DOWN_COMMAND,
       (event: KeyboardEvent) => {
-        // Always allow Backspace/Delete to remove an *empty* mention-query pill,
+      // Always allow Backspace/Delete to remove an *empty* mention-query pill,
         // even if the palette UI is not currently open.
         if (event.key === 'Backspace' || event.key === 'Delete') {
           let emptyQueryKey: NodeKey | null = null;
@@ -538,6 +524,7 @@ export const MentionPalettePlugin = ({
         if (event.key !== '@' || shouldIgnoreAtTrigger(event)) {
           return false;
         }
+        console.log('[MentionPalette] @ key pressed');
         event.preventDefault();
         editor.update(() => {
           const queryNode = $createMentionQueryNode();

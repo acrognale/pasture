@@ -1317,10 +1317,10 @@ function applyConversationEvent(
   if (event.type === 'item_started') {
     console.log(
       `[event] ${event.item.type}`,
-      JSON.stringify(event.item).slice(0, 100)
+      safeStringify(event.item).slice(0, 100)
     );
   } else if (!event.type.includes('delta')) {
-    console.log(`[event] ${event.type}`, JSON.stringify(payload).slice(0, 100));
+    console.log(`[event] ${event.type}`, safeStringify(payload).slice(0, 100));
   }
   const turnId = payload.turnId ?? 'unknown-turn';
   const eventId = payload.eventId;
