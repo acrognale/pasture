@@ -77,9 +77,9 @@ pub(crate) fn should_persist_event_msg(ev: &EventMsg) -> bool {
         | EventMsg::ItemCompleted(_)
         | EventMsg::ReadThreadEnd(_)
         | EventMsg::HandoffPlan(_)
-        | EventMsg::TurnAborted(_) => true,
-        EventMsg::Error(_)
-        | EventMsg::Warning(_)
+        | EventMsg::TurnAborted(_)
+        | EventMsg::Error(_) => true,
+        EventMsg::Warning(_)
         | EventMsg::SessionConfigured(_)
         | EventMsg::TaskStarted(_)
         | EventMsg::TaskComplete(_)

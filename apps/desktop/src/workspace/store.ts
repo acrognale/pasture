@@ -1,5 +1,6 @@
 import type { ConversationEventPayload } from '@pasture/protocol';
 import type { QueryClient } from '@tanstack/react-query';
+import { produce } from 'immer';
 import { createStore } from 'zustand/vanilla';
 import type { StoreApi } from 'zustand/vanilla';
 import { Codex } from '~/codex/client';
@@ -179,23 +180,90 @@ export const createWorkspaceStore = (
       const events = sessionConfigured.initial_messages
         ? [...sessionConfigured.initial_messages]
         : [];
+      type BufferedEvent = { event: (typeof events)[number]; index: number };
+      type BufferedTurn = {
+        events: BufferedEvent[];
+        explicitTurnId: string | null;
+        hasUserMessage: boolean;
+      };
+
+      const turns: BufferedTurn[] = [];
+      let current: BufferedTurn | null = null;
+
+      const pushCurrent = () => {
+        if (current && current.events.length > 0) {
+          turns.push(current);
+        }
+        current = null;
+      };
+
       events.forEach((event, index) => {
+        const isUserMessage = event.type === 'user_message';
+
+        if (isUserMessage && current?.hasUserMessage) {
+          pushCurrent();
+          current = null;
+        }
+
+        if (!current) {
+          current = { events: [], explicitTurnId: null, hasUserMessage: false };
+        }
+
+        if (isUserMessage) {
+          current.hasUserMessage = true;
+        }
+
+        if (
+          'turn_id' in event &&
+          typeof event.turn_id === 'string' &&
+          !current.explicitTurnId
+        ) {
+          // User messages define turn boundaries in persisted history. If any
+          // event within this buffered user turn carries a backend turn_id,
+          // adopt the first one so the frontend turn matches Codex history.
+          current.explicitTurnId = event.turn_id;
+        }
+
+        current.events.push({ event, index });
+      });
+
+      pushCurrent();
+
+      turns.forEach((turn, turnIndex) => {
         const turnId =
-          'turn_id' in event && typeof event.turn_id === 'string'
-            ? event.turn_id
-            : `initial::${conversationId}::${index}`;
-        const eventId =
-          (event as { event_id?: string }).event_id ??
-          `${turnId}::${index.toString()}`;
-        store.getState().ingestEvent({
-          conversationId,
-          turnId,
-          eventId,
-          event,
-          timestamp: new Date().toISOString(),
+          turn.explicitTurnId ??
+          `initial::${conversationId}::${turnIndex.toString()}`;
+        turn.events.forEach(({ event, index }) => {
+          const eventId =
+            (event as { event_id?: string }).event_id ??
+            `${turnId}::${index.toString()}`;
+          store.getState().ingestEvent({
+            conversationId,
+            turnId,
+            eventId,
+            event,
+            timestamp: new Date().toISOString(),
+          });
         });
       });
       store.getState().setReasoningSummaryPreference(reasoningSummary);
+
+      // Mark historical turns as completed so the transcript UI can collapse
+      // intermediate cells. Initial messages omit task lifecycle events, so
+      // turns would otherwise remain "active" after replay.
+      store.setState((state) =>
+        produce(state, (draft) => {
+          const transcript = draft.conversation.transcript;
+          transcript.turnOrder.forEach((id) => {
+            const turn = transcript.turns[id];
+            if (turn && turn.status === 'active') {
+              turn.status = 'completed';
+            }
+          });
+          transcript.activeTurnId = null;
+        })
+      );
+
       store.getState().setLoading(false);
       return store;
     };
