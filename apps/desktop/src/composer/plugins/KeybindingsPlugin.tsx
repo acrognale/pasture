@@ -8,12 +8,8 @@ import {
 } from 'lexical';
 import { useEffect } from 'react';
 
-import type { FileMentionNode } from '../components/FileMentionNode';
-import type { SymbolMentionNode } from '../components/SymbolMentionNode';
-import type { ThreadMentionNode } from '../components/ThreadMentionNode';
+import type { MentionNode } from '../components/MentionNode';
 import { isMentionNode } from '../mentions';
-
-type MentionNode = FileMentionNode | SymbolMentionNode | ThreadMentionNode;
 
 type Props = {
   onEscape?: () => boolean;

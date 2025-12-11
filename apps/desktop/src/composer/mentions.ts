@@ -11,22 +11,11 @@ import {
 } from 'lexical';
 
 import {
-  $createFileMentionNode,
-  $isFileMentionNode,
-  type FileMentionNode,
-} from './components/FileMentionNode';
-import {
-  $createSymbolMentionNode,
-  $isSymbolMentionNode,
-  type SymbolMentionNode,
-  formatSymbolLocation,
-} from './components/SymbolMentionNode';
-import {
-  $createThreadMentionNode,
-  $isThreadMentionNode,
-  ThreadMentionNode,
-  type ThreadMentionPayload,
-} from './components/ThreadMentionNode';
+  $createMentionNode,
+  $isMentionNode,
+  MentionNode,
+  type MentionNodePayload,
+} from './components/MentionNode';
 
 export const SLASH_TRIGGER: RegExp = /(^|\s)\/([a-z0-9-]*)$/i;
 export const FILE_MENTION_TEXT_PATTERN: RegExp = /(^|[\s])@([^\s@]*\/[^\s@]+)/g;
@@ -59,10 +48,10 @@ export type ThreadMention = {
 };
 
 export type AnyMention = FileMention | SymbolMention | ThreadMention;
-export type MentionLexicalNode =
-  | FileMentionNode
-  | SymbolMentionNode
-  | ThreadMentionNode;
+export type MentionLexicalNode = MentionNode;
+
+export const formatSymbolLocation = (filePath: string, line: number): string =>
+  `${filePath}:${line}`;
 
 export const buildFileLabel = (path: string): string => {
   const segments = path.split(/[\\/]/);
@@ -71,9 +60,7 @@ export const buildFileLabel = (path: string): string => {
 };
 
 export const isMentionNode = (node: unknown): node is MentionLexicalNode =>
-  $isFileMentionNode(node) ||
-  $isSymbolMentionNode(node) ||
-  $isThreadMentionNode(node);
+  $isMentionNode(node);
 
 export const mentionToStorageText = (mention: AnyMention): string => {
   switch (mention.kind) {
@@ -108,54 +95,57 @@ export const mentionToSendText = (mention: AnyMention): string => {
 };
 
 export const nodeToMention = (node: LexicalNode): AnyMention | null => {
-  if ($isFileMentionNode(node)) {
-    return {
-      kind: 'file',
-      path: node.getPath(),
-      label: node.getLabel(),
-    };
+  if (!$isMentionNode(node)) {
+    return null;
   }
-  if ($isSymbolMentionNode(node)) {
-    return {
-      kind: 'symbol',
-      name: node.getName(),
-      filePath: node.getFilePath(),
-      line: node.getLine(),
-      kindLabel: node.getKind(),
-    };
-  }
-  if ($isThreadMentionNode(node)) {
-    return {
-      kind: 'thread',
-      threadId: node.getThreadId(),
-      label: node.getLabel(),
-    };
-  }
-  return null;
-};
-
-export const createMentionNode = (mention: AnyMention) => {
-  switch (mention.kind) {
+  switch (node.getKind()) {
     case 'file':
-      return $createFileMentionNode({
-        path: mention.path,
-        label: mention.label,
-      });
+      return {
+        kind: 'file',
+        path: node.getPath() ?? '',
+        label: node.getLabel() ?? '',
+      };
     case 'symbol':
-      return $createSymbolMentionNode({
-        name: mention.name,
-        filePath: mention.filePath,
-        line: mention.line,
-        kind: mention.kindLabel,
-      });
+      return {
+        kind: 'symbol',
+        name: node.getName() ?? '',
+        filePath: node.getFilePath() ?? '',
+        line: node.getLine() ?? 0,
+        kindLabel: node.getSymbolKind(),
+      };
     case 'thread':
-      return $createThreadMentionNode({
-        threadId: mention.threadId,
-        label: mention.label,
-      });
+      return {
+        kind: 'thread',
+        threadId: node.getThreadId() ?? '',
+        label: node.getLabel() ?? '',
+      };
     default:
       return null;
   }
+};
+
+export const createMentionNode = (mention: AnyMention) => {
+  const payload: MentionNodePayload =
+    mention.kind === 'file'
+      ? {
+          kind: 'file',
+          path: mention.path,
+          label: mention.label,
+        }
+      : mention.kind === 'symbol'
+        ? {
+            kind: 'symbol',
+            name: mention.name,
+            filePath: mention.filePath,
+            line: mention.line,
+            kindLabel: mention.kindLabel,
+          }
+        : {
+            kind: 'thread',
+            threadId: mention.threadId,
+            label: mention.label,
+          };
+  return $createMentionNode(payload);
 };
 
 export const collectMentions = (editor: LexicalEditor): AnyMention[] => {
@@ -243,21 +233,28 @@ export const appendTextWithMentions = (
         end,
         render: () =>
           paragraph.append(
-            $createFileMentionNode({ path, label: buildFileLabel(path) })
+            $createMentionNode({
+              kind: 'file',
+              path,
+              label: buildFileLabel(path),
+            })
           ),
       };
     }
 
     if (next.type === 'thread') {
       const threadId = next.match[2] ?? '';
-      const payload: ThreadMentionPayload = {
-        threadId,
-        label: threadId,
-      };
       return {
         start,
         end,
-        render: () => paragraph.append($createThreadMentionNode(payload)),
+        render: () =>
+          paragraph.append(
+            $createMentionNode({
+              kind: 'thread',
+              threadId,
+              label: threadId,
+            })
+          ),
       };
     }
 
@@ -271,7 +268,8 @@ export const appendTextWithMentions = (
       end,
       render: () =>
         paragraph.append(
-          $createSymbolMentionNode({
+          $createMentionNode({
+            kind: 'symbol',
             name,
             filePath,
             line: lineValue,
