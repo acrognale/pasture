@@ -7,7 +7,6 @@ import { createTranscriptOverrides } from '../transcriptOverrides';
 const transcript = sampleTranscript as TranscriptState;
 const overrides = createTranscriptOverrides({
   conversationId: 'storybook',
-  workspacePath: '/tmp/workspace',
 });
 
 const meta: Meta<typeof TranscriptView> = {

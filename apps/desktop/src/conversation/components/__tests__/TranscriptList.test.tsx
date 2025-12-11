@@ -19,7 +19,6 @@ describe('TranscriptList', () => {
     const expandedTurns = turnOrder[0] ? { [turnOrder[0]]: true } : {};
     const overrides = createTranscriptOverrides({
       conversationId: 'test-conversation',
-      workspacePath: '/tmp/workspace',
     });
 
     renderWithProviders(
@@ -48,7 +47,6 @@ describe('TranscriptList', () => {
     const state = buildControllerFromFixture('explore-the-code.jsonl');
     const overrides = createTranscriptOverrides({
       conversationId: 'test-conversation',
-      workspacePath: '/tmp/workspace',
     });
 
     renderWithProviders(
@@ -108,7 +106,6 @@ describe('TranscriptList', () => {
     };
     const overrides = createTranscriptOverrides({
       conversationId: 'test-conversation',
-      workspacePath: '/tmp/workspace',
     });
 
     renderWithProviders(

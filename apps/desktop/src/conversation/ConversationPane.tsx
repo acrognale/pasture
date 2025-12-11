@@ -560,11 +560,9 @@ function ConversationPaneContent({
             <ConversationTranscriptSection
               ref={transcriptHandleRef}
               conversationId={conversationId}
-              workspacePath={workspacePath}
               expandedTurns={expandedTurns}
               onToggleTurn={toggleTurn}
               onConversationForked={onConversationForked}
-              onRequestFeedback={handleReviewFeedback}
               onScrollToBottom={handleScrollToBottom}
             />
 
