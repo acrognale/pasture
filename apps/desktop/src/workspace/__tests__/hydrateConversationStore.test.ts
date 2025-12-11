@@ -46,12 +46,14 @@ describe('hydrateConversationStore', () => {
       .getState()
       .actions.loadThread(THREAD_ID, { force: true });
 
-    const conversationId =
-      workspaceStore.getState().actions.getThreadConversationId(THREAD_ID);
+    const conversationId = workspaceStore
+      .getState()
+      .actions.getThreadConversationId(THREAD_ID);
     expect(conversationId).toBe(CONVERSATION_ID);
 
-    const conversationStore =
-      workspaceStore.getState().actions.getConversationStore(conversationId);
+    const conversationStore = workspaceStore
+      .getState()
+      .actions.getConversationStore(conversationId);
     const transcript = conversationStore.getState().conversation.transcript;
 
     expect(transcript.turnOrder).toHaveLength(2);
@@ -123,10 +125,12 @@ describe('hydrateConversationStore', () => {
       .getState()
       .actions.loadThread(THREAD_ID, { force: true });
 
-    const conversationId =
-      workspaceStore.getState().actions.getThreadConversationId(THREAD_ID);
-    const conversationStore =
-      workspaceStore.getState().actions.getConversationStore(conversationId);
+    const conversationId = workspaceStore
+      .getState()
+      .actions.getThreadConversationId(THREAD_ID);
+    const conversationStore = workspaceStore
+      .getState()
+      .actions.getConversationStore(conversationId);
     const transcript = conversationStore.getState().conversation.transcript;
 
     expect(transcript.turnOrder).toHaveLength(1);
