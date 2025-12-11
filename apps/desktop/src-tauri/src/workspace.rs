@@ -72,7 +72,7 @@ pub async fn get_composer_defaults(
 ) -> AppResult<WorkspaceSettings> {
     let mut settings = load_settings(db, path).await?;
     if settings.model.is_none() {
-        settings.model = Some(config.model.clone());
+        settings.model = config.model.clone();
     }
     if settings.reasoning_effort.is_none() {
         settings.reasoning_effort = config.model_reasoning_effort;

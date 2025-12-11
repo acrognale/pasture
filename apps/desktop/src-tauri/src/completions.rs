@@ -9,7 +9,7 @@ use codex_core::auth::CodexAuth;
 use codex_core::config::Config;
 use codex_core::content_items_to_text;
 use codex_core::openai_models::model_family::ModelFamily;
-use codex_core::openai_models::model_family::find_family_for_model;
+use codex_core::openai_models::models_manager::ModelsManager;
 use codex_otel::otel_event_manager::OtelEventManager;
 use codex_protocol::ConversationId;
 use codex_protocol::openai_models::ReasoningEffort;
@@ -29,22 +29,38 @@ pub struct ModelConfig {
 pub async fn generate_text(
     base_config: Arc<Config>,
     auth_manager: Arc<AuthManager>,
+    models_manager: Arc<ModelsManager>,
     conversation_id: ConversationId,
     prompt: &Prompt,
     model_config: Option<ModelConfig>,
 ) -> anyhow::Result<Option<String>> {
     // Clone config so we can safely override the model without mutating runtime state.
     let mut config = base_config.as_ref().clone();
-    if let Some(model_config) = model_config {
-        config.model = model_config.model;
-        config.model_reasoning_effort = model_config.reasoning_effort;
+    let mut model_slug = models_manager.get_model(&config.model, &config).await;
+    if let Some(ModelConfig {
+        model,
+        reasoning_effort,
+    }) = model_config
+    {
+        model_slug = model;
+        config.model = Some(model_slug.clone());
+        config.model_reasoning_effort = reasoning_effort;
+    } else if config.model.is_none() {
+        config.model = Some(model_slug.clone());
     }
-    let model_family = find_family_for_model(&config.model).with_config_overrides(&config);
+    let model_family = models_manager
+        .construct_model_family(&model_slug, &config)
+        .await;
     let config = Arc::new(config);
 
     let auth = auth_manager.auth();
-    let otel_event_manager =
-        build_otel_event_manager(&config, &model_family, auth.clone(), conversation_id);
+    let otel_event_manager = build_otel_event_manager(
+        &config,
+        &model_family,
+        auth.clone(),
+        conversation_id,
+        &model_slug,
+    );
 
     let client = ModelClient::new(
         Arc::clone(&config),
@@ -99,10 +115,11 @@ fn build_otel_event_manager(
     model_family: &ModelFamily,
     auth: Option<CodexAuth>,
     conversation_id: ConversationId,
+    model_slug: &str,
 ) -> OtelEventManager {
     OtelEventManager::new(
         conversation_id,
-        config.model.as_str(),
+        model_slug,
         model_family.slug.as_str(),
         auth.as_ref().and_then(|a| a.get_account_id()),
         auth.as_ref().and_then(|a| a.get_account_email()),

@@ -1,23 +1,26 @@
 import type { ReasoningEffort } from '@pasture/protocol';
 
 export type ModelName =
+  | 'gpt-5.2'
   | 'gpt-5.1'
   | 'gpt-5.1-codex'
   | 'gpt-5.1-codex-max'
   | 'gpt-5.1-codex-mini';
 
-export const MODEL_OPTIONS: ModelName[] = [
+export const MODEL_OPTIONS: readonly ModelName[] = [
   'gpt-5.1',
   'gpt-5.1-codex',
   'gpt-5.1-codex-max',
   'gpt-5.1-codex-mini',
-];
+  'gpt-5.2',
+] as const;
 
 export const MODEL_DISPLAY_NAMES: Record<ModelName, string> = {
   'gpt-5.1': 'GPT-5.1',
   'gpt-5.1-codex': 'GPT-5.1 Codex',
   'gpt-5.1-codex-max': 'GPT-5.1 Codex Max',
   'gpt-5.1-codex-mini': 'GPT-5.1 Codex Mini',
+  'gpt-5.2': 'GPT-5.2',
 };
 
 const MODEL_REASONING_EFFORTS: Record<ModelName, ReasoningEffort[]> = {
@@ -25,6 +28,7 @@ const MODEL_REASONING_EFFORTS: Record<ModelName, ReasoningEffort[]> = {
   'gpt-5.1-codex': ['low', 'medium', 'high'],
   'gpt-5.1-codex-max': ['low', 'medium', 'high', 'xhigh'],
   'gpt-5.1-codex-mini': ['medium', 'high'],
+  'gpt-5.2': ['low', 'medium', 'high', 'xhigh'],
 };
 
 export const REASONING_EFFORT_OPTIONS: readonly ReasoningEffort[] = [

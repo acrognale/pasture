@@ -21,6 +21,7 @@ import {
 
 import {
   MODEL_DISPLAY_NAMES,
+  MODEL_OPTIONS,
   type ModelName,
   getAvailableReasoningEfforts,
   normalizeReasoningEffort,
@@ -106,10 +107,7 @@ const BASE_APPROVAL_WIDTH = 600;
 const REASONING_OFFSET = 65;
 
 const isModelName = (value: string | null | undefined): value is ModelName =>
-  value === 'gpt-5.1' ||
-  value === 'gpt-5.1-codex' ||
-  value === 'gpt-5.1-codex-max' ||
-  value === 'gpt-5.1-codex-mini';
+  value != null && MODEL_OPTIONS.includes(value as ModelName);
 
 const isSandboxMode = (
   value: string | null | undefined
@@ -142,7 +140,7 @@ export function ModelConfigSelector({
     if (isModelName(current)) {
       return current;
     }
-    return 'gpt-5.1-codex-max';
+    return 'gpt-5.2';
   }, [composerConfig.model]);
 
   const availableReasoningEfforts = useMemo(
