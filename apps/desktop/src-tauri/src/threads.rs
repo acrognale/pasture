@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use chrono::Utc;
 use codex_core::NewConversation;
+use codex_core::openai_models::models_manager::ModelsManager;
 use codex_protocol::ConversationId;
 use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::openai_models::ReasoningEffort;
@@ -489,6 +490,7 @@ pub async fn handle_preview_and_title(
     let db = ctx.db().clone();
     let config = ctx.config().clone();
     let auth = ctx.auth();
+    let models_manager = ctx.conversations().get_models_manager();
     let conversation_id = *conversation_id;
     let user_message = trimmed_preview.to_string();
 
@@ -497,6 +499,7 @@ pub async fn handle_preview_and_title(
             &db,
             &config,
             auth,
+            models_manager,
             conversation_id,
             user_message,
             app_handle,
@@ -710,6 +713,7 @@ async fn maybe_generate_thread_title(
     db: &DatabaseConnection,
     config: &codex_core::config::Config,
     auth: std::sync::Arc<codex_core::AuthManager>,
+    models_manager: std::sync::Arc<ModelsManager>,
     conversation_id: ConversationId,
     user_message: String,
     app_handle: AppHandle,
@@ -756,6 +760,7 @@ async fn maybe_generate_thread_title(
     match completions::generate_text(
         std::sync::Arc::new(config.clone()),
         auth,
+        models_manager,
         conversation_id,
         &prompt,
         Some(model),

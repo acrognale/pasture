@@ -29,6 +29,7 @@ import {
   SANDBOX_OPTIONS,
 } from '~/composer/components/ModelConfigSelector';
 import {
+  MODEL_DISPLAY_NAMES,
   MODEL_OPTIONS,
   type ModelName,
   getAvailableReasoningEfforts,
@@ -118,21 +119,11 @@ export function SettingsModal({
   const defaults = data ?? normalizeWorkspaceComposerDefaults(null);
 
   const isModelName = (value: string | null | undefined): value is ModelName =>
-    value === 'gpt-5.1' ||
-    value === 'gpt-5.1-codex' ||
-    value === 'gpt-5.1-codex-max' ||
-    value === 'gpt-5.1-codex-mini';
+    value != null && MODEL_OPTIONS.includes(value as ModelName);
 
   const selectedModel: ModelName = isModelName(defaults.model)
     ? defaults.model
-    : 'gpt-5.1-codex-max';
-
-  const modelDisplayMap: Record<ModelName, string> = {
-    'gpt-5.1': 'GPT-5.1',
-    'gpt-5.1-codex': 'GPT-5.1 Codex',
-    'gpt-5.1-codex-max': 'GPT-5.1 Codex Max',
-    'gpt-5.1-codex-mini': 'GPT-5.1 Codex Mini',
-  };
+    : 'gpt-5.2';
 
   const availableReasoningEfforts = getAvailableReasoningEfforts(selectedModel);
 
@@ -286,7 +277,7 @@ export function SettingsModal({
                       'Default model',
                       selectedModel,
                       MODEL_OPTIONS,
-                      modelDisplayMap,
+                      MODEL_DISPLAY_NAMES,
                       handleModelDefaultChange
                     )}
                     {renderDropdown(

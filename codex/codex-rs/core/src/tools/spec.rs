@@ -155,7 +155,8 @@ fn create_exec_command_tool() -> ToolSpec {
         "login".to_string(),
         JsonSchema::Boolean {
             description: Some(
-                "Whether to run the shell with -l/-i semantics. Defaults to true.".to_string(),
+                "Whether to run the shell with -l/-i semantics. Defaults to false unless a shell snapshot is available."
+                    .to_string(),
             ),
         },
     );
@@ -176,10 +177,10 @@ fn create_exec_command_tool() -> ToolSpec {
         },
     );
     properties.insert(
-        "with_escalated_permissions".to_string(),
-        JsonSchema::Boolean {
+        "sandbox_permissions".to_string(),
+        JsonSchema::String {
             description: Some(
-                "Whether to request escalated permissions. Set to true if command needs to be run without sandbox restrictions"
+                "Sandbox permissions for the command. Set to \"require_escalated\" to request running without sandbox restrictions; defaults to \"use_default\"."
                     .to_string(),
             ),
         },
@@ -188,7 +189,7 @@ fn create_exec_command_tool() -> ToolSpec {
         "justification".to_string(),
         JsonSchema::String {
             description: Some(
-                "Only set if with_escalated_permissions is true. 1-sentence explanation of why we want to run this command."
+                "Only set if sandbox_permissions is \"require_escalated\". 1-sentence explanation of why we want to run this command."
                     .to_string(),
             ),
         },
@@ -276,15 +277,15 @@ fn create_shell_tool() -> ToolSpec {
     );
 
     properties.insert(
-        "with_escalated_permissions".to_string(),
-        JsonSchema::Boolean {
-            description: Some("Whether to request escalated permissions. Set to true if command needs to be run without sandbox restrictions".to_string()),
+        "sandbox_permissions".to_string(),
+        JsonSchema::String {
+            description: Some("Sandbox permissions for the command. Set to \"require_escalated\" to request running without sandbox restrictions; defaults to \"use_default\".".to_string()),
         },
     );
     properties.insert(
         "justification".to_string(),
         JsonSchema::String {
-            description: Some("Only set if with_escalated_permissions is true. 1-sentence explanation of why we want to run this command.".to_string()),
+            description: Some("Only set if sandbox_permissions is \"require_escalated\". 1-sentence explanation of why we want to run this command.".to_string()),
         },
     );
 
@@ -337,7 +338,7 @@ fn create_shell_command_tool() -> ToolSpec {
         "login".to_string(),
         JsonSchema::Boolean {
             description: Some(
-                "Whether to run the shell with login shell semantics. Defaults to true."
+                "Whether to run the shell with login shell semantics. Defaults to false unless a shell snapshot is available."
                     .to_string(),
             ),
         },
@@ -349,15 +350,15 @@ fn create_shell_command_tool() -> ToolSpec {
         },
     );
     properties.insert(
-        "with_escalated_permissions".to_string(),
-        JsonSchema::Boolean {
-            description: Some("Whether to request escalated permissions. Set to true if command needs to be run without sandbox restrictions".to_string()),
+        "sandbox_permissions".to_string(),
+        JsonSchema::String {
+            description: Some("Sandbox permissions for the command. Set to \"require_escalated\" to request running without sandbox restrictions; defaults to \"use_default\".".to_string()),
         },
     );
     properties.insert(
         "justification".to_string(),
         JsonSchema::String {
-            description: Some("Only set if with_escalated_permissions is true. 1-sentence explanation of why we want to run this command.".to_string()),
+            description: Some("Only set if sandbox_permissions is \"require_escalated\". 1-sentence explanation of why we want to run this command.".to_string()),
         },
     );
 
