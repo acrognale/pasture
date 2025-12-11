@@ -5,7 +5,10 @@ import { sampleTranscript } from '../../__stories__/mocks/data';
 import { createTranscriptOverrides } from '../transcriptOverrides';
 
 const transcript = sampleTranscript as TranscriptState;
-const overrides = createTranscriptOverrides({ conversationId: 'storybook' });
+const overrides = createTranscriptOverrides({
+  conversationId: 'storybook',
+  workspacePath: '/tmp/workspace',
+});
 
 const meta: Meta<typeof TranscriptView> = {
   title: 'Components/Conversation/TranscriptView',
