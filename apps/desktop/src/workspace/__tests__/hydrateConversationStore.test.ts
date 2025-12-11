@@ -137,6 +137,6 @@ describe('hydrateConversationStore', () => {
     expect(transcript.turnOrder[0]).toBe('turn-backend-1');
     expect(
       transcript.turns['turn-backend-1']?.cells.map((cell) => cell.kind)
-    ).toEqual(['user-message', 'exec', 'exec', 'agent-message']);
+    ).toEqual(['user-message', 'exec', 'agent-message']);
   });
 });
