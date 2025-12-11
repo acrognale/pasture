@@ -173,11 +173,6 @@ export const ComposerEditor = forwardRef<
           !event.ctrlKey &&
           event.key.length === 1
         ) {
-          if (event.key === '@') {
-            // Let the mention palette create the query node without interference.
-            return;
-          }
-
           if (insideMentionQuery && editor) {
             event.preventDefault();
             editor.update(() => {
@@ -187,6 +182,18 @@ export const ComposerEditor = forwardRef<
               }
             });
             syncValueFromEditor();
+            return;
+          }
+
+          if (event.key === '@') {
+            const next = `${valueRef.current}@`;
+            setCurrentValue(next);
+            if (editor) {
+              updateRootText(editor, next);
+              editor.update(() => {
+                $getRoot().selectEnd();
+              });
+            }
             return;
           }
 

@@ -58,7 +58,7 @@ export function RangeSelector({
   }
 
   return (
-    <div className="mt-4 flex flex-wrap items-start gap-6">
+    <div className="flex flex-wrap items-start gap-6">
       <div className="flex flex-col gap-1">
         <span className="text-transcript-micro font-semibold uppercase tracking-wide text-muted-foreground">
           Base

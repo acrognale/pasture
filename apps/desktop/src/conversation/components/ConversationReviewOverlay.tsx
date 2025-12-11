@@ -1,5 +1,4 @@
 import { Suspense, lazy, useEffect } from 'react';
-import { Dialog, DialogContent } from '~/components/ui/dialog';
 import { Skeleton } from '~/components/ui/skeleton';
 
 import {
@@ -47,15 +46,12 @@ export function ConversationReviewOverlay({
   }, [hasHistory, open, onClose]);
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent
-        className="max-w-[98vw]! w-[98vw]! h-[90vh]! max-h-[90vh]! p-0! gap-0! overflow-hidden flex! flex-col! antialiased"
-        showCloseButton={false}
-      >
+    <>
+      {open && hasHistory ? (
         <Suspense
           fallback={
-            <div className="flex items-center justify-center w-full h-full">
-              <div className="space-y-4 w-full max-w-2xl p-6">
+            <div className="flex h-full w-full items-center justify-center">
+              <div className="w-full max-w-2xl space-y-4 p-6">
                 <Skeleton className="h-8 w-48" />
                 <Skeleton className="h-64 w-full" />
                 <Skeleton className="h-64 w-full" />
@@ -77,7 +73,7 @@ export function ConversationReviewOverlay({
             />
           </TurnReviewProvider>
         </Suspense>
-      </DialogContent>
-    </Dialog>
+      ) : null}
+    </>
   );
 }

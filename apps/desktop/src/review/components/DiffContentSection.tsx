@@ -4,18 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { DraftCommentProvider } from '../DraftCommentContext';
 import { useTurnReview } from '../TurnReviewContext';
-import {
-  buildFileDiffStats,
-  groupCommentsByFile,
-  groupCommentsByLine,
-  parseUnifiedDiff,
-} from '../diff';
+import { groupCommentsByLine, parseUnifiedDiff } from '../diff';
 import { useTurnDiffRange, useTurnSnapshots } from '../queries';
 import type { ParsedTurnDiff } from '../types';
 import { EmptyReviewState } from './EmptyReviewState';
 import type { DiffViewMode } from './FileDiffSection';
 import { FileDiffSection } from './FileDiffSection';
-import { FileSidebar } from './FileSidebar';
 
 export type DiffContentSectionProps = {
   workspacePath: string;
@@ -96,16 +90,8 @@ export function DiffContentSection({
   const diffFiles = useMemo(() => parsedDiff?.files ?? [], [parsedDiff]);
 
   // Computed values
-  const fileDiffStats = useMemo(
-    () => buildFileDiffStats(diffFiles),
-    [diffFiles]
-  );
   const commentsByLine = useMemo(
     () => groupCommentsByLine(comments),
-    [comments]
-  );
-  const commentsByFile = useMemo(
-    () => groupCommentsByFile(comments),
     [comments]
   );
 
@@ -140,23 +126,6 @@ export function DiffContentSection({
       node.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }, []);
-
-  const handleFileSelect = useCallback(
-    (fileId: string) => {
-      if (selectedFileId !== fileId) {
-        setSelectedFileId(fileId);
-      }
-      requestAnimationFrame(() => {
-        const node = fileRefs.current.get(fileId);
-        if (!node) {
-          return;
-        }
-        lastScrolledFile.current = fileId;
-        node.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    },
-    [selectedFileId]
-  );
 
   // Reset scroll tracking when range changes
   useEffect(() => {
@@ -221,14 +190,6 @@ export function DiffContentSection({
 
   return (
     <div className="flex min-h-0 flex-1">
-      <FileSidebar
-        workspacePath={workspacePath}
-        files={diffFiles}
-        selectedFileId={selectedFileId}
-        fileDiffStats={fileDiffStats}
-        commentsByFile={commentsByFile}
-        onFileSelect={handleFileSelect}
-      />
       {showPane ? (
         <DraftCommentProvider>
           <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">

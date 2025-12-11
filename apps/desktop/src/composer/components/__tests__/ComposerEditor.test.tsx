@@ -66,7 +66,7 @@ describe('ComposerEditor', () => {
     await user.click(textbox);
     await user.type(textbox, '@ma');
 
-    const option = await screen.findByRole('button', {
+    const option = await screen.findByRole('option', {
       name: /src\/main\.ts/i,
     });
     await user.click(option);

@@ -101,6 +101,16 @@ export const useConversationHasTurnDiffHistory = (
     (state) => state.conversation.transcript.turnDiffHistory.length > 0
   );
 
+export const useConversationTurnDiffByNumber = (
+  conversationId: string | null,
+  turnNumber: number
+) =>
+  useConversationSelector(conversationId, (state) =>
+    state.conversation.transcript.turnDiffHistory.find(
+      (d) => d.turnNumber === turnNumber
+    )
+  );
+
 export const useConversationQueuedMessages = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,
