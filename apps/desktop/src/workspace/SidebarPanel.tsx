@@ -303,7 +303,7 @@ export function SidebarPanel({
 
   return (
     <div className="flex h-full min-w-0 flex-col">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card/60">
+       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card/60 overflow-y-auto">
         <SidebarGroup className="px-2 py-2">
           <SidebarGroupLabel className="flex w-full items-center gap-2">
             <span>Threads</span>
