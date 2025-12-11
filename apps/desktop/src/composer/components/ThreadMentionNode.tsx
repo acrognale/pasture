@@ -22,7 +22,7 @@ export type SerializedThreadMentionNode = Spread<
 
 const ThreadMention = ({ label, threadId }: ThreadMentionPayload) => (
   <span
-    className="inline-flex items-center gap-1 rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-transcript-micro leading-transcript font-semibold whitespace-nowrap"
+    className="inline-flex items-center gap-1 rounded-full bg-muted text-foreground border border-border px-2 py-0.5 text-transcript-base leading-none font-semibold whitespace-nowrap"
     title={threadId}
   >
     Thread: {label}
