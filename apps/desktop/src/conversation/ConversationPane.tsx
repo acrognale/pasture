@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
+import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -79,6 +80,8 @@ function ConversationPaneContent({
   const [reviewFocusFilePath, setReviewFocusFilePath] = useState<string | null>(
     null
   );
+  const splitContainerRef = useRef<HTMLDivElement | null>(null);
+  const [reviewPanelWidth, setReviewPanelWidth] = useState<number | null>(null);
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const expandedTurns = expandedTurnsByConversation[conversationId] ?? {};
   const isTurnActive = useConversationIsRunning(conversationId);
@@ -318,6 +321,60 @@ function ConversationPaneContent({
     handleToggleCommandMenuShortcut
   );
 
+  useEffect(() => {
+    if (!isReviewOpen || reviewPanelWidth !== null) {
+      return;
+    }
+    const container = splitContainerRef.current;
+    if (!container) {
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    if (!rect.width) {
+      return;
+    }
+    setReviewPanelWidth(rect.width * 0.4);
+  }, [isReviewOpen, reviewPanelWidth]);
+
+  const handleResizeReviewPanelStart = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const container = splitContainerRef.current;
+        if (!container) {
+          return;
+        }
+        const rect = container.getBoundingClientRect();
+        if (!rect.width) {
+          return;
+        }
+        const proposedWidth = moveEvent.clientX - rect.left;
+        if (proposedWidth <= 0) {
+          return;
+        }
+
+        const minWidth = 320;
+        const maxWidth = rect.width - 320;
+        const clampedWidth = Math.max(
+          minWidth,
+          Math.min(proposedWidth, Math.max(minWidth, maxWidth))
+        );
+
+        setReviewPanelWidth(clampedWidth);
+      };
+
+      const handleMouseUp = () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    },
+    []
+  );
+
   const handleHandoffComplete = useCallback(
     (result: HandoffCommandResult) => {
       const {
@@ -457,45 +514,87 @@ function ConversationPaneContent({
 
   return (
     <>
-      <div className="flex flex-1 flex-col h-full overflow-hidden relative">
+      <div className="flex h-full flex-1 flex-col overflow-hidden relative">
         <ConversationPaneHeader />
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
-          <ConversationTranscriptSection
-            ref={transcriptHandleRef}
-            conversationId={conversationId}
-            expandedTurns={expandedTurns}
-            onToggleTurn={toggleTurn}
-            onConversationForked={onConversationForked}
-            onScrollToBottom={handleScrollToBottom}
-          />
-
-          <div className="shrink-0 bg-background px-4 pb-4 space-y-3">
-            <StatusIndicator
+        <div
+          ref={splitContainerRef}
+          className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative"
+        >
+          {isReviewOpen && hasReviewHistory ? (
+            <>
+              <div
+                className="flex h-[60vh] w-full shrink-0 border-t border-border/60 bg-card lg:h-full lg:min-w-[320px] lg:border-r lg:border-t-0"
+                style={
+                  reviewPanelWidth !== null
+                    ? { width: `${reviewPanelWidth}px` }
+                    : undefined
+                }
+              >
+                <ConversationReviewOverlay
+                  conversationId={conversationId}
+                  open={isReviewOpen}
+                  hasHistory={hasReviewHistory}
+                  onClose={() => {
+                    setIsReviewOpen(false);
+                    setReviewFocusFilePath(null);
+                  }}
+                  workspacePath={workspacePath}
+                  onRequestFeedback={handleReviewFeedback}
+                  focusFilePath={reviewFocusFilePath}
+                  onFocusFilePathConsumed={() => setReviewFocusFilePath(null)}
+                />
+              </div>
+              <div
+                className="flex w-2 cursor-col-resize items-stretch justify-center bg-transparent"
+                onMouseDown={handleResizeReviewPanelStart}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize review panel"
+              >
+                <div className="h-full w-px bg-border/60" />
+              </div>
+            </>
+          ) : null}
+          <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
+            <ConversationTranscriptSection
+              ref={transcriptHandleRef}
               conversationId={conversationId}
-              running={handoffStatus.running}
-              startedAt={handoffStatus.startedAt}
-              header={handoffStatus.header}
-              onInterrupt={handleInterrupt}
-            />
-            <ConversationCommentFeedbackFooter
-              comments={pendingComments}
-              onInsertFeedback={handleInsertMessageCommentsFeedback}
-            />
-            <ComposerBar
               workspacePath={workspacePath}
-              conversationId={conversationId}
-              isTurnActive={isTurnActive}
-              interruptPending={interruptPending}
-              stopButtonId="interrupt-conversation-button"
-              onInterrupt={handleInterrupt}
+              expandedTurns={expandedTurns}
+              onToggleTurn={toggleTurn}
+              onConversationForked={onConversationForked}
+              onRequestFeedback={handleReviewFeedback}
               onScrollToBottom={handleScrollToBottom}
-              onComposerReady={(controls) => {
-                setComposerControls(controls);
-              }}
-              onHandoffComplete={handleHandoffComplete}
-              onHandoffStatusChange={handleHandoffStatusChange}
             />
+
+            <div className="shrink-0 bg-background px-4 pb-4 space-y-3">
+              <StatusIndicator
+                conversationId={conversationId}
+                running={handoffStatus.running}
+                startedAt={handoffStatus.startedAt}
+                header={handoffStatus.header}
+                onInterrupt={handleInterrupt}
+              />
+              <ConversationCommentFeedbackFooter
+                comments={pendingComments}
+                onInsertFeedback={handleInsertMessageCommentsFeedback}
+              />
+              <ComposerBar
+                workspacePath={workspacePath}
+                conversationId={conversationId}
+                isTurnActive={isTurnActive}
+                interruptPending={interruptPending}
+                stopButtonId="interrupt-conversation-button"
+                onInterrupt={handleInterrupt}
+                onScrollToBottom={handleScrollToBottom}
+                onComposerReady={(controls) => {
+                  setComposerControls(controls);
+                }}
+                onHandoffComplete={handleHandoffComplete}
+                onHandoffStatusChange={handleHandoffStatusChange}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -504,20 +603,6 @@ function ConversationPaneContent({
         open={isCommandMenuOpen}
         onOpenChange={setIsCommandMenuOpen}
         actions={devActions}
-      />
-
-      <ConversationReviewOverlay
-        conversationId={conversationId}
-        open={isReviewOpen}
-        hasHistory={hasReviewHistory}
-        onClose={() => {
-          setIsReviewOpen(false);
-          setReviewFocusFilePath(null);
-        }}
-        workspacePath={workspacePath}
-        onRequestFeedback={handleReviewFeedback}
-        focusFilePath={reviewFocusFilePath}
-        onFocusFilePathConsumed={() => setReviewFocusFilePath(null)}
       />
     </>
   );

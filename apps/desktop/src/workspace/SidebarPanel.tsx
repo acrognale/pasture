@@ -303,7 +303,7 @@ export function SidebarPanel({
 
   return (
     <div className="flex h-full min-w-0 flex-col">
-      <ScrollArea className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-card/60">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card/60">
         <SidebarGroup className="px-2 py-2">
           <SidebarGroupLabel className="flex w-full items-center gap-2">
             <span>Threads</span>
@@ -373,7 +373,7 @@ export function SidebarPanel({
           </SidebarGroupContent>
         </SidebarGroup>
         {activeConversationId ? (
-          <SidebarGroup className="px-2 py-2">
+          <SidebarGroup className="flex min-h-0 flex-1 flex-col pl-2 pr-0 py-2">
             <SidebarGroupLabel className="flex w-full items-center justify-between gap-2">
               <span className="flex items-center gap-2">
                 <span>Changes</span>
@@ -396,21 +396,26 @@ export function SidebarPanel({
               ) : null}
             </SidebarGroupLabel>
             {!isChangesCollapsed ? (
-              <SidebarGroupContent className="mt-2">
-                <ChangesSidebarContent
-                  files={processedFiles}
-                  onFileClick={(file) => {
-                    dispatchOpenReviewOverlayEvent(
-                      activeConversationId,
-                      file.displayPath
-                    );
-                  }}
-                />
+              <SidebarGroupContent className="mt-2 min-h-0 flex-1">
+                <ScrollArea
+                  className="h-full overflow-x-hidden"
+                  scrollbarClassName="w-1.5"
+                >
+                  <ChangesSidebarContent
+                    files={processedFiles}
+                    onFileClick={(file) => {
+                      dispatchOpenReviewOverlayEvent(
+                        activeConversationId,
+                        file.displayPath
+                      );
+                    }}
+                  />
+                </ScrollArea>
               </SidebarGroupContent>
             ) : null}
           </SidebarGroup>
         ) : null}
-      </ScrollArea>
+      </div>
       <div className="border-t border-border/60 px-3 py-2 flex justify-end">
         <Tooltip>
           <TooltipTrigger asChild>

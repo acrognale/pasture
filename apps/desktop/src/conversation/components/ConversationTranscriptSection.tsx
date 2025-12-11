@@ -25,9 +25,11 @@ export type ConversationTranscriptHandle = {
 
 export type ConversationTranscriptSectionProps = {
   conversationId: string;
+  workspacePath: string;
   expandedTurns: Record<string, boolean>;
   onToggleTurn: (turnId: string) => void;
   onConversationForked?: (conversationId: string) => void;
+  onRequestFeedback?: (prompt: string) => void;
   onAtBottomChange?: (atBottom: boolean) => void;
   onScrollToBottom: () => void;
 };
@@ -39,9 +41,11 @@ export const ConversationTranscriptSection = forwardRef<
   (
     {
       conversationId,
+      workspacePath,
       expandedTurns,
       onToggleTurn,
       onConversationForked,
+      onRequestFeedback,
       onAtBottomChange,
       onScrollToBottom,
     },
@@ -58,9 +62,11 @@ export const ConversationTranscriptSection = forwardRef<
       () =>
         createTranscriptOverrides({
           conversationId,
+          workspacePath,
           onConversationForked,
+          onRequestFeedback,
         }),
-      [conversationId, onConversationForked]
+      [conversationId, workspacePath, onConversationForked, onRequestFeedback]
     );
     const countCells = (order: string[], lookup: typeof turns) =>
       order.reduce((sum, turnId) => {

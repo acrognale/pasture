@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useTurnReview } from './TurnReviewContext';
 import { DiffContentSection } from './components/DiffContentSection';
@@ -15,12 +15,7 @@ type TurnReviewPaneProps = {
   onFocusFilePathConsumed?: () => void;
 };
 
-const getInitialViewMode = (): DiffViewMode => {
-  if (typeof window === 'undefined') {
-    return 'split';
-  }
-  return window.innerWidth < 1220 ? 'unified' : 'split';
-};
+const MIN_SPLIT_WIDTH = 900;
 
 export function TurnReviewPane({
   workspacePath,
@@ -33,28 +28,41 @@ export function TurnReviewPane({
   const { comments, selectedDiff } = useTurnReview();
   const commentCount = comments.length;
 
-  const [viewMode, setViewMode] = useState<DiffViewMode>(getInitialViewMode);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [viewMode, setViewMode] = useState<DiffViewMode>('split');
   const [userSetViewMode, setUserSetViewMode] = useState(false);
 
-  // Auto-toggle view mode on resize (unless user manually set it)
+  // Auto-toggle view mode based on pane width (unless user manually set it)
   useEffect(() => {
     if (userSetViewMode) {
       return;
     }
 
-    const handleResize = () => {
-      const shouldBeUnified = window.innerWidth < 1220;
-      const newMode: DiffViewMode = shouldBeUnified ? 'unified' : 'split';
-      if (newMode !== viewMode) {
-        setViewMode(newMode);
-      }
-    };
+    const node = containerRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') {
+      return;
+    }
 
-    window.addEventListener('resize', handleResize);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) {
+        return;
+      }
+      const width = entry.contentRect.width;
+      if (!width) {
+        return;
+      }
+      const shouldBeUnified = width < MIN_SPLIT_WIDTH;
+      const nextMode: DiffViewMode = shouldBeUnified ? 'unified' : 'split';
+      setViewMode((current) => (userSetViewMode ? current : nextMode));
+    });
+
+    observer.observe(node);
+
     return () => {
-      window.removeEventListener('resize', handleResize);
+      observer.disconnect();
     };
-  }, [userSetViewMode, viewMode]);
+  }, [userSetViewMode]);
 
   const handleViewModeChange = (mode: DiffViewMode) => {
     setViewMode(mode);
@@ -91,7 +99,10 @@ export function TurnReviewPane({
   const turnNumber = selectedDiff?.turnNumber;
 
   return (
-    <div className="flex h-full w-full flex-col bg-background text-foreground text-transcript-code leading-transcript-code">
+    <div
+      ref={containerRef}
+      className="flex h-full w-full flex-col bg-background text-foreground text-transcript-code leading-transcript-code"
+    >
       <div className="border-b border-border/60 px-6 py-4">
         <TurnReviewHeader
           showPane={true}
@@ -109,8 +120,8 @@ export function TurnReviewPane({
             onClose?.();
           }}
           onClose={onClose}
+          rangeSelector={<RangeSelectorSection />}
         />
-        <RangeSelectorSection />
       </div>
       <DiffContentSection
         workspacePath={workspacePath}

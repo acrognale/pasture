@@ -13,6 +13,7 @@ export type TurnReviewHeaderProps = {
   disabled?: boolean;
   onGiveFeedback: () => void;
   onClose?: () => void;
+  rangeSelector?: React.ReactNode;
 };
 
 export function TurnReviewHeader({
@@ -25,27 +26,31 @@ export function TurnReviewHeader({
   disabled,
   onGiveFeedback,
   onClose,
+  rangeSelector,
 }: TurnReviewHeaderProps) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <p className="text-sm font-semibold">Review</p>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          {showPane ? (
-            <>
-              <span>
-                {commentCount} comment{commentCount === 1 ? '' : 's'}
-              </span>
-              {turnNumber !== undefined ? (
-                <span className="text-muted-foreground/70">
-                  Turn {turnNumber}
+      <div className="flex flex-wrap items-center gap-6">
+        <div>
+          <p className="text-sm font-semibold">Review</p>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {showPane ? (
+              <>
+                <span>
+                  {commentCount} comment{commentCount === 1 ? '' : 's'}
                 </span>
-              ) : null}
-            </>
-          ) : (
-            <span>No diff available</span>
-          )}
+                {turnNumber !== undefined ? (
+                  <span className="text-muted-foreground/70">
+                    Turn {turnNumber}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <span>No diff available</span>
+            )}
+          </div>
         </div>
+        {rangeSelector}
       </div>
       <div className="flex items-center gap-2">
         <div className="inline-flex rounded-md border border-border/60 bg-muted/40 p-0.5">

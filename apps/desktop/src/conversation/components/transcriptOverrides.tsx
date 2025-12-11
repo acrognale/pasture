@@ -18,7 +18,9 @@ import { UserMessageContainer } from './UserMessageContainer';
 
 type CreateTranscriptOverridesOptions = {
   conversationId: string;
+  workspacePath: string;
   onConversationForked?: (conversationId: string) => void;
+  onRequestFeedback?: (prompt: string) => void;
 };
 
 const renderGenericCell = (cell: TranscriptGenericCell) => (
@@ -35,7 +37,9 @@ const renderToolCell = (cell: TranscriptToolCell) => <Tools cell={cell} />;
 
 export const createTranscriptOverrides = ({
   conversationId,
+  workspacePath,
   onConversationForked,
+  onRequestFeedback,
 }: CreateTranscriptOverridesOptions): TranscriptViewOverrides => ({
   'user-message': ({ cell, context }) => (
     <UserMessageContainer
@@ -52,8 +56,24 @@ export const createTranscriptOverrides = ({
     />
   ),
   'exec-approval': ({ cell }) => <ExecutionApprovalContainer cell={cell} />,
-  patch: ({ cell }) => <PatchesContainer cell={cell} />,
-  'patch-approval': ({ cell }) => <PatchesContainer cell={cell} />,
+  patch: ({ cell, context }) => (
+    <PatchesContainer
+      cell={cell}
+      conversationId={conversationId}
+      workspacePath={workspacePath}
+      turnId={context.turnId}
+      onRequestFeedback={onRequestFeedback}
+    />
+  ),
+  'patch-approval': ({ cell, context }) => (
+    <PatchesContainer
+      cell={cell}
+      conversationId={conversationId}
+      workspacePath={workspacePath}
+      turnId={context.turnId}
+      onRequestFeedback={onRequestFeedback}
+    />
+  ),
   tool: ({ cell }) => renderToolCell(cell),
   generic: ({ cell }) => renderGenericCell(cell),
   handoff: ({ cell }) => <HandoffCell cell={cell as TranscriptHandoffCell} />,
