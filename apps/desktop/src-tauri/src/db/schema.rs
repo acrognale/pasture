@@ -83,6 +83,9 @@ pub mod threads {
         pub sandbox: Option<String>,
         pub approval: Option<String>,
         pub web_search_enabled: Option<String>,
+        pub git_repo_root: Option<String>,
+        pub git_head_sha: Option<String>,
+        pub git_head_ref: Option<String>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -23,6 +23,9 @@ use sea_orm::TransactionTrait;
 use serde_json;
 use tauri::AppHandle;
 use tauri::Emitter;
+use tokio::process::Command;
+use tokio::time::Duration;
+use tokio::time::timeout;
 use uuid::Uuid;
 
 use crate::codex_config::NewThreadOptions;
@@ -63,6 +66,54 @@ pub struct ForkConversationResult {
     pub thread: Thread,
     pub conversation: NewConversation,
     pub reasoning_summary: ReasoningSummary,
+}
+
+#[derive(Debug, Clone, Default)]
+struct GitThreadAnchor {
+    repo_root: Option<String>,
+    head_sha: Option<String>,
+    head_ref: Option<String>,
+}
+
+async fn capture_git_thread_anchor(workspace_path: &Path) -> GitThreadAnchor {
+    const TIMEOUT: Duration = Duration::from_millis(750);
+
+    async fn git_stdout(dir: &Path, args: &[&str]) -> Option<String> {
+        let output = timeout(
+            TIMEOUT,
+            Command::new("git").current_dir(dir).args(args).output(),
+        )
+        .await
+        .ok()?
+        .ok()?;
+
+        if !output.status.success() {
+            return None;
+        }
+
+        let stdout = String::from_utf8(output.stdout).ok()?;
+        let trimmed = stdout.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    }
+
+    let repo_root = git_stdout(workspace_path, &["rev-parse", "--show-toplevel"]).await;
+    if repo_root.is_none() {
+        return GitThreadAnchor::default();
+    }
+
+    let head_sha = git_stdout(workspace_path, &["rev-parse", "--verify", "HEAD"]).await;
+
+    let head_ref = git_stdout(workspace_path, &["symbolic-ref", "--short", "-q", "HEAD"]).await;
+
+    GitThreadAnchor {
+        repo_root,
+        head_sha,
+        head_ref,
+    }
 }
 
 // ============================================================
@@ -272,6 +323,7 @@ pub async fn create(
     let timestamp = Utc::now().to_rfc3339();
     let thread_id = ThreadId(Uuid::new_v4().to_string());
     let conversation_id = new_conv.conversation_id;
+    let git_anchor = capture_git_thread_anchor(Path::new(ctx.path.as_str())).await;
 
     let conversation = Conversation {
         id: conversation_id,
@@ -299,6 +351,9 @@ pub async fn create(
         sandbox: settings.sandbox,
         approval: settings.approval.clone(),
         web_search_enabled: settings.web_search_enabled,
+        git_repo_root: git_anchor.repo_root,
+        git_head_sha: git_anchor.head_sha,
+        git_head_ref: git_anchor.head_ref,
         created_at: timestamp.clone(),
         updated_at: timestamp,
         workspace_path: ctx.path.clone(),
@@ -1075,6 +1130,9 @@ fn encode_thread(
             sandbox: Set(serialize_json_option(&thread.sandbox)),
             approval: Set(serialize_json_option(&thread.approval)),
             web_search_enabled: Set(serialize_json_option(&thread.web_search_enabled)),
+            git_repo_root: Set(thread.git_repo_root.clone()),
+            git_head_sha: Set(thread.git_head_sha.clone()),
+            git_head_ref: Set(thread.git_head_ref.clone()),
         },
     };
 
@@ -1090,6 +1148,9 @@ fn encode_thread(
     active.sandbox = Set(serialize_json_option(&thread.sandbox));
     active.approval = Set(serialize_json_option(&thread.approval));
     active.web_search_enabled = Set(serialize_json_option(&thread.web_search_enabled));
+    active.git_repo_root = Set(thread.git_repo_root.clone());
+    active.git_head_sha = Set(thread.git_head_sha.clone());
+    active.git_head_ref = Set(thread.git_head_ref.clone());
 
     active
 }
@@ -1159,6 +1220,9 @@ fn decode_thread(
         sandbox: parse_json_option(thread.sandbox),
         approval: parse_json_option(thread.approval),
         web_search_enabled: parse_json_option(thread.web_search_enabled),
+        git_repo_root: thread.git_repo_root,
+        git_head_sha: thread.git_head_sha,
+        git_head_ref: thread.git_head_ref,
         created_at: thread.created_at,
         updated_at: thread.updated_at,
         workspace_path,
