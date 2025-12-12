@@ -18,7 +18,7 @@
 
 ## Overview
 
-Pasture is a GUI client built on top of OpenAI's [codex](https://github.com/openai/codex) agent harness.
+Pasture is a GUI for Codex built for developers who want more control than a TUI. Branch conversations, annotate message/code output like a PR, and use Handoff and Read Thread to keep threads short and focused.
 
 ## Getting Started
 
@@ -44,7 +44,7 @@ Edit any message to fork the conversation into a new branch. Pasture maintains a
 
 ### Comment on Messages
 
-GPT-5.1 produces excellent plans. Often times, these plans are very long- which I've found frustrating to construct replies to in order to provide feedback and further steer the plan. 
+The GPT-5.* family of models produce excellent plans. Often times, these plans are very long- which I've found frustrating to construct replies to in order to provide feedback and further steer the plan. 
 
 Pasture allows you to highlight portions of a response and add comments. This let's you build up a larger "feedback message". Clicking `Insert review as message` provides you with a formatted message such as,
 
@@ -76,6 +76,14 @@ I've found this useful for batching up changes after a turn instead of stopping 
 
 <img src="screenshots/file-commenting.png" width="100%" />
 
+### Handoff
+
+Modeled after [Amp's handoff feature](https://ampcode.com/news/handoff), `/handoff` extracts the relevant context from the current thread based on your goal for the next thread. Under the hood, it uses the latest GPT-5.x model to produce a prompt and pre-fill the composer with it in the new thread, so that you can review and edit it before sending- just like in Amp.
+
+### `read_thread` Tool
+
+Pasture's fork of Codex adds a `read_thread` tool modeled again after [Amp's version of it](https://ampcode.com/news/read-threads). This tool allows the agent to ask questions about the referenced thread- allowing it to pull additional context it needs. It pairs excellently with the `/handoff` feature.
+
 ### Sharing
 
 Click "Share" in the top bar to generate a public link (`https://pasture.dev/s/$id`) of your transcript. The web viewer includes the full conversation, code diffs, and rich OpenGraph metadata for clean previews on social platforms.
@@ -96,18 +104,23 @@ Click "Share" in the top bar to generate a public link (`https://pasture.dev/s/$
 
 ## Nice-to-Knows
 
-- **Generated session titles**: Pasture generates titles based on your first user message, but only if no title exists. The generation pipeline respects your workspace settings.
+- **Generated session titles**: Pasture generates titles based on your first user message, but only if no title exists.
 - **Session management**: The sidebar only displays active/loaded sessions. Resume previous sessions via "Open" or `⌘P`. Use `Ctrl+Tab` for a recent‑conversation switcher overlay.
 - **Queued messages**: Start a new prompt while a turn is running—it queues automatically. Review or cancel queued messages in the status indicator.
 - **Images in transcript**: Pasted images appear as attachments in the composer and render as `view-image` tool cells in the transcript with full metadata.
 - **Auto‑updates**: Pasture checks for updates on startup and via the native menu, with an in‑app dialog for seamless upgrades.
-- **Resuming tool calls**: Tool calls may not appear when you resume a conversation—Codex only saves messages and reasoning blocks to rollout history. They’re still in the context window and will be referenced in future turns.
+
+### Codex behavior differences in our fork
+
+In addition to adding some new tasks and tools, here's a running a list of the behavioral changes in our fork of Codex:
+
+- The rollout recorder persists many more event types. This allows resumed sessions to display changed files and see the output of commands / patches in the transcript.
 
 ## Current Limitations
 
 Here's what's not built yet:
 
-- **MCP servers**: If you have them configured via codex-cli, they *might* work? I don't use MCPs myself, so I haven't tested this.
+- **MCP server configuration**: While there's no UI for it in Pasture, adding them to your Codex config.toml should let you use MCP servers. 
 - **Custom models/APIs**: Codex supports various models and providers, but I haven't exposed that in the UI yet.
 
 If you hit weird behavior, please file a bug report with your `config.toml` so I can see what needs to be implemented.
