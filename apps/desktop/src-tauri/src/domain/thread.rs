@@ -45,6 +45,12 @@ pub struct Thread {
     pub approval: Option<AskForApproval>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub web_search_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_repo_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_head_sha: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub git_head_ref: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub workspace_path: WorkspacePath,
