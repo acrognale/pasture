@@ -311,10 +311,17 @@ impl EventRouter {
                 };
                 match threads::workspace_path_for_conversation(&app_state.db, conversation_id).await {
                     Ok(Some(workspace_path)) => {
-                        let _ = app_state
+                        if let Err(err) = app_state
                             .thread_search
-                            .ensure_indexing_started(app_state.db.clone(), workspace_path)
-                            .await;
+                            .ensure_indexing_started(app_state.db.clone(), workspace_path.clone())
+                            .await
+                        {
+                            tracing::debug!(
+                                "Failed to start thread search indexing for workspace {}: {}",
+                                workspace_path.as_str(),
+                                err
+                            );
+                        }
                     }
                     Ok(None) => {}
                     Err(err) => {

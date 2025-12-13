@@ -36,6 +36,7 @@ use tantivy::schema::Value;
 use tantivy::snippet::SnippetGenerator;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
+use tokio::sync::OnceCell;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -57,7 +58,7 @@ const DOC_TYPE_MESSAGE: &str = "message";
 const EXTRACT_VERSION: u32 = 2;
 
 #[derive(Clone, Debug)]
-pub struct ThreadSearchHit {
+pub struct SearchIndexHit {
     pub thread_id: String,
     pub score: f32,
     pub snippet: Option<String>,
@@ -72,7 +73,7 @@ pub struct SearchStats {
 #[derive(Default)]
 pub struct ThreadSearchManager {
     base_dir: PathBuf,
-    cache: RwLock<HashMap<WorkspacePath, Arc<WorkspaceThreadSearch>>>,
+    cache: RwLock<HashMap<WorkspacePath, Arc<OnceCell<Arc<WorkspaceThreadSearch>>>>>,
 }
 
 impl ThreadSearchManager {
@@ -98,7 +99,7 @@ impl ThreadSearchManager {
         workspace_path: WorkspacePath,
         query: &str,
         limit: usize,
-    ) -> AppResult<(Vec<ThreadSearchHit>, SearchStats)> {
+    ) -> AppResult<(Vec<SearchIndexHit>, SearchStats)> {
         let index = self.ensure_index(workspace_path).await?;
         let query = query.to_string();
         let index_for_search = Arc::clone(&index);
@@ -113,20 +114,28 @@ impl ThreadSearchManager {
         &self,
         workspace_path: WorkspacePath,
     ) -> AppResult<Arc<WorkspaceThreadSearch>> {
-        if let Some(existing) = self.cache.read().await.get(&workspace_path) {
-            return Ok(existing.clone());
-        }
+        let cell = {
+            let mut cache = self.cache.write().await;
+            cache
+                .entry(workspace_path.clone())
+                .or_insert_with(|| Arc::new(OnceCell::new()))
+                .clone()
+        };
 
         tokio::fs::create_dir_all(&self.base_dir).await?;
         let workspace_id = Uuid::new_v5(&Uuid::NAMESPACE_OID, workspace_path.as_str().as_bytes());
         let workspace_dir = self.base_dir.join(workspace_id.to_string());
-        let index = tokio::task::spawn_blocking(move || WorkspaceThreadSearch::open(workspace_dir))
-            .await??;
-        let index = Arc::new(index);
 
-        let mut cache = self.cache.write().await;
-        cache.insert(workspace_path, index.clone());
-        Ok(index)
+        let index = cell
+            .get_or_try_init(|| async move {
+                let index =
+                    tokio::task::spawn_blocking(move || WorkspaceThreadSearch::open(workspace_dir))
+                        .await??;
+                Ok::<_, AppError>(Arc::new(index))
+            })
+            .await?;
+
+        Ok(index.clone())
     }
 }
 
@@ -146,31 +155,80 @@ impl WorkspaceThreadSearch {
         fs::create_dir_all(&dir)?;
         let schema = build_schema();
 
+        match Self::open_inner(dir.clone(), schema.clone()) {
+            Ok(index) => Ok(index),
+            Err(OpenFailure {
+                err,
+                can_rebuild: true,
+            }) => {
+                tracing::warn!(
+                    "Thread search index open failed; rebuilding derived index at {:?}: {}",
+                    dir,
+                    err
+                );
+                let _ = fs::remove_dir_all(&dir);
+                fs::create_dir_all(&dir)?;
+                Self::open_fresh(dir, schema)
+            }
+            Err(OpenFailure {
+                err,
+                can_rebuild: false,
+            }) => Err(err),
+        }
+    }
+
+    fn open_fresh(dir: PathBuf, schema: Schema) -> AppResult<Self> {
+        let index = Index::create_in_dir(&dir, schema)
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to create index: {e}")))?;
+        Self::init(dir, index).map_err(|err| err.err)
+    }
+
+    fn open_inner(dir: PathBuf, schema: Schema) -> Result<Self, OpenFailure> {
         let index = match Index::open_in_dir(&dir) {
             Ok(idx) => idx,
-            Err(_) => match Index::create_in_dir(&dir, schema.clone()) {
+            Err(open_err) => match Index::create_in_dir(&dir, schema) {
                 Ok(idx) => idx,
-                Err(_) => {
-                    let _ = fs::remove_dir_all(&dir);
-                    fs::create_dir_all(&dir)?;
-                    Index::create_in_dir(&dir, schema.clone()).map_err(|e| {
-                        AppError::Internal(anyhow::anyhow!("Failed to create index: {e}"))
-                    })?
+                Err(create_err) => {
+                    let can_rebuild = !is_lock_failure(&open_err) && !is_lock_failure(&create_err);
+                    return Err(OpenFailure {
+                        err: AppError::Internal(anyhow::anyhow!(
+                            "Failed to open/create index: open={open_err}; create={create_err}"
+                        )),
+                        can_rebuild,
+                    });
                 }
             },
+        };
+
+        Self::init(dir, index)
+    }
+
+    fn init(dir: PathBuf, index: Index) -> Result<Self, OpenFailure> {
+        let fields = match SearchFields::from_schema(index.schema()) {
+            Ok(fields) => fields,
+            Err(err) => {
+                return Err(OpenFailure {
+                    err,
+                    // Schema mismatch is a safe rebuild trigger; index is derived.
+                    can_rebuild: true,
+                });
+            }
         };
 
         let reader = index
             .reader_builder()
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
             .try_into()
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to create reader: {e}")))?;
+            .map_err(|e| OpenFailure {
+                err: AppError::Internal(anyhow::anyhow!("Failed to create reader: {e}")),
+                can_rebuild: true,
+            })?;
 
-        let writer = index
-            .writer(50_000_000)
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to create writer: {e}")))?;
+        let writer = index.writer(50_000_000).map_err(|e| OpenFailure {
+            can_rebuild: !is_lock_failure(&e),
+            err: AppError::Internal(anyhow::anyhow!("Failed to create writer: {e}")),
+        })?;
 
-        let fields = SearchFields::from_schema(index.schema())?;
         let state_path = dir.join(WORKSPACE_STATE_FILE);
         let state = WorkspaceIndexState::load(&state_path).unwrap_or_default();
 
@@ -230,7 +288,7 @@ impl WorkspaceThreadSearch {
         });
     }
 
-    fn search(&self, query: &str, limit: usize) -> AppResult<Vec<ThreadSearchHit>> {
+    fn search(&self, query: &str, limit: usize) -> AppResult<Vec<SearchIndexHit>> {
         let trimmed = query.trim();
         if trimmed.is_empty() {
             return Ok(Vec::new());
@@ -308,7 +366,7 @@ impl WorkspaceThreadSearch {
         let mut snippet_title =
             SnippetGenerator::create(&searcher, &parsed, self.fields.title).ok();
 
-        let mut hits: Vec<ThreadSearchHit> = Vec::with_capacity(candidates.len());
+        let mut hits: Vec<SearchIndexHit> = Vec::with_capacity(candidates.len());
         for (thread_id, score, is_thread_doc, doc) in candidates {
             let snippet = if is_thread_doc {
                 snippet_title
@@ -320,7 +378,7 @@ impl WorkspaceThreadSearch {
                     .map(|snippet_gen| snippet_gen.snippet_from_doc(&doc).to_html())
             };
 
-            hits.push(ThreadSearchHit {
+            hits.push(SearchIndexHit {
                 thread_id,
                 score,
                 snippet,
@@ -367,6 +425,13 @@ impl WorkspaceThreadSearch {
             .lock()
             .map_err(|_| AppError::Internal(anyhow::anyhow!("Index writer lock poisoned")))?;
 
+        let previous_states = self
+            .state
+            .lock()
+            .map_err(|_| AppError::Internal(anyhow::anyhow!("Index state lock poisoned")))?
+            .conversations
+            .clone();
+
         // Upsert thread meta docs.
         for thread in &threads {
             let doc_id = format!("thread:{}", thread.id);
@@ -393,16 +458,10 @@ impl WorkspaceThreadSearch {
         }
 
         // Index new rollout content incrementally.
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| AppError::Internal(anyhow::anyhow!("Index state lock poisoned")))?;
-
         let mut active_conversations: HashMap<String, ConversationIndexState> = HashMap::new();
 
         for (thread_id, conversation_id, rollout_path) in conversations {
-            let conv_state = state
-                .conversations
+            let conv_state = previous_states
                 .get(&conversation_id)
                 .cloned()
                 .unwrap_or_else(|| ConversationIndexState {
@@ -410,7 +469,8 @@ impl WorkspaceThreadSearch {
                     offset: 0,
                     file_size: 0,
                     modified_ms: 0,
-                    extract_version: EXTRACT_VERSION,
+                    // Force a reset when state is missing to avoid duplicates.
+                    extract_version: 0,
                 });
 
             let updated = index_rollout_incremental(
@@ -425,9 +485,6 @@ impl WorkspaceThreadSearch {
             active_conversations.insert(conversation_id, updated);
         }
 
-        state.conversations = active_conversations;
-        state.save_atomic(&self.state_path())?;
-
         writer
             .commit()
             .map_err(|e| AppError::Internal(anyhow::anyhow!("Index commit failed: {e}")))?;
@@ -435,6 +492,14 @@ impl WorkspaceThreadSearch {
         self.reader
             .reload()
             .map_err(|e| AppError::Internal(anyhow::anyhow!("Index reload failed: {e}")))?;
+
+        // Persist state after commit so offsets never advance past committed docs.
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| AppError::Internal(anyhow::anyhow!("Index state lock poisoned")))?;
+        state.conversations = active_conversations;
+        state.save_atomic(&self.state_path())?;
 
         Ok(())
     }
@@ -572,13 +637,14 @@ fn index_rollout_incremental(
     let mut line = String::new();
     loop {
         line.clear();
+        let offset_before = state.offset;
         let bytes_read = reader.read_line(&mut line)?;
         if bytes_read == 0 {
             break;
         }
 
-        let offset_before = state.offset;
         state.offset = state.offset.saturating_add(bytes_read as u64);
+        let had_newline = line.ends_with('\n');
 
         let trimmed = line.trim();
         if trimmed.is_empty() {
@@ -587,7 +653,15 @@ fn index_rollout_incremental(
 
         let parsed: codex_protocol::protocol::RolloutLine = match serde_json::from_str(trimmed) {
             Ok(v) => v,
-            Err(_) => continue,
+            Err(_) => {
+                // If the last line is partially written (EOF without a newline), don't advance the
+                // offset or we'll permanently skip it once it becomes complete.
+                if !had_newline {
+                    state.offset = offset_before;
+                    break;
+                }
+                continue;
+            }
         };
 
         let (_kind, body) = match extract_text_from_rollout_item(&parsed.item) {
@@ -597,6 +671,8 @@ fn index_rollout_incremental(
 
         let timestamp_ms = parse_rfc3339_ms(&parsed.timestamp).unwrap_or(0);
         let doc_id = format!("msg:{conversation_id}:{offset_before}");
+
+        writer.delete_term(Term::from_field_text(fields.doc_id, &doc_id));
 
         let mut doc = TantivyDocument::default();
         doc.add_text(fields.doc_id, &doc_id);
@@ -661,4 +737,107 @@ fn parse_rfc3339_ms(value: &str) -> Option<i64> {
 
 fn map_tantivy_error(err: tantivy::TantivyError) -> AppError {
     AppError::Internal(anyhow::anyhow!("Tantivy error: {err}"))
+}
+
+fn is_lock_failure(err: &tantivy::TantivyError) -> bool {
+    matches!(err, tantivy::TantivyError::LockFailure(_, _))
+}
+
+struct OpenFailure {
+    err: AppError,
+    can_rebuild: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use codex_protocol::protocol::AgentMessageEvent;
+    use codex_protocol::protocol::EventMsg;
+    use codex_protocol::protocol::RolloutItem;
+    use codex_protocol::protocol::RolloutLine;
+
+    #[test]
+    fn does_not_skip_partial_last_line() {
+        let temp_dir = tempfile::tempdir().expect("temp dir");
+        let index_dir = temp_dir.path().join("idx");
+        let rollout_path = temp_dir.path().join("rollout.jsonl");
+
+        let schema = build_schema();
+        std::fs::create_dir_all(&index_dir).expect("create index dir");
+        let index = Index::create_in_dir(&index_dir, schema).expect("create index");
+        let fields = SearchFields::from_schema(index.schema()).expect("fields");
+        let mut writer = index.writer(15_000_000).expect("writer");
+
+        let line = RolloutLine {
+            timestamp: "2025-01-01T00:00:00Z".to_string(),
+            item: RolloutItem::EventMsg(EventMsg::AgentMessage(AgentMessageEvent {
+                message: "hello world".to_string(),
+            })),
+        };
+        let json = serde_json::to_string(&line).expect("json");
+        let split = json.len() / 2;
+
+        std::fs::write(&rollout_path, &json[..split]).expect("write partial");
+
+        let state = ConversationIndexState {
+            rollout_path: rollout_path.to_string_lossy().to_string(),
+            offset: 0,
+            file_size: 0,
+            modified_ms: 0,
+            extract_version: EXTRACT_VERSION,
+        };
+
+        let state = index_rollout_incremental(
+            &mut writer,
+            &fields,
+            "thread-1",
+            "conv-1",
+            &rollout_path.to_string_lossy(),
+            state,
+        )
+        .expect("indexing succeeds");
+
+        assert_eq!(
+            state.offset, 0,
+            "partial final line should not advance offset"
+        );
+
+        {
+            use std::io::Write;
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&rollout_path)
+                .expect("open append");
+            f.write_all(json[split..].as_bytes()).expect("append rest");
+            f.write_all(b"\n").expect("append newline");
+        }
+
+        let state = index_rollout_incremental(
+            &mut writer,
+            &fields,
+            "thread-1",
+            "conv-1",
+            &rollout_path.to_string_lossy(),
+            state,
+        )
+        .expect("indexing succeeds");
+
+        assert!(state.offset > 0, "offset should advance after full line");
+        writer.commit().expect("commit");
+
+        let reader = index
+            .reader_builder()
+            .reload_policy(ReloadPolicy::Manual)
+            .try_into()
+            .expect("reader");
+        reader.reload().expect("reload");
+
+        let searcher = reader.searcher();
+        let parser = QueryParser::for_index(&index, vec![fields.body]);
+        let query = parser.parse_query("hello").expect("parse");
+        let top_docs = searcher
+            .search(&query, &TopDocs::with_limit(10))
+            .expect("search");
+        assert!(!top_docs.is_empty(), "should index the completed line");
+    }
 }

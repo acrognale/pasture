@@ -182,10 +182,17 @@ pub async fn send_user_message(
         threads::workspace_path_for_conversation(&app.db, &conversation_id).await?
     {
         let ctx = WorkspaceContext::new(workspace_path, &app);
-        let _ = app
+        if let Err(err) = app
             .thread_search
             .ensure_indexing_started(app.db.clone(), ctx.path.clone())
-            .await;
+            .await
+        {
+            tracing::debug!(
+                "Failed to start thread search indexing for workspace {}: {}",
+                ctx.path.as_str(),
+                err
+            );
+        }
     }
 
     Ok(())
