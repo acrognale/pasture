@@ -17,6 +17,7 @@ const GPT_5_1_INSTRUCTIONS: &str = include_str!("../../gpt_5_1_prompt.md");
 const GPT_5_2_INSTRUCTIONS: &str = include_str!("../../gpt_5_2_prompt.md");
 const GPT_5_1_CODEX_MAX_INSTRUCTIONS: &str = include_str!("../../gpt-5.1-codex-max_prompt.md");
 pub(crate) const CONTEXT_WINDOW_272K: i64 = 272_000;
+const CONTEXT_WINDOW_200K: i64 = 200_000;
 
 /// A model family is a group of models that share certain characteristics.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -339,6 +340,35 @@ pub fn find_family_for_model(slug: &str) -> ModelFamily {
             truncation_policy: TruncationPolicy::Bytes(10_000),
             context_window: Some(CONTEXT_WINDOW_272K),
         )
+    } else if slug.starts_with("claude-") || slug.starts_with("anthropic/claude-") {
+        let normalized = slug.strip_prefix("anthropic/").unwrap_or(slug);
+        let default_reasoning_effort = if normalized.starts_with("claude-sonnet-4-5")
+            || normalized.starts_with("claude-opus-4-5")
+        {
+            Some(ReasoningEffort::Medium)
+        } else {
+            None
+        };
+        model_family!(
+            slug, "claude",
+            context_window: Some(CONTEXT_WINDOW_200K),
+            apply_patch_tool_type: Some(ApplyPatchToolType::Function),
+            needs_special_apply_patch_instructions: true,
+            base_instructions: BASE_INSTRUCTIONS.to_string(),
+            default_reasoning_effort: default_reasoning_effort,
+            truncation_policy: TruncationPolicy::Bytes(10_000),
+            shell_type: ConfigShellToolType::Default,
+            supports_parallel_tool_calls: true,
+            support_verbosity: false,
+            supports_reasoning_summaries: false,
+            reasoning_summary_format: ReasoningSummaryFormat::Experimental,
+            experimental_supported_tools: vec![
+                "grep_files".to_string(),
+                "list_dir".to_string(),
+                "read_file".to_string(),
+                "read_thread".to_string(),
+            ],
+        )
     } else {
         derive_default_model_family(slug)
     }
@@ -391,6 +421,35 @@ mod tests {
             upgrade: None,
             base_instructions: None,
         }
+    }
+
+    #[test]
+    fn claude_models_get_200k_context_window() {
+        let mf = find_family_for_model("claude-sonnet-4-20250514");
+        assert_eq!(mf.family, "claude");
+        assert_eq!(mf.context_window, Some(CONTEXT_WINDOW_200K));
+
+        let mf = find_family_for_model("anthropic/claude-3-5-haiku-20241022");
+        assert_eq!(mf.family, "claude");
+        assert_eq!(mf.context_window, Some(CONTEXT_WINDOW_200K));
+    }
+
+    #[test]
+    fn claude_45_sonnet_and_opus_default_to_thinking_on() {
+        let mf = find_family_for_model("claude-sonnet-4-5-20250929");
+        assert_eq!(mf.family, "claude");
+        assert_eq!(mf.default_reasoning_effort, Some(ReasoningEffort::Medium));
+
+        let mf = find_family_for_model("anthropic/claude-opus-4-5-20251101");
+        assert_eq!(mf.family, "claude");
+        assert_eq!(mf.default_reasoning_effort, Some(ReasoningEffort::Medium));
+    }
+
+    #[test]
+    fn claude_45_haiku_defaults_to_thinking_off() {
+        let mf = find_family_for_model("claude-haiku-4-5-20251001");
+        assert_eq!(mf.family, "claude");
+        assert_eq!(mf.default_reasoning_effort, None);
     }
 
     #[test]

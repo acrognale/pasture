@@ -9,6 +9,9 @@ use thiserror::Error;
 
 use crate::StreamParams;
 
+const CLAUDE_CODE_SYSTEM_MESSAGE: &str =
+    "You are Claude Code, Anthropic's official CLI for Claude.";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CacheControlType {
@@ -46,10 +49,25 @@ pub struct MessagesRequest {
     pub max_tokens: u32,
     pub stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<Thinking>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<SystemPrompt>,
     pub messages: Vec<ChatMessage>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<ToolDefinition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Thinking {
+    #[serde(rename = "type")]
+    pub kind: ThinkingType,
+    pub budget_tokens: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ThinkingType {
+    Enabled,
 }
 
 #[derive(Debug, Serialize)]
@@ -79,6 +97,14 @@ pub struct ImageSource {
 pub enum ContentBlock {
     Text {
         text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<CacheControl>,
+    },
+    Thinking {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thinking: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        signature: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         cache_control: Option<CacheControl>,
     },
@@ -184,6 +210,12 @@ fn build_request_with_caching(
         model: params.model.clone(),
         max_tokens: params.max_tokens,
         stream: true,
+        thinking: params.thinking.as_ref().and_then(|t| {
+            t.enabled.then_some(Thinking {
+                kind: ThinkingType::Enabled,
+                budget_tokens: t.budget_tokens,
+            })
+        }),
         system: if system_parts.is_empty() {
             None
         } else if caching.enabled {
@@ -235,6 +267,9 @@ impl ContentBlock {
     fn set_cache_control(&mut self, cache_control: CacheControl) {
         match self {
             ContentBlock::Text {
+                cache_control: cc, ..
+            } => *cc = Some(cache_control),
+            ContentBlock::Thinking {
                 cache_control: cc, ..
             } => *cc = Some(cache_control),
             ContentBlock::Image {
@@ -620,7 +655,12 @@ fn translate_tool(tool: &Value) -> Option<ToolDefinition> {
 }
 
 fn fold_system_messages(prompt: &ApiPrompt) -> Vec<String> {
-    let mut parts = vec![prompt.instructions.trim().to_string()];
+    let mut parts = vec![CLAUDE_CODE_SYSTEM_MESSAGE.to_string()];
+
+    let instructions = prompt.instructions.trim();
+    if !instructions.is_empty() && instructions != CLAUDE_CODE_SYSTEM_MESSAGE {
+        parts.push(instructions.to_string());
+    }
     for item in &prompt.input {
         if let ResponseItem::Message { role, content, .. } = item
             && matches!(role.as_str(), "developer" | "system")
@@ -786,6 +826,7 @@ mod tests {
             model: "claude-test".to_string(),
             prompt,
             max_tokens: 10,
+            thinking: None,
             prompt_caching: Some(PromptCachingParams {
                 enabled: true,
                 ttl: Some("1h".to_string()),
@@ -801,9 +842,21 @@ mod tests {
             system.is_array(),
             "system should be blocks when caching enabled"
         );
-        let system0 = system.as_array().unwrap()[0].as_object().unwrap();
+        let system_blocks = system.as_array().unwrap();
+        assert!(
+            system_blocks.len() >= 2,
+            "expected at least two system blocks"
+        );
+
+        let system0 = system_blocks[0].as_object().unwrap();
         assert_eq!(system0.get("type").and_then(|v| v.as_str()), Some("text"));
-        assert_eq!(system0.get("text").and_then(|v| v.as_str()), Some("sys"));
+        assert_eq!(
+            system0.get("text").and_then(|v| v.as_str()),
+            Some(super::CLAUDE_CODE_SYSTEM_MESSAGE)
+        );
+        let system1 = system_blocks[1].as_object().unwrap();
+        assert_eq!(system1.get("type").and_then(|v| v.as_str()), Some("text"));
+        assert_eq!(system1.get("text").and_then(|v| v.as_str()), Some("sys"));
         assert_eq!(
             system0
                 .get("cache_control")
@@ -813,6 +866,22 @@ mod tests {
         );
         assert_eq!(
             system0
+                .get("cache_control")
+                .and_then(|v| v.get("ttl"))
+                .and_then(|v| v.as_str()),
+            Some("1h")
+        );
+
+        let system1 = system_blocks[1].as_object().unwrap();
+        assert_eq!(
+            system1
+                .get("cache_control")
+                .and_then(|v| v.get("type"))
+                .and_then(|v| v.as_str()),
+            Some("ephemeral")
+        );
+        assert_eq!(
+            system1
                 .get("cache_control")
                 .and_then(|v| v.get("ttl"))
                 .and_then(|v| v.as_str()),

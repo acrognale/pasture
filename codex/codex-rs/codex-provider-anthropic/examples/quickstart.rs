@@ -7,6 +7,7 @@ use codex_protocol::models::ResponseItem;
 use codex_provider_anthropic::AnthropicClient;
 use codex_provider_anthropic::DEFAULT_ANTHROPIC_VERSION;
 use codex_provider_anthropic::StreamParams;
+use codex_provider_anthropic::model_presets;
 use codex_provider_anthropic::stream;
 use codex_utils_image::load_and_resize_to_fit;
 use futures::StreamExt;
@@ -16,7 +17,7 @@ fn usage() -> ! {
     eprintln!(
         "Usage: (ANTHROPIC_API_KEY=... | ANTHROPIC_OAUTH_ACCESS_TOKEN=...) cargo run -p codex-provider-anthropic --example quickstart -- [prompt] [model] [image_path]\n\
          - prompt: text to send (default: \"Hello, Claude!\")\n\
-         - model: Claude model slug (default: claude-3-5-sonnet-20241022)\n\
+         - model: preset name (haiku|sonnet|opus) or Claude model slug (default: sonnet)\n\
          - image_path: optional path to a local image (jpg/png) to attach\n\
          Optional env vars: ANTHROPIC_BASE_URL (default https://api.anthropic.com), ANTHROPIC_VERSION (default {}), ANTHROPIC_IMAGE_PATH (optional local path)",
         DEFAULT_ANTHROPIC_VERSION
@@ -28,9 +29,7 @@ fn usage() -> ! {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);
     let prompt_text = args.next().unwrap_or_else(|| "Hello, Claude!".to_string());
-    let model = args
-        .next()
-        .unwrap_or_else(|| "claude-3-5-sonnet-20241022".to_string());
+    let model_arg = args.next();
     let image_path = args
         .next()
         .or_else(|| env::var("ANTHROPIC_IMAGE_PATH").ok());
@@ -73,12 +72,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         version,
         reqwest::Client::new(),
     );
-    let params = StreamParams {
-        model,
-        prompt,
-        max_tokens: 512,
-        prompt_caching: None,
-    };
+    let preset = model_arg
+        .as_deref()
+        .and_then(model_presets::by_name)
+        .unwrap_or(model_presets::SONNET);
+    let model_override = model_arg.and_then(|arg| {
+        if model_presets::by_name(&arg).is_some() {
+            None
+        } else {
+            Some(arg)
+        }
+    });
+
+    let mut params = StreamParams::from_preset(preset, prompt).with_max_tokens(512);
+    if let Some(model) = model_override {
+        params = params.with_model(model);
+    }
 
     let stream = stream(client, params);
     pin_mut!(stream);

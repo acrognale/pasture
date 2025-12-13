@@ -1,6 +1,7 @@
 use async_stream::try_stream;
 use codex_api::common::ResponseEvent;
 use codex_protocol::models::ContentItem;
+use codex_protocol::models::ReasoningItemContent;
 use codex_protocol::models::ResponseItem;
 use eventsource_stream::Event;
 use futures::Stream;
@@ -20,11 +21,21 @@ pub struct StreamParams {
     pub model: String,
     pub prompt: codex_api::Prompt,
     pub max_tokens: u32,
+    /// Controls whether Anthropic "thinking" is enabled for this request.
+    ///
+    /// When set, `build_request` will include a `thinking` object in the payload.
+    pub thinking: Option<ThinkingParams>,
     /// Controls prompt caching behavior for the Anthropic Messages API.
     ///
     /// When `None`, caching defaults to enabled and can be overridden globally
     /// via `CODEX_ANTHROPIC_PROMPT_CACHING=0`.
     pub prompt_caching: Option<PromptCachingParams>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ThinkingParams {
+    pub enabled: bool,
+    pub budget_tokens: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -35,6 +46,35 @@ pub struct PromptCachingParams {
     pub ttl: Option<String>,
     /// Number of trailing messages in the request to mark cacheable.
     pub last_n_messages: usize,
+}
+
+impl StreamParams {
+    pub fn from_preset(
+        preset: crate::model_presets::ModelPreset,
+        prompt: codex_api::Prompt,
+    ) -> Self {
+        preset.stream_params(prompt)
+    }
+
+    pub fn with_model(mut self, model: impl Into<String>) -> Self {
+        self.model = model.into();
+        self
+    }
+
+    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+        self.max_tokens = max_tokens;
+        self
+    }
+
+    pub fn with_thinking(mut self, thinking: Option<ThinkingParams>) -> Self {
+        self.thinking = thinking;
+        self
+    }
+
+    pub fn with_prompt_caching(mut self, prompt_caching: Option<PromptCachingParams>) -> Self {
+        self.prompt_caching = prompt_caching;
+        self
+    }
 }
 
 /// Stream Anthropic Messages API events and adapt them into Codex-native `ResponseEvent`s.
@@ -48,6 +88,10 @@ pub fn stream(
 
         let mut response_id: Option<String> = None;
         let mut assistant_started = false;
+        let mut thinking_started = false;
+        let mut thinking_block_index: Option<u32> = None;
+        let mut thinking_id: Option<String> = None;
+        let mut thinking_accumulated = String::new();
         let mut accumulated = String::new();
         let mut completed = false;
         let mut pending_tools: HashMap<u32, PendingToolUse> = HashMap::new();
@@ -79,6 +123,9 @@ pub fn stream(
             match parse_event(event)? {
                 ParsedEvent::MessageStart { id } => {
                     response_id = Some(id);
+                    if thinking_id.is_none() {
+                        thinking_id = response_id.as_ref().map(|rid| format!("{rid}:thinking"));
+                    }
                 }
                 ParsedEvent::ContentBlockStart { index, content_block } => {
                     match content_block {
@@ -90,6 +137,24 @@ pub fn stream(
                                     role: "assistant".to_string(),
                                     content: vec![ContentItem::OutputText { text: String::new() }],
                                 });
+                            }
+                        }
+                        ContentBlock::Thinking { .. } => {
+                            if !thinking_started {
+                                thinking_started = true;
+                                thinking_block_index = Some(index);
+                                let id = thinking_id
+                                    .clone()
+                                    .unwrap_or_else(|| "anthropic_message:thinking".to_string());
+                                yield ResponseEvent::OutputItemAdded(ResponseItem::Reasoning {
+                                    id,
+                                    summary: Vec::new(),
+                                    content: Some(Vec::new()),
+                                    encrypted_content: None,
+                                });
+
+                                // Ensure TUIs that only render "experimental" reasoning blocks show a
+                                // visible section with a stable header.
                             }
                         }
                         ContentBlock::ToolUse {
@@ -124,6 +189,32 @@ pub fn stream(
                     accumulated.push_str(&delta);
                     yield ResponseEvent::OutputTextDelta(delta);
                 }
+                ParsedEvent::ThinkingDelta { index, delta } => {
+                    // Ignore deltas for non-thinking blocks.
+                    if thinking_block_index != Some(index) {
+                        continue;
+                    }
+                    if !thinking_started {
+                        thinking_started = true;
+                        thinking_block_index = Some(index);
+                        let id = thinking_id
+                            .clone()
+                            .unwrap_or_else(|| "anthropic_message:thinking".to_string());
+                        yield ResponseEvent::OutputItemAdded(ResponseItem::Reasoning {
+                            id,
+                            summary: Vec::new(),
+                            content: Some(Vec::new()),
+                            encrypted_content: None,
+                        });
+
+                    }
+
+                    thinking_accumulated.push_str(&delta);
+                    yield ResponseEvent::ReasoningContentDelta {
+                        delta,
+                        content_index: 0,
+                    };
+                }
                 ParsedEvent::InputJsonDelta { index, partial_json } => {
                     if let Some(pending) = pending_tools.get_mut(&index) {
                         pending.json_buffer.push_str(&partial_json);
@@ -140,11 +231,37 @@ pub fn stream(
                             arguments,
                             call_id: pending.id,
                         });
+                    } else if thinking_started && thinking_block_index == Some(index) {
+                        let id = thinking_id
+                            .clone()
+                            .unwrap_or_else(|| "anthropic_message:thinking".to_string());
+                        let text = std::mem::take(&mut thinking_accumulated);
+                        yield ResponseEvent::OutputItemDone(ResponseItem::Reasoning {
+                            id,
+                            summary: Vec::new(),
+                            content: Some(vec![ReasoningItemContent::ReasoningText { text }]),
+                            encrypted_content: None,
+                        });
+                        thinking_started = false;
+                        thinking_block_index = None;
                     }
                 }
                 ParsedEvent::MessageStop => {
                     completed = true;
                     let final_text = accumulated.clone();
+
+                    if thinking_started {
+                        let id = thinking_id
+                            .clone()
+                            .unwrap_or_else(|| "anthropic_message:thinking".to_string());
+                        let text = std::mem::take(&mut thinking_accumulated);
+                        yield ResponseEvent::OutputItemDone(ResponseItem::Reasoning {
+                            id,
+                            summary: Vec::new(),
+                            content: Some(vec![ReasoningItemContent::ReasoningText { text }]),
+                            encrypted_content: None,
+                        });
+                    }
 
                     // Defensive: if the stream ends without emitting ContentBlockStop for pending
                     // tool blocks, flush them so downstream tool routing still runs.
@@ -204,6 +321,10 @@ enum ParsedEvent {
     TextDelta {
         delta: String,
     },
+    ThinkingDelta {
+        index: u32,
+        delta: String,
+    },
     InputJsonDelta {
         index: u32,
         partial_json: String,
@@ -250,6 +371,12 @@ fn parse_wire_event(event_name: &str, data: &str) -> Result<ParsedEvent, Anthrop
             ContentBlockDeltaPayload::TextDelta { text } => {
                 Ok(ParsedEvent::TextDelta { delta: text })
             }
+            ContentBlockDeltaPayload::ThinkingDelta { thinking } => {
+                Ok(ParsedEvent::ThinkingDelta {
+                    index,
+                    delta: thinking,
+                })
+            }
             ContentBlockDeltaPayload::InputJsonDelta { partial_json } => {
                 Ok(ParsedEvent::InputJsonDelta {
                     index,
@@ -285,6 +412,9 @@ struct WireError {
 enum ContentBlockDeltaPayload {
     TextDelta {
         text: String,
+    },
+    ThinkingDelta {
+        thinking: String,
     },
     InputJsonDelta {
         partial_json: String,
@@ -405,6 +535,28 @@ mod tests {
                 assert_eq!(partial_json, "{\"command\":");
             }
             other => panic!("expected input_json_delta, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_thinking_delta() {
+        let data = json!({
+          "type": "content_block_delta",
+          "index": 1,
+          "delta": {
+            "type": "thinking_delta",
+            "thinking": "step"
+          }
+        })
+        .to_string();
+
+        let event = parse_wire_event("message", &data).expect("parse");
+        match event {
+            ParsedEvent::ThinkingDelta { index, delta } => {
+                assert_eq!(index, 1);
+                assert_eq!(delta, "step");
+            }
+            other => panic!("expected thinking_delta, got {other:?}"),
         }
     }
 

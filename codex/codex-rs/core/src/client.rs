@@ -26,6 +26,7 @@ use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use codex_protocol::protocol::SessionSource;
 use codex_provider_anthropic::AnthropicClient as AnthropicMessagesClient;
 use codex_provider_anthropic::StreamParams as AnthropicStreamParams;
+use codex_provider_anthropic::ThinkingParams as AnthropicThinkingParams;
 use codex_provider_anthropic::stream as anthropic_stream;
 use eventsource_stream::Event;
 use eventsource_stream::EventStreamError;
@@ -58,7 +59,10 @@ use crate::openai_models::model_family::ModelFamily;
 use crate::tools::spec::create_tools_json_for_chat_completions_api;
 use crate::tools::spec::create_tools_json_for_responses_api;
 
-const DEFAULT_ANTHROPIC_MAX_TOKENS: u32 = 4096;
+// Claude "extended thinking" requires `max_tokens > thinking.budget_tokens`.
+// Claude Code defaults to 64k output tokens for thinking-capable models.
+const DEFAULT_ANTHROPIC_MAX_TOKENS: u32 = 64_000;
+const DEFAULT_ANTHROPIC_THINKING_BUDGET_TOKENS: u32 = 31_999;
 
 #[derive(Debug, Clone)]
 pub struct ModelClient {
@@ -247,10 +251,20 @@ impl ModelClient {
             build_reqwest_client(),
         );
 
+        let effective_effort = self.effort.or(model_family.default_reasoning_effort);
+        let thinking = match effective_effort {
+            Some(ReasoningEffortConfig::None) | None => None,
+            Some(_) => Some(AnthropicThinkingParams {
+                enabled: true,
+                budget_tokens: DEFAULT_ANTHROPIC_THINKING_BUDGET_TOKENS,
+            }),
+        };
+
         let params = AnthropicStreamParams {
             model: self.get_model(),
             prompt: api_prompt,
             max_tokens: DEFAULT_ANTHROPIC_MAX_TOKENS,
+            thinking,
             prompt_caching: None,
         };
 
