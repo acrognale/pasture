@@ -24,6 +24,9 @@ use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use codex_protocol::models::ResponseItem;
 use codex_protocol::openai_models::ReasoningEffort as ReasoningEffortConfig;
 use codex_protocol::protocol::SessionSource;
+use codex_provider_anthropic::AnthropicClient as AnthropicMessagesClient;
+use codex_provider_anthropic::StreamParams as AnthropicStreamParams;
+use codex_provider_anthropic::stream as anthropic_stream;
 use eventsource_stream::Event;
 use eventsource_stream::EventStreamError;
 use futures::StreamExt;
@@ -44,13 +47,18 @@ use crate::client_common::ResponseStream;
 use crate::config::Config;
 use crate::default_client::build_reqwest_client;
 use crate::error::CodexErr;
+use crate::error::ConnectionFailedError;
+use crate::error::ResponseStreamFailed;
 use crate::error::Result;
+use crate::error::UnexpectedResponseError;
 use crate::flags::CODEX_RS_SSE_FIXTURE;
 use crate::model_provider_info::ModelProviderInfo;
 use crate::model_provider_info::WireApi;
 use crate::openai_models::model_family::ModelFamily;
 use crate::tools::spec::create_tools_json_for_chat_completions_api;
 use crate::tools::spec::create_tools_json_for_responses_api;
+
+const DEFAULT_ANTHROPIC_MAX_TOKENS: u32 = 4096;
 
 #[derive(Debug, Clone)]
 pub struct ModelClient {
@@ -115,6 +123,7 @@ impl ModelClient {
     pub async fn stream(&self, prompt: &Prompt) -> Result<ResponseStream> {
         match self.provider.wire_api {
             WireApi::Responses => self.stream_responses_api(prompt).await,
+            WireApi::AnthropicMessages => self.stream_anthropic_messages(prompt).await,
             WireApi::Chat => {
                 let api_stream = self.stream_chat_completions(prompt).await?;
 
@@ -184,6 +193,63 @@ impl ModelClient {
                 Err(err) => return Err(map_api_error(err)),
             }
         }
+    }
+
+    /// Streams a turn via the Anthropic Messages API (text-only).
+    async fn stream_anthropic_messages(&self, prompt: &Prompt) -> Result<ResponseStream> {
+        if prompt.output_schema.is_some() {
+            return Err(CodexErr::UnsupportedOperation(
+                "output_schema is not supported for Anthropic Messages API".to_string(),
+            ));
+        }
+
+        let model_family = self.get_model_family();
+        let instructions = prompt.get_full_instructions(&model_family).into_owned();
+        let mut api_prompt = build_api_prompt(prompt, instructions, Vec::new());
+        api_prompt.tools = Vec::new();
+        api_prompt.parallel_tool_calls = false;
+
+        let oauth_access_token = std::env::var("ANTHROPIC_OAUTH_ACCES_TOKEN")
+            .ok()
+            .filter(|v| !v.trim().is_empty());
+
+        let api_key = match self.provider.api_key()? {
+            Some(key) => Some(key),
+            None => self.provider.experimental_bearer_token.clone(),
+        };
+
+        if oauth_access_token.is_none() && api_key.is_none() {
+            return Err(CodexErr::InvalidRequest(
+                "Anthropic provider requires credentials: set ANTHROPIC_OAUTH_ACCES_TOKEN or an API key via env_key"
+                    .to_string(),
+            ));
+        }
+
+        let base_url = self
+            .provider
+            .base_url
+            .clone()
+            .unwrap_or_else(|| "https://api.anthropic.com".to_string());
+
+        let client = AnthropicMessagesClient::with_version_and_auth(
+            base_url,
+            api_key,
+            oauth_access_token,
+            codex_provider_anthropic::DEFAULT_ANTHROPIC_VERSION,
+            build_reqwest_client(),
+        );
+
+        let params = AnthropicStreamParams {
+            model: self.get_model(),
+            prompt: api_prompt,
+            max_tokens: DEFAULT_ANTHROPIC_MAX_TOKENS,
+        };
+
+        let stream = anthropic_stream(client, params);
+        Ok(map_anthropic_response_stream(
+            stream,
+            self.otel_event_manager.clone(),
+        ))
     }
 
     /// Streams a turn via the OpenAI Responses API.
@@ -451,6 +517,115 @@ where
     });
 
     ResponseStream { rx_event }
+}
+
+fn map_anthropic_response_stream<S>(
+    anthropic_stream: S,
+    otel_event_manager: OtelEventManager,
+) -> ResponseStream
+where
+    S: futures::Stream<
+            Item = std::result::Result<ResponseEvent, codex_provider_anthropic::AnthropicError>,
+        > + Send
+        + 'static,
+{
+    let (tx_event, rx_event) = mpsc::channel::<Result<ResponseEvent>>(1600);
+    let manager = otel_event_manager;
+
+    tokio::spawn(async move {
+        let mut logged_error = false;
+        futures::pin_mut!(anthropic_stream);
+        while let Some(event) = anthropic_stream.next().await {
+            match event {
+                Ok(ResponseEvent::Completed {
+                    response_id,
+                    token_usage,
+                }) => {
+                    if let Some(usage) = &token_usage {
+                        manager.sse_event_completed(
+                            usage.input_tokens,
+                            usage.output_tokens,
+                            Some(usage.cached_input_tokens),
+                            Some(usage.reasoning_output_tokens),
+                            usage.total_tokens,
+                        );
+                    }
+                    if tx_event
+                        .send(Ok(ResponseEvent::Completed {
+                            response_id,
+                            token_usage,
+                        }))
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
+                }
+                Ok(event) => {
+                    if tx_event.send(Ok(event)).await.is_err() {
+                        return;
+                    }
+                }
+                Err(err) => {
+                    let mapped = map_anthropic_error(err);
+                    if !logged_error {
+                        manager.see_event_completed_failed(&mapped);
+                        logged_error = true;
+                    }
+                    if tx_event.send(Err(mapped)).await.is_err() {
+                        return;
+                    }
+                }
+            }
+        }
+    });
+
+    ResponseStream { rx_event }
+}
+
+fn map_anthropic_error(err: codex_provider_anthropic::AnthropicError) -> CodexErr {
+    use codex_provider_anthropic::AnthropicError;
+
+    match err {
+        AnthropicError::MissingApiKey => CodexErr::InvalidRequest(
+            "Anthropic provider requires an API key (set env_key for the provider)".to_string(),
+        ),
+        AnthropicError::MissingCredentials => CodexErr::InvalidRequest(
+            "Anthropic provider requires credentials: set ANTHROPIC_OAUTH_ACCES_TOKEN or an API key"
+                .to_string(),
+        ),
+        AnthropicError::HttpStatus { status, body } => {
+            CodexErr::UnexpectedStatus(UnexpectedResponseError {
+                status,
+                body,
+                request_id: None,
+            })
+        }
+        AnthropicError::Http(source) => map_reqwest_stream_error(source),
+        AnthropicError::StreamClosedEarly => CodexErr::Stream(
+            "Anthropic stream closed before completion".to_string(),
+            None,
+        ),
+        AnthropicError::Protocol(msg) => CodexErr::Stream(msg, None),
+        AnthropicError::Serde(err) => CodexErr::Stream(err.to_string(), None),
+        AnthropicError::Stream(err) => match err {
+            EventStreamError::Transport(source) => map_reqwest_stream_error(source),
+            other => CodexErr::Stream(other.to_string(), None),
+        },
+    }
+}
+
+fn map_reqwest_stream_error(source: reqwest::Error) -> CodexErr {
+    if source.is_timeout() {
+        CodexErr::Timeout
+    } else if source.is_connect() {
+        CodexErr::ConnectionFailed(ConnectionFailedError { source })
+    } else {
+        CodexErr::ResponseStreamFailed(ResponseStreamFailed {
+            source,
+            request_id: None,
+        })
+    }
 }
 
 /// Handles a 401 response by optionally refreshing ChatGPT tokens once.

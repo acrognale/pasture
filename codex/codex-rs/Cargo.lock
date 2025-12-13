@@ -1107,6 +1107,7 @@ dependencies = [
  "codex-keyring-store",
  "codex-otel",
  "codex-protocol",
+ "codex-provider-anthropic",
  "codex-rmcp-client",
  "codex-utils-absolute-path",
  "codex-utils-pty",
@@ -1464,6 +1465,23 @@ dependencies = [
  "tracing",
  "ts-rs",
  "uuid",
+]
+
+[[package]]
+name = "codex-provider-anthropic"
+version = "0.0.0"
+dependencies = [
+ "async-stream",
+ "bytes",
+ "codex-api",
+ "codex-protocol",
+ "eventsource-stream",
+ "futures",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
 ]
 
 [[package]]

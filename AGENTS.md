@@ -28,7 +28,7 @@ Uses turborepo for monorepo management.
 
 ## Workflow
 
-Important: always run `turbo lint` and `turbo typecheck` when you finish making changes to verify there are no errors.
+Important: always run `turbo lint` and `turbo typecheck` when you finish making changes to verify there are no errors. Run `pnpm run format:fix` and `cargo +nightly fmt --all -- --config imports_granularity=Item` when making Typescript and Rust changes as well.
 
 ## Git Hygiene (Rebases / Stacked PRs)
 

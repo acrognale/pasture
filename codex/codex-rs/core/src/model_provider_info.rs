@@ -42,6 +42,10 @@ pub enum WireApi {
     /// Regular Chat Completions compatible with `/v1/chat/completions`.
     #[default]
     Chat,
+
+    /// Anthropic Messages API.
+    #[serde(rename = "anthropic_messages")]
+    AnthropicMessages,
 }
 
 /// Serializable representation of a provider definition.
@@ -154,6 +158,7 @@ impl ModelProviderInfo {
             wire: match self.wire_api {
                 WireApi::Responses => ApiWireApi::Responses,
                 WireApi::Chat => ApiWireApi::Chat,
+                WireApi::AnthropicMessages => ApiWireApi::Chat,
             },
             headers,
             retry,
@@ -408,6 +413,22 @@ env_http_headers = { "X-Example-Env-Header" = "EXAMPLE_ENV_VAR" }
 
         let provider: ModelProviderInfo = toml::from_str(azure_provider_toml).unwrap();
         assert_eq!(expected_provider, provider);
+    }
+
+    #[test]
+    fn test_deserialize_anthropic_model_provider_toml() {
+        let provider_toml = r#"
+name = "Anthropic"
+base_url = "https://api.anthropic.com"
+env_key = "ANTHROPIC_API_KEY"
+wire_api = "anthropic_messages"
+        "#;
+
+        let provider: ModelProviderInfo = toml::from_str(provider_toml).unwrap();
+        assert_eq!(provider.wire_api, WireApi::AnthropicMessages);
+        assert_eq!(provider.name, "Anthropic");
+        assert_eq!(provider.base_url, Some("https://api.anthropic.com".into()));
+        assert_eq!(provider.env_key, Some("ANTHROPIC_API_KEY".into()));
     }
 
     #[test]

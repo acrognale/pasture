@@ -1,0 +1,27 @@
+[package]
+edition.workspace = true
+license.workspace = true
+name = "codex-provider-anthropic"
+version.workspace = true
+
+[lib]
+name = "codex_provider_anthropic"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+async-stream = { workspace = true }
+bytes = { workspace = true }
+codex-api = { workspace = true }
+codex-protocol = { workspace = true }
+eventsource-stream = { workspace = true }
+futures = { workspace = true }
+reqwest = { workspace = true, features = ["json", "stream"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

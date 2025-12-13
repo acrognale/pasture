@@ -145,6 +145,23 @@ wire_api = "responses"
 
 Export your key before launching Codex: `export AZURE_OPENAI_API_KEY=…`
 
+#### Anthropic provider example (Messages API)
+
+Codex can speak directly to Anthropic's Messages API via a custom provider entry:
+
+```toml
+model_provider = "anthropic"
+model = "claude-3-5-sonnet-20241022"  # any valid Claude model slug
+
+[model_providers.anthropic]
+name = "Anthropic"
+base_url = "https://api.anthropic.com"
+env_key = "ANTHROPIC_API_KEY"
+wire_api = "anthropic_messages"
+```
+
+Export your key before launching Codex: `export ANTHROPIC_API_KEY=…`
+
 #### Per-provider network tuning
 
 The following optional settings control retry behaviour and streaming idle timeouts **per model provider**. They must be specified inside the corresponding `[model_providers.<id>]` block in `config.toml`. (Older releases accepted top‑level keys; those are now ignored.)
