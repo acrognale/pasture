@@ -15,6 +15,8 @@ pub struct WorkspaceSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_provider_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<ReasoningEffort>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_summary: Option<ReasoningSummary>,
@@ -29,6 +31,7 @@ pub struct WorkspaceSettings {
 impl WorkspaceSettings {
     pub fn is_empty(&self) -> bool {
         self.model.is_none()
+            && self.model_provider_id.is_none()
             && self.reasoning_effort.is_none()
             && self.reasoning_summary.is_none()
             && self.sandbox.is_none()

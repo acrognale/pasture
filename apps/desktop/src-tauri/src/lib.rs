@@ -10,6 +10,7 @@ mod errors;
 mod handoff;
 mod menu;
 mod message_comments;
+mod provider_inference;
 mod read_thread_backend;
 mod repo_watch;
 mod review;

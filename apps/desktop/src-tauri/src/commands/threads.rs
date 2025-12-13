@@ -354,6 +354,7 @@ impl From<NewConversationParams> for NewThreadOptions {
     fn from(params: NewConversationParams) -> Self {
         Self {
             model: params.model,
+            model_provider_id: None,
             profile: params.profile,
             cwd: params.cwd,
             approval_policy: params.approval_policy,

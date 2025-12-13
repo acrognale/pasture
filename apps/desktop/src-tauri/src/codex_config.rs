@@ -16,6 +16,7 @@ use crate::errors::AppResult;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct NewThreadOptions {
     pub model: Option<String>,
+    pub model_provider_id: Option<String>,
     pub profile: Option<String>,
     pub cwd: Option<String>,
     pub approval_policy: Option<AskForApproval>,
@@ -44,11 +45,23 @@ pub async fn derive_config(
     settings: &WorkspaceSettings,
     options: &NewThreadOptions,
 ) -> AppResult<Config> {
+    let provider_fallback = options
+        .model
+        .as_deref()
+        .or_else(|| settings.model.as_deref())
+        .and_then(crate::provider_inference::infer_model_provider_id)
+        .map(|id| id.to_string());
+
     let mut overrides = ConfigOverrides {
         model: options.model.clone().or_else(|| settings.model.clone()),
         config_profile: options.profile.clone(),
         approval_policy: options.approval_policy.or(settings.approval),
         sandbox_mode: options.sandbox.or(settings.sandbox),
+        model_provider: options
+            .model_provider_id
+            .clone()
+            .or_else(|| settings.model_provider_id.clone())
+            .or(provider_fallback),
         base_instructions: options.base_instructions.clone(),
         include_apply_patch_tool: options.include_apply_patch_tool,
         tools_web_search_request: options.web_search_enabled.or(settings.web_search_enabled),

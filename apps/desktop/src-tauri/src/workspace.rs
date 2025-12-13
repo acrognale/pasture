@@ -158,6 +158,7 @@ pub async fn save_settings(
         Some(existing) => {
             let mut model: schema::workspace_settings::ActiveModel = existing.into();
             model.model = active.model;
+            model.model_provider_id = active.model_provider_id;
             model.reasoning_effort = active.reasoning_effort;
             model.reasoning_summary = active.reasoning_summary;
             model.sandbox = active.sandbox;
@@ -219,7 +220,12 @@ pub async fn update_composer_defaults(
     let mut changed = false;
 
     if let Some(value) = model {
+        let inferred_provider =
+            crate::provider_inference::infer_model_provider_id(&value).map(|id| id.to_string());
         settings.model = Some(value);
+        if inferred_provider.is_some() {
+            settings.model_provider_id = inferred_provider;
+        }
         changed = true;
     }
     if let Some(value) = reasoning_effort {

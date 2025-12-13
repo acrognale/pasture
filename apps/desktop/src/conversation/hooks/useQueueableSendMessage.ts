@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
-import { useAuthState } from '~/auth/useAuthState';
 
 import {
   useConversationIsRunning,
@@ -18,7 +17,6 @@ export const useQueueableSendMessage = (
   workspacePath: string,
   conversationId: string | null | undefined
 ) => {
-  const authState = useAuthState();
   const { queueUserMessage, popQueuedUserMessage } =
     useConversationQueueActions(conversationId ?? null);
   const { setSendingUserMessage } = useConversationSendMessageActions(
@@ -42,9 +40,6 @@ export const useQueueableSendMessage = (
       if (!formattedText && !hasAttachments) {
         return;
       }
-      if (authState.isLoading || authState.data?.requiresAuth) {
-        return;
-      }
 
       if (isRunning || isSendingUserMessage) {
         queueUserMessage({ text: formattedText, attachments });
@@ -59,8 +54,6 @@ export const useQueueableSendMessage = (
       }
     },
     [
-      authState.data?.requiresAuth,
-      authState.isLoading,
       isRunning,
       isSendingUserMessage,
       queueUserMessage,

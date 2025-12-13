@@ -123,6 +123,7 @@ async fn capture_git_thread_anchor(workspace_path: &Path) -> GitThreadAnchor {
 fn thread_options_from_thread(thread: &Thread, cwd: Option<String>) -> NewThreadOptions {
     NewThreadOptions {
         model: thread.model.clone(),
+        model_provider_id: thread.model_provider_id.clone(),
         profile: None,
         cwd,
         approval_policy: thread.approval,
@@ -231,7 +232,12 @@ pub async fn update_thread_composer_settings(
     let mut changed = false;
 
     if let Some(model) = updates.model {
+        let inferred_provider =
+            crate::provider_inference::infer_model_provider_id(&model).map(|id| id.to_string());
         active.model = Set(Some(model));
+        if inferred_provider.is_some() {
+            active.model_provider_id = Set(inferred_provider);
+        }
         changed = true;
     }
     if let Some(value) = updates.reasoning_effort {
@@ -346,6 +352,13 @@ pub async fn create(
         title: None,
         preview: Some("Untitled thread".to_string()),
         model: settings.model.clone(),
+        model_provider_id: settings.model_provider_id.clone().or_else(|| {
+            settings
+                .model
+                .as_deref()
+                .and_then(crate::provider_inference::infer_model_provider_id)
+                .map(|id| id.to_string())
+        }),
         reasoning_effort: settings.reasoning_effort,
         reasoning_summary: settings.reasoning_summary,
         sandbox: settings.sandbox,
@@ -1125,6 +1138,7 @@ fn encode_thread(
             title: Set(thread.title.clone()),
             preview: Set(thread.preview.clone()),
             model: Set(thread.model.clone()),
+            model_provider_id: Set(thread.model_provider_id.clone()),
             reasoning_effort: Set(serialize_json_option(&thread.reasoning_effort)),
             reasoning_summary: Set(serialize_json_option(&thread.reasoning_summary)),
             sandbox: Set(serialize_json_option(&thread.sandbox)),
@@ -1143,6 +1157,7 @@ fn encode_thread(
     active.title = Set(thread.title.clone());
     active.preview = Set(thread.preview.clone());
     active.model = Set(thread.model.clone());
+    active.model_provider_id = Set(thread.model_provider_id.clone());
     active.reasoning_effort = Set(serialize_json_option(&thread.reasoning_effort));
     active.reasoning_summary = Set(serialize_json_option(&thread.reasoning_summary));
     active.sandbox = Set(serialize_json_option(&thread.sandbox));
@@ -1215,6 +1230,7 @@ fn decode_thread(
         title: thread.title,
         preview: thread.preview,
         model: thread.model,
+        model_provider_id: thread.model_provider_id,
         reasoning_effort: parse_json_option(thread.reasoning_effort),
         reasoning_summary: parse_json_option(thread.reasoning_summary),
         sandbox: parse_json_option(thread.sandbox),

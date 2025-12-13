@@ -88,7 +88,9 @@ export const deriveReasoningSummaryFormat = (
   if (
     normalized.startsWith('test-gpt-5-codex') ||
     normalized.startsWith('codex-') ||
-    normalized.startsWith('gpt-5-codex')
+    normalized.startsWith('gpt-5-codex') ||
+    normalized.startsWith('claude-') ||
+    normalized.startsWith('anthropic/claude-')
   ) {
     return 'experimental';
   }

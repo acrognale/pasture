@@ -245,13 +245,19 @@ export function ComposerBar({
   const contextTokensInWindow = composerLimits.contextTokensInWindow ?? null;
   const maxContextTokens = composerLimits.maxContextWindow ?? null;
 
+  const normalizedModel = (composerConfig.model ?? '').trim().toLowerCase();
+  const usesAnthropic =
+    normalizedModel.startsWith('claude-') ||
+    normalizedModel.startsWith('anthropic/claude-');
   const authDisabled =
-    authState.isLoading || authState.data?.requiresAuth || false;
+    authState.isLoading ||
+    (authState.data?.requiresAuth && !usesAnthropic) ||
+    false;
   const authDisabledReason = (() => {
     if (authState.isLoading) {
       return 'Authentication in progress...';
     }
-    if (authState.data?.requiresAuth) {
+    if (authState.data?.requiresAuth && !usesAnthropic) {
       return 'Sign in with the Codex CLI to continue.';
     }
     return undefined;

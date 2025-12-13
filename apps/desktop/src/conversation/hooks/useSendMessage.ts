@@ -129,7 +129,18 @@ export const useSendMessage = (
     if (items.length === 0) {
       return;
     }
-    if (authState.isLoading || authState.data?.requiresAuth) {
+    const resolvedModel = (variables.turnConfig?.model ??
+      composerConfig.model ??
+      '') as string;
+    const normalizedModel = resolvedModel.trim().toLowerCase();
+    const usesAnthropic =
+      normalizedModel.startsWith('claude-') ||
+      normalizedModel.startsWith('anthropic/claude-');
+
+    if (authState.isLoading) {
+      throw new Error('Authentication required');
+    }
+    if (authState.data?.requiresAuth && !usesAnthropic) {
       throw new Error('Authentication required');
     }
 

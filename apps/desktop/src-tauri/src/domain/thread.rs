@@ -36,6 +36,8 @@ pub struct Thread {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_provider_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<ReasoningEffort>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_summary: Option<ReasoningSummary>,

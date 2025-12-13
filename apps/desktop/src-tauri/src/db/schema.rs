@@ -37,6 +37,7 @@ pub mod workspace_settings {
         #[sea_orm(primary_key, auto_increment = false)]
         pub workspace_path: String,
         pub model: Option<String>,
+        pub model_provider_id: Option<String>,
         pub reasoning_effort: Option<String>,
         pub reasoning_summary: Option<String>,
         pub sandbox: Option<String>,
@@ -78,6 +79,7 @@ pub mod threads {
         pub title: Option<String>,
         pub preview: Option<String>,
         pub model: Option<String>,
+        pub model_provider_id: Option<String>,
         pub reasoning_effort: Option<String>,
         pub reasoning_summary: Option<String>,
         pub sandbox: Option<String>,
@@ -241,6 +243,7 @@ pub fn encode_workspace_settings(
     Ok(workspace_settings::ActiveModel {
         workspace_path: Set(workspace_path.as_str().to_string()),
         model: Set(settings.model.clone()),
+        model_provider_id: Set(settings.model_provider_id.clone()),
         reasoning_effort: Set(serialize_json(&settings.reasoning_effort)?),
         reasoning_summary: Set(serialize_json(&settings.reasoning_summary)?),
         sandbox: Set(serialize_json(&settings.sandbox)?),
@@ -252,6 +255,7 @@ pub fn encode_workspace_settings(
 pub fn decode_workspace_settings(model: workspace_settings::Model) -> Result<WorkspaceSettings> {
     Ok(WorkspaceSettings {
         model: model.model,
+        model_provider_id: model.model_provider_id,
         reasoning_effort: deserialize_json(model.reasoning_effort)?,
         reasoning_summary: deserialize_json(model.reasoning_summary)?,
         sandbox: deserialize_json(model.sandbox)?,
