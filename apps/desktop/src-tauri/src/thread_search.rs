@@ -704,9 +704,7 @@ fn index_rollout_incremental(
     Ok(state)
 }
 
-fn extract_text_from_rollout_item(
-    item: &codex_protocol::protocol::RolloutItem,
-) -> Option<String> {
+fn extract_text_from_rollout_item(item: &codex_protocol::protocol::RolloutItem) -> Option<String> {
     use codex_protocol::models::ContentItem;
     use codex_protocol::models::ResponseItem;
     use codex_protocol::protocol::EventMsg;

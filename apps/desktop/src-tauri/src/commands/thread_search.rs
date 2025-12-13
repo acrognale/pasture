@@ -110,29 +110,32 @@ pub async fn search_threads(
         }
     }
 
-    let mapped: Vec<ThreadSearchHit> =
-        hits.into_iter()
-            .map(|hit| {
-                let ThreadMetadata {
-                    title,
-                    preview,
-                    timestamp,
-                } = metadata.get(&hit.thread_id).cloned().unwrap_or(ThreadMetadata {
+    let mapped: Vec<ThreadSearchHit> = hits
+        .into_iter()
+        .map(|hit| {
+            let ThreadMetadata {
+                title,
+                preview,
+                timestamp,
+            } = metadata
+                .get(&hit.thread_id)
+                .cloned()
+                .unwrap_or(ThreadMetadata {
                     title: None,
                     preview: UNTITLED_THREAD.to_string(),
                     timestamp: String::new(),
                 });
 
-                ThreadSearchHit {
-                    thread_id: hit.thread_id,
-                    title,
-                    preview,
-                    timestamp,
-                    snippet: hit.snippet,
-                    score: hit.score,
-                }
-            })
-            .collect();
+            ThreadSearchHit {
+                thread_id: hit.thread_id,
+                title,
+                preview,
+                timestamp,
+                snippet: hit.snippet,
+                score: hit.score,
+            }
+        })
+        .collect();
 
     Ok(SearchThreadsResponse {
         hits: mapped,
