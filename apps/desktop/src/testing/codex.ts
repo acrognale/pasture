@@ -1,32 +1,28 @@
 /* eslint-disable @typescript-eslint/require-await */
-import type { AddConversationSubscriptionResponse } from '@pasture/protocol';
-import type { AuthState } from '@pasture/protocol';
-import type { CodexEvent } from '@pasture/protocol';
-import type { ComposerTurnConfigPayload } from '@pasture/protocol';
-import type { ConversationEventPayload } from '@pasture/protocol';
-import type { EventMsg } from '@pasture/protocol';
-import type { GetTurnDiffRangeResponse } from '@pasture/protocol';
-import type { HandoffConversationResponse } from '@pasture/protocol';
-import type { InitializeThreadResponse } from '@pasture/protocol';
-import type { InterruptConversationResponse } from '@pasture/protocol';
-import type { ListThreadConversationsResponse } from '@pasture/protocol';
-import type { ListThreadsResponse } from '@pasture/protocol';
-import type { ListTurnSnapshotsResponse } from '@pasture/protocol';
-import type { NewThreadResponse } from '@pasture/protocol';
-import type { ReasoningSummary } from '@pasture/protocol';
 import type {
+  AddConversationSubscriptionResponse,
+  AuthState,
+  CodexEvent,
+  ComposerTurnConfigPayload,
+  ConversationEventPayload,
+  CreateMessageCommentResponse,
+  EventMsg,
+  GetTurnDiffRangeResponse,
+  HandoffConversationResponse,
+  InitializeThreadResponse,
+  InterruptConversationResponse,
+  ListMessageCommentsResponse,
+  ListThreadConversationsResponse,
+  ListThreadsResponse,
+  ListTurnSnapshotsResponse,
+  MessageComment,
+  NewThreadResponse,
+  ReasoningSummary,
   SearchThreadsParams,
   SearchThreadsResponse,
-} from '@pasture/protocol';
-import type { SessionConfiguredEvent } from '@pasture/protocol';
-import type {
-  CreateMessageCommentResponse,
-  ListMessageCommentsResponse,
-  MessageComment,
-} from '@pasture/protocol';
-import type {
   SearchWorkspaceFilesParams,
   SearchWorkspaceSymbolsParams,
+  SessionConfiguredEvent,
   WorkspaceFileHit,
   WorkspaceSettings,
   WorkspaceSymbolHit,

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use sea_orm::ColumnTrait;
 use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
@@ -9,6 +11,8 @@ use ts_rs::TS;
 use crate::domain::WorkspacePath;
 use crate::errors::AppResult;
 use crate::state::AppState;
+
+const UNTITLED_THREAD: &str = "Untitled thread";
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
@@ -44,6 +48,13 @@ pub struct SearchThreadsResponse {
     pub index_error: Option<String>,
 }
 
+#[derive(Clone)]
+struct ThreadMetadata {
+    title: Option<String>,
+    preview: String,
+    timestamp: String,
+}
+
 #[tauri::command]
 pub async fn search_threads(
     params: SearchThreadsParams,
@@ -72,12 +83,12 @@ pub async fn search_threads(
         .await?;
 
     let thread_ids: Vec<String> = hits.iter().map(|h| h.thread_id.clone()).collect();
-    let mut metadata = std::collections::HashMap::<String, (Option<String>, String, String)>::new();
+    let mut metadata: HashMap<String, ThreadMetadata> = HashMap::new();
 
     if !thread_ids.is_empty() {
         let models = crate::db::schema::threads::Entity::find()
             .filter(crate::db::schema::threads::Column::WorkspacePath.eq(workspace.as_str()))
-            .filter(crate::db::schema::threads::Column::Id.is_in(thread_ids.clone()))
+            .filter(crate::db::schema::threads::Column::Id.is_in(thread_ids))
             .all(&app.db)
             .await
             .map_err(|e| crate::db::db_err("load thread metadata for search results", e))?;
@@ -87,18 +98,30 @@ pub async fn search_threads(
                 .preview
                 .clone()
                 .or_else(|| model.title.clone())
-                .unwrap_or_else(|| "Untitled thread".to_string());
-            metadata.insert(model.id, (model.title, preview, model.updated_at));
+                .unwrap_or_else(|| UNTITLED_THREAD.to_string());
+            metadata.insert(
+                model.id,
+                ThreadMetadata {
+                    title: model.title,
+                    preview,
+                    timestamp: model.updated_at,
+                },
+            );
         }
     }
 
     let mapped: Vec<ThreadSearchHit> =
         hits.into_iter()
             .map(|hit| {
-                let (title, preview, timestamp) = metadata
-                    .get(&hit.thread_id)
-                    .cloned()
-                    .unwrap_or((None, "Untitled thread".to_string(), "".to_string()));
+                let ThreadMetadata {
+                    title,
+                    preview,
+                    timestamp,
+                } = metadata.get(&hit.thread_id).cloned().unwrap_or(ThreadMetadata {
+                    title: None,
+                    preview: UNTITLED_THREAD.to_string(),
+                    timestamp: String::new(),
+                });
 
                 ThreadSearchHit {
                     thread_id: hit.thread_id,

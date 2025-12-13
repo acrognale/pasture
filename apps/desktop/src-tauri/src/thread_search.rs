@@ -55,6 +55,7 @@ const INDEX_PARENT_DIR: &str = if cfg!(debug_assertions) {
 const WORKSPACE_STATE_FILE: &str = "state.json";
 const DOC_TYPE_THREAD: &str = "thread";
 const DOC_TYPE_MESSAGE: &str = "message";
+const UNTITLED_THREAD: &str = "Untitled thread";
 const EXTRACT_VERSION: u32 = 2;
 
 #[derive(Clone, Debug)]
@@ -74,6 +75,13 @@ pub struct SearchStats {
 pub struct ThreadSearchManager {
     base_dir: PathBuf,
     cache: RwLock<HashMap<WorkspacePath, Arc<OnceCell<Arc<WorkspaceThreadSearch>>>>>,
+}
+
+struct SearchCandidate {
+    thread_id: String,
+    score: f32,
+    is_thread_doc: bool,
+    doc: TantivyDocument,
 }
 
 impl ThreadSearchManager {
@@ -162,9 +170,9 @@ impl WorkspaceThreadSearch {
                 can_rebuild: true,
             }) => {
                 tracing::warn!(
-                    "Thread search index open failed; rebuilding derived index at {:?}: {}",
-                    dir,
-                    err
+                    dir = ?dir,
+                    error = %err,
+                    "Thread search index open failed; rebuilding derived index"
                 );
                 let _ = fs::remove_dir_all(&dir);
                 fs::create_dir_all(&dir)?;
@@ -251,7 +259,12 @@ impl WorkspaceThreadSearch {
     fn stats(&self) -> SearchStats {
         SearchStats {
             is_indexing: self.indexing.load(Ordering::Relaxed),
-            last_error: self.last_error.lock().ok().and_then(|g| g.clone()),
+            last_error: self
+                .last_error
+                .lock()
+                .ok()
+                .map(|g| g.clone())
+                .unwrap_or(None),
         }
     }
 
@@ -323,7 +336,7 @@ impl WorkspaceThreadSearch {
         });
 
         let mut seen_threads: HashSet<String> = HashSet::new();
-        let mut candidates: Vec<(String, f32, bool, TantivyDocument)> = Vec::new();
+        let mut candidates: Vec<SearchCandidate> = Vec::new();
 
         for (score, doc_address) in top_docs {
             let doc: TantivyDocument = searcher
@@ -340,7 +353,7 @@ impl WorkspaceThreadSearch {
                 continue;
             }
 
-            if seen_threads.contains(&thread_id) {
+            if !seen_threads.insert(thread_id.clone()) {
                 continue;
             }
 
@@ -349,8 +362,12 @@ impl WorkspaceThreadSearch {
                 .and_then(|v| v.as_str())
                 .unwrap_or(DOC_TYPE_MESSAGE);
             let is_thread_doc = doc_type == DOC_TYPE_THREAD;
-            seen_threads.insert(thread_id.clone());
-            candidates.push((thread_id, score, is_thread_doc, doc));
+            candidates.push(SearchCandidate {
+                thread_id,
+                score,
+                is_thread_doc,
+                doc,
+            });
 
             // Since `top_docs` is sorted by descending score, once we have enough unique threads,
             // later docs cannot contribute higher-scoring threads.
@@ -367,20 +384,20 @@ impl WorkspaceThreadSearch {
             SnippetGenerator::create(&searcher, &parsed, self.fields.title).ok();
 
         let mut hits: Vec<SearchIndexHit> = Vec::with_capacity(candidates.len());
-        for (thread_id, score, is_thread_doc, doc) in candidates {
-            let snippet = if is_thread_doc {
+        for candidate in candidates {
+            let snippet = if candidate.is_thread_doc {
                 snippet_title
                     .as_mut()
-                    .map(|snippet_gen| snippet_gen.snippet_from_doc(&doc).to_html())
+                    .map(|snippet_gen| snippet_gen.snippet_from_doc(&candidate.doc).to_html())
             } else {
                 snippet_body
                     .as_mut()
-                    .map(|snippet_gen| snippet_gen.snippet_from_doc(&doc).to_html())
+                    .map(|snippet_gen| snippet_gen.snippet_from_doc(&candidate.doc).to_html())
             };
 
             hits.push(SearchIndexHit {
-                thread_id,
-                score,
+                thread_id: candidate.thread_id,
+                score: candidate.score,
                 snippet,
             });
         }
@@ -442,7 +459,7 @@ impl WorkspaceThreadSearch {
                 .preview
                 .clone()
                 .or_else(|| thread.title.clone())
-                .unwrap_or_else(|| "Untitled thread".to_string());
+                .unwrap_or_else(|| UNTITLED_THREAD.to_string());
 
             let mut doc = TantivyDocument::default();
             doc.add_text(self.fields.doc_id, &doc_id);
@@ -664,7 +681,7 @@ fn index_rollout_incremental(
             }
         };
 
-        let (_kind, body) = match extract_text_from_rollout_item(&parsed.item) {
+        let body = match extract_text_from_rollout_item(&parsed.item) {
             Some(v) => v,
             None => continue,
         };
@@ -689,7 +706,7 @@ fn index_rollout_incremental(
 
 fn extract_text_from_rollout_item(
     item: &codex_protocol::protocol::RolloutItem,
-) -> Option<(String, String)> {
+) -> Option<String> {
     use codex_protocol::models::ContentItem;
     use codex_protocol::models::ResponseItem;
     use codex_protocol::protocol::EventMsg;
@@ -698,8 +715,8 @@ fn extract_text_from_rollout_item(
     match item {
         RolloutItem::EventMsg(ev) => match ev {
             // Only index user + assistant message text.
-            EventMsg::UserMessage(msg) => Some(("user".to_string(), msg.message.clone())),
-            EventMsg::AgentMessage(msg) => Some(("assistant".to_string(), msg.message.clone())),
+            EventMsg::UserMessage(msg) => Some(msg.message.clone()),
+            EventMsg::AgentMessage(msg) => Some(msg.message.clone()),
             _ => None,
         },
         RolloutItem::ResponseItem(item) => match item {
@@ -720,7 +737,7 @@ fn extract_text_from_rollout_item(
                 if text.trim().is_empty() {
                     None
                 } else {
-                    Some((role.clone(), text))
+                    Some(text)
                 }
             }
             _ => None,

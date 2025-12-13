@@ -2,7 +2,7 @@ import type { SearchThreadsResponse, ThreadSearchHit } from '@pasture/protocol';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { Loader2Icon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Codex } from '~/codex/client';
 import {
   CommandDialog,
@@ -16,6 +16,7 @@ import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
+import { cn } from '~/lib/utils';
 import { formatSessionPreview, resolveSessionLabel } from '~/lib/workspaces';
 
 import { useWorkspace } from './WorkspaceProvider';
@@ -23,6 +24,53 @@ import { useWorkspaceThreads } from './hooks/useWorkspaceThreads';
 
 export const OPEN_WORKSPACE_THREAD_SWITCHER_EVENT =
   'workspace-thread-switcher-open';
+
+type ThreadRowData = {
+  threadId: string;
+  title?: string | null;
+  preview?: string | null;
+  timestamp?: string | null;
+};
+
+type ThreadRowProps = {
+  thread: ThreadRowData;
+  now: ReturnType<typeof useNow>;
+};
+
+const ThreadRow = memo(function ThreadRow({ thread, now }: ThreadRowProps) {
+  const { text, source } = resolveSessionLabel(
+    thread.title,
+    thread.preview,
+    thread.threadId
+  );
+  const normalizedPreview = thread.preview?.trim() ?? '';
+  const shouldShowPreview = normalizedPreview.length > 0 && source !== 'preview';
+
+  return (
+    <div className="flex w-full items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          className={cn(
+            'text-sm font-medium leading-snug',
+            source === 'title' ? null : 'truncate'
+          )}
+        >
+          {text}
+        </span>
+        {shouldShowPreview ? (
+          <span className="truncate text-sm font-normal leading-snug text-muted-foreground">
+            {formatSessionPreview(normalizedPreview)}
+          </span>
+        ) : null}
+      </div>
+      {thread.timestamp ? (
+        <span className="shrink-0 text-transcript-micro text-muted-foreground">
+          {formatSessionPreviewTimestamp(thread.timestamp, now)}
+        </span>
+      ) : null}
+    </div>
+  );
+});
 
 export function WorkspaceConversationSwitcher() {
   const [open, setOpen] = useState(false);
@@ -176,15 +224,6 @@ export function WorkspaceConversationSwitcher() {
                 </CommandItem>
               ) : (
                 (search.data?.hits ?? []).map((hit) => {
-                  const { text, source } = resolveSessionLabel(
-                    hit.title,
-                    hit.preview,
-                    hit.threadId
-                  );
-                  const normalizedPreview = hit.preview?.trim() ?? '';
-                  const shouldShowPreview =
-                    normalizedPreview.length > 0 && source !== 'preview';
-
                   return (
                     <CommandItem
                       key={hit.threadId}
@@ -195,28 +234,7 @@ export function WorkspaceConversationSwitcher() {
                       }}
                     >
                       <div className="flex w-full flex-col gap-1.5">
-                        <div className="flex w-full items-center justify-between gap-3">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <span
-                              className={`text-sm font-medium leading-snug ${source === 'title' ? '' : 'truncate'}`}
-                            >
-                              {text}
-                            </span>
-                            {shouldShowPreview ? (
-                              <span className="truncate text-sm font-normal leading-snug text-muted-foreground">
-                                {formatSessionPreview(normalizedPreview)}
-                              </span>
-                            ) : null}
-                          </div>
-                          {hit.timestamp ? (
-                            <span className="shrink-0 text-transcript-micro text-muted-foreground">
-                              {formatSessionPreviewTimestamp(
-                                hit.timestamp,
-                                now
-                              )}
-                            </span>
-                          ) : null}
-                        </div>
+                        <ThreadRow thread={hit} now={now} />
                         {renderSearchSnippet(hit)}
                       </div>
                     </CommandItem>
@@ -230,15 +248,6 @@ export function WorkspaceConversationSwitcher() {
             <CommandEmpty>No threads found.</CommandEmpty>
             <CommandGroup heading="Threads">
               {visibleThreads.map((session) => {
-                const { text, source } = resolveSessionLabel(
-                  session.title,
-                  session.preview,
-                  session.threadId
-                );
-                const normalizedPreview = session.preview?.trim() ?? '';
-                const shouldShowPreview =
-                  normalizedPreview.length > 0 && source !== 'preview';
-
                 return (
                   <CommandItem
                     key={session.threadId}
@@ -248,28 +257,7 @@ export function WorkspaceConversationSwitcher() {
                       handleSelectConversation(session.threadId);
                     }}
                   >
-                    <div className="flex w-full items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span
-                          className={`text-sm font-medium leading-snug ${source === 'title' ? '' : 'truncate'}`}
-                        >
-                          {text}
-                        </span>
-                        {shouldShowPreview ? (
-                          <span className="truncate text-sm font-normal leading-snug text-muted-foreground">
-                            {formatSessionPreview(normalizedPreview)}
-                          </span>
-                        ) : null}
-                      </div>
-                      {session.timestamp ? (
-                        <span className="shrink-0 text-transcript-micro text-muted-foreground">
-                          {formatSessionPreviewTimestamp(
-                            session.timestamp,
-                            now
-                          )}
-                        </span>
-                      ) : null}
-                    </div>
+                    <ThreadRow thread={session} now={now} />
                   </CommandItem>
                 );
               })}
