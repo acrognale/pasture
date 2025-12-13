@@ -177,6 +177,17 @@ pub async fn send_user_message(
     )
     .await?;
 
+    // Kick search indexing after user sends a message (rollout appends over the turn).
+    if let Some(workspace_path) =
+        threads::workspace_path_for_conversation(&app.db, &conversation_id).await?
+    {
+        let ctx = WorkspaceContext::new(workspace_path, &app);
+        let _ = app
+            .thread_search
+            .ensure_indexing_started(app.db.clone(), ctx.path.clone())
+            .await;
+    }
+
     Ok(())
 }
 

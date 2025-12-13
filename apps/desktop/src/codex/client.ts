@@ -33,6 +33,8 @@ import type {
   RespondApprovalParams,
   SavePastedImageParams,
   SavePastedImageResponse,
+  SearchThreadsParams,
+  SearchThreadsResponse,
   SearchWorkspaceFilesParams,
   SearchWorkspaceSymbolsParams,
   SendUserMessageParams,
@@ -249,6 +251,12 @@ export namespace Codex {
     return await invoke<Array<WorkspaceSymbolHit>>('search_workspace_symbols', {
       params,
     });
+  }
+
+  export async function searchThreads(
+    params: SearchThreadsParams
+  ): Promise<SearchThreadsResponse> {
+    return await invoke<SearchThreadsResponse>('search_threads', { params });
   }
 
   export async function createWorkspaceWindow(

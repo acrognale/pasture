@@ -9,6 +9,7 @@ pub mod message_comments;
 pub mod review;
 pub mod subscriptions;
 pub mod symbols;
+pub mod thread_search;
 pub mod threads;
 pub mod turns;
 pub mod update;
@@ -134,6 +135,10 @@ codex_command_descriptors! {
     symbols::search_workspace_symbols {
         params: symbols::SearchWorkspaceSymbolsParams,
         result: Vec<crate::symbol_index::WorkspaceSymbolHit>,
+    },
+    thread_search::search_threads {
+        params: thread_search::SearchThreadsParams,
+        result: thread_search::SearchThreadsResponse,
     },
     workspace::create_workspace_window {
         params: workspace::WorkspacePathParams,

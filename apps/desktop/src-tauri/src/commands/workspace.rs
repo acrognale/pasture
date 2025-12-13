@@ -44,6 +44,11 @@ pub async fn open_workspace(
     let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
     workspace::touch(&app.db, &normalized).await?;
 
+    let _ = app
+        .thread_search
+        .ensure_indexing_started(app.db.clone(), normalized.clone())
+        .await;
+
     Ok(normalized.into_string())
 }
 
@@ -56,6 +61,10 @@ pub async fn create_workspace_window(
 ) -> AppResult<()> {
     let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
     workspace::touch(&app.db, &normalized).await?;
+    let _ = app
+        .thread_search
+        .ensure_indexing_started(app.db.clone(), normalized.clone())
+        .await;
 
     let title = workspace::build_title(&normalized);
 

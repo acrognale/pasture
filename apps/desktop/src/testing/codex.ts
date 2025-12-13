@@ -14,6 +14,10 @@ import type { ListThreadsResponse } from '@pasture/protocol';
 import type { ListTurnSnapshotsResponse } from '@pasture/protocol';
 import type { NewThreadResponse } from '@pasture/protocol';
 import type { ReasoningSummary } from '@pasture/protocol';
+import type {
+  SearchThreadsParams,
+  SearchThreadsResponse,
+} from '@pasture/protocol';
 import type { SessionConfiguredEvent } from '@pasture/protocol';
 import type {
   CreateMessageCommentResponse,
@@ -210,6 +214,13 @@ const mockCodexNamespace = {
     [SearchWorkspaceSymbolsParams],
     WorkspaceSymbolHit[]
   >(async () => []),
+  searchThreads: defineStub<[SearchThreadsParams], SearchThreadsResponse>(
+    async () => ({
+      hits: [],
+      isIndexing: false,
+      indexError: null,
+    })
+  ),
   workspace: {
     listRecentWorkspaces: defineStub(async () => []),
     openWorkspace: defineStub(async () => '/tmp/workspace'),
