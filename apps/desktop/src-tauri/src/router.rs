@@ -309,7 +309,8 @@ impl EventRouter {
                 let Some(app_state) = app_handle.try_state::<AppState>() else {
                     return;
                 };
-                match threads::workspace_path_for_conversation(&app_state.db, conversation_id).await {
+                match threads::workspace_path_for_conversation(&app_state.db, conversation_id).await
+                {
                     Ok(Some(workspace_path)) => {
                         if let Err(err) = app_state
                             .thread_search

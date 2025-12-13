@@ -292,24 +292,24 @@ pub fn find_family_for_model(slug: &str) -> ModelFamily {
                 "read_thread".to_string(),
             ],
         )
-	    } else if slug.starts_with("gpt-5.2") {
-	        model_family!(
-	            slug, slug,
-	            supports_reasoning_summaries: true,
-	            apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
-	            support_verbosity: true,
-	            default_verbosity: Some(Verbosity::Low),
-	            base_instructions: GPT_5_2_INSTRUCTIONS.to_string(),
-	            default_reasoning_effort: Some(ReasoningEffort::Medium),
-	            truncation_policy: TruncationPolicy::Bytes(10_000),
-	            shell_type: ConfigShellToolType::ShellCommand,
-	            supports_parallel_tool_calls: true,
-	            context_window: Some(CONTEXT_WINDOW_272K),
-	            experimental_supported_tools: Vec::new(),
-	        )
-	    } else if slug.starts_with("gpt-5.1") {
-	        model_family!(
-	            slug, "gpt-5.1",
+    } else if slug.starts_with("gpt-5.2") {
+        model_family!(
+            slug, slug,
+            supports_reasoning_summaries: true,
+            apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
+            support_verbosity: true,
+            default_verbosity: Some(Verbosity::Low),
+            base_instructions: GPT_5_2_INSTRUCTIONS.to_string(),
+            default_reasoning_effort: Some(ReasoningEffort::Medium),
+            truncation_policy: TruncationPolicy::Bytes(10_000),
+            shell_type: ConfigShellToolType::ShellCommand,
+            supports_parallel_tool_calls: true,
+            context_window: Some(CONTEXT_WINDOW_272K),
+            experimental_supported_tools: Vec::new(),
+        )
+    } else if slug.starts_with("gpt-5.1") {
+        model_family!(
+                slug, "gpt-5.1",
             supports_reasoning_summaries: true,
             apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
             support_verbosity: true,
