@@ -209,7 +209,7 @@ impl ModelClient {
         api_prompt.tools = Vec::new();
         api_prompt.parallel_tool_calls = false;
 
-        let oauth_access_token = std::env::var("ANTHROPIC_OAUTH_ACCES_TOKEN")
+        let oauth_access_token = std::env::var("ANTHROPIC_OAUTH_ACCESS_TOKEN")
             .ok()
             .filter(|v| !v.trim().is_empty());
 
@@ -220,7 +220,7 @@ impl ModelClient {
 
         if oauth_access_token.is_none() && api_key.is_none() {
             return Err(CodexErr::InvalidRequest(
-                "Anthropic provider requires credentials: set ANTHROPIC_OAUTH_ACCES_TOKEN or an API key via env_key"
+                "Anthropic provider requires credentials: set ANTHROPIC_OAUTH_ACCESS_TOKEN or an API key via env_key"
                     .to_string(),
             ));
         }
@@ -591,7 +591,7 @@ fn map_anthropic_error(err: codex_provider_anthropic::AnthropicError) -> CodexEr
             "Anthropic provider requires an API key (set env_key for the provider)".to_string(),
         ),
         AnthropicError::MissingCredentials => CodexErr::InvalidRequest(
-            "Anthropic provider requires credentials: set ANTHROPIC_OAUTH_ACCES_TOKEN or an API key"
+            "Anthropic provider requires credentials: set ANTHROPIC_OAUTH_ACCESS_TOKEN or an API key"
                 .to_string(),
         ),
         AnthropicError::HttpStatus { status, body } => {

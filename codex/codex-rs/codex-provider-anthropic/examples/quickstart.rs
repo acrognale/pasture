@@ -1,4 +1,5 @@
 use std::env;
+use std::path::PathBuf;
 
 use codex_api::Prompt as ApiPrompt;
 use codex_protocol::models::ContentItem;
@@ -7,15 +8,17 @@ use codex_provider_anthropic::AnthropicClient;
 use codex_provider_anthropic::DEFAULT_ANTHROPIC_VERSION;
 use codex_provider_anthropic::StreamParams;
 use codex_provider_anthropic::stream;
+use codex_utils_image::load_and_resize_to_fit;
 use futures::StreamExt;
 use futures::pin_mut;
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: (ANTHROPIC_API_KEY=... | ANTHROPIC_OAUTH_ACCES_TOKEN=...) cargo run -p codex-provider-anthropic --example quickstart -- [prompt] [model]\n\
+        "Usage: (ANTHROPIC_API_KEY=... | ANTHROPIC_OAUTH_ACCESS_TOKEN=...) cargo run -p codex-provider-anthropic --example quickstart -- [prompt] [model] [image_path]\n\
          - prompt: text to send (default: \"Hello, Claude!\")\n\
          - model: Claude model slug (default: claude-3-5-sonnet-20241022)\n\
-         Optional env vars: ANTHROPIC_BASE_URL (default https://api.anthropic.com), ANTHROPIC_VERSION (default {})",
+         - image_path: optional path to a local image (jpg/png) to attach\n\
+         Optional env vars: ANTHROPIC_BASE_URL (default https://api.anthropic.com), ANTHROPIC_VERSION (default {}), ANTHROPIC_IMAGE_PATH (optional local path)",
         DEFAULT_ANTHROPIC_VERSION
     );
     std::process::exit(1);
@@ -28,8 +31,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = args
         .next()
         .unwrap_or_else(|| "claude-3-5-sonnet-20241022".to_string());
+    let image_path = args
+        .next()
+        .or_else(|| env::var("ANTHROPIC_IMAGE_PATH").ok());
 
-    let access_token = env::var("ANTHROPIC_OAUTH_ACCES_TOKEN").ok();
+    let access_token = env::var("ANTHROPIC_OAUTH_ACCESS_TOKEN").ok();
     let api_key = env::var("ANTHROPIC_API_KEY").ok();
     if access_token.is_none() && api_key.is_none() {
         usage();
@@ -39,14 +45,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let version =
         env::var("ANTHROPIC_VERSION").unwrap_or_else(|_| DEFAULT_ANTHROPIC_VERSION.to_string());
 
+    let mut content = vec![ContentItem::InputText {
+        text: prompt_text.clone(),
+    }];
+    if let Some(image_path) = image_path.as_ref() {
+        let encoded = load_and_resize_to_fit(&PathBuf::from(image_path))?;
+        let image_url = encoded.into_data_url();
+        content.push(ContentItem::InputImage { image_url });
+    }
+
     let prompt = ApiPrompt {
         instructions: String::new(),
         input: vec![ResponseItem::Message {
             id: None,
             role: "user".into(),
-            content: vec![ContentItem::InputText {
-                text: prompt_text.clone(),
-            }],
+            content,
         }],
         tools: Vec::new(),
         parallel_tool_calls: false,
@@ -70,6 +83,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     pin_mut!(stream);
 
     println!("> {}", prompt_text);
+    if let Some(image_path) = image_path.as_ref() {
+        println!("> [image: {image_path}]");
+    }
     print!("Assistant: ");
     let mut finished = false;
     while let Some(event) = stream.next().await {

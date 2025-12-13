@@ -24,4 +24,5 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+codex-utils-image = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
