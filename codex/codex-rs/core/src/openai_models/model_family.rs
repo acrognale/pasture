@@ -305,10 +305,11 @@ pub fn find_family_for_model(slug: &str) -> ModelFamily {
             shell_type: ConfigShellToolType::ShellCommand,
             supports_parallel_tool_calls: true,
             context_window: Some(CONTEXT_WINDOW_272K),
+            experimental_supported_tools: Vec::new(),
         )
     } else if slug.starts_with("gpt-5.1") {
         model_family!(
-            slug, "gpt-5.1",
+                slug, "gpt-5.1",
             supports_reasoning_summaries: true,
             apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
             support_verbosity: true,

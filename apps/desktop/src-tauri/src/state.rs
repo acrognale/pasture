@@ -7,6 +7,7 @@ use sea_orm::DatabaseConnection;
 
 use crate::router::EventRouter;
 use crate::symbol_index::SymbolIndexManager;
+use crate::thread_search::ThreadSearchManager;
 
 /// Central application state containing all shared dependencies.
 ///
@@ -19,6 +20,7 @@ pub struct AppState {
     pub conversations: Arc<ConversationManager>,
     pub events: Arc<EventRouter>,
     pub symbol_index: Arc<SymbolIndexManager>,
+    pub thread_search: Arc<ThreadSearchManager>,
 }
 
 impl AppState {
@@ -29,6 +31,7 @@ impl AppState {
         conversations: Arc<ConversationManager>,
         events: Arc<EventRouter>,
         symbol_index: Arc<SymbolIndexManager>,
+        thread_search: Arc<ThreadSearchManager>,
     ) -> Self {
         Self {
             db,
@@ -37,6 +40,7 @@ impl AppState {
             conversations,
             events,
             symbol_index,
+            thread_search,
         }
     }
 }

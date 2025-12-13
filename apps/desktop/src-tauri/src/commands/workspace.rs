@@ -18,6 +18,20 @@ use crate::state::AppState;
 use crate::workspace;
 use crate::workspace::ComposerSettingsUpdate;
 
+async fn try_start_thread_search_indexing(app: &AppState, workspace: &WorkspacePath) {
+    if let Err(err) = app
+        .thread_search
+        .ensure_indexing_started(app.db.clone(), workspace.clone())
+        .await
+    {
+        tracing::debug!(
+            workspace_path = %workspace.as_str(),
+            error = %err,
+            "Failed to start thread search indexing"
+        );
+    }
+}
+
 /// List recently opened workspaces (most recent first).
 #[tauri::command]
 pub async fn list_recent_workspaces(app: State<'_, AppState>) -> AppResult<Vec<String>> {
@@ -44,6 +58,8 @@ pub async fn open_workspace(
     let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
     workspace::touch(&app.db, &normalized).await?;
 
+    try_start_thread_search_indexing(&app, &normalized).await;
+
     Ok(normalized.into_string())
 }
 
@@ -56,6 +72,7 @@ pub async fn create_workspace_window(
 ) -> AppResult<()> {
     let normalized = WorkspacePath::canonicalize(&params.workspace_path)?;
     workspace::touch(&app.db, &normalized).await?;
+    try_start_thread_search_indexing(&app, &normalized).await;
 
     let title = workspace::build_title(&normalized);
 

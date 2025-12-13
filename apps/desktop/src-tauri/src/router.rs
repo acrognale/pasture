@@ -22,6 +22,7 @@ use uuid::Uuid;
 use crate::auth::AuthState;
 use crate::review;
 use crate::state::AppState;
+use crate::threads;
 
 /// Payload emitted over the shared codex event channel.
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
@@ -302,6 +303,40 @@ impl EventRouter {
         event: &Event,
         app_handle: &AppHandle,
     ) {
+        match &event.msg {
+            // Treat these as "turn finished" moments and trigger a background index refresh.
+            EventMsg::TaskComplete(_) | EventMsg::TurnAborted(_) => {
+                let Some(app_state) = app_handle.try_state::<AppState>() else {
+                    return;
+                };
+                match threads::workspace_path_for_conversation(&app_state.db, conversation_id).await
+                {
+                    Ok(Some(workspace_path)) => {
+                        if let Err(err) = app_state
+                            .thread_search
+                            .ensure_indexing_started(app_state.db.clone(), workspace_path.clone())
+                            .await
+                        {
+                            tracing::debug!(
+                                "Failed to start thread search indexing for workspace {}: {}",
+                                workspace_path.as_str(),
+                                err
+                            );
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(err) => {
+                        tracing::debug!(
+                            "Failed to resolve workspace for conversation {}: {}",
+                            conversation_id,
+                            err
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
+
         if let EventMsg::TurnDiff(_) = &event.msg {
             let Some(app_state) = app_handle.try_state::<AppState>() else {
                 tracing::debug!("AppState unavailable; skipping turn snapshot capture");

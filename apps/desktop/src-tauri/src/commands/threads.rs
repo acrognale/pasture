@@ -226,6 +226,19 @@ pub async fn new_thread(
 
     let rollout_path = new_conv.session_configured.rollout_path.clone();
 
+    // Search index is workspace-scoped; kick indexing after creating a new thread.
+    if let Err(err) = app
+        .thread_search
+        .ensure_indexing_started(app.db.clone(), ctx.path.clone())
+        .await
+    {
+        tracing::debug!(
+            "Failed to start thread search indexing for workspace {}: {}",
+            ctx.path.as_str(),
+            err
+        );
+    }
+
     Ok(NewThreadResponse {
         thread_id: thread.id.as_str().to_string(),
         conversation_id: new_conv.conversation_id,

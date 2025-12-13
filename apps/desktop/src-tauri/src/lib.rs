@@ -16,6 +16,7 @@ mod rollout;
 mod router;
 mod state;
 mod symbol_index;
+mod thread_search;
 mod threads;
 mod title_generation;
 mod turns;
@@ -33,6 +34,7 @@ use codex_core::read_thread_backend::set_read_thread_backend;
 use codex_protocol::protocol::SessionSource;
 use symbol_index::SymbolIndexManager;
 use tauri::Manager;
+use thread_search::ThreadSearchManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -94,6 +96,7 @@ pub fn run() {
 
             let event_router = Arc::new(router::EventRouter::new());
             let symbol_index = Arc::new(SymbolIndexManager::new());
+            let thread_search = Arc::new(ThreadSearchManager::new(app_data_dir.clone()));
 
             let app_state = state::AppState::new(
                 workspace_db,
@@ -102,6 +105,7 @@ pub fn run() {
                 conversation_manager,
                 event_router,
                 symbol_index,
+                thread_search,
             );
             app.manage(app_state);
 
@@ -146,6 +150,7 @@ pub fn run() {
             commands::workspace::open_workspace,
             commands::files::search_workspace_files,
             commands::symbols::search_workspace_symbols,
+            commands::thread_search::search_threads,
             commands::workspace::create_workspace_window,
             commands::workspace::set_window_title,
             commands::workspace::browse_for_workspace,
