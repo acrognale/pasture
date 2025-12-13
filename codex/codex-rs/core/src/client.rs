@@ -195,7 +195,7 @@ impl ModelClient {
         }
     }
 
-    /// Streams a turn via the Anthropic Messages API (text-only).
+    /// Streams a turn via the Anthropic Messages API.
     async fn stream_anthropic_messages(&self, prompt: &Prompt) -> Result<ResponseStream> {
         if prompt.output_schema.is_some() {
             return Err(CodexErr::UnsupportedOperation(
@@ -205,17 +205,25 @@ impl ModelClient {
 
         let model_family = self.get_model_family();
         let instructions = prompt.get_full_instructions(&model_family).into_owned();
-        let mut api_prompt = build_api_prompt(prompt, instructions, Vec::new());
-        api_prompt.tools = Vec::new();
-        api_prompt.parallel_tool_calls = false;
+        let tools_json: Vec<Value> = create_tools_json_for_responses_api(&prompt.tools)?;
+        let api_prompt = build_api_prompt(prompt, instructions, tools_json);
 
         let oauth_access_token = std::env::var("ANTHROPIC_OAUTH_ACCESS_TOKEN")
             .ok()
             .filter(|v| !v.trim().is_empty());
 
-        let api_key = match self.provider.api_key()? {
-            Some(key) => Some(key),
-            None => self.provider.experimental_bearer_token.clone(),
+        let api_key = match self.provider.api_key() {
+            Ok(key) => match key {
+                Some(key) => Some(key),
+                None => self.provider.experimental_bearer_token.clone(),
+            },
+            Err(err) => {
+                if oauth_access_token.is_some() {
+                    None
+                } else {
+                    return Err(err);
+                }
+            }
         };
 
         if oauth_access_token.is_none() && api_key.is_none() {
@@ -243,6 +251,7 @@ impl ModelClient {
             model: self.get_model(),
             prompt: api_prompt,
             max_tokens: DEFAULT_ANTHROPIC_MAX_TOKENS,
+            prompt_caching: None,
         };
 
         let stream = anthropic_stream(client, params);

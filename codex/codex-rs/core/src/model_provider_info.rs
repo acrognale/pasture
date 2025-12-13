@@ -258,17 +258,38 @@ pub const DEFAULT_OLLAMA_PORT: u16 = 11434;
 
 pub const LMSTUDIO_OSS_PROVIDER_ID: &str = "lmstudio";
 pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
+pub const ANTHROPIC_PROVIDER_ID: &str = "anthropic";
 
 /// Built-in default provider list.
 pub fn built_in_model_providers() -> HashMap<String, ModelProviderInfo> {
     use ModelProviderInfo as P;
 
-    // We do not want to be in the business of adjucating which third-party
-    // providers are bundled with Codex CLI, so we only include the OpenAI and
-    // open source ("oss") providers by default. Users are encouraged to add to
-    // `model_providers` in config.toml to add their own providers.
+    // Built-in defaults so Codex works out-of-the-box without requiring users
+    // to hand-author a `model_providers` config. Users can still add their own
+    // providers (or additional entries for the same service) via config.toml.
     [
         ("openai", P::create_openai_provider()),
+        (
+            ANTHROPIC_PROVIDER_ID,
+            ModelProviderInfo {
+                name: "Anthropic".into(),
+                base_url: Some("https://api.anthropic.com".into()),
+                env_key: Some("ANTHROPIC_API_KEY".into()),
+                env_key_instructions: Some(
+                    "Set ANTHROPIC_API_KEY in your environment (or use ANTHROPIC_OAUTH_ACCESS_TOKEN for OAuth)."
+                        .into(),
+                ),
+                experimental_bearer_token: None,
+                wire_api: WireApi::AnthropicMessages,
+                query_params: None,
+                http_headers: None,
+                env_http_headers: None,
+                request_max_retries: None,
+                stream_max_retries: None,
+                stream_idle_timeout_ms: None,
+                requires_openai_auth: false,
+            },
+        ),
         (
             OLLAMA_OSS_PROVIDER_ID,
             create_oss_provider(DEFAULT_OLLAMA_PORT, WireApi::Chat),
@@ -429,6 +450,22 @@ wire_api = "anthropic_messages"
         assert_eq!(provider.name, "Anthropic");
         assert_eq!(provider.base_url, Some("https://api.anthropic.com".into()));
         assert_eq!(provider.env_key, Some("ANTHROPIC_API_KEY".into()));
+    }
+
+    #[test]
+    fn built_in_providers_include_anthropic() {
+        let providers = built_in_model_providers();
+        let provider = providers
+            .get(ANTHROPIC_PROVIDER_ID)
+            .expect("anthropic provider should exist");
+        assert_eq!(provider.name, "Anthropic");
+        assert_eq!(
+            provider.base_url.as_deref(),
+            Some("https://api.anthropic.com")
+        );
+        assert_eq!(provider.env_key.as_deref(), Some("ANTHROPIC_API_KEY"));
+        assert_eq!(provider.wire_api, WireApi::AnthropicMessages);
+        assert!(!provider.requires_openai_auth);
     }
 
     #[test]

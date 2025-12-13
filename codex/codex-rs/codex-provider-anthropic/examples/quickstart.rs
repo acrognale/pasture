@@ -77,6 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         model,
         prompt,
         max_tokens: 512,
+        prompt_caching: None,
     };
 
     let stream = stream(client, params);

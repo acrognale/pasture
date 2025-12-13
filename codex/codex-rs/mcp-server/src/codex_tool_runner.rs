@@ -305,6 +305,8 @@ async fn run_codex_tool_session_inner(
                     | EventMsg::ReasoningRawContentDelta(_)
                     | EventMsg::UndoStarted(_)
                     | EventMsg::UndoCompleted(_)
+                    | EventMsg::ReadThreadEnd(_)
+                    | EventMsg::HandoffPlan(_)
                     | EventMsg::ExitedReviewMode(_)
                     | EventMsg::ContextCompacted(_)
                     | EventMsg::DeprecationNotice(_) => {
