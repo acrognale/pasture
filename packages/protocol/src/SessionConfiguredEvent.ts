@@ -5,6 +5,7 @@ import type { ConversationId } from './ConversationId';
 import type { EventMsg } from './EventMsg';
 import type { ReasoningEffort } from './ReasoningEffort';
 import type { SandboxPolicy } from './SandboxPolicy';
+import type { SkillLoadOutcomeInfo } from './SkillLoadOutcomeInfo';
 
 export type SessionConfiguredEvent = {
   /**
@@ -46,5 +47,6 @@ export type SessionConfiguredEvent = {
    * When present, UIs can use these to seed the history.
    */
   initial_messages: Array<EventMsg> | null;
+  skill_load_outcome: SkillLoadOutcomeInfo | null;
   rollout_path: string;
 };

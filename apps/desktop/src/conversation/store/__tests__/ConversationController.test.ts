@@ -105,6 +105,7 @@ describe('ConversationReducer fixtures', () => {
           history_entry_count: 0,
           rollout_path: '/tmp/session.jsonl',
           initial_messages: null,
+          skill_load_outcome: null,
         },
         timestamp: new Date().toISOString(),
       })

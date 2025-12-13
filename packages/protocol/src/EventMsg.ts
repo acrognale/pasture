@@ -40,6 +40,7 @@ import type { SessionConfiguredEvent } from './SessionConfiguredEvent';
 import type { StreamErrorEvent } from './StreamErrorEvent';
 import type { TaskCompleteEvent } from './TaskCompleteEvent';
 import type { TaskStartedEvent } from './TaskStartedEvent';
+import type { TerminalInteractionEvent } from './TerminalInteractionEvent';
 import type { TokenCountEvent } from './TokenCountEvent';
 import type { TurnAbortedEvent } from './TurnAbortedEvent';
 import type { TurnDiffEvent } from './TurnDiffEvent';
@@ -84,6 +85,7 @@ export type EventMsg =
   | ({ type: 'web_search_end' } & WebSearchEndEvent)
   | ({ type: 'exec_command_begin' } & ExecCommandBeginEvent)
   | ({ type: 'exec_command_output_delta' } & ExecCommandOutputDeltaEvent)
+  | ({ type: 'terminal_interaction' } & TerminalInteractionEvent)
   | ({ type: 'exec_command_end' } & ExecCommandEndEvent)
   | ({ type: 'view_image_tool_call' } & ViewImageToolCallEvent)
   | ({ type: 'exec_approval_request' } & ExecApprovalRequestEvent)

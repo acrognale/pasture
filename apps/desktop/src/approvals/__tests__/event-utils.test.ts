@@ -27,7 +27,6 @@ describe('mapConversationEventToApprovalRequest', () => {
       command: ['bash', '-lc', 'ls'],
       cwd: '/tmp',
       reason: 'Need to inspect files',
-      risk: null,
       parsed_cmd: [] satisfies ParsedCommand[],
       turn_id: 'turn-1',
     });
@@ -86,7 +85,6 @@ describe('mapConversationEventToApprovalRequest', () => {
         command: ['bash'],
         cwd: '.',
         reason: null,
-        risk: null,
         parsed_cmd: [] satisfies ParsedCommand[],
         turn_id: 'turn-1',
       },
