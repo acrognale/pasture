@@ -34,6 +34,7 @@ const emitSessionConfigured = () => {
     history_log_id: BigInt(0),
     history_entry_count: 0,
     initial_messages: null,
+    skill_load_outcome: null,
     rollout_path: `${WORKSPACE}/history/${CONVERSATION_ID}.jsonl`,
   });
 };
@@ -167,6 +168,7 @@ describe('Conversation streaming flow', () => {
           { type: 'user_message', message: 'Earlier question', images: null },
           { type: 'agent_message', message: 'Earlier answer' },
         ],
+        skill_load_outcome: null,
         rollout_path: `${WORKSPACE}/history/${CONVERSATION_ID}.jsonl`,
       },
       reasoningSummary: 'auto',
