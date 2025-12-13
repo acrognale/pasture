@@ -44,7 +44,8 @@ const ThreadRow = memo(function ThreadRow({ thread, now }: ThreadRowProps) {
     thread.threadId
   );
   const normalizedPreview = thread.preview?.trim() ?? '';
-  const shouldShowPreview = normalizedPreview.length > 0 && source !== 'preview';
+  const shouldShowPreview =
+    normalizedPreview.length > 0 && source !== 'preview';
 
   return (
     <div className="flex w-full items-center justify-between gap-3">
