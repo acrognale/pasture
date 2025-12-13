@@ -11,7 +11,23 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(Threads::Table)
                     .add_column(ColumnDef::new(Threads::GitRepoRoot).string().null())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Threads::Table)
                     .add_column(ColumnDef::new(Threads::GitHeadSha).string().null())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Threads::Table)
                     .add_column(ColumnDef::new(Threads::GitHeadRef).string().null())
                     .to_owned(),
             )
@@ -26,7 +42,23 @@ impl MigrationTrait for Migration {
                 Table::alter()
                     .table(Threads::Table)
                     .drop_column(Threads::GitRepoRoot)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Threads::Table)
                     .drop_column(Threads::GitHeadSha)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .alter_table(
+                Table::alter()
+                    .table(Threads::Table)
                     .drop_column(Threads::GitHeadRef)
                     .to_owned(),
             )
