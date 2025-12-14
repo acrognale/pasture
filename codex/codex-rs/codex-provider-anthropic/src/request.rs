@@ -334,18 +334,28 @@ fn build_messages(prompt: &ApiPrompt) -> Vec<ChatMessage> {
             // Anthropic expects tool_use blocks to be followed by tool_result blocks in the
             // next message. Keep tool_use blocks at the end of the assistant message so we never
             // accidentally claim the assistant continued after issuing a tool call.
+            // When extended thinking is enabled, Anthropic requires assistant messages to begin
+            // with a thinking block (or redacted_thinking) before any tool_use/tool_result
+            // blocks. Ensure those blocks are first in the assistant content.
+            let mut thinking_blocks: Vec<ContentBlock> = Vec::new();
             let mut non_tool_use: Vec<ContentBlock> = Vec::new();
             let mut tool_use_blocks: Vec<ContentBlock> = Vec::new();
             for block in msg.content {
                 match block {
                     ContentBlock::ToolUse { .. } => tool_use_blocks.push(block),
+                    ContentBlock::Thinking { .. } | ContentBlock::RedactedThinking { .. } => {
+                        thinking_blocks.push(block);
+                    }
                     other => non_tool_use.push(other),
                 }
             }
-            non_tool_use.extend(tool_use_blocks);
+            let mut reordered: Vec<ContentBlock> = Vec::new();
+            reordered.extend(thinking_blocks);
+            reordered.extend(non_tool_use);
+            reordered.extend(tool_use_blocks);
             let msg = ChatMessage {
                 role: msg.role,
-                content: non_tool_use,
+                content: reordered,
             };
 
             let tool_use_ids: Vec<String> = msg
@@ -1291,6 +1301,71 @@ mod tests {
               {"role":"user","content":[{"type":"text","text":"hi"}]},
               {"role":"assistant","content":[
                 {"type":"thinking","thinking":"thinking...","signature":"sig"},
+                {"type":"tool_use","id":"call_1","name":"echo","input":{"text":"hello"}}
+              ]},
+              {"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"ok"}]}
+            ])
+        );
+    }
+
+    #[test]
+    fn thinking_blocks_are_reordered_before_text_when_emitted_late() {
+        let prompt = codex_api::Prompt {
+            instructions: String::new(),
+            input: vec![
+                ResponseItem::Message {
+                    id: None,
+                    role: "user".to_string(),
+                    content: vec![ContentItem::InputText {
+                        text: "hi".to_string(),
+                    }],
+                },
+                // Assistant text arrives before thinking in history; reorder should still place
+                // thinking first to satisfy Anthropic's extended thinking requirements.
+                ResponseItem::Message {
+                    id: None,
+                    role: "assistant".to_string(),
+                    content: vec![ContentItem::OutputText {
+                        text: "working...".to_string(),
+                    }],
+                },
+                ResponseItem::Reasoning {
+                    id: "msg_1:thinking".to_string(),
+                    summary: Vec::new(),
+                    content: Some(vec![ReasoningItemContent::ReasoningText {
+                        text: "thinking...".to_string(),
+                    }]),
+                    encrypted_content: Some("sig".to_string()),
+                },
+                ResponseItem::FunctionCall {
+                    id: None,
+                    name: "echo".to_string(),
+                    arguments: "{\"text\":\"hello\"}".to_string(),
+                    call_id: "call_1".to_string(),
+                },
+                ResponseItem::FunctionCallOutput {
+                    call_id: "call_1".to_string(),
+                    output: FunctionCallOutputPayload {
+                        content: "ok".to_string(),
+                        content_items: None,
+                        success: Some(true),
+                    },
+                },
+            ],
+            tools: vec![],
+            parallel_tool_calls: false,
+            output_schema: None,
+        };
+
+        let messages = build_messages(&prompt);
+        let value = to_value(&messages).expect("json");
+        assert_eq!(
+            value,
+            json!([
+              {"role":"user","content":[{"type":"text","text":"hi"}]},
+              {"role":"assistant","content":[
+                {"type":"thinking","thinking":"thinking...","signature":"sig"},
+                {"type":"text","text":"working..."},
                 {"type":"tool_use","id":"call_1","name":"echo","input":{"text":"hello"}}
               ]},
               {"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"ok"}]}

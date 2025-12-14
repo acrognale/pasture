@@ -110,6 +110,11 @@ fn streams_text_thinking_and_tool_use_in_expected_order() {
     )));
     assert!(output.iter().any(|e| matches!(
         e,
+        ResponseEvent::OutputItemDone(ResponseItem::Reasoning { content: Some(content), .. })
+        if content.iter().any(|c| matches!(c, codex_protocol::models::ReasoningItemContent::ReasoningText { text } if text == "step"))
+    )));
+    assert!(output.iter().any(|e| matches!(
+        e,
         ResponseEvent::OutputItemDone(ResponseItem::FunctionCall { call_id, name, arguments, .. })
         if call_id == "call_1" && name == "echo" && arguments.contains("\"text\":\"hi\"")
     )));

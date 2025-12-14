@@ -1,6 +1,7 @@
 use async_stream::try_stream;
 use codex_api::common::ResponseEvent;
 use codex_protocol::models::ContentItem;
+use codex_protocol::models::ReasoningItemContent;
 use codex_protocol::models::ReasoningItemReasoningSummary;
 use codex_protocol::models::ResponseItem;
 use eventsource_stream::Event;
@@ -93,7 +94,7 @@ impl AdapterState {
                         out.push(ResponseEvent::OutputItemAdded(ResponseItem::Reasoning {
                             id,
                             summary: Vec::new(),
-                            content: None,
+                            content: Some(Vec::new()),
                             encrypted_content: None,
                         }));
                     }
@@ -160,7 +161,7 @@ impl AdapterState {
                     out.push(ResponseEvent::OutputItemAdded(ResponseItem::Reasoning {
                         id,
                         summary: Vec::new(),
-                        content: None,
+                        content: Some(Vec::new()),
                         encrypted_content: None,
                     }));
                 }
@@ -216,10 +217,13 @@ impl AdapterState {
                         .clone()
                         .unwrap_or_else(|| "anthropic_message:thinking".to_string());
                     let text = std::mem::take(&mut self.thinking_accumulated);
+                    let summary_text = text.clone();
                     out.push(ResponseEvent::OutputItemDone(ResponseItem::Reasoning {
                         id,
-                        summary: vec![ReasoningItemReasoningSummary::SummaryText { text }],
-                        content: None,
+                        summary: vec![ReasoningItemReasoningSummary::SummaryText {
+                            text: summary_text,
+                        }],
+                        content: Some(vec![ReasoningItemContent::ReasoningText { text }]),
                         encrypted_content: self.thinking_signature.take(),
                     }));
                     self.thinking_started = false;
@@ -236,10 +240,13 @@ impl AdapterState {
                         .clone()
                         .unwrap_or_else(|| "anthropic_message:thinking".to_string());
                     let text = std::mem::take(&mut self.thinking_accumulated);
+                    let summary_text = text.clone();
                     out.push(ResponseEvent::OutputItemDone(ResponseItem::Reasoning {
                         id,
-                        summary: vec![ReasoningItemReasoningSummary::SummaryText { text }],
-                        content: None,
+                        summary: vec![ReasoningItemReasoningSummary::SummaryText {
+                            text: summary_text,
+                        }],
+                        content: Some(vec![ReasoningItemContent::ReasoningText { text }]),
                         encrypted_content: self.thinking_signature.take(),
                     }));
                 }
