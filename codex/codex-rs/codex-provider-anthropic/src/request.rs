@@ -1,5 +1,6 @@
 use codex_api::Prompt as ApiPrompt;
 use codex_protocol::models::ContentItem;
+use codex_protocol::models::ReasoningItemContent;
 use codex_protocol::models::ResponseItem;
 use serde::Deserialize;
 use serde::Serialize;
@@ -105,6 +106,11 @@ pub enum ContentBlock {
         thinking: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         signature: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<CacheControl>,
+    },
+    RedactedThinking {
+        data: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         cache_control: Option<CacheControl>,
     },
@@ -272,6 +278,9 @@ impl ContentBlock {
             ContentBlock::Thinking {
                 cache_control: cc, ..
             } => *cc = Some(cache_control),
+            ContentBlock::RedactedThinking {
+                cache_control: cc, ..
+            } => *cc = Some(cache_control),
             ContentBlock::Image {
                 cache_control: cc, ..
             } => *cc = Some(cache_control),
@@ -428,6 +437,39 @@ fn build_messages(prompt: &ApiPrompt) -> Vec<ChatMessage> {
                     }
                 }
             },
+            ResponseItem::Reasoning {
+                id,
+                summary: _,
+                content,
+                encrypted_content,
+                ..
+            } => {
+                let assistant = pending_assistant.get_or_insert_with(|| ChatMessage {
+                    role: "assistant".to_string(),
+                    content: Vec::new(),
+                });
+
+                if is_anthropic_redacted_thinking_id(id) {
+                    if let Some(data) = encrypted_content.clone().filter(|s| !s.trim().is_empty()) {
+                        assistant.content.push(ContentBlock::RedactedThinking {
+                            data,
+                            cache_control: None,
+                        });
+                    }
+                    continue;
+                }
+
+                let thinking = extract_reasoning_text(content);
+                let signature = encrypted_content.clone().filter(|s| !s.trim().is_empty());
+                if thinking.is_none() && signature.is_none() {
+                    continue;
+                }
+                assistant.content.push(ContentBlock::Thinking {
+                    thinking,
+                    signature,
+                    cache_control: None,
+                });
+            }
             ResponseItem::FunctionCall {
                 name,
                 arguments,
@@ -481,6 +523,31 @@ fn build_messages(prompt: &ApiPrompt) -> Vec<ChatMessage> {
         &mut tool_results_by_id,
     );
     messages
+}
+
+fn is_anthropic_redacted_thinking_id(id: &str) -> bool {
+    // Internal marker used by the Anthropic provider to distinguish redacted thinking blocks
+    // from normal thinking blocks without changing the wire protocol.
+    id.ends_with(":redacted_thinking")
+}
+
+fn extract_reasoning_text(content: &Option<Vec<ReasoningItemContent>>) -> Option<String> {
+    let Some(items) = content else {
+        return None;
+    };
+    let parts: Vec<String> = items
+        .iter()
+        .filter_map(|item| match item {
+            ReasoningItemContent::ReasoningText { text } | ReasoningItemContent::Text { text } => {
+                Some(text.clone())
+            }
+        })
+        .collect();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(""))
+    }
 }
 
 fn build_chat_message(role: &str, content: &[ContentItem]) -> Option<ChatMessage> {
@@ -689,6 +756,7 @@ mod tests {
     use codex_api::Prompt as ApiPrompt;
     use codex_protocol::models::ContentItem;
     use codex_protocol::models::FunctionCallOutputPayload;
+    use codex_protocol::models::ReasoningItemContent;
     use codex_protocol::models::ResponseItem;
     use serde_json::json;
     use serde_json::to_value;
@@ -1156,6 +1224,61 @@ mod tests {
                 {"type":"tool_result","tool_use_id":"call_b","content":"ok b"}
               ]},
               {"role":"assistant","content":[{"type":"text","text":"still working..."}]}
+            ])
+        );
+    }
+
+    #[test]
+    fn reasoning_items_are_emitted_as_thinking_blocks_before_tool_use() {
+        let prompt = codex_api::Prompt {
+            instructions: String::new(),
+            input: vec![
+                ResponseItem::Message {
+                    id: None,
+                    role: "user".to_string(),
+                    content: vec![ContentItem::InputText {
+                        text: "hi".to_string(),
+                    }],
+                },
+                ResponseItem::Reasoning {
+                    id: "msg_1:thinking".to_string(),
+                    summary: Vec::new(),
+                    content: Some(vec![ReasoningItemContent::ReasoningText {
+                        text: "thinking...".to_string(),
+                    }]),
+                    encrypted_content: Some("sig".to_string()),
+                },
+                ResponseItem::FunctionCall {
+                    id: None,
+                    name: "echo".to_string(),
+                    arguments: "{\"text\":\"hello\"}".to_string(),
+                    call_id: "call_1".to_string(),
+                },
+                ResponseItem::FunctionCallOutput {
+                    call_id: "call_1".to_string(),
+                    output: FunctionCallOutputPayload {
+                        content: "ok".to_string(),
+                        content_items: None,
+                        success: Some(true),
+                    },
+                },
+            ],
+            tools: vec![],
+            parallel_tool_calls: false,
+            output_schema: None,
+        };
+
+        let messages = build_messages(&prompt);
+        let value = to_value(&messages).expect("json");
+        assert_eq!(
+            value,
+            json!([
+              {"role":"user","content":[{"type":"text","text":"hi"}]},
+              {"role":"assistant","content":[
+                {"type":"thinking","thinking":"thinking...","signature":"sig"},
+                {"type":"tool_use","id":"call_1","name":"echo","input":{"text":"hello"}}
+              ]},
+              {"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"ok"}]}
             ])
         );
     }

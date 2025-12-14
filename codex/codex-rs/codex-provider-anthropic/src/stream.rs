@@ -92,6 +92,9 @@ pub fn stream(
         let mut thinking_block_index: Option<u32> = None;
         let mut thinking_id: Option<String> = None;
         let mut thinking_accumulated = String::new();
+        let mut thinking_signature: Option<String> = None;
+        let mut redacted_block_index: Option<u32> = None;
+        let mut redacted_data: Option<String> = None;
         let mut accumulated = String::new();
         let mut completed = false;
         let mut pending_tools: HashMap<u32, PendingToolUse> = HashMap::new();
@@ -143,6 +146,7 @@ pub fn stream(
                             if !thinking_started {
                                 thinking_started = true;
                                 thinking_block_index = Some(index);
+                                thinking_signature = None;
                                 let id = thinking_id
                                     .clone()
                                     .unwrap_or_else(|| "anthropic_message:thinking".to_string());
@@ -155,6 +159,22 @@ pub fn stream(
 
                                 // Ensure TUIs that only render "experimental" reasoning blocks show a
                                 // visible section with a stable header.
+                            }
+                        }
+                        ContentBlock::RedactedThinking { data, .. } => {
+                            if redacted_block_index.is_none() {
+                                redacted_block_index = Some(index);
+                                redacted_data = Some(data.clone());
+                                let id = response_id
+                                    .as_ref()
+                                    .map(|rid| format!("{rid}:redacted_thinking"))
+                                    .unwrap_or_else(|| "anthropic_message:redacted_thinking".to_string());
+                                yield ResponseEvent::OutputItemAdded(ResponseItem::Reasoning {
+                                    id,
+                                    summary: Vec::new(),
+                                    content: None,
+                                    encrypted_content: Some(data),
+                                });
                             }
                         }
                         ContentBlock::ToolUse {
@@ -197,6 +217,7 @@ pub fn stream(
                     if !thinking_started {
                         thinking_started = true;
                         thinking_block_index = Some(index);
+                        thinking_signature = None;
                         let id = thinking_id
                             .clone()
                             .unwrap_or_else(|| "anthropic_message:thinking".to_string());
@@ -215,6 +236,12 @@ pub fn stream(
                         content_index: 0,
                     };
                 }
+                ParsedEvent::SignatureDelta { index, signature } => {
+                    if thinking_block_index != Some(index) {
+                        continue;
+                    }
+                    thinking_signature = Some(signature);
+                }
                 ParsedEvent::InputJsonDelta { index, partial_json } => {
                     if let Some(pending) = pending_tools.get_mut(&index) {
                         pending.json_buffer.push_str(&partial_json);
@@ -231,6 +258,19 @@ pub fn stream(
                             arguments,
                             call_id: pending.id,
                         });
+                    } else if redacted_block_index == Some(index) {
+                        let id = response_id
+                            .as_ref()
+                            .map(|rid| format!("{rid}:redacted_thinking"))
+                            .unwrap_or_else(|| "anthropic_message:redacted_thinking".to_string());
+                        let data = redacted_data.take().unwrap_or_default();
+                        yield ResponseEvent::OutputItemDone(ResponseItem::Reasoning {
+                            id,
+                            summary: Vec::new(),
+                            content: None,
+                            encrypted_content: Some(data),
+                        });
+                        redacted_block_index = None;
                     } else if thinking_started && thinking_block_index == Some(index) {
                         let id = thinking_id
                             .clone()
@@ -240,7 +280,7 @@ pub fn stream(
                             id,
                             summary: Vec::new(),
                             content: Some(vec![ReasoningItemContent::ReasoningText { text }]),
-                            encrypted_content: None,
+                            encrypted_content: thinking_signature.take(),
                         });
                         thinking_started = false;
                         thinking_block_index = None;
@@ -259,7 +299,7 @@ pub fn stream(
                             id,
                             summary: Vec::new(),
                             content: Some(vec![ReasoningItemContent::ReasoningText { text }]),
-                            encrypted_content: None,
+                            encrypted_content: thinking_signature.take(),
                         });
                     }
 
@@ -325,6 +365,10 @@ enum ParsedEvent {
         index: u32,
         delta: String,
     },
+    SignatureDelta {
+        index: u32,
+        signature: String,
+    },
     InputJsonDelta {
         index: u32,
         partial_json: String,
@@ -377,6 +421,9 @@ fn parse_wire_event(event_name: &str, data: &str) -> Result<ParsedEvent, Anthrop
                     delta: thinking,
                 })
             }
+            ContentBlockDeltaPayload::SignatureDelta { signature } => {
+                Ok(ParsedEvent::SignatureDelta { index, signature })
+            }
             ContentBlockDeltaPayload::InputJsonDelta { partial_json } => {
                 Ok(ParsedEvent::InputJsonDelta {
                     index,
@@ -415,6 +462,9 @@ enum ContentBlockDeltaPayload {
     },
     ThinkingDelta {
         thinking: String,
+    },
+    SignatureDelta {
+        signature: String,
     },
     InputJsonDelta {
         partial_json: String,
@@ -570,5 +620,27 @@ mod tests {
         };
 
         assert_eq!(pending.final_input(), json!({"text":"hi"}));
+    }
+
+    #[test]
+    fn parses_signature_delta() {
+        let data = json!({
+          "type": "content_block_delta",
+          "index": 0,
+          "delta": {
+            "type": "signature_delta",
+            "signature": "sig"
+          }
+        })
+        .to_string();
+
+        let event = parse_wire_event("message", &data).expect("parse");
+        match event {
+            ParsedEvent::SignatureDelta { index, signature } => {
+                assert_eq!(index, 0);
+                assert_eq!(signature, "sig");
+            }
+            other => panic!("expected signature_delta, got {other:?}"),
+        }
     }
 }
