@@ -212,9 +212,18 @@ impl ModelClient {
         let tools_json: Vec<Value> = create_tools_json_for_responses_api(&prompt.tools)?;
         let api_prompt = build_api_prompt(prompt, instructions, tools_json);
 
-        let oauth_access_token = std::env::var("ANTHROPIC_OAUTH_ACCESS_TOKEN")
-            .ok()
-            .filter(|v| !v.trim().is_empty());
+        let oauth = crate::anthropic_oauth::AnthropicOAuth::new(
+            self.config.codex_home.clone(),
+            self.config.cli_auth_credentials_store_mode,
+        );
+        let mut oauth_error: Option<codex_provider_anthropic::oauth::OAuthError> = None;
+        let oauth_access_token = match oauth.get_access_token().await {
+            Ok(token) => token,
+            Err(err) => {
+                oauth_error = Some(err);
+                None
+            }
+        };
 
         let api_key = match self.provider.api_key() {
             Ok(key) => match key {
@@ -230,9 +239,21 @@ impl ModelClient {
             }
         };
 
+        if oauth_access_token.is_none() {
+            if let Some(err) = oauth_error {
+                if api_key.is_some() {
+                    tracing::warn!("Anthropic OAuth error; falling back to API key: {err}");
+                } else {
+                    return Err(CodexErr::InvalidRequest(format!(
+                        "Anthropic OAuth error: {err}"
+                    )));
+                }
+            }
+        }
+
         if oauth_access_token.is_none() && api_key.is_none() {
             return Err(CodexErr::InvalidRequest(
-                "Anthropic provider requires credentials: set ANTHROPIC_OAUTH_ACCESS_TOKEN or an API key via env_key"
+                "Anthropic provider requires credentials: connect Claude Code in Pasture settings or set an API key via env_key"
                     .to_string(),
             ));
         }
@@ -243,10 +264,16 @@ impl ModelClient {
             .clone()
             .unwrap_or_else(|| "https://api.anthropic.com".to_string());
 
+        let access_token = oauth_access_token;
+        let api_key = if access_token.is_some() {
+            None
+        } else {
+            api_key
+        };
         let client = AnthropicMessagesClient::with_version_and_auth(
             base_url,
             api_key,
-            oauth_access_token,
+            access_token,
             codex_provider_anthropic::DEFAULT_ANTHROPIC_VERSION,
             build_reqwest_client(),
         );

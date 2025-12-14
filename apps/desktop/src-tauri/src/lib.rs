@@ -167,6 +167,10 @@ pub fn run() {
             commands::workspace::browse_for_workspace,
             commands::workspace::update_workspace_settings,
             commands::auth::get_auth_state,
+            commands::anthropic_oauth::anthropic_oauth_authorize,
+            commands::anthropic_oauth::anthropic_oauth_exchange,
+            commands::anthropic_oauth::anthropic_oauth_status,
+            commands::anthropic_oauth::anthropic_oauth_logout,
             commands::update::check_for_update,
             commands::update::install_update,
         ])

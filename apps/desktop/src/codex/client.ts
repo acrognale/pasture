@@ -2,6 +2,9 @@
 import type {
   AddConversationListenerParams,
   AddConversationSubscriptionResponse,
+  AnthropicOauthAuthorizeResponse,
+  AnthropicOauthExchangeParams,
+  AnthropicOauthStatus,
   AuthState,
   CompactConversationParams,
   ComposerTurnConfigPayload,
@@ -318,6 +321,28 @@ export namespace Codex {
 
   export async function getAuthState(): Promise<AuthState> {
     return await invoke<AuthState>('get_auth_state');
+  }
+
+  export async function anthropicOauthAuthorize(): Promise<AnthropicOauthAuthorizeResponse> {
+    return await invoke<AnthropicOauthAuthorizeResponse>(
+      'anthropic_oauth_authorize'
+    );
+  }
+
+  export async function anthropicOauthExchange(
+    params: AnthropicOauthExchangeParams
+  ): Promise<AnthropicOauthStatus> {
+    return await invoke<AnthropicOauthStatus>('anthropic_oauth_exchange', {
+      params,
+    });
+  }
+
+  export async function anthropicOauthStatus(): Promise<AnthropicOauthStatus> {
+    return await invoke<AnthropicOauthStatus>('anthropic_oauth_status');
+  }
+
+  export async function anthropicOauthLogout(): Promise<void> {
+    return await invoke<void>('anthropic_oauth_logout');
   }
 
   export async function checkForUpdate(): Promise<{

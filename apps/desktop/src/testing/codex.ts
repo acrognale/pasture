@@ -225,6 +225,23 @@ const mockCodexNamespace = {
   setMessageCommentsSubmitted: defineStub(async () => undefined),
   deleteMessageComment: defineStub(async () => undefined),
   getAuthState: defineStub(async () => createDefaultAuthState()),
+  anthropicOauthAuthorize: defineStub(async () => ({
+    url: 'https://claude.ai/oauth/authorize?mock=true',
+    verifier: 'mock-verifier',
+  })),
+  anthropicOauthExchange: defineStub(async () => ({
+    isAuthenticated: true,
+    expiresAt: Date.now() + 60 * 60 * 1000,
+    isExpired: false,
+    lastError: null,
+  })),
+  anthropicOauthStatus: defineStub(async () => ({
+    isAuthenticated: false,
+    expiresAt: null,
+    isExpired: true,
+    lastError: null,
+  })),
+  anthropicOauthLogout: defineStub(async () => undefined),
   searchWorkspaceFiles: defineStub<
     [SearchWorkspaceFilesParams],
     WorkspaceFileHit[]

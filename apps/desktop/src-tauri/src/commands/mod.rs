@@ -1,5 +1,6 @@
 mod registry;
 
+pub mod anthropic_oauth;
 pub mod approvals;
 pub mod auth;
 pub mod composer;
@@ -176,6 +177,22 @@ codex_command_descriptors! {
     auth::get_auth_state {
         params: (),
         result: crate::auth::AuthState,
+    },
+    anthropic_oauth::anthropic_oauth_authorize {
+        params: (),
+        result: anthropic_oauth::AnthropicOauthAuthorizeResponse,
+    },
+    anthropic_oauth::anthropic_oauth_exchange {
+        params: anthropic_oauth::AnthropicOauthExchangeParams,
+        result: anthropic_oauth::AnthropicOauthStatus,
+    },
+    anthropic_oauth::anthropic_oauth_status {
+        params: (),
+        result: anthropic_oauth::AnthropicOauthStatus,
+    },
+    anthropic_oauth::anthropic_oauth_logout {
+        params: (),
+        result: (),
     },
     update::check_for_update {
         params: (),

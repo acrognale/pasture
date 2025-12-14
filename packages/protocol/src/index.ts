@@ -12,6 +12,9 @@ export type { AgentReasoningRawContentDeltaEvent } from './AgentReasoningRawCont
 export type { AgentReasoningRawContentEvent } from './AgentReasoningRawContentEvent';
 export type { AgentReasoningSectionBreakEvent } from './AgentReasoningSectionBreakEvent';
 export type { Annotations } from './Annotations';
+export type { AnthropicOauthAuthorizeResponse } from './AnthropicOauthAuthorizeResponse';
+export type { AnthropicOauthExchangeParams } from './AnthropicOauthExchangeParams';
+export type { AnthropicOauthStatus } from './AnthropicOauthStatus';
 export type { ApplyPatchApprovalRequestEvent } from './ApplyPatchApprovalRequestEvent';
 export type { AskForApproval } from './AskForApproval';
 export type { AudioContent } from './AudioContent';
