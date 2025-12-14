@@ -326,13 +326,6 @@ pub struct PromptCachingParams {
 }
 
 impl StreamParams {
-    pub fn from_preset(
-        preset: crate::model_presets::ModelPreset,
-        prompt: codex_api::Prompt,
-    ) -> Self {
-        preset.stream_params(prompt)
-    }
-
     pub fn with_model(mut self, model: impl Into<String>) -> Self {
         self.model = model.into();
         self

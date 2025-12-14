@@ -167,19 +167,19 @@ impl AnthropicOAuthStore {
 impl TokenStore for AnthropicOAuthStore {
     async fn load(&self) -> Result<Option<StoredOauthTokens>, OAuthError> {
         match self.mode {
-            AuthCredentialsStoreMode::File => self.load_from_file().await?,
+            AuthCredentialsStoreMode::File => self.load_from_file().await,
             AuthCredentialsStoreMode::Keyring => {
                 let key = self.store_key()?;
-                self.load_from_keyring(&key)?
+                self.load_from_keyring(&key)
             }
             AuthCredentialsStoreMode::Auto => {
                 let key = self.store_key()?;
                 match self.load_from_keyring(&key) {
-                    Ok(Some(tokens)) => Some(tokens),
-                    Ok(None) => self.load_from_file().await?,
+                    Ok(Some(tokens)) => Ok(Some(tokens)),
+                    Ok(None) => self.load_from_file().await,
                     Err(err) => {
                         warn!("keyring load failed, falling back to file: {err}");
-                        self.load_from_file().await?
+                        self.load_from_file().await
                     }
                 }
             }

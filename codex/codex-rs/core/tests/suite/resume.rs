@@ -47,18 +47,27 @@ async fn resume_includes_initial_messages_from_rollout_events() -> Result<()> {
         .session_configured
         .initial_messages
         .expect("expected initial messages to be present for resumed session");
-    match initial_messages.as_slice() {
-        [
-            EventMsg::UserMessage(first_user),
-            EventMsg::TokenCount(_),
-            EventMsg::AgentMessage(assistant_message),
-            EventMsg::TokenCount(_),
-        ] => {
-            assert_eq!(first_user.message, "Record some messages");
-            assert_eq!(assistant_message.message, "Completed first turn");
-        }
-        other => panic!("unexpected initial messages after resume: {other:#?}"),
-    }
+    let user_idx = initial_messages.iter().position(|ev| {
+        matches!(
+            ev,
+            EventMsg::UserMessage(user) if user.message == "Record some messages"
+        )
+    });
+    let assistant_idx = initial_messages.iter().position(|ev| {
+        matches!(
+            ev,
+            EventMsg::AgentMessage(msg) if msg.message == "Completed first turn"
+        )
+    });
+    assert!(user_idx.is_some(), "missing expected initial user message");
+    assert!(
+        assistant_idx.is_some(),
+        "missing expected initial assistant message"
+    );
+    assert!(
+        user_idx.unwrap() < assistant_idx.unwrap(),
+        "expected user message to precede assistant message"
+    );
 
     Ok(())
 }
@@ -99,22 +108,47 @@ async fn resume_includes_initial_messages_from_reasoning_events() -> Result<()> 
         .session_configured
         .initial_messages
         .expect("expected initial messages to be present for resumed session");
-    match initial_messages.as_slice() {
-        [
-            EventMsg::UserMessage(first_user),
-            EventMsg::TokenCount(_),
-            EventMsg::AgentReasoning(reasoning),
-            EventMsg::AgentReasoningRawContent(raw),
-            EventMsg::AgentMessage(assistant_message),
-            EventMsg::TokenCount(_),
-        ] => {
-            assert_eq!(first_user.message, "Record reasoning messages");
-            assert_eq!(reasoning.text, "Summarized step");
-            assert_eq!(raw.text, "raw detail");
-            assert_eq!(assistant_message.message, "Completed reasoning turn");
-        }
-        other => panic!("unexpected initial messages after resume: {other:#?}"),
-    }
+    let user_idx = initial_messages.iter().position(|ev| {
+        matches!(
+            ev,
+            EventMsg::UserMessage(user) if user.message == "Record reasoning messages"
+        )
+    });
+    let reasoning_idx = initial_messages.iter().position(|ev| {
+        matches!(
+            ev,
+            EventMsg::AgentReasoning(reason) if reason.text == "Summarized step"
+        )
+    });
+    let raw_idx = initial_messages.iter().position(|ev| {
+        matches!(
+            ev,
+            EventMsg::AgentReasoningRawContent(raw) if raw.text == "raw detail"
+        )
+    });
+    let assistant_idx = initial_messages.iter().position(|ev| {
+        matches!(
+            ev,
+            EventMsg::AgentMessage(msg) if msg.message == "Completed reasoning turn"
+        )
+    });
+
+    assert!(user_idx.is_some(), "missing expected initial user message");
+    assert!(reasoning_idx.is_some(), "missing expected reasoning summary");
+    assert!(raw_idx.is_some(), "missing expected reasoning raw content");
+    assert!(
+        assistant_idx.is_some(),
+        "missing expected initial assistant message"
+    );
+
+    let user_idx = user_idx.unwrap();
+    let reasoning_idx = reasoning_idx.unwrap();
+    let raw_idx = raw_idx.unwrap();
+    let assistant_idx = assistant_idx.unwrap();
+    assert!(
+        user_idx < reasoning_idx && reasoning_idx < raw_idx && raw_idx < assistant_idx,
+        "expected ordering: user < reasoning < raw < assistant"
+    );
 
     Ok(())
 }

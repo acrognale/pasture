@@ -7,7 +7,6 @@ use codex_protocol::models::ResponseItem;
 use codex_provider_anthropic::AnthropicClient;
 use codex_provider_anthropic::DEFAULT_ANTHROPIC_VERSION;
 use codex_provider_anthropic::StreamParams;
-use codex_provider_anthropic::model_presets;
 use codex_provider_anthropic::stream;
 use codex_utils_image::load_and_resize_to_fit;
 use futures::StreamExt;
@@ -17,7 +16,7 @@ fn usage() -> ! {
     eprintln!(
         "Usage: (ANTHROPIC_API_KEY=... | ANTHROPIC_OAUTH_ACCESS_TOKEN=...) cargo run -p codex-provider-anthropic --example quickstart -- [prompt] [model] [image_path]\n\
          - prompt: text to send (default: \"Hello, Claude!\")\n\
-         - model: preset name (haiku|sonnet|opus) or Claude model slug (default: sonnet)\n\
+         - model: short name (haiku|sonnet|opus) or Claude model slug (default: sonnet)\n\
          - image_path: optional path to a local image (jpg/png) to attach\n\
          Optional env vars: ANTHROPIC_BASE_URL (default https://api.anthropic.com), ANTHROPIC_VERSION (default {}), ANTHROPIC_IMAGE_PATH (optional local path)",
         DEFAULT_ANTHROPIC_VERSION
@@ -72,22 +71,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         version,
         reqwest::Client::new(),
     );
-    let preset = model_arg
-        .as_deref()
-        .and_then(model_presets::by_name)
-        .unwrap_or(model_presets::SONNET);
-    let model_override = model_arg.and_then(|arg| {
-        if model_presets::by_name(&arg).is_some() {
-            None
-        } else {
-            Some(arg)
-        }
-    });
+    let model = match model_arg.as_deref() {
+        None | Some("sonnet") => "claude-3-5-sonnet-20241022".to_string(),
+        Some("haiku") => "claude-3-5-haiku-20241022".to_string(),
+        Some("opus") => "claude-3-opus-20240229".to_string(),
+        Some(slug) => slug.to_string(),
+    };
 
-    let mut params = StreamParams::from_preset(preset, prompt).with_max_tokens(512);
-    if let Some(model) = model_override {
-        params = params.with_model(model);
-    }
+    let params = StreamParams {
+        model,
+        prompt,
+        max_tokens: 512,
+        thinking: None,
+        prompt_caching: None,
+    };
 
     let stream = stream(client, params);
     pin_mut!(stream);

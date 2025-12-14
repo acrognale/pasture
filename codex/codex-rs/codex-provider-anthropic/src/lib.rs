@@ -1,6 +1,5 @@
 mod error;
 mod http;
-pub mod model_presets;
 pub mod oauth;
 mod request;
 mod stream;

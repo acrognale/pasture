@@ -73,6 +73,9 @@ async fn model_selects_expected_tools() {
             "read_mcp_resource".to_string(),
             "update_plan".to_string(),
             "apply_patch".to_string(),
+            "grep_files".to_string(),
+            "read_file".to_string(),
+            "list_dir".to_string(),
             "view_image".to_string()
         ],
         "gpt-5-codex should expose the apply_patch tool",
@@ -88,6 +91,9 @@ async fn model_selects_expected_tools() {
             "read_mcp_resource".to_string(),
             "update_plan".to_string(),
             "apply_patch".to_string(),
+            "grep_files".to_string(),
+            "read_file".to_string(),
+            "list_dir".to_string(),
             "view_image".to_string()
         ],
         "gpt-5.1-codex should expose the apply_patch tool",
@@ -117,6 +123,9 @@ async fn model_selects_expected_tools() {
             "read_mcp_resource".to_string(),
             "update_plan".to_string(),
             "apply_patch".to_string(),
+            "grep_files".to_string(),
+            "read_file".to_string(),
+            "list_dir".to_string(),
             "view_image".to_string()
         ],
         "gpt-5.1 should expose the apply_patch tool",
