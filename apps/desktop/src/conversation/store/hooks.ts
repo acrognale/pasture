@@ -51,6 +51,17 @@ export const useConversationTranscript = (conversationId: string | null) =>
     (state) => state.conversation.transcript
   );
 
+export const useConversationProviderLock = (conversationId: string | null) =>
+  useConversationSelector(
+    conversationId,
+    (state) => ({
+      lockedModelProviderId: state.conversation.lockedModelProviderId,
+      currentModelProviderId: state.conversation.currentModelProviderId,
+      currentModel: state.conversation.currentModel,
+    }),
+    shallow
+  );
+
 export const useConversationComposerLimits = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,

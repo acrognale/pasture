@@ -37,7 +37,7 @@ pub struct TurnSnapshot {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConversationSnapshotState {
     pub workspace_path: String,
-    pub rollout_path: String,
+    pub rollout_path: Option<String>,
     pub base_commit: Option<String>,
     pub snapshots_disabled: bool,
 }
@@ -61,6 +61,12 @@ pub async fn ensure_base(
     let state = get_conversation_snapshot_state(db, conversation_id).await?;
     let state = state.ok_or(AppError::NotFound {
         entity: "conversation",
+    })?;
+    let _ = state.rollout_path.as_deref().ok_or(AppError::Validation {
+        message: format!(
+            "Conversation {} has not started yet (no rollout path available)",
+            conversation_id
+        ),
     })?;
 
     if state.snapshots_disabled {
@@ -94,6 +100,12 @@ pub async fn record_turn_snapshot(
     let state = get_conversation_snapshot_state(db, conversation_id).await?;
     let state = state.ok_or(AppError::NotFound {
         entity: "conversation",
+    })?;
+    let _ = state.rollout_path.as_deref().ok_or(AppError::Validation {
+        message: format!(
+            "Conversation {} has not started yet (no rollout path available)",
+            conversation_id
+        ),
     })?;
 
     if state.snapshots_disabled {
@@ -138,6 +150,12 @@ pub async fn commits_for_range(
     let state = state.ok_or(AppError::NotFound {
         entity: "conversation",
     })?;
+    let _ = state.rollout_path.as_deref().ok_or(AppError::Validation {
+        message: format!(
+            "Conversation {} has not started yet (no rollout path available)",
+            conversation_id
+        ),
+    })?;
 
     if state.snapshots_disabled {
         return Ok(None);
@@ -175,6 +193,12 @@ pub async fn snapshot_summary(
     let state = get_conversation_snapshot_state(db, conversation_id).await?;
     let state = state.ok_or(AppError::NotFound {
         entity: "conversation",
+    })?;
+    let _ = state.rollout_path.as_deref().ok_or(AppError::Validation {
+        message: format!(
+            "Conversation {} has not started yet (no rollout path available)",
+            conversation_id
+        ),
     })?;
 
     let snapshots = list_snapshots_for_conversation(db, conversation_id).await?;
@@ -351,8 +375,11 @@ async fn list_snapshots_for_conversation(
 // ============================================================
 
 async fn resolve_snapshot_cwd(state: &ConversationSnapshotState) -> PathBuf {
+    let Some(rollout_path) = state.rollout_path.as_deref() else {
+        return PathBuf::from(&state.workspace_path);
+    };
     load_rollout_cwd(
-        Path::new(&state.rollout_path),
+        Path::new(rollout_path),
         Some(Path::new(&state.workspace_path)),
     )
     .await

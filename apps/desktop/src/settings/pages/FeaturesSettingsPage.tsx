@@ -1,4 +1,5 @@
 import { Switch } from '~/components/ui/switch';
+
 import { useWorkspaceComposerDefaults } from '../hooks/useWorkspaceComposerDefaults';
 
 type FeaturesSettingsPageProps = {

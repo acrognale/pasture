@@ -6,7 +6,7 @@ import type { ReasoningEffort } from './ReasoningEffort';
 export type NewThreadResponse = {
   threadId: string;
   conversationId: ConversationId;
-  model: string;
+  model: string | null;
   reasoningEffort: ReasoningEffort | null;
-  rolloutPath: string;
+  rolloutPath: string | null;
 };

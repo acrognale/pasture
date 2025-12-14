@@ -134,7 +134,10 @@ async fn resume_includes_initial_messages_from_reasoning_events() -> Result<()> 
     });
 
     assert!(user_idx.is_some(), "missing expected initial user message");
-    assert!(reasoning_idx.is_some(), "missing expected reasoning summary");
+    assert!(
+        reasoning_idx.is_some(),
+        "missing expected reasoning summary"
+    );
     assert!(raw_idx.is_some(), "missing expected reasoning raw content");
     assert!(
         assistant_idx.is_some(),

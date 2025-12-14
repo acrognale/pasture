@@ -67,6 +67,7 @@ import type {
 import { produce } from 'immer';
 import type { Draft } from 'immer';
 import { extractFirstBold } from '~/lib/markdown';
+import { inferModelProviderId } from '~/lib/providerInference';
 import { safeStringify } from '~/lib/utils';
 
 import {
@@ -101,6 +102,9 @@ export type ConversationState = {
   statusHeader: string;
   statusOverride: string | null;
   reasoningSummaryPreference: ReasoningSummary | null;
+  currentModel: string | null;
+  currentModelProviderId: string | null;
+  lockedModelProviderId: string | null;
 
   /** Lifecycle state */
   isLoading: boolean;
@@ -147,6 +151,9 @@ export function createInitialConversationState(): ConversationState {
     statusHeader: DEFAULT_STATUS_HEADER,
     statusOverride: null,
     reasoningSummaryPreference: null,
+    currentModel: null,
+    currentModelProviderId: null,
+    lockedModelProviderId: null,
     isLoading: false,
     error: null,
   };
@@ -375,6 +382,11 @@ function onSessionConfigured(
   _ingest: (payload: ConversationEventPayload) => void
 ): void {
   draft.conversationId = conversationId ?? event.session_id;
+  draft.conversation.currentModel = event.model ?? null;
+  draft.conversation.currentModelProviderId =
+    event.model_provider_id ??
+    inferModelProviderId(event.model ?? undefined) ??
+    null;
   const entry: TranscriptSessionConfiguredCell = {
     id: eventId,
     kind: 'session-configured',
@@ -441,6 +453,15 @@ function onUserMessage(
   transcript.activeTurnId = turnId;
   closeActiveAgentCell(draft);
   transcript.shouldBreakExecGroup = true;
+
+  if (!draft.conversation.lockedModelProviderId) {
+    const providerFromSession = draft.conversation.currentModelProviderId;
+    const providerFromModel = inferModelProviderId(
+      draft.conversation.currentModel ?? undefined
+    );
+    draft.conversation.lockedModelProviderId =
+      providerFromSession ?? providerFromModel ?? null;
+  }
 }
 
 function onAgentMessageDelta(

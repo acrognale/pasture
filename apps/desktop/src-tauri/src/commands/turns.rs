@@ -1,19 +1,28 @@
+use std::path::Path;
 use std::path::PathBuf;
 
+use chrono::Utc;
 use codex_protocol::ConversationId;
 use codex_protocol::config_types::ReasoningSummary;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::AskForApproval;
+use codex_protocol::protocol::EventMsg;
 use codex_protocol::protocol::Op;
+use codex_protocol::protocol::RolloutItem;
+use codex_protocol::protocol::RolloutLine;
+use codex_protocol::protocol::SessionMeta;
+use codex_protocol::protocol::SessionMetaLine;
 use codex_protocol::protocol::TurnAbortReason;
 use codex_protocol::user_input::UserInput as CoreUserInput;
 use sea_orm::EntityTrait;
 use serde::Deserialize;
 use serde::Serialize;
 use tauri::AppHandle;
+use tauri::Emitter;
 use tauri::State;
 use ts_rs::TS;
+use uuid::Uuid;
 
 use crate::context::WorkspaceContext;
 use crate::db::schema;
@@ -21,6 +30,8 @@ use crate::errors::AppError;
 use crate::errors::AppResult;
 use crate::handoff::HandoffPlan;
 use crate::handoff::collect_candidate_files_from_snapshots;
+use crate::router::CodexEvent;
+use crate::router::ConversationEventPayload;
 use crate::state::AppState;
 use crate::threads;
 use crate::turns::TurnOverrides;
@@ -59,6 +70,156 @@ pub struct SendUserMessageParams {
     pub sandbox: Option<SandboxMode>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub approval_policy: Option<AskForApproval>,
+}
+
+async fn ensure_rollout_initialized(
+    rollout_path: &Path,
+    conversation_id: &ConversationId,
+    cwd: &Path,
+    model_provider_id: Option<String>,
+) -> AppResult<()> {
+    match tokio::fs::metadata(rollout_path).await {
+        Ok(meta) if meta.len() > 0 => return Ok(()),
+        Ok(_) | Err(_) => {}
+    }
+
+    if let Some(parent) = rollout_path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(AppError::Io)?;
+    }
+
+    let timestamp_utc = Utc::now().to_rfc3339();
+    let meta = SessionMeta {
+        id: *conversation_id,
+        timestamp: timestamp_utc.clone(),
+        cwd: cwd.to_path_buf(),
+        originator: "pasture".to_string(),
+        cli_version: env!("CARGO_PKG_VERSION").to_string(),
+        instructions: None,
+        source: Default::default(),
+        model_provider: model_provider_id,
+    };
+
+    let line = RolloutLine {
+        timestamp: timestamp_utc,
+        item: RolloutItem::SessionMeta(SessionMetaLine { meta, git: None }),
+    };
+
+    let json = serde_json::to_string(&line).map_err(|e| AppError::Codex(e.to_string()))?;
+    tokio::fs::write(rollout_path, format!("{}\n", json))
+        .await
+        .map_err(AppError::Io)?;
+
+    Ok(())
+}
+
+async fn ensure_conversation_started_for_send(
+    app: &AppState,
+    app_handle: &AppHandle,
+    conversation_id: &ConversationId,
+    overrides: &TurnOverrides,
+    window_label: &str,
+) -> AppResult<()> {
+    if app
+        .conversations
+        .get_conversation(*conversation_id)
+        .await
+        .is_ok()
+    {
+        return Ok(());
+    }
+
+    let Some(workspace_path) =
+        threads::workspace_path_for_conversation(&app.db, conversation_id).await?
+    else {
+        return Ok(());
+    };
+    let ctx = WorkspaceContext::new(workspace_path, app);
+
+    let Some(thread_id) = threads::thread_for_conversation(&app.db, conversation_id).await? else {
+        return Ok(());
+    };
+    let thread = threads::get(&ctx, &thread_id).await?;
+
+    let conversation = thread
+        .conversations
+        .iter()
+        .find(|conv| &conv.id == conversation_id)
+        .ok_or(AppError::NotFound {
+            entity: "conversation",
+        })?;
+
+    let rollout_path = match conversation.rollout_path.as_deref() {
+        Some(path) if !path.trim().is_empty() => PathBuf::from(path),
+        _ => {
+            let allocated = threads::planned_rollout_path(&ctx, conversation_id);
+            threads::set_rollout_path(
+                ctx.db(),
+                conversation_id,
+                allocated.to_string_lossy().to_string(),
+            )
+            .await?;
+            allocated
+        }
+    };
+
+    let cwd =
+        crate::rollout::load_rollout_cwd(&rollout_path, Some(Path::new(ctx.path.as_str()))).await?;
+
+    // Lazy-start uses `resume_conversation_from_rollout` so the conversation id stays stable.
+    // That requires a rollout header to exist on disk.
+    ensure_rollout_initialized(&rollout_path, conversation_id, &cwd, None).await?;
+    let settings = ctx.settings().await?;
+
+    let options = crate::codex_config::NewThreadOptions {
+        model: overrides.model.clone().or(thread.model.clone()),
+        model_provider_id: None,
+        profile: None,
+        cwd: Some(cwd.to_string_lossy().to_string()),
+        approval_policy: overrides.approval_policy.or(thread.approval.clone()),
+        sandbox: overrides.sandbox.or(thread.sandbox),
+        config: None,
+        base_instructions: None,
+        include_apply_patch_tool: None,
+        web_search_enabled: thread.web_search_enabled,
+    };
+
+    let config = crate::codex_config::derive_config(ctx.config(), settings, &options).await?;
+    let started = ctx
+        .conversations()
+        .resume_conversation_from_rollout(config, rollout_path, ctx.auth())
+        .await
+        .map_err(|e| AppError::Codex(format!("Failed to resume conversation: {}", e)))?;
+
+    let _ = app
+        .events
+        .ensure_subscription(
+            *conversation_id,
+            started.conversation.clone(),
+            app_handle.clone(),
+            window_label.to_string(),
+        )
+        .await;
+
+    // The initial session_configured event is consumed during resume and is not replayed on the
+    // event stream, so emit a synthetic bridge event to keep the renderer in sync.
+    let payload = ConversationEventPayload {
+        conversation_id: conversation_id.to_string(),
+        turn_id: String::new(),
+        event_id: Uuid::new_v4().to_string(),
+        event: EventMsg::SessionConfigured(started.session_configured.clone()),
+        timestamp: Utc::now().to_rfc3339(),
+    };
+    let _ = app_handle.emit_to(
+        window_label,
+        "codex-event",
+        CodexEvent::ConversationEvent {
+            payload: Box::new(payload),
+        },
+    );
+
+    Ok(())
 }
 
 /// Parameters accepted when compacting a conversation.
@@ -165,6 +326,15 @@ pub async fn send_user_message(
         sandbox,
         approval_policy,
     };
+
+    ensure_conversation_started_for_send(
+        &app,
+        &app_handle,
+        &conversation_id,
+        &overrides,
+        &conversation_id.to_string(),
+    )
+    .await?;
 
     turns::send(
         &app.conversations,
@@ -313,7 +483,7 @@ pub async fn handoff_conversation(
     let plan = HandoffPlan::from(plan_event);
 
     let options = NewThreadOptions::default();
-    let (thread, new_conv) = threads::create(&ctx, options, app_handle.clone()).await?;
+    let (thread, new_conversation_id) = threads::create(&ctx, options, app_handle.clone()).await?;
 
     threads::apply_handoff_metadata(&ctx, &app_handle, &thread, &conversation_id, &plan).await;
 
@@ -334,7 +504,7 @@ pub async fn handoff_conversation(
 
     Ok(HandoffConversationResponse {
         thread_id: thread.id.as_str().to_string(),
-        conversation_id: new_conv.conversation_id,
+        conversation_id: new_conversation_id,
         composer_draft,
         title: plan.title,
         goal: params.goal,

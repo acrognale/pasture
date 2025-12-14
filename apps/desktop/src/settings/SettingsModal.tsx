@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+
 import { AuthenticationSettingsPage } from './pages/AuthenticationSettingsPage';
 import { DefaultsSettingsPage } from './pages/DefaultsSettingsPage';
 import { FeaturesSettingsPage } from './pages/FeaturesSettingsPage';
@@ -62,9 +63,7 @@ export function SettingsModal({
               <FeaturesSettingsPage workspacePath={workspacePath} />
             ) : null}
 
-            {page === 'authentication' ? (
-              <AuthenticationSettingsPage />
-            ) : null}
+            {page === 'authentication' ? <AuthenticationSettingsPage /> : null}
 
             {page === 'defaults' ? (
               <DefaultsSettingsPage workspacePath={workspacePath} />

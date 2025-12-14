@@ -13,6 +13,7 @@ const CONVERSATION_ID = 'conversation-1';
 describe('hydrateConversationStore', () => {
   test('groups initial messages into turns by user_message boundaries', async () => {
     mockCodex.stub.initializeThread.mockResolvedValue({
+      conversationId: CONVERSATION_ID,
       sessionConfigured: {
         session_id: CONVERSATION_ID,
         model: 'gpt-5-codex',
@@ -72,6 +73,7 @@ describe('hydrateConversationStore', () => {
 
   test('adopts explicit tool turn_id for the whole buffered turn', async () => {
     mockCodex.stub.initializeThread.mockResolvedValue({
+      conversationId: CONVERSATION_ID,
       sessionConfigured: {
         session_id: CONVERSATION_ID,
         model: 'gpt-5-codex',

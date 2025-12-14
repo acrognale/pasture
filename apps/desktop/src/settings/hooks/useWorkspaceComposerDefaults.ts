@@ -70,8 +70,7 @@ export function useWorkspaceComposerDefaults(workspacePath: string) {
     },
   });
 
-  const defaults =
-    query.data ?? normalizeWorkspaceComposerDefaults(null);
+  const defaults = query.data ?? normalizeWorkspaceComposerDefaults(null);
 
   const disabled = query.isLoading || mutation.isPending;
 
@@ -88,4 +87,3 @@ export function useWorkspaceComposerDefaults(workspacePath: string) {
     updateSetting,
   };
 }
-

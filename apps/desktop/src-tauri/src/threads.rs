@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use chrono::Utc;
 use codex_core::NewConversation;
+use codex_core::RolloutRecorder;
 use codex_core::openai_models::models_manager::ModelsManager;
 use codex_protocol::ConversationId;
 use codex_protocol::config_types::ReasoningSummary;
@@ -53,7 +54,8 @@ use crate::workspace;
 // ============================================================
 
 pub struct ThreadInitialization {
-    pub conversation: NewConversation,
+    pub conversation_id: ConversationId,
+    pub conversation: Option<NewConversation>,
     pub reasoning_summary: ReasoningSummary,
 }
 
@@ -312,33 +314,25 @@ pub async fn get(ctx: &WorkspaceContext, thread_id: &ThreadId) -> AppResult<Thre
 pub async fn create(
     ctx: &WorkspaceContext,
     options: NewThreadOptions,
-    app_handle: AppHandle,
-) -> AppResult<(Thread, NewConversation)> {
+    _app_handle: AppHandle,
+) -> AppResult<(Thread, ConversationId)> {
     let mut base_config = ctx.config().clone();
     base_config.cwd = PathBuf::from(ctx.path.as_str());
 
     let settings = ctx.settings().await?;
     let config = derive_config(&base_config, settings, &options).await?;
-
-    let new_conv = ctx
-        .conversations()
-        .new_conversation(config)
-        .await
-        .map_err(|e| AppError::Codex(format!("Failed to create conversation: {}", e)))?;
+    let thread_model = config.model.clone();
+    let thread_provider_id = config.model_provider_id.clone();
+    let conversation_id = ConversationId::default();
 
     let timestamp = Utc::now().to_rfc3339();
     let thread_id = ThreadId(Uuid::new_v4().to_string());
-    let conversation_id = new_conv.conversation_id;
     let git_anchor = capture_git_thread_anchor(Path::new(ctx.path.as_str())).await;
 
     let conversation = Conversation {
         id: conversation_id,
         thread_id: thread_id.clone(),
-        rollout_path: new_conv
-            .session_configured
-            .rollout_path
-            .to_string_lossy()
-            .to_string(),
+        rollout_path: None,
         created_at: timestamp.clone(),
         label: None,
         parent_conversation_id: None,
@@ -351,14 +345,8 @@ pub async fn create(
         conversations: vec![conversation],
         title: None,
         preview: Some("Untitled thread".to_string()),
-        model: settings.model.clone(),
-        model_provider_id: settings.model_provider_id.clone().or_else(|| {
-            settings
-                .model
-                .as_deref()
-                .and_then(crate::provider_inference::infer_model_provider_id)
-                .map(|id| id.to_string())
-        }),
+        model: thread_model,
+        model_provider_id: Some(thread_provider_id),
         reasoning_effort: settings.reasoning_effort,
         reasoning_summary: settings.reasoning_summary,
         sandbox: settings.sandbox,
@@ -374,11 +362,7 @@ pub async fn create(
 
     save(ctx.db(), &ctx.path, &thread).await?;
     crate::workspace::touch(ctx.db(), &ctx.path).await?;
-
-    ensure_base_snapshot(ctx, &conversation_id).await;
-    ensure_subscription(ctx, &conversation_id, app_handle).await;
-
-    Ok((thread, new_conv))
+    Ok((thread, conversation_id))
 }
 
 /// Initialize a thread by resuming its current conversation.
@@ -389,6 +373,30 @@ pub async fn initialize(
 ) -> AppResult<ThreadInitialization> {
     let thread = get(ctx, thread_id).await?;
     let rollout_path = current_conversation_rollout_path(&thread)?;
+    let conversation_id = thread.current_conversation_id;
+
+    // Lazy-start: do not create/resume a Codex session until the first user message is sent.
+    // If this conversation has no user messages yet, return without starting a session.
+    let has_user_messages = match rollout_path.as_ref() {
+        Some(path) => rollout_has_user_messages(path).await.unwrap_or(false),
+        None => false,
+    };
+    if !has_user_messages {
+        let settings = ctx.settings().await?;
+        let thread_options =
+            thread_options_from_thread(&thread, Some(ctx.path.as_str().to_string()));
+        let config = derive_config(ctx.config(), settings, &thread_options).await?;
+        return Ok(ThreadInitialization {
+            conversation_id,
+            conversation: None,
+            reasoning_summary: config.model_reasoning_summary,
+        });
+    }
+
+    let rollout_path = rollout_path.ok_or(AppError::Validation {
+        message: "Conversation rollout path is missing".to_string(),
+    })?;
+
     let cwd = resolve_rollout_cwd(&rollout_path, &ctx.path).await?;
 
     let settings = ctx.settings().await?;
@@ -403,12 +411,12 @@ pub async fn initialize(
         .await
         .map_err(|e| AppError::Codex(format!("Failed to resume conversation: {}", e)))?;
 
-    let conversation_id = new_conv.conversation_id;
     ensure_base_snapshot(ctx, &conversation_id).await;
     ensure_subscription(ctx, &conversation_id, app_handle).await;
 
     Ok(ThreadInitialization {
-        conversation: new_conv,
+        conversation_id,
+        conversation: Some(new_conv),
         reasoning_summary,
     })
 }
@@ -428,7 +436,13 @@ pub async fn fork(
             entity: "conversation",
         })?;
 
-    let rollout_path = PathBuf::from(&base_conversation.rollout_path);
+    let rollout_path = base_conversation
+        .rollout_path
+        .as_deref()
+        .ok_or(AppError::Validation {
+            message: "Cannot fork a conversation before the first user message is sent".to_string(),
+        })?;
+    let rollout_path = PathBuf::from(rollout_path);
     let cwd = resolve_rollout_cwd(&rollout_path, &ctx.path).await?;
 
     let mut base_config = ctx.config().clone();
@@ -448,11 +462,13 @@ pub async fn fork(
     let new_conversation = Conversation {
         id: new_conv.conversation_id,
         thread_id: thread.id.clone(),
-        rollout_path: new_conv
-            .session_configured
-            .rollout_path
-            .to_string_lossy()
-            .to_string(),
+        rollout_path: Some(
+            new_conv
+                .session_configured
+                .rollout_path
+                .to_string_lossy()
+                .to_string(),
+        ),
         created_at: timestamp.clone(),
         label: None,
         parent_conversation_id: Some(*base_conversation_id),
@@ -486,7 +502,27 @@ pub async fn switch_conversation(
     let conversation = find_conversation(&thread, conversation_id).ok_or(AppError::NotFound {
         entity: "conversation",
     })?;
-    let rollout_path = PathBuf::from(&conversation.rollout_path);
+    let rollout_path = conversation.rollout_path.as_deref().map(PathBuf::from);
+
+    // Lazy-start: do not create/resume a Codex session until the first user message is sent.
+    // If this conversation has no user messages yet, allow switching without starting a session.
+    let has_user_messages = match rollout_path.as_ref() {
+        Some(path) => rollout_has_user_messages(path).await.unwrap_or(false),
+        None => false,
+    };
+    if !has_user_messages {
+        thread.current_conversation_id = *conversation_id;
+        thread.updated_at = Utc::now().to_rfc3339();
+        save(ctx.db(), &ctx.path, &thread).await?;
+        return Ok(SwitchConversationResult {
+            session_configured: None,
+            reasoning_summary: None,
+        });
+    }
+
+    let rollout_path = rollout_path.ok_or(AppError::Validation {
+        message: "Conversation rollout path is missing".to_string(),
+    })?;
 
     let cwd = resolve_rollout_cwd(&rollout_path, &ctx.path).await?;
     let existing_conversation = ctx.conversations().get_conversation(*conversation_id).await;
@@ -1076,7 +1112,7 @@ fn find_conversation<'a>(
         .find(|conv| &conv.id == conversation_id)
 }
 
-fn current_conversation_rollout_path(thread: &Thread) -> AppResult<PathBuf> {
+fn current_conversation_rollout_path(thread: &Thread) -> AppResult<Option<PathBuf>> {
     let conversation = thread
         .conversations
         .iter()
@@ -1084,7 +1120,10 @@ fn current_conversation_rollout_path(thread: &Thread) -> AppResult<PathBuf> {
         .ok_or(AppError::NotFound {
             entity: "conversation",
         })?;
-    Ok(PathBuf::from(&conversation.rollout_path))
+    Ok(conversation
+        .rollout_path
+        .as_deref()
+        .and_then(|path| (!path.trim().is_empty()).then(|| PathBuf::from(path))))
 }
 
 async fn resolve_rollout_cwd(rollout_path: &Path, workspace: &WorkspacePath) -> AppResult<PathBuf> {
@@ -1311,6 +1350,69 @@ async fn ensure_subscription(
             );
         }
     }
+}
+
+async fn rollout_has_user_messages(rollout_path: &Path) -> AppResult<bool> {
+    if tokio::fs::metadata(rollout_path).await.is_err() {
+        return Ok(false);
+    }
+
+    let initial_history = match RolloutRecorder::get_rollout_history(rollout_path).await {
+        Ok(history) => history,
+        Err(err) if err.kind() == std::io::ErrorKind::Other => {
+            // Codex uses ErrorKind::Other for a few non-fatal "no history" states like empty files.
+            return Ok(false);
+        }
+        Err(err) => {
+            return Err(AppError::Codex(format!(
+                "Failed to read rollout history: {}",
+                err
+            )));
+        }
+    };
+    let event_msgs = initial_history.get_event_msgs().unwrap_or_default();
+    Ok(event_msgs
+        .iter()
+        .any(|event| matches!(event, codex_protocol::protocol::EventMsg::UserMessage(_))))
+}
+
+pub(crate) fn planned_rollout_path(
+    ctx: &WorkspaceContext,
+    conversation_id: &ConversationId,
+) -> PathBuf {
+    let now = Utc::now();
+
+    let mut dir = ctx.config().codex_home.clone();
+    dir.push("sessions");
+    dir.push(now.format("%Y").to_string());
+    dir.push(now.format("%m").to_string());
+    dir.push(now.format("%d").to_string());
+
+    let date_str = now.format("%Y-%m-%dT%H-%M-%S").to_string();
+    dir.join(format!("rollout-{}-{}.jsonl", date_str, conversation_id))
+}
+
+pub async fn set_rollout_path(
+    db: &DatabaseConnection,
+    conversation_id: &ConversationId,
+    rollout_path: String,
+) -> AppResult<()> {
+    let existing = schema::conversations::Entity::find_by_id(conversation_id.to_string())
+        .one(db)
+        .await
+        .map_err(|e| db_err("load conversation for rollout path update", e))?
+        .ok_or(AppError::NotFound {
+            entity: "conversation",
+        })?;
+
+    let mut active: schema::conversations::ActiveModel = existing.into();
+    active.rollout_path = Set(Some(rollout_path));
+    active
+        .update(db)
+        .await
+        .map_err(|e| db_err("update conversation rollout path", e))?;
+
+    Ok(())
 }
 
 pub async fn current_conversation_id_for_thread(

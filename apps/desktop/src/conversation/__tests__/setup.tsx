@@ -28,6 +28,7 @@ export const setupConversationTest = (
   });
 
   mockCodex.stub.initializeThread.mockResolvedValue({
+    conversationId,
     sessionConfigured: {
       session_id: conversationId,
       model: 'gpt-5-codex',

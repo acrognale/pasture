@@ -6,19 +6,28 @@ import type {
 } from '@pasture/protocol';
 import { ChevronDownIcon } from 'lucide-react';
 import { RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '~/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { useSidebar } from '~/components/ui/sidebar';
 import { Switch } from '~/components/ui/switch';
+import { useConversationProviderLock } from '~/conversation/store/hooks';
 import {
   COMPOSER_BREAKPOINTS,
   useContainerQuery,
 } from '~/lib/hooks/useContainerQuery';
+import {
+  type ModelProviderId,
+  inferModelProviderId,
+  normalizeModelProviderId,
+} from '~/lib/providerInference';
 import { cn } from '~/lib/utils';
 
 import {
@@ -109,6 +118,25 @@ const LEFT_SIDEBAR_WIDTH = 288; // 18rem
 const BASE_APPROVAL_WIDTH = 600;
 const REASONING_OFFSET = 65;
 
+const PROVIDER_DISPLAY_NAMES: Record<ModelProviderId, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+};
+
+const MODELS_BY_PROVIDER = (() => {
+  const openaiModels: ModelName[] = [];
+  const anthropicModels: ModelName[] = [];
+  for (const model of MODEL_OPTIONS) {
+    const provider = inferModelProviderId(model);
+    if (provider === 'anthropic') {
+      anthropicModels.push(model);
+    } else {
+      openaiModels.push(model);
+    }
+  }
+  return { openaiModels, anthropicModels };
+})();
+
 const isModelName = (value: string | null | undefined): value is ModelName =>
   value != null && MODEL_OPTIONS.includes(value as ModelName);
 
@@ -133,6 +161,12 @@ export function ModelConfigSelector({
   disabled: disabledProp,
   onUpdate,
 }: ModelConfigSelectorProps) {
+  const providerLock = useConversationProviderLock(conversationId);
+  const lockedProviderId = useMemo(
+    () => normalizeModelProviderId(providerLock.lockedModelProviderId),
+    [providerLock.lockedModelProviderId]
+  );
+
   const composerConfig = useMemo(
     () => composerConfigProp ?? createDefaultComposerConfig(),
     [composerConfigProp]
@@ -204,6 +238,16 @@ export function ModelConfigSelector({
   };
 
   const handleModelChange = (model: ModelName) => {
+    if (lockedProviderId) {
+      const targetProviderId = inferModelProviderId(model);
+      if (targetProviderId && targetProviderId !== lockedProviderId) {
+        toast.info('Provider locked', {
+          description: 'To switch providers, start a new thread.',
+        });
+        return;
+      }
+    }
+
     const usesBinary = getReasoningControlKind(model) === 'binary';
     if (usesBinary) {
       const current = composerConfig.reasoningEffort ?? 'medium';
@@ -280,27 +324,17 @@ export function ModelConfigSelector({
     return null;
   }
 
-  // Sidebar only reduces available width while it is open and wider than its auto-collapse threshold.
   const sidebarConsumesSpace =
     sidebarOpen && fallbackViewportWidth > SIDEBAR_AUTO_COLLAPSE_WIDTH;
-
   const width = fallbackViewportWidth;
-
-  // Determine layout based on viewport width (keeps dropdowns visible on larger screens).
   const showIconOnly = width < COMPOSER_BREAKPOINTS.MEDIUM;
-
   const approvalsBreakpoint = sidebarConsumesSpace
     ? BASE_APPROVAL_WIDTH + LEFT_SIDEBAR_WIDTH
     : BASE_APPROVAL_WIDTH;
   const reasoningBreakpoint = approvalsBreakpoint - REASONING_OFFSET;
-
-  // Move approvals into the settings popover when space is constrained.
   const approvalsInSettings = width < approvalsBreakpoint;
-
-  // At an additional 65px reduction also move reasoning effort.
   const reasoningEffortInSettings = width < reasoningBreakpoint;
 
-  // Model dropdown (always visible)
   const modelDropdown = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -316,15 +350,55 @@ export function ModelConfigSelector({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        {Object.entries(MODEL_DISPLAY_NAMES).map(([value, label]) => (
-          <DropdownMenuItem
-            key={value}
-            disabled={disabled}
-            onSelect={() => handleModelChange(value as ModelName)}
-          >
-            {label}
-          </DropdownMenuItem>
-        ))}
+        {lockedProviderId ? (
+          <>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Provider locked to {PROVIDER_DISPLAY_NAMES[lockedProviderId]}. To
+              switch providers, start a new thread.
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
+
+        <DropdownMenuLabel className="text-xs text-muted-foreground">
+          OpenAI
+        </DropdownMenuLabel>
+        {MODELS_BY_PROVIDER.openaiModels.map((value) => {
+          const label = MODEL_DISPLAY_NAMES[value];
+          const incompatible =
+            lockedProviderId != null &&
+            inferModelProviderId(value) !== lockedProviderId;
+          return (
+            <DropdownMenuItem
+              key={value}
+              disabled={disabled || incompatible}
+              onSelect={() => handleModelChange(value)}
+            >
+              {label}
+            </DropdownMenuItem>
+          );
+        })}
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuLabel className="text-xs text-muted-foreground">
+          Anthropic
+        </DropdownMenuLabel>
+        {MODELS_BY_PROVIDER.anthropicModels.map((value) => {
+          const label = MODEL_DISPLAY_NAMES[value];
+          const incompatible =
+            lockedProviderId != null &&
+            inferModelProviderId(value) !== lockedProviderId;
+          return (
+            <DropdownMenuItem
+              key={value}
+              disabled={disabled || incompatible}
+              onSelect={() => handleModelChange(value)}
+            >
+              {label}
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );

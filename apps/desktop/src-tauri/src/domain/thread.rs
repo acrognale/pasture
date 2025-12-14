@@ -15,7 +15,7 @@ use codex_protocol::protocol::AskForApproval;
 pub struct Conversation {
     pub id: ConversationId,
     pub thread_id: ThreadId,
-    pub rollout_path: String,
+    pub rollout_path: Option<String>,
     pub created_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,

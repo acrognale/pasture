@@ -76,6 +76,14 @@ pub(crate) async fn load_rollout_cwd(
         return Ok(PathBuf::from(cwd_str));
     }
 
+    if let Some(cwd_str) = value
+        .get("payload")
+        .and_then(|payload| payload.get("cwd"))
+        .and_then(|value| value.as_str())
+    {
+        return Ok(PathBuf::from(cwd_str));
+    }
+
     if let Some(workspace) = fallback_workspace {
         log::debug!(
             "Rollout {} header missing cwd, falling back to workspace cwd {}",

@@ -26,6 +26,7 @@ import {
   getReasoningControlKind,
   normalizeReasoningEffort,
 } from '~/composer/model-options';
+
 import { useWorkspaceComposerDefaults } from '../hooks/useWorkspaceComposerDefaults';
 
 type DefaultsSettingsPageProps = {
@@ -45,7 +46,8 @@ export function DefaultsSettingsPage({
     ? defaults.model
     : 'gpt-5.2';
 
-  const usesBinaryReasoning = getReasoningControlKind(selectedModel) === 'binary';
+  const usesBinaryReasoning =
+    getReasoningControlKind(selectedModel) === 'binary';
 
   const availableReasoningEfforts = getAvailableReasoningEfforts(selectedModel);
 

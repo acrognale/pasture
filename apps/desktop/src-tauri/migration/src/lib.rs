@@ -7,6 +7,7 @@ mod m20251201_000001_add_web_search_settings;
 mod m20251205_000001_add_message_comments;
 mod m20251212_000001_add_thread_git_anchor;
 mod m20251213_000001_add_model_provider_settings;
+mod m20251214_000001_make_conversation_rollout_path_nullable;
 
 pub struct Migrator;
 
@@ -21,6 +22,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20251205_000001_add_message_comments::Migration),
             Box::new(m20251212_000001_add_thread_git_anchor::Migration),
             Box::new(m20251213_000001_add_model_provider_settings::Migration),
+            Box::new(m20251214_000001_make_conversation_rollout_path_nullable::Migration),
         ]
     }
 }

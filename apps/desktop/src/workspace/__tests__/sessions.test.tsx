@@ -45,6 +45,7 @@ describe('SidebarPanel sessions', () => {
     });
 
     mockCodex.stub.initializeThread.mockResolvedValue({
+      conversationId: NEW_CONVERSATION_ID,
       sessionConfigured: {
         session_id: NEW_CONVERSATION_ID,
         model: 'gpt-5-codex',
@@ -109,6 +110,7 @@ describe('SidebarPanel sessions', () => {
     });
 
     mockCodex.stub.initializeThread.mockResolvedValue({
+      conversationId: NEW_CONVERSATION_ID,
       sessionConfigured: {
         session_id: NEW_CONVERSATION_ID,
         model: 'gpt-5-codex',
@@ -197,6 +199,7 @@ describe('SidebarPanel sessions', () => {
     expect(screen.queryByRole('button', { name: /Session 2/i })).toBeNull();
 
     mockCodex.stub.initializeThread.mockResolvedValue({
+      conversationId: 'conversation-02',
       sessionConfigured: {
         session_id: 'conversation-02',
         model: 'gpt-5-codex',
@@ -250,6 +253,7 @@ describe('SidebarPanel sessions', () => {
     const createInitializeThreadResponse = (
       thread: ThreadSummary
     ): InitializeThreadResponse => ({
+      conversationId: thread.currentConversationId,
       sessionConfigured: {
         session_id: thread.currentConversationId,
         model: 'gpt-5-codex',

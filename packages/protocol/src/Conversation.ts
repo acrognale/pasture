@@ -6,7 +6,7 @@ import type { ThreadId } from './ThreadId';
 export type Conversation = {
   id: ConversationId;
   threadId: ThreadId;
-  rolloutPath: string;
+  rolloutPath: string | null;
   createdAt: string;
   label: string | null;
   parentConversationId: ConversationId | null;

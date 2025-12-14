@@ -87,6 +87,7 @@ const createDefaultSessionConfiguredEvent = (): SessionConfiguredEvent => ({
 });
 
 const createDefaultInitializeThreadResponse = (): InitializeThreadResponse => ({
+  conversationId: 'mock-conversation',
   sessionConfigured: createDefaultSessionConfiguredEvent(),
   reasoningSummary: 'auto' satisfies ReasoningSummary,
 });

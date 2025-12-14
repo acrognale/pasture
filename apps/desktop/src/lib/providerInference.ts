@@ -1,5 +1,15 @@
 export type ModelProviderId = 'anthropic' | 'openai';
 
+export const normalizeModelProviderId = (
+  value: string | null | undefined
+): ModelProviderId | null => {
+  const normalized = (value ?? '').trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === 'anthropic') return 'anthropic';
+  if (normalized === 'openai') return 'openai';
+  return null;
+};
+
 export const inferModelProviderId = (
   model: string | null | undefined
 ): ModelProviderId | null => {

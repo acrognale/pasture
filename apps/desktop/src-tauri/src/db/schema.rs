@@ -126,7 +126,7 @@ pub mod conversations {
         #[sea_orm(primary_key, auto_increment = false)]
         pub id: String,
         pub thread_id: String,
-        pub rollout_path: String,
+        pub rollout_path: Option<String>,
         pub created_at: String,
         pub label: Option<String>,
         pub parent_conversation_id: Option<String>,

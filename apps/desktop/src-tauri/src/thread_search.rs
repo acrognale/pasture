@@ -422,7 +422,7 @@ impl WorkspaceThreadSearch {
                 .await
                 .map_err(|e| db_err("list threads for indexing", e))?;
 
-            let mut conversations: Vec<(String, String, String)> = Vec::new();
+            let mut conversations: Vec<(String, String, Option<String>)> = Vec::new();
             for thread in &threads {
                 let convs = schema::conversations::Entity::find()
                     .filter(schema::conversations::Column::ThreadId.eq(thread.id.clone()))
@@ -478,6 +478,9 @@ impl WorkspaceThreadSearch {
         let mut active_conversations: HashMap<String, ConversationIndexState> = HashMap::new();
 
         for (thread_id, conversation_id, rollout_path) in conversations {
+            let Some(rollout_path) = rollout_path.filter(|path| !path.trim().is_empty()) else {
+                continue;
+            };
             let conv_state = previous_states
                 .get(&conversation_id)
                 .cloned()

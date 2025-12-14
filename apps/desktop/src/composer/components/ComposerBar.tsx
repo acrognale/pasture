@@ -19,9 +19,14 @@ import {
   useConversationComposerLimits,
   useConversationIsRunning,
   useConversationIsSendingUserMessage,
+  useConversationProviderLock,
 } from '~/conversation/store/hooks';
 import type { MessageAttachment } from '~/conversation/types';
-import { isAnthropicModel } from '~/lib/providerInference';
+import {
+  inferModelProviderId,
+  isAnthropicModel,
+  normalizeModelProviderId,
+} from '~/lib/providerInference';
 
 import {
   type ComposerTurnConfig,
@@ -245,6 +250,12 @@ export function ComposerBar({
   const composerLimits = useConversationComposerLimits(conversationId);
   const contextTokensInWindow = composerLimits.contextTokensInWindow ?? null;
   const maxContextTokens = composerLimits.maxContextWindow ?? null;
+
+  const providerLock = useConversationProviderLock(conversationId);
+  const lockedProviderId = useMemo(
+    () => normalizeModelProviderId(providerLock.lockedModelProviderId),
+    [providerLock.lockedModelProviderId]
+  );
 
   const usesAnthropic = isAnthropicModel(composerConfig.model);
   const authDisabled =
@@ -479,6 +490,16 @@ export function ComposerBar({
   );
 
   const submitDraft = () => {
+    if (lockedProviderId) {
+      const selectedProviderId = inferModelProviderId(composerConfig.model);
+      if (selectedProviderId && selectedProviderId !== lockedProviderId) {
+        toast.error('Provider locked', {
+          description: 'To switch providers, start a new thread.',
+        });
+        return;
+      }
+    }
+
     const draftSnapshot = draftRef.current;
     const expandedDraft =
       editorRef.current?.getExpandedTextForSend?.() ?? draftSnapshot;

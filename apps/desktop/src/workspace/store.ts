@@ -8,6 +8,7 @@ import {
   type ConversationStore,
   createConversationStore,
 } from '~/conversation/store/store';
+import { inferModelProviderId } from '~/lib/providerInference';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 
 import { updateThreadOnFork, updateThreadOnSwitch } from './thread-cache';
@@ -165,8 +166,8 @@ export const createWorkspaceStore = (
 
     const hydrateConversationStore = (
       conversationId: string,
-      sessionConfigured: NonNullable<
-        Awaited<ReturnType<typeof Codex.initializeThread>>
+      sessionConfigured: Awaited<
+        ReturnType<typeof Codex.initializeThread>
       >['sessionConfigured'],
       reasoningSummary: Awaited<
         ReturnType<typeof Codex.initializeThread>
@@ -176,8 +177,19 @@ export const createWorkspaceStore = (
       store.getState().reset();
       store.getState().setLoading(true);
       store.getState().setError(null);
+      if (sessionConfigured) {
+        store.setState((state) =>
+          produce(state, (draft) => {
+            draft.conversation.currentModel = sessionConfigured.model ?? null;
+            draft.conversation.currentModelProviderId =
+              sessionConfigured.model_provider_id ??
+              inferModelProviderId(sessionConfigured.model ?? undefined) ??
+              null;
+          })
+        );
+      }
 
-      const events = sessionConfigured.initial_messages
+      const events = sessionConfigured?.initial_messages
         ? [...sessionConfigured.initial_messages]
         : [];
 
@@ -307,13 +319,11 @@ export const createWorkspaceStore = (
       threadLoading.set(threadId, 'loading');
 
       try {
-        const { sessionConfigured, reasoningSummary } =
+        const { conversationId, sessionConfigured, reasoningSummary } =
           await Codex.initializeThread({
             threadId,
             workspacePath: deps.workspacePath,
           });
-
-        const conversationId = sessionConfigured.session_id;
         threadConversationMap.set(threadId, conversationId);
         conversationToThreadMap.set(conversationId, threadId);
         conversationLoading.set(conversationId, 'loaded');
@@ -431,7 +441,7 @@ export const createWorkspaceStore = (
           reasoningToHydrate = init.reasoningSummary;
         }
 
-        if (!hasLoadedStore && sessionToHydrate && reasoningToHydrate) {
+        if (!hasLoadedStore && reasoningToHydrate) {
           conversationLoading.set(conversationIdStr, 'loading');
           const store = hydrateConversationStore(
             conversationIdStr,

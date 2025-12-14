@@ -64,6 +64,7 @@ describe('Thread version selector integration', () => {
 
     // Initialize thread with the fork conversation as current
     mockCodex.stub.initializeThread.mockResolvedValueOnce({
+      conversationId: FORK_CONVERSATION_ID,
       sessionConfigured: {
         session_id: FORK_CONVERSATION_ID,
         model: 'gpt-5-codex',

@@ -118,11 +118,12 @@ pub struct NewThreadCommandParams {
 pub struct NewThreadResponse {
     pub thread_id: String,
     pub conversation_id: ConversationId,
-    pub model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<ReasoningEffort>,
-    #[ts(type = "string")]
-    pub rollout_path: PathBuf,
+    #[ts(type = "string | null")]
+    pub rollout_path: Option<PathBuf>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
@@ -135,7 +136,9 @@ pub struct InitializeThreadParams {
 #[derive(Serialize, Deserialize, Debug, Clone, TS)]
 #[serde(rename_all = "camelCase")]
 pub struct InitializeThreadResponse {
-    pub session_configured: SessionConfiguredEvent,
+    pub conversation_id: ConversationId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_configured: Option<SessionConfiguredEvent>,
     pub reasoning_summary: ReasoningSummary,
 }
 
@@ -222,9 +225,7 @@ pub async fn new_thread(
     let options = params.options.unwrap_or_default();
     let thread_options = NewThreadOptions::from(options);
 
-    let (thread, new_conv) = threads::create(&ctx, thread_options, app_handle).await?;
-
-    let rollout_path = new_conv.session_configured.rollout_path.clone();
+    let (thread, conversation_id) = threads::create(&ctx, thread_options, app_handle).await?;
 
     // Search index is workspace-scoped; kick indexing after creating a new thread.
     if let Err(err) = app
@@ -241,10 +242,10 @@ pub async fn new_thread(
 
     Ok(NewThreadResponse {
         thread_id: thread.id.as_str().to_string(),
-        conversation_id: new_conv.conversation_id,
-        model: new_conv.session_configured.model,
-        reasoning_effort: new_conv.session_configured.reasoning_effort,
-        rollout_path,
+        conversation_id,
+        model: thread.model.clone(),
+        reasoning_effort: thread.reasoning_effort,
+        rollout_path: None,
     })
 }
 
@@ -259,13 +260,15 @@ pub async fn initialize_thread(
     let thread_id = ThreadId(params.thread_id);
 
     let threads::ThreadInitialization {
+        conversation_id,
         conversation,
         reasoning_summary,
         ..
     } = threads::initialize(&ctx, &thread_id, app_handle).await?;
 
     Ok(InitializeThreadResponse {
-        session_configured: conversation.session_configured,
+        conversation_id,
+        session_configured: conversation.map(|conversation| conversation.session_configured),
         reasoning_summary,
     })
 }
