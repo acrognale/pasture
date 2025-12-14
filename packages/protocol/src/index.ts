@@ -56,6 +56,8 @@ export type { FunctionCallOutputContentItem } from './FunctionCallOutputContentI
 export type { FunctionCallOutputPayload } from './FunctionCallOutputPayload';
 export type { GetComposerConfigParams } from './GetComposerConfigParams';
 export type { GetHistoryEntryResponseEvent } from './GetHistoryEntryResponseEvent';
+export type { GetRepoDiffParams } from './GetRepoDiffParams';
+export type { GetRepoDiffResponse } from './GetRepoDiffResponse';
 export type { GetTurnDiffRangeParams } from './GetTurnDiffRangeParams';
 export type { GetTurnDiffRangeResponse } from './GetTurnDiffRangeResponse';
 export type { GhostCommit } from './GhostCommit';

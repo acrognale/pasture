@@ -15,6 +15,23 @@ use crate::state::AppState;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
+pub struct GetRepoDiffParams {
+    pub workspace_path: String,
+    pub base_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_ref: Option<String>,
+    /// When true, diff `base_ref` against the working tree (ignores `target_ref`).
+    pub include_worktree: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct GetRepoDiffResponse {
+    pub unified_diff: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
 pub struct GetTurnDiffRangeParams {
     pub conversation_id: ConversationId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -111,4 +128,59 @@ pub async fn list_turn_snapshots(
     };
 
     Ok(response)
+}
+
+#[tauri::command]
+pub async fn get_repo_diff(params: GetRepoDiffParams) -> AppResult<GetRepoDiffResponse> {
+    let workspace_path = params.workspace_path;
+    let base_ref = params.base_ref;
+    let target_ref = params.target_ref;
+    let include_worktree = params.include_worktree;
+
+    let diff = tokio::task::spawn_blocking(move || -> AnyResult<String> {
+        let repo_root = {
+            let output = Command::new("git")
+                .current_dir(&workspace_path)
+                .args(["rev-parse", "--show-toplevel"])
+                .output()
+                .context("failed to execute git rev-parse --show-toplevel")?;
+
+            if !output.status.success() {
+                return Err(anyhow::anyhow!(
+                    "workspace is not a git repository (git rev-parse exited with status {})",
+                    output.status
+                ));
+            }
+
+            String::from_utf8(output.stdout)
+                .context("git rev-parse produced invalid UTF-8")?
+                .trim()
+                .to_string()
+        };
+
+        let mut cmd = Command::new("git");
+        cmd.current_dir(&repo_root).args(["diff", "--no-color"]);
+
+        if include_worktree {
+            cmd.arg(&base_ref);
+        } else {
+            let target_ref = target_ref.ok_or_else(|| anyhow::anyhow!("targetRef is required"))?;
+            cmd.args([&base_ref, &target_ref]);
+        }
+
+        let output = cmd.output().context("failed to execute git diff")?;
+
+        if !output.status.success() {
+            return Err(anyhow::anyhow!(
+                "git diff exited with status {}",
+                output.status
+            ));
+        }
+
+        String::from_utf8(output.stdout).context("git diff produced invalid UTF-8")
+    })
+    .await?
+    .map_err(AppError::Internal)?;
+
+    Ok(GetRepoDiffResponse { unified_diff: diff })
 }
