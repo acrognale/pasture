@@ -1,6 +1,7 @@
 import type { ConversationEventPayload } from '@pasture/protocol';
 import type { EventMsg } from '@pasture/protocol';
 import type { ParsedCommand } from '@pasture/protocol';
+import type { ToolRef } from '@pasture/protocol';
 import type {
   TranscriptAgentReasoningCell,
   TranscriptExecCommandCell,
@@ -21,6 +22,8 @@ type ExecOutputDeltaEvent = Extract<
   EventMsg,
   { type: 'exec_command_output_delta' }
 >;
+type ToolCallBegin = Extract<EventMsg, { type: 'tool_call_begin' }>;
+type ToolCallEnd = Extract<EventMsg, { type: 'tool_call_end' }>;
 type TurnDiffEvent = Extract<EventMsg, { type: 'turn_diff' }>;
 const ts = (n: number) => {
   const seconds = `${n}`.padStart(2, '0');
@@ -73,6 +76,22 @@ const listFilesCommand = (path: string): ParsedCommand => ({
   type: 'list_files',
   cmd: `ls ${path}`,
   path,
+});
+
+const builtinTool = (
+  name: 'read_file' | 'list_dir' | 'grep_files'
+): ToolRef => ({ kind: 'builtin', name });
+
+const toolCallBeginEvent = (
+  input: Omit<ToolCallBegin, 'type'>
+): ToolCallBegin => ({
+  type: 'tool_call_begin',
+  ...input,
+});
+
+const toolCallEndEvent = (input: Omit<ToolCallEnd, 'type'>): ToolCallEnd => ({
+  type: 'tool_call_end',
+  ...input,
 });
 
 const cellsOf = (transcript: TranscriptState) =>
@@ -596,6 +615,111 @@ describe('exploration exec grouping', () => {
     }
     expect(exploration.calls).toHaveLength(2);
     expect(cell.status).toBe('succeeded');
+  });
+
+  it('treats builtin read/list/grep tool calls as exploration', () => {
+    const controller = createTestController();
+    let state = controller.conversation.transcript;
+
+    const readBegin = toolCallBeginEvent({
+      call_id: 't1',
+      tool: builtinTool('read_file'),
+      arguments_preview: JSON.stringify({ file_path: 'src/foo.ts' }),
+    });
+    state = applyEvent(controller, readBegin, 't1-begin', 1);
+
+    const readEnd = toolCallEndEvent({
+      call_id: 't1',
+      tool: builtinTool('read_file'),
+      status: 'ok',
+      duration: '3ms',
+      output_preview: '...',
+      error_message: '',
+    });
+    state = applyEvent(controller, readEnd, 't1-end', 2);
+
+    const grepBegin = toolCallBeginEvent({
+      call_id: 't2',
+      tool: builtinTool('grep_files'),
+      arguments_preview: JSON.stringify({
+        path: 'src',
+        pattern: 'TokenUsageInfo',
+      }),
+    });
+    state = applyEvent(controller, grepBegin, 't2-begin', 3);
+
+    const grepEnd = toolCallEndEvent({
+      call_id: 't2',
+      tool: builtinTool('grep_files'),
+      status: 'ok',
+      duration: '4ms',
+      output_preview: '...',
+      error_message: '',
+    });
+    state = applyEvent(controller, grepEnd, 't2-end', 4);
+
+    const cells = cellsOf(state);
+    expect(cells).toHaveLength(1);
+    const cell = expectExecCell(cells[0]);
+    const exploration = cell.exploration;
+    expect(exploration).not.toBeNull();
+    if (!exploration) {
+      throw new Error('Expected exploration data');
+    }
+    expect(exploration.calls.map((call) => call.callId)).toEqual(['t1', 't2']);
+    expect(exploration.calls.map((call) => call.status)).toEqual([
+      'succeeded',
+      'succeeded',
+    ]);
+    expect(cell.status).toBe('succeeded');
+  });
+
+  it('groups tool-call exploration with exec-based exploration', () => {
+    const controller = createTestController();
+    let state = controller.conversation.transcript;
+
+    const searchBegin = execBeginEvent({
+      call_id: 'c1',
+      command: ['search', 'alpha'],
+      cwd: '/w',
+      parsed_cmd: [searchCommand('alpha')],
+    });
+    state = applyEvent(controller, searchBegin, 'mix-1', 1);
+
+    const searchEnd = execEndEvent({
+      call_id: 'c1',
+      command: searchBegin.command,
+      cwd: searchBegin.cwd,
+      parsed_cmd: searchBegin.parsed_cmd,
+      exit_code: 0,
+      duration: '2ms',
+    });
+    state = applyEvent(controller, searchEnd, 'mix-2', 2);
+
+    const readBegin = toolCallBeginEvent({
+      call_id: 't1',
+      tool: builtinTool('read_file'),
+      arguments_preview: JSON.stringify({ file_path: 'src/foo.ts' }),
+    });
+    state = applyEvent(controller, readBegin, 'mix-3', 3);
+
+    const readEnd = toolCallEndEvent({
+      call_id: 't1',
+      tool: builtinTool('read_file'),
+      status: 'ok',
+      duration: '3ms',
+      output_preview: '...',
+      error_message: '',
+    });
+    state = applyEvent(controller, readEnd, 'mix-4', 4);
+
+    const cells = cellsOf(state);
+    expect(cells).toHaveLength(1);
+    const cell = expectExecCell(cells[0]);
+    expect(cell.exploration?.calls.map((call) => call.callId)).toEqual([
+      'c1',
+      't1',
+    ]);
   });
 
   it('does not clear outputs when a new exploration call begins', () => {

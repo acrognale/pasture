@@ -179,3 +179,23 @@ export const findExplorationAnchor = (
 
   return null;
 };
+
+export const findExplorationCellByContainedCallId = (
+  state: TranscriptState,
+  turnId: string,
+  callId: string
+): IndexedCell<'exec'> | null => {
+  const result = findCellInTurn(
+    state,
+    turnId,
+    (cell) =>
+      cell.kind === 'exec' &&
+      (cell.exploration?.calls.some((call) => call.callId === callId) ?? false)
+  );
+  return result
+    ? (result as {
+        cell: Extract<TranscriptCell, { kind: 'exec' }>;
+        location: CellLocation;
+      })
+    : null;
+};

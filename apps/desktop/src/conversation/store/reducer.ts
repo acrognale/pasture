@@ -19,6 +19,7 @@ import type {
 import type { McpToolCallEndEvent } from '@pasture/protocol';
 import type { PatchApplyBeginEvent } from '@pasture/protocol';
 import type { PatchApplyEndEvent } from '@pasture/protocol';
+import type { ParsedCommand } from '@pasture/protocol';
 import type { RateLimitSnapshot } from '@pasture/protocol';
 import type { ReasoningContentDeltaEvent } from '@pasture/protocol';
 import type { ReasoningRawContentDeltaEvent } from '@pasture/protocol';
@@ -71,6 +72,7 @@ import { safeStringify } from '~/lib/utils';
 import {
   findExecCellByCallId,
   findExplorationAnchor,
+  findExplorationCellByContainedCallId,
   findLatestTaskCell,
   findPatchCellByCallId,
   findToolCellByCallId,
@@ -1179,7 +1181,7 @@ function onMcpToolCallEnd(
 
 function toBuiltinToolType(
   tool: ToolRef
-): TranscriptToolCell['toolType'] | null {
+): 'read-file' | 'list-dir' | 'grep-files' | null {
   if (tool.kind !== 'builtin') {
     return null;
   }
@@ -1211,6 +1213,87 @@ function parseToolArgsPreview(preview: string): Record<string, unknown> | null {
   return null;
 }
 
+function createExplorationCallForBuiltinTool(
+  event: ToolCallBeginEvent,
+  toolType: 'read-file' | 'list-dir' | 'grep-files'
+): TranscriptExplorationCall {
+  const args = parseToolArgsPreview(event.arguments_preview);
+
+  switch (toolType) {
+    case 'read-file': {
+      const filePath =
+        typeof args?.['file_path'] === 'string' && args['file_path'].trim()
+          ? args['file_path'].trim()
+          : '(unknown file)';
+      const parsed: ParsedCommand[] = [
+        {
+          type: 'read',
+          cmd: `read_file ${filePath}`,
+          name: filePath,
+          path: filePath,
+        },
+      ];
+      return {
+        callId: event.call_id,
+        command: ['read_file', filePath],
+        parsed,
+        status: 'running',
+        duration: null,
+      };
+    }
+    case 'list-dir': {
+      const dirPath =
+        typeof args?.['dir_path'] === 'string' && args['dir_path'].trim()
+          ? args['dir_path'].trim()
+          : null;
+      const parsed: ParsedCommand[] = [
+        {
+          type: 'list_files',
+          cmd: dirPath ? `list_dir ${dirPath}` : 'list_dir',
+          path: dirPath,
+        },
+      ];
+      return {
+        callId: event.call_id,
+        command: dirPath ? ['list_dir', dirPath] : ['list_dir'],
+        parsed,
+        status: 'running',
+        duration: null,
+      };
+    }
+    case 'grep-files': {
+      const pathValue =
+        typeof args?.['path'] === 'string' && args['path'].trim()
+          ? args['path'].trim()
+          : null;
+      const pattern =
+        typeof args?.['pattern'] === 'string' && args['pattern'].trim()
+          ? args['pattern'].trim()
+          : null;
+      const parsed: ParsedCommand[] = [
+        {
+          type: 'search',
+          cmd: pattern ? `grep_files ${pattern}` : 'grep_files',
+          query: pattern,
+          path: pathValue,
+        },
+      ];
+      const command = pattern
+        ? ['grep_files', pattern]
+        : pathValue
+          ? ['grep_files', pathValue]
+          : ['grep_files'];
+      return {
+        callId: event.call_id,
+        command,
+        parsed,
+        status: 'running',
+        duration: null,
+      };
+    }
+  }
+}
+
 function onToolCallBegin(
   draft: Draft<ConversationControllerState>,
   event: ToolCallBeginEvent,
@@ -1224,87 +1307,44 @@ function onToolCallBegin(
   }
 
   const transcript = draft.conversation.transcript as TranscriptState;
-  const target = findToolCellByCallId(
-    transcript,
-    turnId,
-    toolType,
-    event.call_id
-  );
+  const explorationCall = createExplorationCallForBuiltinTool(event, toolType);
 
-  const args = parseToolArgsPreview(event.arguments_preview);
-  const path =
-    toolType === 'read-file'
-      ? ((args?.['file_path'] as string | undefined) ?? null)
-      : toolType === 'list-dir'
-        ? ((args?.['dir_path'] as string | undefined) ?? null)
-        : ((args?.['path'] as string | undefined) ?? null);
-
-  const query =
-    toolType === 'grep-files'
-      ? ((args?.['pattern'] as string | undefined) ?? null)
-      : null;
-
-  const offsetValue = args?.['offset'];
-  const limitValue = args?.['limit'];
-  const depthValue = args?.['depth'];
-  const includeValue = args?.['include'];
-
-  const details =
-    toolType === 'read-file'
-      ? [
-          typeof offsetValue === 'number' ? `offset=${offsetValue}` : null,
-          typeof limitValue === 'number' ? `limit=${limitValue}` : null,
-        ]
-          .filter(Boolean)
-          .join(' ')
-      : toolType === 'list-dir'
-        ? [
-            typeof offsetValue === 'number' ? `offset=${offsetValue}` : null,
-            typeof limitValue === 'number' ? `limit=${limitValue}` : null,
-            typeof depthValue === 'number' ? `depth=${depthValue}` : null,
-          ]
-            .filter(Boolean)
-            .join(' ')
-        : (() => {
-            const include =
-              typeof includeValue === 'string' && includeValue.trim().length > 0
-                ? includeValue
-                : null;
-            const limit =
-              typeof limitValue === 'number' ? `limit=${limitValue}` : null;
-            return [include ? `include=${include}` : null, limit]
-              .filter(Boolean)
-              .join(' ');
-          })();
-
-  if (target) {
-    target.cell.status = 'running';
-    target.cell.callId = event.call_id;
-    target.cell.path = path;
-    target.cell.query = query ?? target.cell.query;
-    target.cell.duration = null;
-    target.cell.result = null;
-    if (details) {
-      target.cell.query = query ? `${query} • ${details}` : details;
+  if (!transcript.shouldBreakExecGroup) {
+    const anchor = findExplorationAnchor(transcript, turnId);
+    if (anchor?.cell.exploration) {
+      anchor.cell.exploration.calls = [
+        ...anchor.cell.exploration.calls,
+        explorationCall,
+      ];
+      anchor.cell.callId = event.call_id;
+      anchor.cell.status = 'running';
+      anchor.cell.streaming = true;
+      appendEventId(draft, anchor.cell, eventId);
+      transcript.activeTurnId = turnId;
+      return;
     }
-    appendEventId(draft, target.cell, eventId);
-    return;
   }
 
-  const cell: TranscriptToolCell = {
+  transcript.shouldBreakExecGroup = false;
+  const cell: TranscriptExecCommandCell = {
     id: eventId,
-    kind: 'tool',
+    kind: 'exec',
     timestamp,
     eventIds: [eventId],
-    toolType,
-    status: 'running',
     callId: event.call_id,
-    invocation: null,
-    result: null,
+    command: [],
+    cwd: '',
+    parsed: [],
+    status: 'running',
+    stdout: '',
+    stderr: '',
+    aggregatedOutput: '',
+    formattedOutput: '',
+    exitCode: null,
     duration: null,
-    path,
-    query: details ? (query ? `${query} • ${details}` : details) : query,
-    itemId: null,
+    streaming: true,
+    outputChunks: [],
+    exploration: { calls: [explorationCall] },
   };
   appendCell(draft, turnId, cell);
   transcript.activeTurnId = turnId;
@@ -1323,40 +1363,64 @@ function onToolCallEnd(
   }
 
   const transcript = draft.conversation.transcript as TranscriptState;
-  const target = findToolCellByCallId(
+  const status = event.status === 'ok' ? 'succeeded' : 'failed';
+
+  const target = findExplorationCellByContainedCallId(
     transcript,
     turnId,
-    toolType,
     event.call_id
   );
-  const status = event.status === 'ok' ? 'succeeded' : 'failed';
-  const resultText =
-    event.status === 'error'
-      ? event.error_message || event.output_preview
-      : event.output_preview;
-
   if (target) {
-    target.cell.status = status;
-    target.cell.result = resultText || null;
-    target.cell.duration = event.duration;
-    appendEventId(draft, target.cell, eventId);
-    return;
+    const { cell } = target;
+    if (cell.exploration) {
+      const updatedCalls = cell.exploration.calls.map(
+        (call): TranscriptExplorationCall =>
+          call.callId === event.call_id
+            ? { ...call, status, duration: event.duration }
+            : call
+      );
+      const stillRunning = updatedCalls.some(
+        (call) => call.status === 'running'
+      );
+      cell.exploration = { calls: updatedCalls };
+      cell.status = stillRunning ? 'running' : 'succeeded';
+      cell.streaming = stillRunning;
+      appendEventId(draft, cell, eventId);
+      transcript.activeTurnId = turnId;
+      return;
+    }
   }
 
-  const cell: TranscriptToolCell = {
+  const fallbackBegin: ToolCallBeginEvent = {
+    call_id: event.call_id,
+    tool: event.tool,
+    arguments_preview: '',
+  };
+  const explorationCall = {
+    ...createExplorationCallForBuiltinTool(fallbackBegin, toolType),
+    status,
+    duration: event.duration,
+  } satisfies TranscriptExplorationCall;
+
+  const cell: TranscriptExecCommandCell = {
     id: eventId,
-    kind: 'tool',
+    kind: 'exec',
     timestamp,
     eventIds: [eventId],
-    toolType,
-    status,
     callId: event.call_id,
-    invocation: null,
-    result: resultText || null,
-    duration: event.duration,
-    path: null,
-    query: null,
-    itemId: null,
+    command: [],
+    cwd: '',
+    parsed: [],
+    status: 'succeeded',
+    stdout: '',
+    stderr: '',
+    aggregatedOutput: '',
+    formattedOutput: '',
+    exitCode: null,
+    duration: null,
+    streaming: false,
+    outputChunks: [],
+    exploration: { calls: [explorationCall] },
   };
   appendCell(draft, turnId, cell);
 }
