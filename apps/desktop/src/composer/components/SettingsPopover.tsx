@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
+import { Switch } from '~/components/ui/switch';
 
 import {
   APPROVAL_DISPLAY,
@@ -31,11 +32,13 @@ type SettingsPopoverProps = {
   disabled: boolean;
   iconOnly?: boolean;
   approval?: AskForApproval;
+  thinkingEnabled?: boolean;
   reasoningEffort?: ReasoningEffort;
   availableReasoningEfforts?: readonly ReasoningEffort[];
   onReasoningSummaryChange: (summary: ReasoningSummary) => void;
   onSandboxChange: (sandbox: SandboxMode) => void;
   onApprovalChange?: (approval: AskForApproval) => void;
+  onThinkingChange?: (enabled: boolean) => void;
   onReasoningEffortChange?: (effort: ReasoningEffort) => void;
 };
 
@@ -109,11 +112,13 @@ export function SettingsPopover({
   disabled,
   iconOnly = false,
   approval,
+  thinkingEnabled,
   reasoningEffort,
   availableReasoningEfforts,
   onReasoningSummaryChange,
   onSandboxChange,
   onApprovalChange,
+  onThinkingChange,
   onReasoningEffortChange,
 }: SettingsPopoverProps) {
   return (
@@ -155,6 +160,24 @@ export function SettingsPopover({
               helpTextMap={APPROVAL_HELP_TEXT}
               onSelect={(value) => onApprovalChange(value as AskForApproval)}
             />
+          ) : null}
+
+          {thinkingEnabled !== undefined && onThinkingChange ? (
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Thinking
+                </span>
+              </div>
+              <Switch
+                checked={thinkingEnabled}
+                disabled={disabled}
+                onCheckedChange={(checked) =>
+                  onThinkingChange(checked === true)
+                }
+                aria-label="Thinking"
+              />
+            </div>
           ) : null}
 
           {reasoningEffort !== undefined &&

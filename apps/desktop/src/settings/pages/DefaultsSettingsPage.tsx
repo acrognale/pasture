@@ -6,6 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
+import { Switch } from '~/components/ui/switch';
 import {
   APPROVAL_DISPLAY,
   APPROVAL_HELP_TEXT,
@@ -22,6 +23,7 @@ import {
   MODEL_OPTIONS,
   type ModelName,
   getAvailableReasoningEfforts,
+  getReasoningControlKind,
   normalizeReasoningEffort,
 } from '~/composer/model-options';
 import { useWorkspaceComposerDefaults } from '../hooks/useWorkspaceComposerDefaults';
@@ -43,22 +45,41 @@ export function DefaultsSettingsPage({
     ? defaults.model
     : 'gpt-5.2';
 
+  const usesBinaryReasoning = getReasoningControlKind(selectedModel) === 'binary';
+
   const availableReasoningEfforts = getAvailableReasoningEfforts(selectedModel);
 
-  const selectedReasoningEffort = normalizeReasoningEffort(
+  const normalizedReasoningEffort = normalizeReasoningEffort(
     selectedModel,
     defaults.reasoningEffort ?? undefined
   );
+  const selectedReasoningEffort = usesBinaryReasoning
+    ? normalizedReasoningEffort === 'none'
+      ? 'none'
+      : 'medium'
+    : normalizedReasoningEffort;
+
+  const thinkingEnabled =
+    usesBinaryReasoning && selectedReasoningEffort !== 'none';
   const selectedReasoningSummary = defaults.summary ?? ('auto' as const);
   const selectedSandbox = defaults.sandbox ?? ('read-only' as const);
   const selectedApproval = defaults.approval ?? ('on-request' as const);
 
   const handleModelDefaultChange = (nextModel: ModelName) => {
-    const normalizedEffort = normalizeReasoningEffort(
+    if (getReasoningControlKind(nextModel) === 'binary') {
+      const current = defaults.reasoningEffort ?? null;
+      updateSetting({
+        model: nextModel,
+        reasoningEffort: current === 'none' ? 'none' : 'medium',
+      });
+      return;
+    }
+
+    const nextEffort = normalizeReasoningEffort(
       nextModel,
       selectedReasoningEffort
     );
-    updateSetting({ model: nextModel, reasoningEffort: normalizedEffort });
+    updateSetting({ model: nextModel, reasoningEffort: nextEffort });
   };
 
   const renderDropdown = <T extends string>(
@@ -133,12 +154,33 @@ export function DefaultsSettingsPage({
             MODEL_DISPLAY_NAMES,
             handleModelDefaultChange
           )}
-          {renderDropdown(
-            'Reasoning effort',
-            selectedReasoningEffort,
-            availableReasoningEfforts,
-            REASONING_EFFORT_DISPLAY,
-            (next) => updateSetting({ reasoningEffort: next })
+          {usesBinaryReasoning ? (
+            <div className="space-y-1">
+              <span className="text-xs text-muted-foreground">Thinking</span>
+              <div className="flex items-center justify-between gap-4 rounded-md border bg-background shadow-xs h-9 px-3">
+                <span className="text-xs text-foreground">
+                  {thinkingEnabled ? 'On' : 'Off'}
+                </span>
+                <Switch
+                  checked={thinkingEnabled}
+                  disabled={disabled}
+                  onCheckedChange={(checked) =>
+                    updateSetting({
+                      reasoningEffort: checked === true ? 'medium' : 'none',
+                    })
+                  }
+                  aria-label="Thinking"
+                />
+              </div>
+            </div>
+          ) : (
+            renderDropdown(
+              'Reasoning effort',
+              selectedReasoningEffort,
+              availableReasoningEfforts,
+              REASONING_EFFORT_DISPLAY,
+              (next) => updateSetting({ reasoningEffort: next })
+            )
           )}
           {renderDropdown(
             'Reasoning summaries',

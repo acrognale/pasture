@@ -14,16 +14,19 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { useSidebar } from '~/components/ui/sidebar';
+import { Switch } from '~/components/ui/switch';
 import {
   COMPOSER_BREAKPOINTS,
   useContainerQuery,
 } from '~/lib/hooks/useContainerQuery';
+import { cn } from '~/lib/utils';
 
 import {
   MODEL_DISPLAY_NAMES,
   MODEL_OPTIONS,
   type ModelName,
   getAvailableReasoningEfforts,
+  getReasoningControlKind,
   normalizeReasoningEffort,
 } from '../model-options';
 import { type ComposerTurnConfig, createDefaultComposerConfig } from '../types';
@@ -155,6 +158,18 @@ export function ModelConfigSelector({
     );
   }, [composerConfig.reasoningEffort, selectedModel]);
 
+  const usesBinaryReasoning = useMemo(
+    () => getReasoningControlKind(selectedModel) === 'binary',
+    [selectedModel]
+  );
+
+  const thinkingEnabled = useMemo(() => {
+    if (!usesBinaryReasoning) return false;
+    const current = composerConfig.reasoningEffort ?? undefined;
+    if (!current) return true;
+    return current !== 'none';
+  }, [composerConfig.reasoningEffort, usesBinaryReasoning]);
+
   const selectedSandbox = useMemo<SandboxMode>(() => {
     const current = composerConfig.sandbox;
     if (isSandboxMode(current)) {
@@ -189,6 +204,16 @@ export function ModelConfigSelector({
   };
 
   const handleModelChange = (model: ModelName) => {
+    const usesBinary = getReasoningControlKind(model) === 'binary';
+    if (usesBinary) {
+      const current = composerConfig.reasoningEffort ?? 'medium';
+      emitUpdate({
+        model,
+        reasoningEffort: current === 'none' ? 'none' : 'medium',
+      });
+      return;
+    }
+
     const availableEfforts = getAvailableReasoningEfforts(model);
     const current = composerConfig.reasoningEffort ?? 'medium';
     const normalizedEffort = availableEfforts.includes(current)
@@ -201,6 +226,10 @@ export function ModelConfigSelector({
 
   const handleReasoningEffortChange = (effort: ReasoningEffort) => {
     emitUpdate({ reasoningEffort: effort });
+  };
+
+  const handleThinkingChange = (enabled: boolean) => {
+    emitUpdate({ reasoningEffort: enabled ? 'medium' : 'none' });
   };
 
   const handleSandboxChange = (sandbox: SandboxMode) => {
@@ -230,6 +259,22 @@ export function ModelConfigSelector({
   }, []);
 
   const fallbackViewportWidth = viewportWidth ?? Number.POSITIVE_INFINITY;
+
+  // For models with binary reasoning controls, normalize any existing value to either `none`
+  // (thinking off) or `medium` (thinking on) so the UI and sent config stay consistent.
+  useEffect(() => {
+    if (!usesBinaryReasoning) return;
+    const current = composerConfig.reasoningEffort ?? null;
+    const normalized = current === 'none' ? 'none' : 'medium';
+    if (current !== normalized && conversationId && onUpdate) {
+      onUpdate({ reasoningEffort: normalized });
+    }
+  }, [
+    composerConfig.reasoningEffort,
+    conversationId,
+    onUpdate,
+    usesBinaryReasoning,
+  ]);
 
   if (!conversationId) {
     return null;
@@ -312,6 +357,23 @@ export function ModelConfigSelector({
     </DropdownMenu>
   );
 
+  const thinkingToggle = (
+    <div
+      className={cn(
+        'flex items-center gap-2 h-8 px-2.5 rounded-md',
+        !disabled && 'hover:bg-muted'
+      )}
+    >
+      <span className="text-xs font-medium">Thinking</span>
+      <Switch
+        checked={thinkingEnabled}
+        disabled={disabled}
+        onCheckedChange={(checked) => handleThinkingChange(checked === true)}
+        aria-label="Thinking"
+      />
+    </div>
+  );
+
   const approvalDropdown = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -350,7 +412,8 @@ export function ModelConfigSelector({
   return (
     <div ref={containerRef} className="flex items-center gap-2">
       {modelDropdown}
-      {!reasoningEffortInSettings && reasoningEffortDropdown}
+      {!reasoningEffortInSettings &&
+        (usesBinaryReasoning ? thinkingToggle : reasoningEffortDropdown)}
       {!approvalsInSettings && approvalDropdown}
       <SettingsPopover
         reasoningSummary={selectedSummary}
@@ -361,14 +424,30 @@ export function ModelConfigSelector({
         onApprovalChange={
           approvalsInSettings ? handleApprovalChange : undefined
         }
+        thinkingEnabled={
+          usesBinaryReasoning && reasoningEffortInSettings
+            ? thinkingEnabled
+            : undefined
+        }
+        onThinkingChange={
+          usesBinaryReasoning && reasoningEffortInSettings
+            ? handleThinkingChange
+            : undefined
+        }
         reasoningEffort={
-          reasoningEffortInSettings ? selectedReasoningEffort : undefined
+          !usesBinaryReasoning && reasoningEffortInSettings
+            ? selectedReasoningEffort
+            : undefined
         }
         availableReasoningEfforts={
-          reasoningEffortInSettings ? availableReasoningEfforts : undefined
+          !usesBinaryReasoning && reasoningEffortInSettings
+            ? availableReasoningEfforts
+            : undefined
         }
         onReasoningEffortChange={
-          reasoningEffortInSettings ? handleReasoningEffortChange : undefined
+          !usesBinaryReasoning && reasoningEffortInSettings
+            ? handleReasoningEffortChange
+            : undefined
         }
         onReasoningSummaryChange={handleSummaryChange}
         onSandboxChange={handleSandboxChange}

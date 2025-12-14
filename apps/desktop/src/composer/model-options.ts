@@ -43,6 +43,23 @@ const MODEL_REASONING_EFFORTS: Record<ModelName, ReasoningEffort[]> = {
   'claude-haiku-4-5': ['none', 'medium', 'high'],
 };
 
+export type ReasoningControlKind = 'binary' | 'granular';
+
+const MODEL_REASONING_CONTROL: Record<ModelName, ReasoningControlKind> = {
+  'gpt-5.1': 'granular',
+  'gpt-5.1-codex': 'granular',
+  'gpt-5.1-codex-max': 'granular',
+  'gpt-5.1-codex-mini': 'granular',
+  'gpt-5.2': 'granular',
+  'claude-sonnet-4-5': 'binary',
+  'claude-opus-4-5': 'binary',
+  'claude-haiku-4-5': 'binary',
+};
+
+export const getReasoningControlKind = (
+  model: ModelName
+): ReasoningControlKind => MODEL_REASONING_CONTROL[model] ?? 'granular';
+
 export const REASONING_EFFORT_OPTIONS: readonly ReasoningEffort[] = [
   'none',
   'minimal',
