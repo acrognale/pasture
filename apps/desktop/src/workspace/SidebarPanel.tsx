@@ -1,5 +1,6 @@
 import type { NewThreadResponse } from '@pasture/protocol';
 import type { ThreadSummary } from '@pasture/protocol';
+import type { GetRepoDiffParams } from '@pasture/protocol';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import {
@@ -29,7 +30,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '~/components/ui/tooltip';
-import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
+import {
+  dispatchOpenRepoReviewOverlayEvent,
+  dispatchOpenReviewOverlayEvent,
+} from '~/conversation/events';
 import {
   useConversationHasTurnDiffHistory,
   useConversationIsRunning,
@@ -43,6 +47,7 @@ import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { makePathRelative } from '~/lib/utils';
 import { resolveSessionLabel } from '~/lib/workspaces';
 import { buildFileDiffStats, parseUnifiedDiff } from '~/review/diff';
+import { useRepoDiff } from '~/review/queries';
 import { ChangesSidebarContent } from '~/workspace/components/ChangesSidebarContent';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
 
@@ -257,6 +262,11 @@ export function SidebarPanel({
   );
   const latestDiff = useConversationLatestTurnDiff(conversationIdForDiffs);
 
+  const [repoChangesParams, setRepoChangesParams] =
+    useState<GetRepoDiffParams | null>(null);
+
+  const { parsedDiff: repoParsedDiff } = useRepoDiff(repoChangesParams);
+
   const processedFiles = useMemo(() => {
     if (!turnDiffHistory.length && !latestDiff?.unifiedDiff) {
       return [];
@@ -300,6 +310,33 @@ export function SidebarPanel({
       }))
       .sort((a, b) => a.relativePath.localeCompare(b.relativePath));
   }, [latestDiff, turnDiffHistory, workspacePath]);
+
+  const repoProcessedFiles = useMemo(() => {
+    const files = repoParsedDiff?.files ?? [];
+    if (!files.length) {
+      return [];
+    }
+
+    const fileStats = buildFileDiffStats(files);
+
+    return files
+      .map((file) => ({
+        file: { ...file, id: file.displayPath },
+        stats: fileStats.get(file.id) ?? { added: 0, removed: 0 },
+        relativePath: makePathRelative(workspacePath, file.displayPath),
+      }))
+      .sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  }, [repoParsedDiff?.files, workspacePath]);
+
+  const changesMode: 'turn' | 'repo' | 'empty' =
+    processedFiles.length > 0 ? 'turn' : repoChangesParams ? 'repo' : 'empty';
+
+  const changesFiles =
+    changesMode === 'turn'
+      ? processedFiles
+      : changesMode === 'repo'
+        ? repoProcessedFiles
+        : [];
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -378,16 +415,26 @@ export function SidebarPanel({
               <span className="flex items-center gap-2">
                 <span>Changes</span>
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                  {processedFiles.length}
+                  {changesFiles.length}
                 </span>
               </span>
-              {hasReviewHistory ? (
+              {hasReviewHistory ||
+              (changesMode === 'repo' && repoChangesParams) ? (
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
                   className="h-7 px-2 text-[11px]"
                   onClick={() => {
+                    if (changesMode === 'repo' && repoChangesParams) {
+                      dispatchOpenRepoReviewOverlayEvent(activeConversationId, {
+                        workspacePath: repoChangesParams.workspacePath,
+                        baseRef: repoChangesParams.baseRef,
+                        targetRef: repoChangesParams.targetRef,
+                        includeWorktree: repoChangesParams.includeWorktree,
+                      });
+                      return;
+                    }
                     dispatchOpenReviewOverlayEvent(activeConversationId);
                   }}
                 >
@@ -402,8 +449,46 @@ export function SidebarPanel({
                   scrollbarClassName="w-1.5"
                 >
                   <ChangesSidebarContent
-                    files={processedFiles}
+                    files={changesFiles}
+                    emptyStateAction={
+                      changesMode === 'empty'
+                        ? {
+                            label: 'Add repository changes',
+                            onClick: () => {
+                              const params: GetRepoDiffParams = {
+                                workspacePath,
+                                baseRef: 'HEAD',
+                                targetRef: null,
+                                includeWorktree: true,
+                              };
+                              setRepoChangesParams(params);
+                              dispatchOpenRepoReviewOverlayEvent(
+                                activeConversationId,
+                                {
+                                  workspacePath: params.workspacePath,
+                                  baseRef: params.baseRef,
+                                  targetRef: params.targetRef,
+                                  includeWorktree: params.includeWorktree,
+                                }
+                              );
+                            },
+                          }
+                        : undefined
+                    }
                     onFileClick={(file) => {
+                      if (changesMode === 'repo' && repoChangesParams) {
+                        dispatchOpenRepoReviewOverlayEvent(
+                          activeConversationId,
+                          {
+                            workspacePath: repoChangesParams.workspacePath,
+                            baseRef: repoChangesParams.baseRef,
+                            targetRef: repoChangesParams.targetRef,
+                            includeWorktree: repoChangesParams.includeWorktree,
+                          },
+                          file.displayPath
+                        );
+                        return;
+                      }
                       dispatchOpenReviewOverlayEvent(
                         activeConversationId,
                         file.displayPath

@@ -1,4 +1,6 @@
 import type {
+  GetRepoDiffParams,
+  GetRepoDiffResponse,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
   ListTurnSnapshotsResponse,
@@ -21,6 +23,15 @@ export const turnReviewKeys = {
       params.conversationId,
       params.baseEventId,
       params.targetEventId,
+    ] as const,
+  repoDiff: (params: GetRepoDiffParams) =>
+    [
+      'turnReview',
+      'repoDiff',
+      params.workspacePath,
+      params.baseRef,
+      params.targetRef,
+      params.includeWorktree,
     ] as const,
 };
 
@@ -58,6 +69,37 @@ export const useTurnDiffRange = (params: GetTurnDiffRangeParams | null) => {
       return failureCount < MAX_RETRIES;
     },
     retryDelay: RETRY_DELAY_MS,
+  });
+
+  const parsedDiff = useMemo<ParsedTurnDiff | null>(() => {
+    const raw = query.data?.unifiedDiff;
+    if (!raw || !raw.trim()) {
+      return null;
+    }
+    return parseUnifiedDiff(raw);
+  }, [query.data?.unifiedDiff]);
+
+  return {
+    rawDiff: query.data?.unifiedDiff ?? null,
+    parsedDiff,
+    query,
+  };
+};
+
+// useRepoDiff
+export const useRepoDiff = (params: GetRepoDiffParams | null) => {
+  const query = useQuery<GetRepoDiffResponse>({
+    queryKey: params
+      ? turnReviewKeys.repoDiff(params)
+      : (['turnReview', 'repoDiff', '__disabled'] as const),
+    queryFn: async () => {
+      if (!params) {
+        throw new Error('params is required');
+      }
+      return Codex.getRepoDiff(params);
+    },
+    enabled: Boolean(params),
+    refetchOnWindowFocus: false,
   });
 
   const parsedDiff = useMemo<ParsedTurnDiff | null>(() => {

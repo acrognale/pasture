@@ -1,4 +1,5 @@
 import { FilePen, FilePlus, FileX } from 'lucide-react';
+import { Button } from '~/components/ui/button';
 import type { ParsedTurnDiffFile } from '~/review/types';
 
 type ProcessedFile = {
@@ -10,6 +11,10 @@ type ProcessedFile = {
 type ChangesSidebarContentProps = {
   files: ProcessedFile[];
   onFileClick?: (file: ParsedTurnDiffFile) => void;
+  emptyStateAction?: {
+    label: string;
+    onClick: () => void;
+  };
 };
 
 type FileStatus = 'added' | 'deleted' | 'modified';
@@ -64,14 +69,28 @@ function splitPath(path: string): { dir: string; file: string } {
 export function ChangesSidebarContent({
   files,
   onFileClick,
+  emptyStateAction,
 }: ChangesSidebarContentProps) {
   if (files.length === 0) {
     return (
-      <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-        <p>No changes yet</p>
-        <p className="mt-2 text-[10px]">
-          Changes will appear here as files are modified
-        </p>
+      <div className="px-2 py-4 text-center text-xs text-muted-foreground space-y-3">
+        <div className="space-y-1">
+          <p>No changes yet</p>
+          <p className="text-[10px]">
+            Changes will appear here as files are modified
+          </p>
+        </div>
+        {emptyStateAction ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            onClick={emptyStateAction.onClick}
+          >
+            {emptyStateAction.label}
+          </Button>
+        ) : null}
       </div>
     );
   }
