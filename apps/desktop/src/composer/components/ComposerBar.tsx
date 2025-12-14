@@ -21,6 +21,7 @@ import {
   useConversationIsSendingUserMessage,
 } from '~/conversation/store/hooks';
 import type { MessageAttachment } from '~/conversation/types';
+import { isAnthropicModel } from '~/lib/providerInference';
 
 import {
   type ComposerTurnConfig,
@@ -245,10 +246,7 @@ export function ComposerBar({
   const contextTokensInWindow = composerLimits.contextTokensInWindow ?? null;
   const maxContextTokens = composerLimits.maxContextWindow ?? null;
 
-  const normalizedModel = (composerConfig.model ?? '').trim().toLowerCase();
-  const usesAnthropic =
-    normalizedModel.startsWith('claude-') ||
-    normalizedModel.startsWith('anthropic/claude-');
+  const usesAnthropic = isAnthropicModel(composerConfig.model);
   const authDisabled =
     authState.isLoading ||
     (authState.data?.requiresAuth && !usesAnthropic) ||

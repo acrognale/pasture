@@ -617,13 +617,25 @@ fn map_anthropic_error(err: codex_provider_anthropic::AnthropicError) -> CodexEr
             "Anthropic provider requires credentials: set ANTHROPIC_OAUTH_ACCESS_TOKEN or an API key"
                 .to_string(),
         ),
-        AnthropicError::HttpStatus { status, body } => {
-            CodexErr::UnexpectedStatus(UnexpectedResponseError {
+        AnthropicError::HttpStatus {
+            status,
+            body,
+            request_id,
+        } => match status {
+            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => CodexErr::InvalidRequest(format!(
+                "Anthropic authentication failed (status {status}). {body}{}",
+                request_id
+                    .as_ref()
+                    .map(|id| format!(" (request id: {id})"))
+                    .unwrap_or_default()
+            )),
+            StatusCode::BAD_REQUEST => CodexErr::InvalidRequest(body),
+            _ => CodexErr::UnexpectedStatus(UnexpectedResponseError {
                 status,
                 body,
-                request_id: None,
-            })
-        }
+                request_id,
+            }),
+        },
         AnthropicError::Http(source) => map_reqwest_stream_error(source),
         AnthropicError::StreamClosedEarly => CodexErr::Stream(
             "Anthropic stream closed before completion".to_string(),

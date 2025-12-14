@@ -23,8 +23,6 @@ pub enum CacheControlType {
 pub struct CacheControl {
     #[serde(rename = "type")]
     pub kind: CacheControlType,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ttl: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -146,17 +144,12 @@ pub fn build_request(params: &StreamParams) -> MessagesRequest {
 #[derive(Debug, Clone)]
 struct PromptCachingConfig {
     enabled: bool,
-    ttl: Option<String>,
     last_n_messages: usize,
 }
 
 impl PromptCachingConfig {
     fn from_params(params: &StreamParams) -> Self {
         let mut enabled = true;
-        let mut ttl = std::env::var("CODEX_ANTHROPIC_PROMPT_CACHE_TTL")
-            .ok()
-            .map(|v| v.trim().to_string())
-            .filter(|v| !v.is_empty() && v != "0" && v.eq_ignore_ascii_case("1h"));
         let mut last_n_messages = 2;
 
         // Global opt-out: allow disabling caching without code changes.
@@ -167,16 +160,11 @@ impl PromptCachingConfig {
         // Caller overrides (for consumers using AnthropicClient directly).
         if let Some(overrides) = &params.prompt_caching {
             enabled = overrides.enabled;
-            ttl = overrides
-                .ttl
-                .clone()
-                .filter(|v| v.eq_ignore_ascii_case("1h"));
             last_n_messages = overrides.last_n_messages;
         }
 
         Self {
             enabled,
-            ttl,
             last_n_messages,
         }
     }
@@ -184,7 +172,6 @@ impl PromptCachingConfig {
     fn cache_control(&self) -> CacheControl {
         CacheControl {
             kind: CacheControlType::Ephemeral,
-            ttl: self.ttl.clone(),
         }
     }
 }
@@ -302,21 +289,25 @@ fn build_messages(prompt: &ApiPrompt) -> Vec<ChatMessage> {
     // Pre-scan outputs so tool_result blocks can always be emitted immediately after the
     // assistant message that contains the corresponding tool_use blocks, even if the
     // tool outputs arrive later (or earlier) in Codex history.
-    let mut tool_results_by_id: HashMap<String, Vec<ContentBlock>> = HashMap::new();
+    let mut tool_results_by_id: HashMap<String, ContentBlock> = HashMap::new();
     for item in &prompt.input {
         match item {
             ResponseItem::FunctionCallOutput { call_id, output } => {
-                tool_results_by_id.entry(call_id.clone()).or_default().push(
+                tool_results_by_id.insert(
+                    call_id.clone(),
                     ContentBlock::ToolResult {
                         tool_use_id: call_id.clone(),
                         content: output.content.clone(),
-                        is_error: None,
+                        is_error: output
+                            .success
+                            .and_then(|success| (!success).then_some(true)),
                         cache_control: None,
                     },
                 );
             }
             ResponseItem::CustomToolCallOutput { call_id, output } => {
-                tool_results_by_id.entry(call_id.clone()).or_default().push(
+                tool_results_by_id.insert(
+                    call_id.clone(),
                     ContentBlock::ToolResult {
                         tool_use_id: call_id.clone(),
                         content: output.clone(),
@@ -332,7 +323,7 @@ fn build_messages(prompt: &ApiPrompt) -> Vec<ChatMessage> {
     let flush_assistant =
         |messages: &mut Vec<ChatMessage>,
          pending_assistant: &mut Option<ChatMessage>,
-         tool_results_by_id: &mut HashMap<String, Vec<ContentBlock>>| {
+         tool_results_by_id: &mut HashMap<String, ContentBlock>| {
             let Some(msg) = pending_assistant.take() else {
                 return;
             };
@@ -375,12 +366,15 @@ fn build_messages(prompt: &ApiPrompt) -> Vec<ChatMessage> {
             let mut results: Vec<ContentBlock> = Vec::new();
             for tool_use_id in tool_use_ids {
                 match tool_results_by_id.remove(&tool_use_id) {
-                    Some(mut blocks) => results.append(&mut blocks),
+                    Some(block) => results.push(block),
                     None => {
+                        let message = format!(
+                            "Tool call {tool_use_id} was aborted or no result was captured."
+                        );
                         results.push(ContentBlock::ToolResult {
                             tool_use_id,
-                            content: "aborted".to_string(),
-                            is_error: None,
+                            content: message,
+                            is_error: Some(true),
                             cache_control: None,
                         });
                     }
@@ -460,12 +454,12 @@ fn build_messages(prompt: &ApiPrompt) -> Vec<ChatMessage> {
                 }
 
                 let thinking = extract_reasoning_text(content);
-                let signature = encrypted_content.clone().filter(|s| !s.trim().is_empty());
-                if thinking.is_none() && signature.is_none() {
+                let Some(thinking) = thinking.filter(|t| !t.trim().is_empty()) else {
                     continue;
-                }
+                };
+                let signature = encrypted_content.clone().filter(|s| !s.trim().is_empty());
                 assistant.content.push(ContentBlock::Thinking {
-                    thinking,
+                    thinking: Some(thinking),
                     signature,
                     cache_control: None,
                 });
@@ -897,7 +891,6 @@ mod tests {
             thinking: None,
             prompt_caching: Some(PromptCachingParams {
                 enabled: true,
-                ttl: Some("1h".to_string()),
                 last_n_messages: 2,
             }),
         };
@@ -932,13 +925,6 @@ mod tests {
                 .and_then(|v| v.as_str()),
             Some("ephemeral")
         );
-        assert_eq!(
-            system0
-                .get("cache_control")
-                .and_then(|v| v.get("ttl"))
-                .and_then(|v| v.as_str()),
-            Some("1h")
-        );
 
         let system1 = system_blocks[1].as_object().unwrap();
         assert_eq!(
@@ -947,13 +933,6 @@ mod tests {
                 .and_then(|v| v.get("type"))
                 .and_then(|v| v.as_str()),
             Some("ephemeral")
-        );
-        assert_eq!(
-            system1
-                .get("cache_control")
-                .and_then(|v| v.get("ttl"))
-                .and_then(|v| v.as_str()),
-            Some("1h")
         );
 
         let messages = value.get("messages").unwrap().as_array().unwrap();
@@ -1143,6 +1122,42 @@ mod tests {
                 {"type":"tool_use","id":"call_1","name":"echo","input":{"text":"hello"}}
               ]},
               {"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"ok"}]}
+            ])
+        );
+    }
+
+    #[test]
+    fn missing_tool_output_emits_error_tool_result_placeholder() {
+        let prompt = codex_api::Prompt {
+            instructions: String::new(),
+            input: vec![
+                ResponseItem::Message {
+                    id: None,
+                    role: "user".to_string(),
+                    content: vec![ContentItem::InputText {
+                        text: "hi".to_string(),
+                    }],
+                },
+                ResponseItem::FunctionCall {
+                    id: None,
+                    name: "echo".to_string(),
+                    arguments: "{\"text\":\"hello\"}".to_string(),
+                    call_id: "call_1".to_string(),
+                },
+            ],
+            tools: vec![],
+            parallel_tool_calls: false,
+            output_schema: None,
+        };
+
+        let messages = build_messages(&prompt);
+        let value = to_value(&messages).expect("json");
+        assert_eq!(
+            value,
+            json!([
+              {"role":"user","content":[{"type":"text","text":"hi"}]},
+              {"role":"assistant","content":[{"type":"tool_use","id":"call_1","name":"echo","input":{"text":"hello"}}]},
+              {"role":"user","content":[{"type":"tool_result","tool_use_id":"call_1","content":"Tool call call_1 was aborted or no result was captured.","is_error":true}]}
             ])
         );
     }

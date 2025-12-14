@@ -13,6 +13,7 @@ pub enum AnthropicError {
     HttpStatus {
         status: reqwest::StatusCode,
         body: String,
+        request_id: Option<String>,
     },
 
     #[error("HTTP error: {0}")]

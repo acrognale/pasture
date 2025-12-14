@@ -6,7 +6,6 @@ use crate::stream::ThinkingParams;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PromptCachingPreset {
     pub enabled: bool,
-    pub ttl: Option<&'static str>,
     pub last_n_messages: usize,
 }
 
@@ -16,14 +15,12 @@ const THINKING_BUDGET_TOKENS: u32 = 31_999;
 impl PromptCachingPreset {
     pub const CLAUDE_CODE_DEFAULT: Self = Self {
         enabled: true,
-        ttl: None,
         last_n_messages: 2,
     };
 
     pub fn into_params(self) -> PromptCachingParams {
         PromptCachingParams {
             enabled: self.enabled,
-            ttl: self.ttl.map(|v| v.to_string()),
             last_n_messages: self.last_n_messages,
         }
     }
@@ -117,7 +114,6 @@ mod tests {
     use codex_api::Prompt as ApiPrompt;
     use codex_protocol::models::ContentItem;
     use codex_protocol::models::ResponseItem;
-    use serde_json::Value;
 
     fn minimal_prompt() -> ApiPrompt {
         ApiPrompt {
@@ -135,16 +131,6 @@ mod tests {
         }
     }
 
-    fn system_cache_ttl(request_json: &Value) -> Option<&str> {
-        request_json
-            .get("system")?
-            .as_array()?
-            .first()?
-            .get("cache_control")?
-            .get("ttl")?
-            .as_str()
-    }
-
     #[test]
     fn sonnet_preset_builds_expected_model_and_defaults() {
         let params = SONNET.stream_params(minimal_prompt());
@@ -158,7 +144,6 @@ mod tests {
             value.get("max_tokens").and_then(|v| v.as_u64()),
             Some(SONNET.default_max_tokens as u64)
         );
-        assert_eq!(system_cache_ttl(&value), None);
         assert_eq!(
             value
                 .get("thinking")
@@ -188,7 +173,6 @@ mod tests {
             value.get("max_tokens").and_then(|v| v.as_u64()),
             Some(OPUS.default_max_tokens as u64)
         );
-        assert_eq!(system_cache_ttl(&value), None);
         assert_eq!(
             value
                 .get("thinking")
@@ -218,7 +202,6 @@ mod tests {
             value.get("max_tokens").and_then(|v| v.as_u64()),
             Some(HAIKU.default_max_tokens as u64)
         );
-        assert_eq!(system_cache_ttl(&value), None);
         assert_eq!(value.get("thinking"), None);
     }
 

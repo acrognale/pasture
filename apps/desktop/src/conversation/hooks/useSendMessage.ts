@@ -16,6 +16,7 @@ import {
   createDefaultComposerConfig,
 } from '~/composer/config';
 import { useComposerConfig } from '~/composer/hooks/useComposerConfig';
+import { isAnthropicModel } from '~/lib/providerInference';
 import { makePathRelative } from '~/lib/utils';
 
 import type { MessageAttachment } from '../types';
@@ -132,10 +133,7 @@ export const useSendMessage = (
     const resolvedModel = (variables.turnConfig?.model ??
       composerConfig.model ??
       '') as string;
-    const normalizedModel = resolvedModel.trim().toLowerCase();
-    const usesAnthropic =
-      normalizedModel.startsWith('claude-') ||
-      normalizedModel.startsWith('anthropic/claude-');
+    const usesAnthropic = isAnthropicModel(resolvedModel);
 
     if (authState.isLoading) {
       throw new Error('Authentication required');

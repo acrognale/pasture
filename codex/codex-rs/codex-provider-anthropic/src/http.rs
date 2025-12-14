@@ -12,6 +12,8 @@ use reqwest::header::HeaderMap;
 use reqwest::header::HeaderValue;
 use reqwest::header::USER_AGENT;
 
+const MAX_ERROR_BODY_BYTES: usize = 16 * 1024;
+
 /// Thin wrapper around `reqwest::Client` with Anthropic-specific defaults.
 #[derive(Clone)]
 pub struct AnthropicClient {
@@ -134,8 +136,20 @@ pub async fn open_stream(
 
     let status = response.status();
     if !status.is_success() {
+        let request_id = response
+            .headers()
+            .get("request-id")
+            .or_else(|| response.headers().get("x-request-id"))
+            .and_then(|value| value.to_str().ok())
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
         let body = response.text().await.unwrap_or_default();
-        return Err(AnthropicError::HttpStatus { status, body });
+        let body = truncate_body(body, MAX_ERROR_BODY_BYTES);
+        return Err(AnthropicError::HttpStatus {
+            status,
+            body,
+            request_id,
+        });
     }
 
     let stream = response.bytes_stream();
@@ -143,4 +157,13 @@ pub async fn open_stream(
         Box::pin(stream);
     let event_stream = boxed.eventsource();
     Ok(event_stream)
+}
+
+fn truncate_body(mut body: String, max_bytes: usize) -> String {
+    if body.len() <= max_bytes {
+        return body;
+    }
+    body.truncate(max_bytes);
+    body.push_str("…(truncated)");
+    body
 }
