@@ -1,0 +1,183 @@
+import { ChevronDownIcon } from 'lucide-react';
+import { Button } from '~/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
+import {
+  APPROVAL_DISPLAY,
+  APPROVAL_HELP_TEXT,
+  APPROVAL_OPTIONS,
+  REASONING_EFFORT_DISPLAY,
+  REASONING_SUMMARY_DISPLAY,
+  REASONING_SUMMARY_HELP_TEXT,
+  REASONING_SUMMARY_OPTIONS,
+  SANDBOX_DISPLAY,
+  SANDBOX_OPTIONS,
+} from '~/composer/components/ModelConfigSelector';
+import {
+  MODEL_DISPLAY_NAMES,
+  MODEL_OPTIONS,
+  type ModelName,
+  getAvailableReasoningEfforts,
+  normalizeReasoningEffort,
+} from '~/composer/model-options';
+import { useWorkspaceComposerDefaults } from '../hooks/useWorkspaceComposerDefaults';
+
+type DefaultsSettingsPageProps = {
+  workspacePath: string;
+};
+
+export function DefaultsSettingsPage({
+  workspacePath,
+}: DefaultsSettingsPageProps) {
+  const { defaults, disabled, updateSetting } =
+    useWorkspaceComposerDefaults(workspacePath);
+
+  const isModelName = (value: string | null | undefined): value is ModelName =>
+    value != null && MODEL_OPTIONS.includes(value as ModelName);
+
+  const selectedModel: ModelName = isModelName(defaults.model)
+    ? defaults.model
+    : 'gpt-5.2';
+
+  const availableReasoningEfforts = getAvailableReasoningEfforts(selectedModel);
+
+  const selectedReasoningEffort = normalizeReasoningEffort(
+    selectedModel,
+    defaults.reasoningEffort ?? undefined
+  );
+  const selectedReasoningSummary = defaults.summary ?? ('auto' as const);
+  const selectedSandbox = defaults.sandbox ?? ('read-only' as const);
+  const selectedApproval = defaults.approval ?? ('on-request' as const);
+
+  const handleModelDefaultChange = (nextModel: ModelName) => {
+    const normalizedEffort = normalizeReasoningEffort(
+      nextModel,
+      selectedReasoningEffort
+    );
+    updateSetting({ model: nextModel, reasoningEffort: normalizedEffort });
+  };
+
+  const renderDropdown = <T extends string>(
+    label: string,
+    value: T,
+    options: readonly T[],
+    displayMap: Record<T, string>,
+    onSelect: (next: T) => void,
+    helpTextMap?: Record<T, string>
+  ) => (
+    <div className="space-y-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full justify-between text-xs h-9 font-normal"
+            disabled={disabled}
+          >
+            <span className="truncate text-foreground">
+              {displayMap[value] ?? value}
+            </span>
+            <ChevronDownIcon className="size-3 opacity-50 shrink-0" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-[320px]">
+          {options.map((option) => (
+            <DropdownMenuItem
+              key={option}
+              disabled={disabled}
+              onSelect={() => onSelect(option)}
+            >
+              {helpTextMap ? (
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm text-foreground">
+                    {displayMap[option] ?? option}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {helpTextMap[option]}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-sm text-foreground">
+                  {displayMap[option] ?? option}
+                </span>
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-foreground">Model & reasoning</span>
+            <span className="text-xs text-muted-foreground">
+              Defaults applied to every new thread in this workspace.
+            </span>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {renderDropdown(
+            'Default model',
+            selectedModel,
+            MODEL_OPTIONS,
+            MODEL_DISPLAY_NAMES,
+            handleModelDefaultChange
+          )}
+          {renderDropdown(
+            'Reasoning effort',
+            selectedReasoningEffort,
+            availableReasoningEfforts,
+            REASONING_EFFORT_DISPLAY,
+            (next) => updateSetting({ reasoningEffort: next })
+          )}
+          {renderDropdown(
+            'Reasoning summaries',
+            selectedReasoningSummary,
+            REASONING_SUMMARY_OPTIONS,
+            REASONING_SUMMARY_DISPLAY,
+            (next) => updateSetting({ summary: next }),
+            REASONING_SUMMARY_HELP_TEXT
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-foreground">Safety defaults</span>
+            <span className="text-xs text-muted-foreground">
+              Sandbox and approval behavior for new threads.
+            </span>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {renderDropdown(
+            'Sandbox mode',
+            selectedSandbox,
+            SANDBOX_OPTIONS,
+            SANDBOX_DISPLAY,
+            (next) => updateSetting({ sandbox: next })
+          )}
+          {renderDropdown(
+            'Approval policy',
+            selectedApproval,
+            APPROVAL_OPTIONS,
+            APPROVAL_DISPLAY,
+            (next) => updateSetting({ approval: next }),
+            APPROVAL_HELP_TEXT
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
