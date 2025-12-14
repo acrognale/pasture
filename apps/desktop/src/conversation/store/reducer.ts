@@ -29,6 +29,9 @@ import type { StreamErrorEvent } from '@pasture/protocol';
 import type { TaskCompleteEvent } from '@pasture/protocol';
 import type { TokenCountEvent } from '@pasture/protocol';
 import type { TokenUsageInfo } from '@pasture/protocol';
+import type { ToolCallBeginEvent } from '@pasture/protocol';
+import type { ToolCallEndEvent } from '@pasture/protocol';
+import type { ToolRef } from '@pasture/protocol';
 import type { TurnAbortedEvent } from '@pasture/protocol';
 import type { TurnDiffEvent } from '@pasture/protocol';
 import type { UpdatePlanArgs } from '@pasture/protocol';
@@ -1174,6 +1177,190 @@ function onMcpToolCallEnd(
   appendCell(draft, turnId, cell);
 }
 
+function toBuiltinToolType(
+  tool: ToolRef
+): TranscriptToolCell['toolType'] | null {
+  if (tool.kind !== 'builtin') {
+    return null;
+  }
+  switch (tool.name) {
+    case 'read_file':
+      return 'read-file';
+    case 'list_dir':
+      return 'list-dir';
+    case 'grep_files':
+      return 'grep-files';
+    default:
+      return null;
+  }
+}
+
+function parseToolArgsPreview(preview: string): Record<string, unknown> | null {
+  const trimmed = preview.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (parsed && typeof parsed === 'object') {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function onToolCallBegin(
+  draft: Draft<ConversationControllerState>,
+  event: ToolCallBeginEvent,
+  eventId: string,
+  turnId: string,
+  timestamp: string
+): void {
+  const toolType = toBuiltinToolType(event.tool);
+  if (!toolType) {
+    return;
+  }
+
+  const transcript = draft.conversation.transcript as TranscriptState;
+  const target = findToolCellByCallId(
+    transcript,
+    turnId,
+    toolType,
+    event.call_id
+  );
+
+  const args = parseToolArgsPreview(event.arguments_preview);
+  const path =
+    toolType === 'read-file'
+      ? ((args?.['file_path'] as string | undefined) ?? null)
+      : toolType === 'list-dir'
+        ? ((args?.['dir_path'] as string | undefined) ?? null)
+        : ((args?.['path'] as string | undefined) ?? null);
+
+  const query =
+    toolType === 'grep-files'
+      ? ((args?.['pattern'] as string | undefined) ?? null)
+      : null;
+
+  const offsetValue = args?.['offset'];
+  const limitValue = args?.['limit'];
+  const depthValue = args?.['depth'];
+  const includeValue = args?.['include'];
+
+  const details =
+    toolType === 'read-file'
+      ? [
+          typeof offsetValue === 'number' ? `offset=${offsetValue}` : null,
+          typeof limitValue === 'number' ? `limit=${limitValue}` : null,
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : toolType === 'list-dir'
+        ? [
+            typeof offsetValue === 'number' ? `offset=${offsetValue}` : null,
+            typeof limitValue === 'number' ? `limit=${limitValue}` : null,
+            typeof depthValue === 'number' ? `depth=${depthValue}` : null,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        : (() => {
+            const include =
+              typeof includeValue === 'string' && includeValue.trim().length > 0
+                ? includeValue
+                : null;
+            const limit =
+              typeof limitValue === 'number' ? `limit=${limitValue}` : null;
+            return [include ? `include=${include}` : null, limit]
+              .filter(Boolean)
+              .join(' ');
+          })();
+
+  if (target) {
+    target.cell.status = 'running';
+    target.cell.callId = event.call_id;
+    target.cell.path = path;
+    target.cell.query = query ?? target.cell.query;
+    target.cell.duration = null;
+    target.cell.result = null;
+    if (details) {
+      target.cell.query = query ? `${query} • ${details}` : details;
+    }
+    appendEventId(draft, target.cell, eventId);
+    return;
+  }
+
+  const cell: TranscriptToolCell = {
+    id: eventId,
+    kind: 'tool',
+    timestamp,
+    eventIds: [eventId],
+    toolType,
+    status: 'running',
+    callId: event.call_id,
+    invocation: null,
+    result: null,
+    duration: null,
+    path,
+    query: details ? (query ? `${query} • ${details}` : details) : query,
+    itemId: null,
+  };
+  appendCell(draft, turnId, cell);
+  transcript.activeTurnId = turnId;
+}
+
+function onToolCallEnd(
+  draft: Draft<ConversationControllerState>,
+  event: ToolCallEndEvent,
+  eventId: string,
+  turnId: string,
+  timestamp: string
+): void {
+  const toolType = toBuiltinToolType(event.tool);
+  if (!toolType) {
+    return;
+  }
+
+  const transcript = draft.conversation.transcript as TranscriptState;
+  const target = findToolCellByCallId(
+    transcript,
+    turnId,
+    toolType,
+    event.call_id
+  );
+  const status = event.status === 'ok' ? 'succeeded' : 'failed';
+  const resultText =
+    event.status === 'error'
+      ? event.error_message || event.output_preview
+      : event.output_preview;
+
+  if (target) {
+    target.cell.status = status;
+    target.cell.result = resultText || null;
+    target.cell.duration = event.duration;
+    appendEventId(draft, target.cell, eventId);
+    return;
+  }
+
+  const cell: TranscriptToolCell = {
+    id: eventId,
+    kind: 'tool',
+    timestamp,
+    eventIds: [eventId],
+    toolType,
+    status,
+    callId: event.call_id,
+    invocation: null,
+    result: resultText || null,
+    duration: event.duration,
+    path: null,
+    query: null,
+    itemId: null,
+  };
+  appendCell(draft, turnId, cell);
+}
+
 function onWebSearchBegin(
   draft: Draft<ConversationControllerState>,
   event: WebSearchBeginEvent,
@@ -1369,6 +1556,9 @@ function applyConversationEvent(
         ingestOnDraft
       );
       break;
+    case 'raw_response_item':
+      console.log(`[event] ${event.type}`, event);
+      break;
     case 'user_message':
       onUserMessage(draft, event, eventId, turnId, timestamp);
       break;
@@ -1464,6 +1654,12 @@ function applyConversationEvent(
       break;
     case 'mcp_tool_call_end':
       onMcpToolCallEnd(draft, event, eventId, turnId, timestamp);
+      break;
+    case 'tool_call_begin':
+      onToolCallBegin(draft, event, eventId, turnId, timestamp);
+      break;
+    case 'tool_call_end':
+      onToolCallEnd(draft, event, eventId, turnId, timestamp);
       break;
     case 'web_search_begin':
       onWebSearchBegin(draft, event, eventId, turnId, timestamp);

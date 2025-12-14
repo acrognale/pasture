@@ -166,6 +166,7 @@ const mockCodexNamespace = {
   getWorkspaceComposerDefaults: defineStub(
     async (): Promise<WorkspaceSettings> => ({
       model: null,
+      modelProviderId: null,
       reasoningEffort: null,
       reasoningSummary: null,
       sandbox: null,

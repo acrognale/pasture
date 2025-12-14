@@ -15,6 +15,9 @@ import { HandoffCell } from './HandoffCell';
 import { PatchesContainer } from './PatchesContainer';
 import { Tools } from './Tools';
 import { UserMessageContainer } from './UserMessageContainer';
+import { GrepFilesToolCall } from './tools/GrepFilesToolCall';
+import { ListDirToolCall } from './tools/ListDirToolCall';
+import { ReadFileToolCall } from './tools/ReadFileToolCall';
 
 type CreateTranscriptOverridesOptions = {
   conversationId: string;
@@ -31,7 +34,30 @@ const renderGenericCell = (cell: TranscriptGenericCell) => (
   </Cell>
 );
 
-const renderToolCell = (cell: TranscriptToolCell) => <Tools cell={cell} />;
+const renderToolCell = (cell: TranscriptToolCell) => {
+  switch (cell.toolType) {
+    case 'read-file':
+      return (
+        <ReadFileToolCall
+          cell={cell as TranscriptToolCell & { toolType: 'read-file' }}
+        />
+      );
+    case 'list-dir':
+      return (
+        <ListDirToolCall
+          cell={cell as TranscriptToolCell & { toolType: 'list-dir' }}
+        />
+      );
+    case 'grep-files':
+      return (
+        <GrepFilesToolCall
+          cell={cell as TranscriptToolCell & { toolType: 'grep-files' }}
+        />
+      );
+    default:
+      return <Tools cell={cell} />;
+  }
+};
 
 export const createTranscriptOverrides = ({
   conversationId,

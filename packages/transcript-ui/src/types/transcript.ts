@@ -177,7 +177,14 @@ export type TranscriptPatchApprovalCell = BaseTranscriptCell & {
 
 export type TranscriptToolCell = BaseTranscriptCell & {
   kind: 'tool';
-  toolType: 'mcp' | 'web-search' | 'view-image' | 'read-thread';
+  toolType:
+    | 'mcp'
+    | 'web-search'
+    | 'view-image'
+    | 'read-thread'
+    | 'read-file'
+    | 'list-dir'
+    | 'grep-files';
   status: 'running' | 'succeeded' | 'failed';
   callId: string | null;
   invocation: McpInvocation | null;

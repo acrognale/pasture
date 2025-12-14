@@ -517,6 +517,11 @@ pub enum EventMsg {
 
     McpToolCallEnd(McpToolCallEndEvent),
 
+    /// Generic tool lifecycle events for tools that do not have dedicated UI events.
+    ToolCallBegin(ToolCallBeginEvent),
+
+    ToolCallEnd(ToolCallEndEvent),
+
     WebSearchBegin(WebSearchBeginEvent),
 
     WebSearchEnd(WebSearchEndEvent),
@@ -1067,6 +1072,62 @@ impl McpToolCallEndEvent {
             Err(_) => false,
         }
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename_all = "snake_case")]
+pub enum BuiltinToolName {
+    ReadFile,
+    ListDir,
+    GrepFiles,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS, PartialEq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+#[ts(tag = "kind")]
+pub enum ToolRef {
+    Builtin {
+        name: BuiltinToolName,
+    },
+    /// Dynamic MCP tools are identified by name at runtime.
+    Mcp {
+        name: String,
+    },
+    /// Escape hatch for tools outside the built-in enum set.
+    Other {
+        name: String,
+    },
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename_all = "snake_case")]
+pub enum ToolCallStatus {
+    Ok,
+    Error,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS, PartialEq)]
+pub struct ToolCallBeginEvent {
+    pub call_id: String,
+    pub tool: ToolRef,
+    /// Truncated JSON or freeform preview of invocation arguments.
+    pub arguments_preview: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS, PartialEq)]
+pub struct ToolCallEndEvent {
+    pub call_id: String,
+    pub tool: ToolRef,
+    pub status: ToolCallStatus,
+    #[ts(type = "string")]
+    pub duration: Duration,
+    /// Truncated preview of the tool output, if any.
+    pub output_preview: String,
+    /// Truncated error string when `status` is `error`.
+    pub error_message: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]

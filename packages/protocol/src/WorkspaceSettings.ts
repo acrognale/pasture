@@ -10,6 +10,7 @@ import type { SandboxMode } from './SandboxMode';
  */
 export type WorkspaceSettings = {
   model: string | null;
+  modelProviderId: string | null;
   reasoningEffort: ReasoningEffort | null;
   reasoningSummary: ReasoningSummary | null;
   sandbox: SandboxMode | null;

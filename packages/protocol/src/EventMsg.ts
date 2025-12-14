@@ -42,6 +42,8 @@ import type { TaskCompleteEvent } from './TaskCompleteEvent';
 import type { TaskStartedEvent } from './TaskStartedEvent';
 import type { TerminalInteractionEvent } from './TerminalInteractionEvent';
 import type { TokenCountEvent } from './TokenCountEvent';
+import type { ToolCallBeginEvent } from './ToolCallBeginEvent';
+import type { ToolCallEndEvent } from './ToolCallEndEvent';
 import type { TurnAbortedEvent } from './TurnAbortedEvent';
 import type { TurnDiffEvent } from './TurnDiffEvent';
 import type { UndoCompletedEvent } from './UndoCompletedEvent';
@@ -81,6 +83,8 @@ export type EventMsg =
   | ({ type: 'mcp_startup_complete' } & McpStartupCompleteEvent)
   | ({ type: 'mcp_tool_call_begin' } & McpToolCallBeginEvent)
   | ({ type: 'mcp_tool_call_end' } & McpToolCallEndEvent)
+  | ({ type: 'tool_call_begin' } & ToolCallBeginEvent)
+  | ({ type: 'tool_call_end' } & ToolCallEndEvent)
   | ({ type: 'web_search_begin' } & WebSearchBeginEvent)
   | ({ type: 'web_search_end' } & WebSearchEndEvent)
   | ({ type: 'exec_command_begin' } & ExecCommandBeginEvent)
