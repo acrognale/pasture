@@ -41,7 +41,6 @@ import { useInterruptConversation } from './hooks/useInterruptConversation';
 import { useQueueableSendMessage } from './hooks/useQueueableSendMessage';
 import { useReplay } from './replay';
 import {
-  useConversationHasTurnDiffHistory,
   useConversationIsRunning,
   useConversationQueueActions,
   useConversationQueuedMessages,
@@ -93,8 +92,6 @@ function ConversationPaneContent({
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const expandedTurns = expandedTurnsByConversation[conversationId] ?? {};
   const isTurnActive = useConversationIsRunning(conversationId);
-  const hasTurnDiffEvents = useConversationHasTurnDiffHistory(conversationId);
-  const hasReviewHistory = hasTurnDiffEvents;
   const { isReplaying, startReplay, stopReplay } = useReplay({
     conversationId,
   });
@@ -548,7 +545,7 @@ function ConversationPaneContent({
           className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative"
         >
           {isReviewOpen &&
-          ((reviewMode === 'turn' && hasReviewHistory) ||
+          (reviewMode === 'turn' ||
             (reviewMode === 'repo' && repoReviewParams)) ? (
             <>
               <div
@@ -579,7 +576,6 @@ function ConversationPaneContent({
                   <ConversationReviewOverlay
                     conversationId={conversationId}
                     open={isReviewOpen}
-                    hasHistory={hasReviewHistory}
                     onClose={() => {
                       setIsReviewOpen(false);
                       setReviewFocusFilePath(null);
