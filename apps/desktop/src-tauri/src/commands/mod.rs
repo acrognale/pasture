@@ -168,8 +168,4 @@ codex_command_descriptors! {
         params: (),
         result: (),
     },
-    review::review_map_conversation {
-        params: turns::ReviewMapConversationParams,
-        result: (),
-    },
 }

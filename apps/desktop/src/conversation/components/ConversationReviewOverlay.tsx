@@ -23,7 +23,9 @@ export type ConversationReviewOverlayProps = {
   onClose: () => void;
   onRequestFeedback: (prompt: string) => void;
   focusFilePath?: string | null;
+  focusLineRange?: { start: number; end: number } | null;
   onFocusFilePathConsumed?: () => void;
+  onFocusLineRangeConsumed?: () => void;
 };
 
 export function ConversationReviewOverlay({
@@ -34,7 +36,9 @@ export function ConversationReviewOverlay({
   onClose,
   onRequestFeedback,
   focusFilePath,
+  focusLineRange,
   onFocusFilePathConsumed,
+  onFocusLineRangeConsumed,
 }: ConversationReviewOverlayProps) {
   const latestDiff = useConversationLatestTurnDiff(conversationId);
   const history = useConversationTurnDiffHistory(conversationId);
@@ -69,7 +73,9 @@ export function ConversationReviewOverlay({
               onRequestFeedback={onRequestFeedback}
               onClose={onClose}
               focusFilePath={focusFilePath}
+              focusLineRange={focusLineRange}
               onFocusFilePathConsumed={onFocusFilePathConsumed}
+              onFocusLineRangeConsumed={onFocusLineRangeConsumed}
             />
           </TurnReviewProvider>
         </Suspense>

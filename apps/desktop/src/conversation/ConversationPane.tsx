@@ -84,6 +84,10 @@ function ConversationPaneContent({
   const [reviewFocusFilePath, setReviewFocusFilePath] = useState<string | null>(
     null
   );
+  const [reviewFocusLineRange, setReviewFocusLineRange] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
   const [reviewPanelWidth, setReviewPanelWidth] = useState<number | null>(null);
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
@@ -469,6 +473,7 @@ function ConversationPaneContent({
         return;
       }
       setReviewFocusFilePath(event.detail.fileDisplayPath ?? null);
+      setReviewFocusLineRange(event.detail.lineRange ?? null);
       setIsReviewOpen(true);
     };
 
@@ -559,11 +564,14 @@ function ConversationPaneContent({
                   onClose={() => {
                     setIsReviewOpen(false);
                     setReviewFocusFilePath(null);
+                    setReviewFocusLineRange(null);
                   }}
                   workspacePath={workspacePath}
                   onRequestFeedback={handleReviewFeedback}
                   focusFilePath={reviewFocusFilePath}
+                  focusLineRange={reviewFocusLineRange}
                   onFocusFilePathConsumed={() => setReviewFocusFilePath(null)}
+                  onFocusLineRangeConsumed={() => setReviewFocusLineRange(null)}
                 />
               </div>
               <div

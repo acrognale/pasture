@@ -2087,7 +2087,7 @@ async fn spawn_review_map_thread(
         .clone()
         .unwrap_or_else(|| "review map".to_string());
 
-    let review_prompt = format!("Build a review map for {user_facing_hint}.");
+    let review_prompt = "Build a review map.".to_string();
     let delegate_config = crate::review_map_context::build_review_map_delegate_config(
         parent_turn_context.client.config().as_ref(),
     );

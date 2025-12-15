@@ -12,7 +12,9 @@ type TurnReviewPaneProps = {
   disabled?: boolean;
   onClose?: () => void;
   focusFilePath?: string | null;
+  focusLineRange?: { start: number; end: number } | null;
   onFocusFilePathConsumed?: () => void;
+  onFocusLineRangeConsumed?: () => void;
 };
 
 const MIN_SPLIT_WIDTH = 900;
@@ -23,7 +25,9 @@ export function TurnReviewPane({
   disabled,
   onClose,
   focusFilePath,
+  focusLineRange,
   onFocusFilePathConsumed,
+  onFocusLineRangeConsumed,
 }: TurnReviewPaneProps) {
   const { comments, selectedDiff } = useTurnReview();
   const commentCount = comments.length;
@@ -127,7 +131,9 @@ export function TurnReviewPane({
         workspacePath={workspacePath}
         viewMode={viewMode}
         focusFilePath={focusFilePath}
+        focusLineRange={focusLineRange}
         onFocusFilePathConsumed={onFocusFilePathConsumed}
+        onFocusLineRangeConsumed={onFocusLineRangeConsumed}
       />
     </div>
   );

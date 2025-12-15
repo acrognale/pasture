@@ -15,14 +15,18 @@ export type DiffContentSectionProps = {
   workspacePath: string;
   viewMode: DiffViewMode;
   focusFilePath?: string | null;
+  focusLineRange?: { start: number; end: number } | null;
   onFocusFilePathConsumed?: () => void;
+  onFocusLineRangeConsumed?: () => void;
 };
 
 export function DiffContentSection({
   workspacePath,
   viewMode,
   focusFilePath,
+  focusLineRange,
   onFocusFilePathConsumed,
+  onFocusLineRangeConsumed,
 }: DiffContentSectionProps) {
   const {
     conversationId,
@@ -173,10 +177,15 @@ export function DiffContentSection({
 
     // Clear the focus path so clicking the same file again will work
     onFocusFilePathConsumed?.();
+    if (focusLineRange) {
+      onFocusLineRangeConsumed?.();
+    }
   }, [
     diffFiles,
     focusFilePath,
+    focusLineRange,
     onFocusFilePathConsumed,
+    onFocusLineRangeConsumed,
     scrollToFile,
     selectedFileId,
   ]);

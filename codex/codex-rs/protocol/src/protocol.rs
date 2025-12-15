@@ -1385,42 +1385,6 @@ impl Default for ReviewOutputEvent {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(rename_all = "snake_case")]
-pub enum ReviewMapNodeKind {
-    Concept,
-    File,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
-pub struct ReviewMapNodeRef {
-    pub kind: ReviewMapNodeKind,
-    /// Stable identifier within the graph.
-    pub id: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
-#[serde(rename_all = "snake_case")]
-#[ts(rename_all = "snake_case")]
-pub enum ReviewMapEdgeType {
-    DependsOn,
-    Implements,
-    Consumes,
-    Emits,
-    Touches,
-    Related,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
-pub struct ReviewMapEdge {
-    pub from: ReviewMapNodeRef,
-    pub to: ReviewMapNodeRef,
-    #[serde(rename = "type")]
-    pub edge_type: ReviewMapEdgeType,
-    pub rationale: String,
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
 pub struct ReviewMapConcept {
     pub id: String,
@@ -1435,35 +1399,72 @@ pub struct ReviewMapConcept {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct ReviewMapLineRange {
+    /// Inclusive 1-based line range.
+    pub start: u32,
+    /// Inclusive 1-based line range.
+    pub end: u32,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
 #[serde(rename_all = "snake_case")]
 #[ts(rename_all = "snake_case")]
-pub enum ReviewMapFileChangeType {
-    Added,
-    Modified,
-    Deleted,
-    Renamed,
-    TypeChanged,
-    Unmerged,
-    Unknown,
+pub enum ReviewMapCodeRefKind {
+    LineRange,
+    Symbol,
+    DiffHunk,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
-pub struct ReviewMapFile {
-    pub path: String,
-    #[serde(default)]
+pub struct ReviewMapCodeRef {
+    /// Stable identifier within the step.
+    pub id: String,
+    /// Human-friendly label shown in the UI (e.g. "Validate input", "Write path", "Test").
+    pub label: String,
+    pub file_path: String,
+    pub kind: ReviewMapCodeRefKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
-    pub change_type: Option<ReviewMapFileChangeType>,
-    pub summary: String,
-    #[serde(default)]
-    pub concepts: Vec<String>,
+    pub line_range: Option<ReviewMapLineRange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub symbol: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub hunk_header: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
-pub struct ReviewMapReviewStep {
-    pub node: ReviewMapNodeRef,
-    pub why: String,
+pub struct ReviewMapStep {
+    /// Short stable ID (e.g. "r3", "12a") used for navigation and cross-links.
+    pub id: String,
+    pub title: String,
+    /// Why this step matters and what to verify.
+    pub rationale: String,
     #[serde(default)]
     pub suggested_questions: Vec<String>,
+    #[serde(default)]
+    pub concept_ids: Vec<String>,
+    #[serde(default)]
+    pub code_refs: Vec<ReviewMapCodeRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub next_step_id: Option<String>,
+    #[serde(default)]
+    pub also_step_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct ReviewMapTrace {
+    /// Short stable ID (e.g. "t1", "authz") used for grouping.
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    #[serde(default)]
+    pub step_ids: Vec<String>,
 }
 
 /// Structured review map result produced by a child review-map session.
@@ -1476,23 +1477,20 @@ pub struct ReviewMapOutputEvent {
     #[serde(default)]
     pub concepts: Vec<ReviewMapConcept>,
     #[serde(default)]
-    pub files: Vec<ReviewMapFile>,
+    pub traces: Vec<ReviewMapTrace>,
     #[serde(default)]
-    pub edges: Vec<ReviewMapEdge>,
-    #[serde(default)]
-    pub review_order: Vec<ReviewMapReviewStep>,
+    pub steps: Vec<ReviewMapStep>,
 }
 
 impl Default for ReviewMapOutputEvent {
     fn default() -> Self {
         Self {
-            version: 1,
+            version: 2,
             title: String::new(),
             summary: String::new(),
             concepts: Vec::new(),
-            files: Vec::new(),
-            edges: Vec::new(),
-            review_order: Vec::new(),
+            traces: Vec::new(),
+            steps: Vec::new(),
         }
     }
 }

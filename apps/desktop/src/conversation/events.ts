@@ -1,9 +1,15 @@
 export const OPEN_REVIEW_OVERLAY_EVENT = 'conversation.openReviewOverlay';
 export const OPEN_REVIEW_MAP_OVERLAY_EVENT = 'conversation.openReviewMapOverlay';
 
+export type ReviewOverlayLineRange = {
+  start: number;
+  end: number;
+};
+
 export type OpenReviewOverlayDetail = {
   conversationId: string;
   fileDisplayPath?: string;
+  lineRange?: ReviewOverlayLineRange;
 };
 
 export type OpenReviewMapOverlayDetail = {
@@ -12,7 +18,8 @@ export type OpenReviewMapOverlayDetail = {
 
 export function dispatchOpenReviewOverlayEvent(
   conversationId: string,
-  fileDisplayPath?: string
+  fileDisplayPath?: string,
+  lineRange?: ReviewOverlayLineRange
 ) {
   if (typeof window === 'undefined') {
     return;
@@ -20,7 +27,7 @@ export function dispatchOpenReviewOverlayEvent(
 
   window.dispatchEvent(
     new CustomEvent<OpenReviewOverlayDetail>(OPEN_REVIEW_OVERLAY_EVENT, {
-      detail: { conversationId, fileDisplayPath },
+      detail: { conversationId, fileDisplayPath, lineRange },
     })
   );
 }
