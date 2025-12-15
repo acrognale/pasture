@@ -8,15 +8,15 @@ import type {
 import { cn } from '@pasture/theme';
 import { useMemo, useState } from 'react';
 import { Button } from '~/components/ui/button';
-import { Dialog, DialogContent, DialogHeader } from '~/components/ui/dialog';
 import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
 
 type ReviewMapOverlayProps = {
-  open: boolean;
   onClose: () => void;
   conversationId: string;
   status: 'idle' | 'running' | 'complete';
   output: ReviewMapOutputEvent | null;
+  selectedStepId: string | null;
+  onSelectStepId: (stepId: string | null) => void;
 };
 
 function formatLineRange(ref: ReviewMapCodeRef): string | null {
@@ -36,13 +36,13 @@ function traceLabel(trace: ReviewMapTrace): string {
 }
 
 export function ReviewMapOverlay({
-  open,
   onClose,
   conversationId,
   status,
   output,
+  selectedStepId,
+  onSelectStepId,
 }: ReviewMapOverlayProps) {
-  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [collapsedTraces, setCollapsedTraces] = useState<Set<string>>(
     () => new Set()
   );
@@ -112,34 +112,60 @@ export function ReviewMapOverlay({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? null : onClose())}>
-      <DialogContent className="max-w-none sm:max-w-none h-[94vh] w-[99vw] p-0">
-        <div className="flex h-full flex-col bg-background">
-          <DialogHeader className="border-b border-border/60 px-6 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="text-base font-semibold text-foreground truncate">
-                  {output?.title?.trim()
-                    ? output.title
-                    : status === 'running'
-                      ? 'Generating review map…'
-                      : 'Review map'}
-                </div>
-                {output?.summary?.trim() ? (
-                  <div className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                    {output.summary}
-                  </div>
-                ) : null}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" onClick={onClose}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          </DialogHeader>
+    <div
+      data-review-map-pane="true"
+      className="flex h-full w-full flex-col bg-background text-foreground"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.defaultPrevented) return;
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
 
-          <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        if (event.key === 'ArrowLeft' || event.key === 'k') {
+          if (prevStepId) {
+            event.preventDefault();
+            onSelectStepId(prevStepId);
+          }
+        }
+        if (event.key === 'ArrowRight' || event.key === 'j') {
+          if (nextStepId) {
+            event.preventDefault();
+            onSelectStepId(nextStepId);
+          }
+        }
+      }}
+    >
+      <div className="border-b border-border/60 px-6 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-foreground truncate">
+              {output?.title?.trim()
+                ? output.title
+                : status === 'running'
+                  ? 'Generating review map…'
+                  : 'Review map'}
+            </div>
+            {output?.summary?.trim() ? (
+              <div className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                {output.summary}
+              </div>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => dispatchOpenReviewOverlayEvent(conversationId)}
+            >
+              Open review
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
             {!output ? (
               <div className="h-full w-full p-6">
                 {status === 'running' ? (
@@ -205,7 +231,7 @@ export function ReviewMapOverlay({
                                           ? 'bg-accent/60 text-foreground'
                                           : 'hover:bg-accent/40 text-foreground'
                                       )}
-                                      onClick={() => setSelectedStepId(step.id)}
+                                      onClick={() => onSelectStepId(step.id)}
                                     >
                                       <div className="flex items-start gap-2">
                                         <div className="mt-[1px] text-xs text-muted-foreground tabular-nums">
@@ -256,7 +282,7 @@ export function ReviewMapOverlay({
                             variant="secondary"
                             disabled={!prevStepId}
                             onClick={() =>
-                              prevStepId && setSelectedStepId(prevStepId)
+                              prevStepId && onSelectStepId(prevStepId)
                             }
                           >
                             Prev
@@ -266,7 +292,7 @@ export function ReviewMapOverlay({
                             variant="secondary"
                             disabled={!nextStepId}
                             onClick={() =>
-                              nextStepId && setSelectedStepId(nextStepId)
+                              nextStepId && onSelectStepId(nextStepId)
                             }
                           >
                             Next
@@ -387,7 +413,7 @@ export function ReviewMapOverlay({
                                   key={id}
                                   type="button"
                                   className="rounded-md border border-border/60 bg-card px-2 py-1 text-xs text-foreground hover:bg-accent/40"
-                                  onClick={() => setSelectedStepId(id)}
+                                  onClick={() => onSelectStepId(id)}
                                   title={step?.title ?? undefined}
                                 >
                                   {id}
@@ -406,9 +432,7 @@ export function ReviewMapOverlay({
                 </div>
               </>
             )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }

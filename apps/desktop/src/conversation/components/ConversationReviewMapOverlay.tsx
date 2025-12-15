@@ -7,12 +7,16 @@ export type ConversationReviewMapOverlayProps = {
   conversationId: string;
   open: boolean;
   onClose: () => void;
+  selectedStepId: string | null;
+  onSelectStepId: (stepId: string | null) => void;
 };
 
 export function ConversationReviewMapOverlay({
   conversationId,
   open,
   onClose,
+  selectedStepId,
+  onSelectStepId,
 }: ConversationReviewMapOverlayProps) {
   const reviewMap = useConversationReviewMap(conversationId);
 
@@ -30,11 +34,12 @@ export function ConversationReviewMapOverlay({
 
   return (
     <ReviewMapOverlay
-      open={open}
       onClose={onClose}
       conversationId={conversationId}
       status={reviewMap.status}
       output={reviewMap.output}
+      selectedStepId={selectedStepId}
+      onSelectStepId={onSelectStepId}
     />
   );
 }

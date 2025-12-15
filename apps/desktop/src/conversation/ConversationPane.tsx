@@ -81,6 +81,9 @@ function ConversationPaneContent({
   const interruptRequestedRef = useRef(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isReviewMapOpen, setIsReviewMapOpen] = useState(false);
+  const [reviewMapSelectedStepId, setReviewMapSelectedStepId] = useState<
+    string | null
+  >(null);
   const [reviewFocusFilePath, setReviewFocusFilePath] = useState<string | null>(
     null
   );
@@ -90,6 +93,9 @@ function ConversationPaneContent({
   } | null>(null);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
   const [reviewPanelWidth, setReviewPanelWidth] = useState<number | null>(null);
+  const [reviewMapPanelWidth, setReviewMapPanelWidth] = useState<number | null>(
+    null
+  );
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const expandedTurns = expandedTurnsByConversation[conversationId] ?? {};
   const isTurnActive = useConversationIsRunning(conversationId);
@@ -344,6 +350,21 @@ function ConversationPaneContent({
     setReviewPanelWidth(rect.width * 0.4);
   }, [isReviewOpen, reviewPanelWidth]);
 
+  useEffect(() => {
+    if (!isReviewMapOpen || reviewMapPanelWidth !== null) {
+      return;
+    }
+    const container = splitContainerRef.current;
+    if (!container) {
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    if (!rect.width) {
+      return;
+    }
+    setReviewMapPanelWidth(rect.width * 0.4);
+  }, [isReviewMapOpen, reviewMapPanelWidth]);
+
   const handleResizeReviewPanelStart = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       event.preventDefault();
@@ -382,6 +403,66 @@ function ConversationPaneContent({
     },
     []
   );
+
+  const handleResizeReviewMapPanelStart = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const container = splitContainerRef.current;
+        if (!container) {
+          return;
+        }
+        const rect = container.getBoundingClientRect();
+        if (!rect.width) {
+          return;
+        }
+
+        const resizerWidth = 8;
+        const leftOffset = isReviewOpen
+          ? (reviewPanelWidth ?? rect.width * 0.4) + resizerWidth
+          : 0;
+        const proposedWidth = moveEvent.clientX - rect.left - leftOffset;
+        if (proposedWidth <= 0) {
+          return;
+        }
+
+        const minWidth = 360;
+        const maxWidth = rect.width - 320 - leftOffset;
+        const clampedWidth = Math.max(
+          minWidth,
+          Math.min(proposedWidth, Math.max(minWidth, maxWidth))
+        );
+
+        setReviewMapPanelWidth(clampedWidth);
+      };
+
+      const handleMouseUp = () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    },
+    [isReviewOpen, reviewPanelWidth]
+  );
+
+  useEffect(() => {
+    if (!isReviewMapOpen) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      const container = splitContainerRef.current;
+      if (!container) {
+        return;
+      }
+      const pane = container.querySelector<HTMLElement>(
+        '[data-review-map-pane="true"]'
+      );
+      pane?.focus();
+    });
+  }, [isReviewMapOpen]);
 
   const handleHandoffComplete = useCallback(
     (result: HandoffCommandResult) => {
@@ -585,6 +666,35 @@ function ConversationPaneContent({
               </div>
             </>
           ) : null}
+          {isReviewMapOpen ? (
+            <>
+              <div
+                className="flex h-[60vh] w-full shrink-0 border-t border-border/60 bg-card lg:h-full lg:min-w-[360px] lg:border-r lg:border-t-0"
+                style={
+                  reviewMapPanelWidth !== null
+                    ? { width: `${reviewMapPanelWidth}px` }
+                    : undefined
+                }
+              >
+                <ConversationReviewMapOverlay
+                  conversationId={conversationId}
+                  open={isReviewMapOpen}
+                  onClose={() => setIsReviewMapOpen(false)}
+                  selectedStepId={reviewMapSelectedStepId}
+                  onSelectStepId={setReviewMapSelectedStepId}
+                />
+              </div>
+              <div
+                className="flex w-2 cursor-col-resize items-stretch justify-center bg-transparent"
+                onMouseDown={handleResizeReviewMapPanelStart}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize review map panel"
+              >
+                <div className="h-full w-px bg-border/60" />
+              </div>
+            </>
+          ) : null}
           <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
             <ConversationTranscriptSection
               ref={transcriptHandleRef}
@@ -625,12 +735,6 @@ function ConversationPaneContent({
           </div>
         </div>
       </div>
-
-      <ConversationReviewMapOverlay
-        conversationId={conversationId}
-        open={isReviewMapOpen}
-        onClose={() => setIsReviewMapOpen(false)}
-      />
 
       <ConversationDevCommandMenu
         open={isCommandMenuOpen}
