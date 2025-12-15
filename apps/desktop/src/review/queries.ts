@@ -5,6 +5,7 @@ import type {
   GetTurnDiffRangeResponse,
   ListTurnSnapshotsResponse,
 } from '@pasture/protocol';
+import type { QueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Codex } from '~/codex/client';
@@ -34,6 +35,14 @@ export const turnReviewKeys = {
       params.includeWorktree,
     ] as const,
 };
+
+export const invalidateRepoDiffQueriesForWorkspace = (
+  queryClient: QueryClient,
+  workspacePath: string
+) =>
+  queryClient.invalidateQueries({
+    queryKey: ['turnReview', 'repoDiff', workspacePath],
+  });
 
 // useTurnDiffRange
 const RETRY_DELAY_MS = 1500;

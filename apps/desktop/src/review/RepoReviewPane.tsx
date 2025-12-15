@@ -4,13 +4,11 @@ import { useMemo } from 'react';
 
 import { TurnReviewProvider } from './TurnReviewContext';
 import { TurnReviewPane } from './TurnReviewPane';
-import { RepoRangeSelector } from './components/RepoRangeSelector';
 import { useRepoDiff } from './queries';
 
 type RepoReviewPaneProps = {
   workspacePath: string;
   params: GetRepoDiffParams;
-  onParamsChange?: (params: GetRepoDiffParams) => void;
   onRequestFeedback?: (prompt: string) => void;
   onClose?: () => void;
   focusFilePath?: string | null;
@@ -27,7 +25,6 @@ function toReviewId(params: GetRepoDiffParams): string {
 export function RepoReviewPane({
   workspacePath,
   params,
-  onParamsChange,
   onRequestFeedback,
   onClose,
   focusFilePath,
@@ -75,12 +72,6 @@ export function RepoReviewPane({
         disabled={query.isPending}
         focusFilePath={focusFilePath}
         onFocusFilePathConsumed={onFocusFilePathConsumed}
-        rangeSelector={
-          <RepoRangeSelector
-            params={params}
-            onChange={(nextParams) => onParamsChange?.(nextParams)}
-          />
-        }
         emptyStateMessage={emptyStateMessage}
       />
     </TurnReviewProvider>

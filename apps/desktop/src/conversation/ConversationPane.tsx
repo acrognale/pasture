@@ -559,7 +559,6 @@ function ConversationPaneContent({
                 {reviewMode === 'repo' && repoReviewParams ? (
                   <RepoReviewOverlay
                     workspacePath={workspacePath}
-                    conversationId={conversationId}
                     open={isReviewOpen}
                     params={repoReviewParams}
                     onClose={() => {
