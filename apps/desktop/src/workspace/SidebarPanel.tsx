@@ -18,6 +18,12 @@ import type { FocusEvent } from 'react';
 import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
 import { ScrollArea } from '~/components/ui/scroll-area';
 import {
   SidebarGroup,
@@ -34,16 +40,10 @@ import {
   TooltipTrigger,
 } from '~/components/ui/tooltip';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu';
-import {
-  dispatchOpenRepoReviewOverlayEvent,
-  dispatchOpenReviewOverlayEvent,
   OPEN_REVIEW_OVERLAY_EVENT,
   type OpenReviewOverlayDetail,
+  dispatchOpenRepoReviewOverlayEvent,
+  dispatchOpenReviewOverlayEvent,
 } from '~/conversation/events';
 import {
   useConversationIsRunning,
@@ -544,38 +544,40 @@ function ChangesSidebarSection({
     [viewStorageKey]
   );
 
-	  const [liveRepoParams, setLiveRepoParams] = useState<GetRepoDiffParams>(() => {
-	    const fallback: GetRepoDiffParams = {
-	      workspacePath,
-	      baseRef: 'HEAD',
-      targetRef: null,
-      includeWorktree: true,
-    };
-    if (typeof window === 'undefined') {
-      return fallback;
-    }
-    try {
-      const stored = window.localStorage.getItem(liveRangeStorageKey);
-      if (!stored) {
+  const [liveRepoParams, setLiveRepoParams] = useState<GetRepoDiffParams>(
+    () => {
+      const fallback: GetRepoDiffParams = {
+        workspacePath,
+        baseRef: 'HEAD',
+        targetRef: null,
+        includeWorktree: true,
+      };
+      if (typeof window === 'undefined') {
         return fallback;
       }
-      const parsed = JSON.parse(stored) as Partial<GetRepoDiffParams> | null;
-	      if (!parsed || typeof parsed !== 'object') {
-	        return fallback;
-	      }
-	      return normalizeRepoPreset({
-	        workspacePath,
-	        baseRef: typeof parsed.baseRef === 'string' ? parsed.baseRef : 'HEAD',
-	        targetRef:
-	          parsed.targetRef === null || typeof parsed.targetRef === 'string'
-	            ? parsed.targetRef
-	            : null,
-	        includeWorktree: Boolean(parsed.includeWorktree),
-	      });
-	    } catch {
-	      return fallback;
-	    }
-	  });
+      try {
+        const stored = window.localStorage.getItem(liveRangeStorageKey);
+        if (!stored) {
+          return fallback;
+        }
+        const parsed = JSON.parse(stored) as Partial<GetRepoDiffParams> | null;
+        if (!parsed || typeof parsed !== 'object') {
+          return fallback;
+        }
+        return normalizeRepoPreset({
+          workspacePath,
+          baseRef: typeof parsed.baseRef === 'string' ? parsed.baseRef : 'HEAD',
+          targetRef:
+            parsed.targetRef === null || typeof parsed.targetRef === 'string'
+              ? parsed.targetRef
+              : null,
+          includeWorktree: Boolean(parsed.includeWorktree),
+        });
+      } catch {
+        return fallback;
+      }
+    }
+  );
 
   const setLiveRepoParamsAndPersist = useCallback(
     (next: GetRepoDiffParams) => {
@@ -600,10 +602,10 @@ function ChangesSidebarSection({
     [liveRangeStorageKey]
   );
 
-	  const repoDiffQuery = useRepoDiff(liveRepoParams);
-	  const repoProcessedFiles = useMemo<SidebarChangesEntry[]>(() => {
-	    const files = repoDiffQuery.parsedDiff?.files ?? [];
-	    if (!files.length) {
+  const repoDiffQuery = useRepoDiff(liveRepoParams);
+  const repoProcessedFiles = useMemo<SidebarChangesEntry[]>(() => {
+    const files = repoDiffQuery.parsedDiff?.files ?? [];
+    if (!files.length) {
       return [];
     }
 
@@ -768,139 +770,139 @@ function ChangesSidebarSection({
           <ScrollArea
             className="h-full overflow-x-hidden"
             scrollbarClassName="w-1.5"
-            >
-              <div className="pr-2">
-                {view === 'tree' ? (
-                  <ChangesSidebarTreeContent
-                    files={files}
-                    emptyStateTitle={
-                      mode === 'repo'
-                        ? repoDiffQuery.query.isPending
-                          ? 'Loading changes…'
-                          : repoDiffQuery.query.error
-                            ? "Couldn't load changes"
-                            : liveRepoParams.includeWorktree
-                              ? 'No uncommitted changes'
-                              : 'No branch changes'
-                        : conversationLoadState.isLoading
-                          ? 'Loading changes…'
-                          : 'No thread diffs recorded'
-                    }
-                    emptyStateDescription={
-                      mode === 'repo'
-                        ? repoDiffQuery.query.error instanceof Error
-                          ? repoDiffQuery.query.error.message
+          >
+            <div className="pr-2">
+              {view === 'tree' ? (
+                <ChangesSidebarTreeContent
+                  files={files}
+                  emptyStateTitle={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? 'Loading changes…'
+                        : repoDiffQuery.query.error
+                          ? "Couldn't load changes"
                           : liveRepoParams.includeWorktree
-                            ? 'Make an edit to see it here.'
-                            : 'Commits on this branch that are not in main will appear here.'
-                        : 'Thread changes are based on agent-emitted diffs.'
-                    }
-                    emptyStateAction={
-                      mode === 'repo'
-                        ? repoDiffQuery.query.isPending
-                          ? undefined
-                          : repoDiffQuery.query.error
-                            ? {
-                                label: 'Try again',
-                                onClick: () => {
-                                  void repoDiffQuery.query.refetch();
-                                },
-                              }
-                            : undefined
-                        : threadCount === 0
+                            ? 'No uncommitted changes'
+                            : 'No branch changes'
+                      : conversationLoadState.isLoading
+                        ? 'Loading changes…'
+                        : 'No thread diffs recorded'
+                  }
+                  emptyStateDescription={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.error instanceof Error
+                        ? repoDiffQuery.query.error.message
+                        : liveRepoParams.includeWorktree
+                          ? 'Make an edit to see it here.'
+                          : 'Commits on this branch that are not in main will appear here.'
+                      : 'Thread changes are based on agent-emitted diffs.'
+                  }
+                  emptyStateAction={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? undefined
+                        : repoDiffQuery.query.error
                           ? {
-                              label: 'View uncommitted changes',
+                              label: 'Try again',
                               onClick: () => {
-                                setModeAndPersist('repo');
-                                setLiveRepoParamsAndPersist({
-                                  workspacePath,
-                                  ...REPO_PRESET_UNCOMMITTED,
-                                });
+                                void repoDiffQuery.query.refetch();
                               },
                             }
                           : undefined
-                    }
-                    onFileClick={(file) => {
-                      if (mode === 'repo') {
-                        dispatchOpenRepoReviewOverlayEvent(
-                          conversationId,
-                          toRepoParams(liveRepoParams),
-                          file.displayPath
-                        );
-                        return;
-                      }
-                      dispatchOpenReviewOverlayEvent(
+                      : threadCount === 0
+                        ? {
+                            label: 'View uncommitted changes',
+                            onClick: () => {
+                              setModeAndPersist('repo');
+                              setLiveRepoParamsAndPersist({
+                                workspacePath,
+                                ...REPO_PRESET_UNCOMMITTED,
+                              });
+                            },
+                          }
+                        : undefined
+                  }
+                  onFileClick={(file) => {
+                    if (mode === 'repo') {
+                      dispatchOpenRepoReviewOverlayEvent(
                         conversationId,
+                        toRepoParams(liveRepoParams),
                         file.displayPath
                       );
-                    }}
-                  />
-                ) : (
-                  <ChangesSidebarContent
-                    files={files}
-                    emptyStateTitle={
-                      mode === 'repo'
-                        ? repoDiffQuery.query.isPending
-                          ? 'Loading changes…'
-                          : repoDiffQuery.query.error
-                            ? "Couldn't load changes"
-                            : liveRepoParams.includeWorktree
-                              ? 'No uncommitted changes'
-                              : 'No branch changes'
-                        : conversationLoadState.isLoading
-                          ? 'Loading changes…'
-                          : 'No thread diffs recorded'
+                      return;
                     }
-                    emptyStateDescription={
-                      mode === 'repo'
-                        ? repoDiffQuery.query.error instanceof Error
-                          ? repoDiffQuery.query.error.message
+                    dispatchOpenReviewOverlayEvent(
+                      conversationId,
+                      file.displayPath
+                    );
+                  }}
+                />
+              ) : (
+                <ChangesSidebarContent
+                  files={files}
+                  emptyStateTitle={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? 'Loading changes…'
+                        : repoDiffQuery.query.error
+                          ? "Couldn't load changes"
                           : liveRepoParams.includeWorktree
-                            ? 'Make an edit to see it here.'
-                            : 'Commits on this branch that are not in main will appear here.'
-                        : 'Thread changes are based on agent-emitted diffs.'
-                    }
-                    emptyStateAction={
-                      mode === 'repo'
-                        ? repoDiffQuery.query.isPending
-                          ? undefined
-                          : repoDiffQuery.query.error
-                            ? {
-                                label: 'Try again',
-                                onClick: () => {
-                                  void repoDiffQuery.query.refetch();
-                                },
-                              }
-                            : undefined
-                        : threadCount === 0
+                            ? 'No uncommitted changes'
+                            : 'No branch changes'
+                      : conversationLoadState.isLoading
+                        ? 'Loading changes…'
+                        : 'No thread diffs recorded'
+                  }
+                  emptyStateDescription={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.error instanceof Error
+                        ? repoDiffQuery.query.error.message
+                        : liveRepoParams.includeWorktree
+                          ? 'Make an edit to see it here.'
+                          : 'Commits on this branch that are not in main will appear here.'
+                      : 'Thread changes are based on agent-emitted diffs.'
+                  }
+                  emptyStateAction={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? undefined
+                        : repoDiffQuery.query.error
                           ? {
-                              label: 'View uncommitted changes',
+                              label: 'Try again',
                               onClick: () => {
-                                setModeAndPersist('repo');
-                                setLiveRepoParamsAndPersist({
-                                  workspacePath,
-                                  ...REPO_PRESET_UNCOMMITTED,
-                                });
+                                void repoDiffQuery.query.refetch();
                               },
                             }
                           : undefined
-                    }
-                    onFileClick={(file) => {
-                      if (mode === 'repo') {
-                        dispatchOpenRepoReviewOverlayEvent(
-                          conversationId,
-                          toRepoParams(liveRepoParams),
-                          file.displayPath
-                        );
-                        return;
-                      }
-                      dispatchOpenReviewOverlayEvent(
+                      : threadCount === 0
+                        ? {
+                            label: 'View uncommitted changes',
+                            onClick: () => {
+                              setModeAndPersist('repo');
+                              setLiveRepoParamsAndPersist({
+                                workspacePath,
+                                ...REPO_PRESET_UNCOMMITTED,
+                              });
+                            },
+                          }
+                        : undefined
+                  }
+                  onFileClick={(file) => {
+                    if (mode === 'repo') {
+                      dispatchOpenRepoReviewOverlayEvent(
                         conversationId,
+                        toRepoParams(liveRepoParams),
                         file.displayPath
                       );
-                    }}
-                  />
-                )}
+                      return;
+                    }
+                    dispatchOpenReviewOverlayEvent(
+                      conversationId,
+                      file.displayPath
+                    );
+                  }}
+                />
+              )}
             </div>
           </ScrollArea>
         </SidebarGroupContent>
