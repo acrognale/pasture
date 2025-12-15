@@ -18,6 +18,7 @@ export type DiffContentSectionProps = {
   focusLineRange?: { start: number; end: number } | null;
   onFocusFilePathConsumed?: () => void;
   onFocusLineRangeConsumed?: () => void;
+  emptyStateMessage?: string;
 };
 
 export function DiffContentSection({
@@ -27,6 +28,7 @@ export function DiffContentSection({
   focusLineRange,
   onFocusFilePathConsumed,
   onFocusLineRangeConsumed,
+  emptyStateMessage,
 }: DiffContentSectionProps) {
   const {
     conversationId,
@@ -219,7 +221,7 @@ export function DiffContentSection({
           </div>
         </DraftCommentProvider>
       ) : (
-        <EmptyReviewState />
+        <EmptyReviewState message={emptyStateMessage} />
       )}
     </div>
   );

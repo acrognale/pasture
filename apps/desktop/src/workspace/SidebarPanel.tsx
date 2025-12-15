@@ -1,19 +1,29 @@
 import type { NewThreadResponse } from '@pasture/protocol';
 import type { ThreadSummary } from '@pasture/protocol';
+import type { GetRepoDiffParams } from '@pasture/protocol';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import {
+  ChevronDownIcon,
+  FolderTreeIcon,
+  ListIcon,
   Loader2Icon,
   PlusIcon,
   SearchIcon,
   SettingsIcon,
   XIcon,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FocusEvent } from 'react';
 import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
 import { ScrollArea } from '~/components/ui/scroll-area';
 import {
   SidebarGroup,
@@ -29,21 +39,28 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '~/components/ui/tooltip';
-import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
 import {
-  useConversationHasTurnDiffHistory,
+  OPEN_REVIEW_OVERLAY_EVENT,
+  type OpenReviewOverlayDetail,
+  dispatchOpenRepoReviewOverlayEvent,
+  dispatchOpenReviewOverlayEvent,
+} from '~/conversation/events';
+import {
   useConversationIsRunning,
   useConversationLatestTurnDiff,
+  useConversationLoadState,
   useConversationTurnDiffHistory,
 } from '~/conversation/store/hooks';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
-import { makePathRelative } from '~/lib/utils';
+import { cn, makePathRelative } from '~/lib/utils';
 import { resolveSessionLabel } from '~/lib/workspaces';
 import { buildFileDiffStats, parseUnifiedDiff } from '~/review/diff';
+import { useRepoDiff } from '~/review/queries';
 import { ChangesSidebarContent } from '~/workspace/components/ChangesSidebarContent';
+import { ChangesSidebarTreeContent } from '~/workspace/components/ChangesSidebarTreeContent';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
 
 import { OPEN_WORKSPACE_THREAD_SWITCHER_EVENT } from './WorkspaceConversationSwitcher';
@@ -249,9 +266,6 @@ export function SidebarPanel({
   });
 
   const conversationIdForDiffs = activeConversationId ?? '';
-  const hasReviewHistory = useConversationHasTurnDiffHistory(
-    conversationIdForDiffs
-  );
   const turnDiffHistory = useConversationTurnDiffHistory(
     conversationIdForDiffs
   );
@@ -373,47 +387,15 @@ export function SidebarPanel({
           </SidebarGroupContent>
         </SidebarGroup>
         {activeConversationId ? (
-          <SidebarGroup className="flex min-h-0 flex-1 flex-col pl-2 pr-0 py-2">
-            <SidebarGroupLabel className="flex w-full items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
-                <span>Changes</span>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                  {processedFiles.length}
-                </span>
-              </span>
-              {hasReviewHistory ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-[11px]"
-                  onClick={() => {
-                    dispatchOpenReviewOverlayEvent(activeConversationId);
-                  }}
-                >
-                  View All
-                </Button>
-              ) : null}
-            </SidebarGroupLabel>
-            {!isChangesCollapsed ? (
-              <SidebarGroupContent className="mt-2 min-h-0 flex-1">
-                <ScrollArea
-                  className="h-full overflow-x-hidden"
-                  scrollbarClassName="w-1.5"
-                >
-                  <ChangesSidebarContent
-                    files={processedFiles}
-                    onFileClick={(file) => {
-                      dispatchOpenReviewOverlayEvent(
-                        activeConversationId,
-                        file.displayPath
-                      );
-                    }}
-                  />
-                </ScrollArea>
-              </SidebarGroupContent>
-            ) : null}
-          </SidebarGroup>
+          <ChangesSidebarSection
+            key={activeThreadId ?? activeConversationId}
+            conversationId={activeConversationId}
+            threadId={activeThreadId}
+            workspacePath={workspacePath}
+            normalizedWorkspacePath={normalizedWorkspacePath}
+            threadFilesFromEvents={processedFiles}
+            collapsed={isChangesCollapsed}
+          />
         ) : null}
       </div>
       <div className="border-t border-border/60 px-3 py-2 flex justify-end">
@@ -436,6 +418,496 @@ export function SidebarPanel({
         </Tooltip>
       </div>
     </div>
+  );
+}
+
+type SidebarChangesEntry = {
+  file: ReturnType<typeof parseUnifiedDiff>['files'][number];
+  stats: { added: number; removed: number };
+  relativePath: string;
+};
+
+function toRepoParams(params: GetRepoDiffParams) {
+  return {
+    workspacePath: params.workspacePath,
+    baseRef: params.baseRef,
+    targetRef: params.targetRef ?? null,
+    includeWorktree: params.includeWorktree,
+  };
+}
+
+const REPO_PRESET_UNCOMMITTED = {
+  baseRef: 'HEAD',
+  targetRef: null,
+  includeWorktree: true,
+} as const;
+
+const REPO_PRESET_BRANCH = {
+  baseRef: 'main',
+  targetRef: 'HEAD',
+  includeWorktree: false,
+} as const;
+
+function normalizeRepoPreset(params: GetRepoDiffParams): GetRepoDiffParams {
+  if (params.includeWorktree) {
+    return { ...params, ...REPO_PRESET_UNCOMMITTED };
+  }
+  return { ...params, ...REPO_PRESET_BRANCH };
+}
+
+function getRepoPresetLabel(params: GetRepoDiffParams): string {
+  return params.includeWorktree ? 'Working tree' : 'Branch';
+}
+
+function ChangesSidebarSection({
+  conversationId,
+  threadId,
+  workspacePath,
+  normalizedWorkspacePath,
+  threadFilesFromEvents,
+  collapsed,
+}: {
+  conversationId: string;
+  threadId: string | null;
+  workspacePath: string;
+  normalizedWorkspacePath: string | null;
+  threadFilesFromEvents: SidebarChangesEntry[];
+  collapsed: boolean;
+}) {
+  type ChangesMode = 'repo' | 'thread';
+  type ChangesView = 'list' | 'tree';
+
+  const conversationLoadState = useConversationLoadState(conversationId);
+
+  const workspaceKey = normalizedWorkspacePath || workspacePath;
+  const liveRangeStorageKey = `pasture.changes.liveRange:${workspaceKey}`;
+  const modeStorageKey = `pasture.changes.mode:${workspaceKey}:${threadId ?? conversationId}`;
+  const viewStorageKey = `pasture.changes.view:${workspaceKey}:${threadId ?? conversationId}`;
+
+  const [mode, setMode] = useState<ChangesMode>(() => {
+    if (typeof window === 'undefined') {
+      return 'repo';
+    }
+    try {
+      const stored = window.localStorage.getItem(modeStorageKey);
+      if (stored === 'repo' || stored === 'thread') {
+        return stored;
+      }
+    } catch {
+      // ignore
+    }
+    return 'repo';
+  });
+
+  const [view, setView] = useState<ChangesView>(() => {
+    if (typeof window === 'undefined') {
+      return 'list';
+    }
+    try {
+      const stored = window.localStorage.getItem(viewStorageKey);
+      if (stored === 'list' || stored === 'tree') {
+        return stored;
+      }
+    } catch {
+      // ignore
+    }
+    return 'list';
+  });
+
+  const setModeAndPersist = useCallback(
+    (next: ChangesMode) => {
+      setMode(next);
+      if (typeof window === 'undefined') {
+        return;
+      }
+      try {
+        window.localStorage.setItem(modeStorageKey, next);
+      } catch {
+        // ignore
+      }
+    },
+    [modeStorageKey]
+  );
+
+  const setViewAndPersist = useCallback(
+    (next: ChangesView) => {
+      setView(next);
+      if (typeof window === 'undefined') {
+        return;
+      }
+      try {
+        window.localStorage.setItem(viewStorageKey, next);
+      } catch {
+        // ignore
+      }
+    },
+    [viewStorageKey]
+  );
+
+  const [liveRepoParams, setLiveRepoParams] = useState<GetRepoDiffParams>(
+    () => {
+      const fallback: GetRepoDiffParams = {
+        workspacePath,
+        baseRef: 'HEAD',
+        targetRef: null,
+        includeWorktree: true,
+      };
+      if (typeof window === 'undefined') {
+        return fallback;
+      }
+      try {
+        const stored = window.localStorage.getItem(liveRangeStorageKey);
+        if (!stored) {
+          return fallback;
+        }
+        const parsed = JSON.parse(stored) as Partial<GetRepoDiffParams> | null;
+        if (!parsed || typeof parsed !== 'object') {
+          return fallback;
+        }
+        return normalizeRepoPreset({
+          workspacePath,
+          baseRef: typeof parsed.baseRef === 'string' ? parsed.baseRef : 'HEAD',
+          targetRef:
+            parsed.targetRef === null || typeof parsed.targetRef === 'string'
+              ? parsed.targetRef
+              : null,
+          includeWorktree: Boolean(parsed.includeWorktree),
+        });
+      } catch {
+        return fallback;
+      }
+    }
+  );
+
+  const setLiveRepoParamsAndPersist = useCallback(
+    (next: GetRepoDiffParams) => {
+      const normalized = normalizeRepoPreset(next);
+      setLiveRepoParams(normalized);
+      if (typeof window === 'undefined') {
+        return;
+      }
+      try {
+        window.localStorage.setItem(
+          liveRangeStorageKey,
+          JSON.stringify({
+            baseRef: normalized.baseRef,
+            targetRef: normalized.targetRef,
+            includeWorktree: normalized.includeWorktree,
+          })
+        );
+      } catch {
+        // ignore
+      }
+    },
+    [liveRangeStorageKey]
+  );
+
+  const repoDiffQuery = useRepoDiff(liveRepoParams);
+  const repoProcessedFiles = useMemo<SidebarChangesEntry[]>(() => {
+    const files = repoDiffQuery.parsedDiff?.files ?? [];
+    if (!files.length) {
+      return [];
+    }
+
+    const fileStats = buildFileDiffStats(files);
+    return files
+      .map((file) => ({
+        file: { ...file, id: file.displayPath },
+        stats: fileStats.get(file.id) ?? { added: 0, removed: 0 },
+        relativePath: makePathRelative(workspacePath, file.displayPath),
+      }))
+      .sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  }, [repoDiffQuery.parsedDiff?.files, workspacePath]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleOpenReview = (event: CustomEvent<OpenReviewOverlayDetail>) => {
+      if (event.detail.conversationId !== conversationId) {
+        return;
+      }
+      if (event.detail.mode !== 'repo' || !event.detail.repo) {
+        return;
+      }
+      setModeAndPersist('repo');
+      setLiveRepoParamsAndPersist({
+        workspacePath,
+        baseRef: event.detail.repo.baseRef,
+        targetRef: event.detail.repo.targetRef ?? null,
+        includeWorktree: event.detail.repo.includeWorktree,
+      });
+    };
+
+    window.addEventListener(
+      OPEN_REVIEW_OVERLAY_EVENT,
+      handleOpenReview as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        OPEN_REVIEW_OVERLAY_EVENT,
+        handleOpenReview as EventListener
+      );
+    };
+  }, [
+    conversationId,
+    setLiveRepoParamsAndPersist,
+    setModeAndPersist,
+    workspacePath,
+  ]);
+
+  const liveCount = repoProcessedFiles.length;
+  const threadFiles = threadFilesFromEvents;
+  const threadCount = threadFiles.length;
+  const activeCount = mode === 'repo' ? liveCount : threadCount;
+  const files = mode === 'repo' ? repoProcessedFiles : threadFiles;
+  const selectionLabel =
+    mode === 'repo' ? getRepoPresetLabel(liveRepoParams) : 'Thread';
+
+  return (
+    <SidebarGroup className="flex min-h-0 flex-1 flex-col pl-2 pr-0 py-2">
+      <SidebarGroupLabel className="flex w-full items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2">
+          <span>Changes</span>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+            {activeCount}
+          </span>
+        </span>
+        <div className="flex items-center gap-1.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-6 min-w-0 justify-between gap-1.5 px-2 text-[11px] text-muted-foreground"
+              >
+                <span className="min-w-0 truncate">{selectionLabel}</span>
+                <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="min-w-0 w-auto bg-card/95 backdrop-blur-sm border-border/40"
+              align="end"
+            >
+              <DropdownMenuItem
+                className="text-xs px-3 py-1.5"
+                onSelect={() => setModeAndPersist('thread')}
+              >
+                Thread
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs px-3 py-1.5"
+                onSelect={() => {
+                  setModeAndPersist('repo');
+                  setLiveRepoParamsAndPersist({
+                    workspacePath,
+                    ...REPO_PRESET_UNCOMMITTED,
+                  });
+                }}
+              >
+                Working tree
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs px-3 py-1.5"
+                onSelect={() => {
+                  setModeAndPersist('repo');
+                  setLiveRepoParamsAndPersist({
+                    workspacePath,
+                    ...REPO_PRESET_BRANCH,
+                  });
+                }}
+              >
+                Branch
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div
+            role="group"
+            aria-label="Changes view"
+            className="shrink-0 flex items-center rounded-md border border-border/60 bg-muted/20 p-0.5"
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn(
+                'h-5 w-5 p-0',
+                view === 'list'
+                  ? 'bg-background text-foreground hover:bg-background'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-pressed={view === 'list'}
+              aria-label="List view"
+              onClick={() => setViewAndPersist('list')}
+            >
+              <ListIcon className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn(
+                'h-5 w-5 p-0',
+                view === 'tree'
+                  ? 'bg-background text-foreground hover:bg-background'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-pressed={view === 'tree'}
+              aria-label="Tree view"
+              onClick={() => setViewAndPersist('tree')}
+            >
+              <FolderTreeIcon className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </SidebarGroupLabel>
+      {!collapsed ? (
+        <SidebarGroupContent className="mt-2 min-h-0 flex-1">
+          <ScrollArea
+            className="h-full overflow-x-hidden"
+            scrollbarClassName="w-1.5"
+          >
+            <div className="pr-2">
+              {view === 'tree' ? (
+                <ChangesSidebarTreeContent
+                  files={files}
+                  emptyStateTitle={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? 'Loading changes…'
+                        : repoDiffQuery.query.error
+                          ? "Couldn't load changes"
+                          : liveRepoParams.includeWorktree
+                            ? 'No uncommitted changes'
+                            : 'No branch changes'
+                      : conversationLoadState.isLoading
+                        ? 'Loading changes…'
+                        : 'No thread diffs recorded'
+                  }
+                  emptyStateDescription={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.error instanceof Error
+                        ? repoDiffQuery.query.error.message
+                        : liveRepoParams.includeWorktree
+                          ? 'Make an edit to see it here.'
+                          : 'Commits on this branch that are not in main will appear here.'
+                      : 'Thread changes are based on agent-emitted diffs.'
+                  }
+                  emptyStateAction={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? undefined
+                        : repoDiffQuery.query.error
+                          ? {
+                              label: 'Try again',
+                              onClick: () => {
+                                void repoDiffQuery.query.refetch();
+                              },
+                            }
+                          : undefined
+                      : threadCount === 0
+                        ? {
+                            label: 'View uncommitted changes',
+                            onClick: () => {
+                              setModeAndPersist('repo');
+                              setLiveRepoParamsAndPersist({
+                                workspacePath,
+                                ...REPO_PRESET_UNCOMMITTED,
+                              });
+                            },
+                          }
+                        : undefined
+                  }
+                  onFileClick={(file) => {
+                    if (mode === 'repo') {
+                      dispatchOpenRepoReviewOverlayEvent(
+                        conversationId,
+                        toRepoParams(liveRepoParams),
+                        file.displayPath
+                      );
+                      return;
+                    }
+                    dispatchOpenReviewOverlayEvent(
+                      conversationId,
+                      file.displayPath
+                    );
+                  }}
+                />
+              ) : (
+                <ChangesSidebarContent
+                  files={files}
+                  emptyStateTitle={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? 'Loading changes…'
+                        : repoDiffQuery.query.error
+                          ? "Couldn't load changes"
+                          : liveRepoParams.includeWorktree
+                            ? 'No uncommitted changes'
+                            : 'No branch changes'
+                      : conversationLoadState.isLoading
+                        ? 'Loading changes…'
+                        : 'No thread diffs recorded'
+                  }
+                  emptyStateDescription={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.error instanceof Error
+                        ? repoDiffQuery.query.error.message
+                        : liveRepoParams.includeWorktree
+                          ? 'Make an edit to see it here.'
+                          : 'Commits on this branch that are not in main will appear here.'
+                      : 'Thread changes are based on agent-emitted diffs.'
+                  }
+                  emptyStateAction={
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? undefined
+                        : repoDiffQuery.query.error
+                          ? {
+                              label: 'Try again',
+                              onClick: () => {
+                                void repoDiffQuery.query.refetch();
+                              },
+                            }
+                          : undefined
+                      : threadCount === 0
+                        ? {
+                            label: 'View uncommitted changes',
+                            onClick: () => {
+                              setModeAndPersist('repo');
+                              setLiveRepoParamsAndPersist({
+                                workspacePath,
+                                ...REPO_PRESET_UNCOMMITTED,
+                              });
+                            },
+                          }
+                        : undefined
+                  }
+                  onFileClick={(file) => {
+                    if (mode === 'repo') {
+                      dispatchOpenRepoReviewOverlayEvent(
+                        conversationId,
+                        toRepoParams(liveRepoParams),
+                        file.displayPath
+                      );
+                      return;
+                    }
+                    dispatchOpenReviewOverlayEvent(
+                      conversationId,
+                      file.displayPath
+                    );
+                  }}
+                />
+              )}
+            </div>
+          </ScrollArea>
+        </SidebarGroupContent>
+      ) : null}
+    </SidebarGroup>
   );
 }
 

@@ -142,6 +142,8 @@ pub fn run() {
             commands::composer::update_composer_config,
             commands::review::get_turn_diff_range,
             commands::review::list_turn_snapshots,
+            commands::review::get_repo_diff,
+            commands::review::get_repo_fingerprint,
             commands::subscriptions::add_conversation_listener,
             commands::subscriptions::remove_conversation_listener,
             commands::approvals::respond_approval,

@@ -15,6 +15,7 @@ import { buildMessageCommentsPrompt } from '~/conversation/comments/utils';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { copyToClipboard } from '~/lib/utils';
+import type { GetRepoDiffParams } from '@pasture/protocol';
 import {
   sortThreadsByTimestamp,
   useWorkspaceActions,
@@ -31,6 +32,7 @@ import {
   type ConversationTranscriptHandle,
   ConversationTranscriptSection,
 } from './components/ConversationTranscriptSection';
+import { RepoReviewOverlay } from './components/RepoReviewOverlay';
 import { StatusIndicator } from './components/StatusIndicator';
 import {
   OPEN_REVIEW_OVERLAY_EVENT,
@@ -43,7 +45,6 @@ import { useInterruptConversation } from './hooks/useInterruptConversation';
 import { useQueueableSendMessage } from './hooks/useQueueableSendMessage';
 import { useReplay } from './replay';
 import {
-  useConversationHasTurnDiffHistory,
   useConversationIsRunning,
   useConversationQueueActions,
   useConversationQueuedMessages,
@@ -84,6 +85,7 @@ function ConversationPaneContent({
   const [reviewMapSelectedStepId, setReviewMapSelectedStepId] = useState<
     string | null
   >(null);
+  const [reviewMode, setReviewMode] = useState<'turn' | 'repo'>('turn');
   const [reviewFocusFilePath, setReviewFocusFilePath] = useState<string | null>(
     null
   );
@@ -91,6 +93,9 @@ function ConversationPaneContent({
     start: number;
     end: number;
   } | null>(null);
+  const [repoReviewParams, setRepoReviewParams] = useState<GetRepoDiffParams | null>(
+    null
+  );
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
   const [reviewPanelWidth, setReviewPanelWidth] = useState<number | null>(null);
   const [reviewMapPanelWidth, setReviewMapPanelWidth] = useState<number | null>(
@@ -99,7 +104,6 @@ function ConversationPaneContent({
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const expandedTurns = expandedTurnsByConversation[conversationId] ?? {};
   const isTurnActive = useConversationIsRunning(conversationId);
-  const hasReviewHistory = useConversationHasTurnDiffHistory(conversationId);
   const { isReplaying, startReplay, stopReplay } = useReplay({
     conversationId,
   });
@@ -553,6 +557,23 @@ function ConversationPaneContent({
       if (event.detail.conversationId !== conversationId) {
         return;
       }
+      const mode = event.detail.mode ?? 'turn';
+      if (mode === 'repo') {
+        const repo = event.detail.repo;
+        if (!repo) {
+          return;
+        }
+        setReviewMode('repo');
+        setRepoReviewParams({
+          workspacePath: repo.workspacePath,
+          baseRef: repo.baseRef,
+          targetRef: repo.targetRef ?? null,
+          includeWorktree: repo.includeWorktree,
+        });
+      } else {
+        setReviewMode('turn');
+        setRepoReviewParams(null);
+      }
       setReviewFocusFilePath(event.detail.fileDisplayPath ?? null);
       setReviewFocusLineRange(event.detail.lineRange ?? null);
       setIsReviewOpen(true);
@@ -628,7 +649,9 @@ function ConversationPaneContent({
           ref={splitContainerRef}
           className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative"
         >
-          {isReviewOpen && hasReviewHistory ? (
+          {isReviewOpen &&
+          (reviewMode === 'turn' ||
+            (reviewMode === 'repo' && repoReviewParams)) ? (
             <>
               <div
                 className="flex h-[60vh] w-full shrink-0 border-t border-border/60 bg-card lg:h-full lg:min-w-[320px] lg:border-r lg:border-t-0"
@@ -638,22 +661,41 @@ function ConversationPaneContent({
                     : undefined
                 }
               >
-                <ConversationReviewOverlay
-                  conversationId={conversationId}
-                  open={isReviewOpen}
-                  hasHistory={hasReviewHistory}
-                  onClose={() => {
-                    setIsReviewOpen(false);
-                    setReviewFocusFilePath(null);
-                    setReviewFocusLineRange(null);
-                  }}
-                  workspacePath={workspacePath}
-                  onRequestFeedback={handleReviewFeedback}
-                  focusFilePath={reviewFocusFilePath}
-                  focusLineRange={reviewFocusLineRange}
-                  onFocusFilePathConsumed={() => setReviewFocusFilePath(null)}
-                  onFocusLineRangeConsumed={() => setReviewFocusLineRange(null)}
-                />
+                {reviewMode === 'repo' && repoReviewParams ? (
+                  <RepoReviewOverlay
+                    workspacePath={workspacePath}
+                    open={isReviewOpen}
+                    params={repoReviewParams}
+                    onClose={() => {
+                      setIsReviewOpen(false);
+                      setReviewFocusFilePath(null);
+                      setReviewFocusLineRange(null);
+                      setRepoReviewParams(null);
+                      setReviewMode('turn');
+                    }}
+                    onRequestFeedback={handleReviewFeedback}
+                    focusFilePath={reviewFocusFilePath}
+                    onFocusFilePathConsumed={() => setReviewFocusFilePath(null)}
+                  />
+                ) : (
+                  <ConversationReviewOverlay
+                    conversationId={conversationId}
+                    open={isReviewOpen}
+                    onClose={() => {
+                      setIsReviewOpen(false);
+                      setReviewFocusFilePath(null);
+                      setReviewFocusLineRange(null);
+                      setRepoReviewParams(null);
+                      setReviewMode('turn');
+                    }}
+                    workspacePath={workspacePath}
+                    onRequestFeedback={handleReviewFeedback}
+                    focusFilePath={reviewFocusFilePath}
+                    focusLineRange={reviewFocusLineRange}
+                    onFocusFilePathConsumed={() => setReviewFocusFilePath(null)}
+                    onFocusLineRangeConsumed={() => setReviewFocusLineRange(null)}
+                  />
+                )}
               </div>
               <div
                 className="flex w-2 cursor-col-resize items-stretch justify-center bg-transparent"

@@ -11,6 +11,10 @@ import type {
   ForkConversationParams,
   ForkConversationResponse,
   GetComposerConfigParams,
+  GetRepoDiffParams,
+  GetRepoDiffResponse,
+  GetRepoFingerprintParams,
+  GetRepoFingerprintResponse,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
   HandoffConversationParams,
@@ -160,6 +164,20 @@ export namespace Codex {
     params: ListTurnSnapshotsParams
   ): Promise<ListTurnSnapshotsResponse> {
     return await invoke<ListTurnSnapshotsResponse>('list_turn_snapshots', {
+      params,
+    });
+  }
+
+  export async function getRepoDiff(
+    params: GetRepoDiffParams
+  ): Promise<GetRepoDiffResponse> {
+    return await invoke<GetRepoDiffResponse>('get_repo_diff', { params });
+  }
+
+  export async function getRepoFingerprint(
+    params: GetRepoFingerprintParams
+  ): Promise<GetRepoFingerprintResponse> {
+    return await invoke<GetRepoFingerprintResponse>('get_repo_fingerprint', {
       params,
     });
   }
