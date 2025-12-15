@@ -138,49 +138,166 @@ pub async fn get_repo_diff(params: GetRepoDiffParams) -> AppResult<GetRepoDiffRe
     let include_worktree = params.include_worktree;
 
     let diff = tokio::task::spawn_blocking(move || -> AnyResult<String> {
-        let repo_root = {
-            let output = Command::new("git")
-                .current_dir(&workspace_path)
-                .args(["rev-parse", "--show-toplevel"])
-                .output()
-                .context("failed to execute git rev-parse --show-toplevel")?;
+        fn join_diffs(diffs: Vec<String>) -> String {
+            let mut out = String::new();
+            for chunk in diffs.into_iter().filter(|d| !d.trim().is_empty()) {
+                if !out.is_empty() {
+                    out.push('\n');
+                }
+                out.push_str(chunk.trim_end());
+            }
+            if out.is_empty() {
+                out
+            } else {
+                out.push('\n');
+                out
+            }
+        }
 
+        fn run_git(args: &[&str], cwd: &str) -> AnyResult<std::process::Output> {
+            Command::new("git")
+                .current_dir(cwd)
+                .args(args)
+                .output()
+                .with_context(|| format!("failed to execute git {}", args.join(" ")))
+        }
+
+        fn ref_exists(repo_root: &str, rev: &str) -> AnyResult<bool> {
+            let spec = format!("{rev}^{{commit}}");
+            let output = Command::new("git")
+                .current_dir(repo_root)
+                .args(["rev-parse", "--verify", &spec])
+                .output()
+                .with_context(|| format!("failed to execute git rev-parse --verify {spec}"))?;
+            Ok(output.status.success())
+        }
+
+        fn output_to_string(output: std::process::Output) -> AnyResult<String> {
             if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stderr = stderr.trim();
+                if stderr.is_empty() {
+                    return Err(anyhow::anyhow!(
+                        "git diff exited with status {}",
+                        output.status
+                    ));
+                }
                 return Err(anyhow::anyhow!(
-                    "workspace is not a git repository (git rev-parse exited with status {})",
-                    output.status
+                    "git diff exited with status {}: {}",
+                    output.status,
+                    stderr
+                ));
+            }
+            String::from_utf8(output.stdout).context("git diff produced invalid UTF-8")
+        }
+
+        fn output_to_string_allow_exit_1(output: std::process::Output) -> AnyResult<String> {
+            if output.status.success() {
+                return String::from_utf8(output.stdout).context("git diff produced invalid UTF-8");
+            }
+
+            // `git diff --no-index` returns exit code 1 when differences are found.
+            if output.status.code() == Some(1) {
+                return String::from_utf8(output.stdout).context("git diff produced invalid UTF-8");
+            }
+
+            output_to_string(output)
+        }
+
+        fn untracked_diffs(repo_root: &str) -> AnyResult<String> {
+            let output = run_git(&["ls-files", "--others", "--exclude-standard", "-z"], repo_root)?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stderr = stderr.trim();
+                if stderr.is_empty() {
+                    return Err(anyhow::anyhow!(
+                        "git ls-files exited with status {}",
+                        output.status
+                    ));
+                }
+                return Err(anyhow::anyhow!(
+                    "git ls-files exited with status {}: {}",
+                    output.status,
+                    stderr
                 ));
             }
 
+            let mut chunks = Vec::new();
+            for raw in output.stdout.split(|b| *b == 0) {
+                if raw.is_empty() {
+                    continue;
+                }
+                let rel = String::from_utf8(raw.to_vec())
+                    .context("git ls-files produced invalid UTF-8")?;
+                let path = std::path::Path::new(repo_root).join(&rel);
+                if path.is_dir() {
+                    continue;
+                }
+                let path_str = path
+                    .to_str()
+                    .ok_or_else(|| anyhow::anyhow!("untracked path is not valid UTF-8: {rel}"))?;
+
+                // `git diff` does not include untracked files, but `--no-index` against /dev/null does.
+                let diff = output_to_string_allow_exit_1(run_git(
+                    &["diff", "--no-color", "--no-index", "--", "/dev/null", path_str],
+                    repo_root,
+                )?)?;
+                chunks.push(diff);
+            }
+
+            Ok(join_diffs(chunks))
+        }
+
+        let repo_root = {
+            let output = run_git(&["rev-parse", "--show-toplevel"], &workspace_path)?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stderr = stderr.trim();
+                if stderr.is_empty() {
+                    return Err(anyhow::anyhow!("workspace is not a git repository"));
+                }
+                return Err(anyhow::anyhow!("workspace is not a git repository: {stderr}"));
+            }
             String::from_utf8(output.stdout)
                 .context("git rev-parse produced invalid UTF-8")?
                 .trim()
                 .to_string()
         };
 
-        let mut cmd = Command::new("git");
-        cmd.current_dir(&repo_root).args(["diff", "--no-color"]);
-
         if include_worktree {
-            cmd.arg(&base_ref);
+            if ref_exists(&repo_root, &base_ref)? {
+                let tracked = output_to_string(run_git(&["diff", "--no-color", &base_ref], &repo_root)?)?;
+                let untracked = untracked_diffs(&repo_root)?;
+                return Ok(join_diffs(vec![tracked, untracked]));
+            }
+
+            // Handle repos with no commits yet ("unborn HEAD").
+            // `git diff HEAD` fails, but `git diff --cached` + `git diff` provide a useful equivalent.
+            if base_ref == "HEAD" {
+                let staged =
+                    output_to_string(run_git(&["diff", "--no-color", "--cached"], &repo_root)?)?;
+                let unstaged = output_to_string(run_git(&["diff", "--no-color"], &repo_root)?)?;
+                let untracked = untracked_diffs(&repo_root)?;
+                return Ok(join_diffs(vec![staged, unstaged, untracked]));
+            }
+
+            return Err(anyhow::anyhow!("unknown base ref: {base_ref}"));
         } else {
             let target_ref = target_ref.ok_or_else(|| anyhow::anyhow!("targetRef is required"))?;
-            cmd.args([&base_ref, &target_ref]);
+            if !ref_exists(&repo_root, &base_ref)? {
+                return Err(anyhow::anyhow!("unknown base ref: {base_ref}"));
+            }
+            if !ref_exists(&repo_root, &target_ref)? {
+                return Err(anyhow::anyhow!("unknown target ref: {target_ref}"));
+            }
+            let output = run_git(&["diff", "--no-color", &base_ref, &target_ref], &repo_root)?;
+            return output_to_string(output);
         }
-
-        let output = cmd.output().context("failed to execute git diff")?;
-
-        if !output.status.success() {
-            return Err(anyhow::anyhow!(
-                "git diff exited with status {}",
-                output.status
-            ));
-        }
-
-        String::from_utf8(output.stdout).context("git diff produced invalid UTF-8")
     })
     .await?
-    .map_err(AppError::Internal)?;
+    .map_err(|error| AppError::Validation {
+        message: error.to_string(),
+    })?;
 
     Ok(GetRepoDiffResponse { unified_diff: diff })
 }

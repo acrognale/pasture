@@ -93,7 +93,8 @@ function ConversationPaneContent({
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const expandedTurns = expandedTurnsByConversation[conversationId] ?? {};
   const isTurnActive = useConversationIsRunning(conversationId);
-  const hasReviewHistory = useConversationHasTurnDiffHistory(conversationId);
+  const hasTurnDiffEvents = useConversationHasTurnDiffHistory(conversationId);
+  const hasReviewHistory = hasTurnDiffEvents;
   const { isReplaying, startReplay, stopReplay } = useReplay({
     conversationId,
   });
@@ -561,6 +562,7 @@ function ConversationPaneContent({
                 {reviewMode === 'repo' && repoReviewParams ? (
                   <RepoReviewOverlay
                     workspacePath={workspacePath}
+                    conversationId={conversationId}
                     open={isReviewOpen}
                     params={repoReviewParams}
                     onClose={() => {
