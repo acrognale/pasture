@@ -28,6 +28,7 @@ import {
 import { copyToClipboard } from '~/lib/utils';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
 import { notifyTurnError, notifyTurnFinished } from '~/notifications/turns';
+import { invalidateRepoDiffQueriesForWorkspace } from '~/review/queries';
 import {
   updateConversationPreview,
   updateConversationTimestamp,
@@ -74,6 +75,16 @@ export function ConversationProvider({
     if (!workspacePath || !isTauriEnvironment()) {
       return;
     }
+
+    let repoDiffRefreshTimer: number | null = null;
+    const scheduleRepoDiffRefresh = () => {
+      if (repoDiffRefreshTimer !== null) {
+        window.clearTimeout(repoDiffRefreshTimer);
+      }
+      repoDiffRefreshTimer = window.setTimeout(() => {
+        void invalidateRepoDiffQueriesForWorkspace(queryClient, workspacePath);
+      }, 250);
+    };
 
     const conversationsKey = keys.conversations();
     const threadsKey = keys.threads();
@@ -125,6 +136,10 @@ export function ConversationProvider({
       const conversationId = payload.conversationId;
       if (!conversationId) {
         return;
+      }
+
+      if (payload.event.type === 'patch_apply_end' && payload.event.success) {
+        scheduleRepoDiffRefresh();
       }
 
       const applyPayload = () => {
@@ -274,6 +289,10 @@ export function ConversationProvider({
     return () => {
       unsubscribe?.();
       lastAuthErrorRef.current = null;
+      if (repoDiffRefreshTimer !== null) {
+        window.clearTimeout(repoDiffRefreshTimer);
+        repoDiffRefreshTimer = null;
+      }
     };
   }, [
     applyConversationEvent,

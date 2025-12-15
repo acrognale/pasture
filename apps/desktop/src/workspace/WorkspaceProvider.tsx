@@ -8,6 +8,7 @@ import {
 import { useStore } from 'zustand';
 import { type ApprovalsStore, createApprovalsStore } from '~/approvals/store';
 import { createWorkspaceKeys } from '~/lib/workspaceKeys';
+import { useRepoDiffAutoRefresh } from '~/review/useRepoDiffAutoRefresh';
 
 import { normalizeWorkspacePath } from './conversations';
 import {
@@ -35,6 +36,9 @@ export const WorkspaceProvider = ({
   children,
 }: WorkspaceProviderProps) => {
   const queryClient = useQueryClient();
+
+  useRepoDiffAutoRefresh(workspacePath);
+
   const normalizedWorkspacePath = useMemo(
     () => normalizeWorkspacePath(workspacePath),
     [workspacePath]

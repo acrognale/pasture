@@ -84,6 +84,10 @@ codex_command_descriptors! {
         params: review::GetRepoDiffParams,
         result: review::GetRepoDiffResponse,
     },
+    review::get_repo_fingerprint {
+        params: review::GetRepoFingerprintParams,
+        result: review::GetRepoFingerprintResponse,
+    },
     turns::compact_conversation {
         params: turns::CompactConversationParams,
         result: (),

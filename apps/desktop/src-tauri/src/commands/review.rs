@@ -32,6 +32,18 @@ pub struct GetRepoDiffResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
+pub struct GetRepoFingerprintParams {
+    pub workspace_path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct GetRepoFingerprintResponse {
+    pub token: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
 pub struct GetTurnDiffRangeParams {
     pub conversation_id: ConversationId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -300,4 +312,62 @@ pub async fn get_repo_diff(params: GetRepoDiffParams) -> AppResult<GetRepoDiffRe
     })?;
 
     Ok(GetRepoDiffResponse { unified_diff: diff })
+}
+
+#[tauri::command]
+pub async fn get_repo_fingerprint(
+    params: GetRepoFingerprintParams,
+) -> AppResult<GetRepoFingerprintResponse> {
+    let workspace_path = params.workspace_path;
+
+    let token = tokio::task::spawn_blocking(move || -> AnyResult<String> {
+        fn run_git(args: &[&str], cwd: &str) -> AnyResult<std::process::Output> {
+            Command::new("git")
+                .current_dir(cwd)
+                .args(args)
+                .output()
+                .with_context(|| format!("failed to execute git {}", args.join(" ")))
+        }
+
+        fn fnv1a_64(bytes: &[u8]) -> u64 {
+            const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+            const FNV_PRIME: u64 = 0x00000100000001B3;
+            let mut hash = FNV_OFFSET_BASIS;
+            for byte in bytes {
+                hash ^= u64::from(*byte);
+                hash = hash.wrapping_mul(FNV_PRIME);
+            }
+            hash
+        }
+
+        let head_output = run_git(&["rev-parse", "--verify", "HEAD"], &workspace_path)?;
+        let head = if head_output.status.success() {
+            String::from_utf8_lossy(&head_output.stdout).trim().to_string()
+        } else {
+            "__UNBORN__".to_string()
+        };
+
+        let branch_output = run_git(&["rev-parse", "--abbrev-ref", "HEAD"], &workspace_path)?;
+        let branch = if branch_output.status.success() {
+            String::from_utf8_lossy(&branch_output.stdout).trim().to_string()
+        } else {
+            "".to_string()
+        };
+
+        let status_output = run_git(
+            &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+            &workspace_path,
+        )?;
+        let status_hash = if status_output.status.success() {
+            fnv1a_64(&status_output.stdout)
+        } else {
+            0
+        };
+
+        Ok(format!("{head}|{branch}|{:016x}", status_hash))
+    })
+    .await?
+    .map_err(AppError::Internal)?;
+
+    Ok(GetRepoFingerprintResponse { token })
 }

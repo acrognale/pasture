@@ -13,6 +13,8 @@ import type {
   GetComposerConfigParams,
   GetRepoDiffParams,
   GetRepoDiffResponse,
+  GetRepoFingerprintParams,
+  GetRepoFingerprintResponse,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
   HandoffConversationParams,
@@ -169,6 +171,14 @@ export namespace Codex {
     params: GetRepoDiffParams
   ): Promise<GetRepoDiffResponse> {
     return await invoke<GetRepoDiffResponse>('get_repo_diff', { params });
+  }
+
+  export async function getRepoFingerprint(
+    params: GetRepoFingerprintParams
+  ): Promise<GetRepoFingerprintResponse> {
+    return await invoke<GetRepoFingerprintResponse>('get_repo_fingerprint', {
+      params,
+    });
   }
 
   export async function compactConversation(

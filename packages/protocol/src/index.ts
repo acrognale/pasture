@@ -58,6 +58,8 @@ export type { GetComposerConfigParams } from './GetComposerConfigParams';
 export type { GetHistoryEntryResponseEvent } from './GetHistoryEntryResponseEvent';
 export type { GetRepoDiffParams } from './GetRepoDiffParams';
 export type { GetRepoDiffResponse } from './GetRepoDiffResponse';
+export type { GetRepoFingerprintParams } from './GetRepoFingerprintParams';
+export type { GetRepoFingerprintResponse } from './GetRepoFingerprintResponse';
 export type { GetTurnDiffRangeParams } from './GetTurnDiffRangeParams';
 export type { GetTurnDiffRangeResponse } from './GetTurnDiffRangeResponse';
 export type { GhostCommit } from './GhostCommit';
