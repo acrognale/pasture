@@ -81,7 +81,8 @@ export function ChangesSidebarContent({
         <div className="space-y-1">
           <p>{emptyStateTitle ?? 'No changes yet'}</p>
           <p className="text-[10px]">
-            {emptyStateDescription ?? 'Changes will appear here as files are modified'}
+            {emptyStateDescription ??
+              'Changes will appear here as files are modified'}
           </p>
         </div>
         {emptyStateAction ? (

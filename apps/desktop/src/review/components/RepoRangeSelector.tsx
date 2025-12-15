@@ -33,7 +33,10 @@ type RepoRangeSelectorProps = {
   onChange: (params: GetRepoDiffParams) => void;
 };
 
-export function RepoRangeSelector({ params, onChange }: RepoRangeSelectorProps) {
+export function RepoRangeSelector({
+  params,
+  onChange,
+}: RepoRangeSelectorProps) {
   const [customOpen, setCustomOpen] = useState(false);
   const [customBaseRef, setCustomBaseRef] = useState(params.baseRef);
   const [customTargetRef, setCustomTargetRef] = useState(
