@@ -4,6 +4,7 @@ import type { GetRepoDiffParams } from '@pasture/protocol';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import {
+  ChevronDownIcon,
   Loader2Icon,
   PlusIcon,
   SearchIcon,
@@ -31,13 +32,20 @@ import {
   TooltipTrigger,
 } from '~/components/ui/tooltip';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
+import {
   dispatchOpenRepoReviewOverlayEvent,
   dispatchOpenReviewOverlayEvent,
   OPEN_REVIEW_OVERLAY_EVENT,
   type OpenReviewOverlayDetail,
 } from '~/conversation/events';
 import {
-  useConversationHasTurnDiffHistory,
   useConversationIsRunning,
   useConversationLatestTurnDiff,
   useConversationLoadState,
@@ -47,7 +55,7 @@ import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
 import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
-import { cn, makePathRelative } from '~/lib/utils';
+import { makePathRelative } from '~/lib/utils';
 import { resolveSessionLabel } from '~/lib/workspaces';
 import { buildFileDiffStats, parseUnifiedDiff } from '~/review/diff';
 import { useRepoDiff } from '~/review/queries';
@@ -257,9 +265,6 @@ export function SidebarPanel({
   });
 
   const conversationIdForDiffs = activeConversationId ?? '';
-  const hasReviewHistory = useConversationHasTurnDiffHistory(
-    conversationIdForDiffs
-  );
   const turnDiffHistory = useConversationTurnDiffHistory(
     conversationIdForDiffs
   );
@@ -387,7 +392,6 @@ export function SidebarPanel({
             threadId={activeThreadId}
             workspacePath={workspacePath}
             normalizedWorkspacePath={normalizedWorkspacePath}
-            hasReviewHistoryFromEvents={hasReviewHistory}
             threadFilesFromEvents={processedFiles}
             collapsed={isChangesCollapsed}
           />
@@ -431,12 +435,18 @@ function toRepoParams(params: GetRepoDiffParams) {
   };
 }
 
+function formatRepoRangeLabel(params: GetRepoDiffParams): string {
+  if (params.includeWorktree) {
+    return `${params.baseRef} → working tree`;
+  }
+  return `${params.baseRef} → ${params.targetRef ?? 'HEAD'}`;
+}
+
 function ChangesSidebarSection({
   conversationId,
   threadId,
   workspacePath,
   normalizedWorkspacePath,
-  hasReviewHistoryFromEvents,
   threadFilesFromEvents,
   collapsed,
 }: {
@@ -444,34 +454,46 @@ function ChangesSidebarSection({
   threadId: string | null;
   workspacePath: string;
   normalizedWorkspacePath: string | null;
-  hasReviewHistoryFromEvents: boolean;
   threadFilesFromEvents: SidebarChangesEntry[];
   collapsed: boolean;
 }) {
-  type ChangesSource = 'live' | 'thread';
+  type ChangesMode = 'repo' | 'thread';
 
   const conversationLoadState = useConversationLoadState(conversationId);
 
   const workspaceKey = normalizedWorkspacePath || workspacePath;
   const liveRangeStorageKey = `pasture.changes.liveRange:${workspaceKey}`;
-  const modeStorageKey = threadId
-    ? `pasture.changes.mode:${workspaceKey}:${threadId}`
-    : null;
+  const modeStorageKey = `pasture.changes.mode:${workspaceKey}:${threadId ?? conversationId}`;
 
-  const [changesSource, setChangesSource] = useState<ChangesSource>(() => {
-    if (!modeStorageKey || typeof window === 'undefined') {
-      return 'live';
+  const [mode, setMode] = useState<ChangesMode>(() => {
+    if (typeof window === 'undefined') {
+      return 'repo';
     }
     try {
       const stored = window.localStorage.getItem(modeStorageKey);
-      if (stored === 'live' || stored === 'thread') {
+      if (stored === 'repo' || stored === 'thread') {
         return stored;
       }
     } catch {
       // ignore
     }
-    return 'live';
+    return 'repo';
   });
+
+  const setModeAndPersist = useCallback(
+    (next: ChangesMode) => {
+      setMode(next);
+      if (typeof window === 'undefined') {
+        return;
+      }
+      try {
+        window.localStorage.setItem(modeStorageKey, next);
+      } catch {
+        // ignore
+      }
+    },
+    [modeStorageKey]
+  );
 
   const [liveRepoParams, setLiveRepoParams] = useState<GetRepoDiffParams>(() => {
     const fallback: GetRepoDiffParams = {
@@ -505,21 +527,6 @@ function ChangesSidebarSection({
       return fallback;
     }
   });
-
-  const setChangesSourceAndPersist = useCallback(
-    (next: ChangesSource) => {
-      setChangesSource(next);
-      if (!modeStorageKey || typeof window === 'undefined') {
-        return;
-      }
-      try {
-        window.localStorage.setItem(modeStorageKey, next);
-      } catch {
-        // ignore
-      }
-    },
-    [modeStorageKey]
-  );
 
   const setLiveRepoParamsAndPersist = useCallback(
     (next: GetRepoDiffParams) => {
@@ -572,13 +579,13 @@ function ChangesSidebarSection({
       if (event.detail.mode !== 'repo' || !event.detail.repo) {
         return;
       }
+      setModeAndPersist('repo');
       setLiveRepoParamsAndPersist({
         workspacePath,
         baseRef: event.detail.repo.baseRef,
         targetRef: event.detail.repo.targetRef ?? null,
         includeWorktree: event.detail.repo.includeWorktree,
       });
-      setChangesSourceAndPersist('live');
     };
 
     window.addEventListener(
@@ -594,18 +601,18 @@ function ChangesSidebarSection({
     };
   }, [
     conversationId,
-    setChangesSourceAndPersist,
     setLiveRepoParamsAndPersist,
+    setModeAndPersist,
     workspacePath,
   ]);
 
   const liveCount = repoProcessedFiles.length;
   const threadFiles = threadFilesFromEvents;
   const threadCount = threadFiles.length;
-  const changesFiles =
-    changesSource === 'live' ? repoProcessedFiles : threadFiles;
-  const activeCount = changesSource === 'live' ? liveCount : threadCount;
-  const showViewAll = changesSource === 'live' || hasReviewHistoryFromEvents;
+  const activeCount = mode === 'repo' ? liveCount : threadCount;
+  const files = mode === 'repo' ? repoProcessedFiles : threadFiles;
+  const selectionLabel =
+    mode === 'repo' ? formatRepoRangeLabel(liveRepoParams) : 'Thread changes';
 
   return (
     <SidebarGroup className="flex min-h-0 flex-1 flex-col pl-2 pr-0 py-2">
@@ -616,110 +623,167 @@ function ChangesSidebarSection({
             {activeCount}
           </span>
         </span>
-        <div className="flex items-center gap-2 pr-2">
-          <div className="inline-flex rounded-md border border-border/60 bg-muted/40 p-0.5">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
               type="button"
               size="sm"
-              variant={changesSource === 'live' ? 'secondary' : 'ghost'}
-              className="h-7 px-2 text-[11px]"
-              onClick={() => setChangesSourceAndPersist('live')}
+              variant="ghost"
+              className="h-7 px-2 text-[11px] text-muted-foreground"
             >
-              Now
+              {selectionLabel}
+              <ChevronDownIcon className="ml-1 size-3 opacity-60" />
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={changesSource === 'thread' ? 'secondary' : 'ghost'}
-              className="h-7 px-2 text-[11px]"
-              onClick={() => setChangesSourceAndPersist('thread')}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-72" align="end">
+            <DropdownMenuLabel>Show changes from</DropdownMenuLabel>
+            <DropdownMenuItem
+              onSelect={() => {
+                setModeAndPersist('thread');
+              }}
             >
-              Thread
-            </Button>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className={cn('h-7 px-2 text-[11px]', !showViewAll && 'invisible')}
-            disabled={!showViewAll}
-            aria-hidden={!showViewAll}
-            tabIndex={showViewAll ? undefined : -1}
-            onClick={() => {
-              if (changesSource === 'live') {
+              Thread changes
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                setModeAndPersist('repo');
+                setLiveRepoParamsAndPersist({
+                  workspacePath,
+                  baseRef: 'HEAD',
+                  targetRef: null,
+                  includeWorktree: true,
+                });
+              }}
+            >
+              Working tree (HEAD → working tree)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                setModeAndPersist('repo');
+                setLiveRepoParamsAndPersist({
+                  workspacePath,
+                  baseRef: 'main',
+                  targetRef: 'HEAD',
+                  includeWorktree: false,
+                });
+              }}
+            >
+              main → HEAD
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                setModeAndPersist('repo');
                 dispatchOpenRepoReviewOverlayEvent(
                   conversationId,
                   toRepoParams(liveRepoParams)
                 );
-                return;
-              }
-              dispatchOpenReviewOverlayEvent(conversationId);
-            }}
-          >
-            View All
-          </Button>
-        </div>
+              }}
+            >
+              Custom range…
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarGroupLabel>
       {!collapsed ? (
         <SidebarGroupContent className="mt-2 min-h-0 flex-1">
-          <ScrollArea className="h-full overflow-x-hidden" scrollbarClassName="w-1.5">
-	            <ChangesSidebarContent
-	              files={changesFiles}
-	              emptyStateTitle={
-	                changesSource === 'live'
-	                  ? repoDiffQuery.query.isPending
-	                    ? 'Loading changes…'
-	                    : repoDiffQuery.query.error
-	                      ? "Couldn't load changes"
-	                      : liveRepoParams.includeWorktree &&
-	                          liveRepoParams.baseRef === 'HEAD'
-	                        ? 'Working tree is clean'
-	                        : 'No changes found'
-	                  : conversationLoadState.isLoading
-	                    ? 'Loading changes…'
-	                    : 'No thread changes'
-	              }
-	              emptyStateDescription={
-	                changesSource === 'live'
-	                  ? repoDiffQuery.query.error instanceof Error
-	                    ? repoDiffQuery.query.error.message
-	                    : 'Review a different range to compare commits or branches.'
-	                  : 'Agent-generated diffs will appear here after edits.'
-	              }
-	              emptyStateAction={
-	                changesSource === 'live'
-	                  ? repoDiffQuery.query.isPending
-	                    ? undefined
-	                    : repoDiffQuery.query.error
-	                      ? {
-	                          label: 'Try again',
-	                          onClick: () => {
-	                            void repoDiffQuery.query.refetch();
-	                          },
-	                        }
-	                      : {
-	                          label: 'Compare another range…',
-	                          onClick: () => {
-	                            dispatchOpenRepoReviewOverlayEvent(
-	                              conversationId,
-	                              toRepoParams(liveRepoParams)
-	                            );
-	                          },
-	                        }
-	                  : undefined
-	              }
-              onFileClick={(file) => {
-                if (changesSource === 'live') {
-                  dispatchOpenRepoReviewOverlayEvent(
-                    conversationId,
-                    toRepoParams(liveRepoParams),
-                    file.displayPath
-                  );
-                  return;
+          <ScrollArea
+            className="h-full overflow-x-hidden"
+            scrollbarClassName="w-1.5"
+          >
+            <div className="pr-2">
+              <div className="flex items-center justify-end gap-2 pl-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => {
+                    if (mode === 'repo') {
+                      dispatchOpenRepoReviewOverlayEvent(
+                        conversationId,
+                        toRepoParams(liveRepoParams)
+                      );
+                      return;
+                    }
+                    dispatchOpenReviewOverlayEvent(conversationId);
+                  }}
+                >
+                  View All
+                </Button>
+              </div>
+              <ChangesSidebarContent
+                files={files}
+                emptyStateTitle={
+                  mode === 'repo'
+                    ? repoDiffQuery.query.isPending
+                      ? 'Loading changes…'
+                      : repoDiffQuery.query.error
+                        ? "Couldn't load changes"
+                        : liveRepoParams.includeWorktree &&
+                            liveRepoParams.baseRef === 'HEAD'
+                          ? 'Working tree is clean'
+                          : 'No changes found'
+                    : conversationLoadState.isLoading
+                      ? 'Loading changes…'
+                      : 'No thread diffs recorded'
                 }
-                dispatchOpenReviewOverlayEvent(conversationId, file.displayPath);
-              }}
-            />
+                emptyStateDescription={
+                  mode === 'repo'
+                    ? repoDiffQuery.query.error instanceof Error
+                      ? repoDiffQuery.query.error.message
+                      : 'Compare commits or branches to review committed work.'
+                    : 'Thread changes are based on agent-emitted diffs.'
+                }
+                emptyStateAction={
+                  mode === 'repo'
+                    ? repoDiffQuery.query.isPending
+                      ? undefined
+                      : repoDiffQuery.query.error
+                        ? {
+                            label: 'Try again',
+                            onClick: () => {
+                              void repoDiffQuery.query.refetch();
+                            },
+                          }
+                        : {
+                            label: 'Compare another range…',
+                            onClick: () => {
+                              dispatchOpenRepoReviewOverlayEvent(
+                                conversationId,
+                                toRepoParams(liveRepoParams)
+                              );
+                            },
+                          }
+                    : threadCount === 0
+                      ? {
+                          label: 'View working tree changes',
+                          onClick: () => {
+                            setModeAndPersist('repo');
+                            setLiveRepoParamsAndPersist({
+                              workspacePath,
+                              baseRef: 'HEAD',
+                              targetRef: null,
+                              includeWorktree: true,
+                            });
+                          },
+                        }
+                      : undefined
+                }
+                onFileClick={(file) => {
+                  if (mode === 'repo') {
+                    dispatchOpenRepoReviewOverlayEvent(
+                      conversationId,
+                      toRepoParams(liveRepoParams),
+                      file.displayPath
+                    );
+                    return;
+                  }
+                  dispatchOpenReviewOverlayEvent(conversationId, file.displayPath);
+                }}
+              />
+            </div>
           </ScrollArea>
         </SidebarGroupContent>
       ) : null}
