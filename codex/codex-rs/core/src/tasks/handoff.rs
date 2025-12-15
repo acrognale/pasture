@@ -82,10 +82,10 @@ impl SessionTask for HandoffTask {
         while let Some(event) = stream.next().await {
             match event {
                 Ok(ResponseEvent::OutputItemDone(item)) => {
-                    if final_text.is_none() {
-                        if let ResponseItem::Message { content, .. } = item {
-                            final_text = content_items_to_text(&content);
-                        }
+                    if final_text.is_none()
+                        && let ResponseItem::Message { content, .. } = item
+                    {
+                        final_text = content_items_to_text(&content);
                     }
                 }
                 Ok(ResponseEvent::OutputTextDelta(delta)) => {
@@ -134,21 +134,21 @@ impl SessionTask for HandoffTask {
 fn render_transcript(items: &[ResponseItem]) -> String {
     let mut transcript = Vec::new();
     for item in items {
-        if let ResponseItem::Message { role, content, .. } = item {
-            if let Some(text) = content_items_to_text(content) {
-                let trimmed = text.trim();
-                if trimmed.is_empty() {
-                    continue;
-                }
-                let label = match role.as_str() {
-                    "user" => "User",
-                    "assistant" => "Assistant",
-                    "system" => "System",
-                    "developer" => "Developer",
-                    _ => "Message",
-                };
-                transcript.push(format!("{label}: {trimmed}"));
+        if let ResponseItem::Message { role, content, .. } = item
+            && let Some(text) = content_items_to_text(content)
+        {
+            let trimmed = text.trim();
+            if trimmed.is_empty() {
+                continue;
             }
+            let label = match role.as_str() {
+                "user" => "User",
+                "assistant" => "Assistant",
+                "system" => "System",
+                "developer" => "Developer",
+                _ => "Message",
+            };
+            transcript.push(format!("{label}: {trimmed}"));
         }
     }
     transcript.join("\n\n")

@@ -45,6 +45,8 @@ pub(crate) fn should_persist_event_msg(ev: &EventMsg) -> bool {
         | EventMsg::ContextCompacted(_)
         | EventMsg::EnteredReviewMode(_)
         | EventMsg::ExitedReviewMode(_)
+        | EventMsg::EnteredReviewMapMode(_)
+        | EventMsg::ExitedReviewMapMode(_)
         | EventMsg::UndoCompleted(_)
         | EventMsg::RawResponseItem(_)
         | EventMsg::McpToolCallBegin(_)

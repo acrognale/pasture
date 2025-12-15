@@ -217,11 +217,11 @@ fn render_transcript(events: Vec<EventMsg>) -> String {
             EventMsg::UserMessage(msg) => {
                 out.push_str("### User\n");
                 out.push_str(msg.message.as_str());
-                if let Some(imgs) = msg.images.as_ref() {
-                    if !imgs.is_empty() {
-                        out.push_str("\n\n");
-                        out.push_str(&format!("_[{} image(s) attached]_", imgs.len()));
-                    }
+                if let Some(imgs) = msg.images.as_ref()
+                    && !imgs.is_empty()
+                {
+                    out.push_str("\n\n");
+                    out.push_str(&format!("_[{} image(s) attached]_", imgs.len()));
                 }
                 out.push_str("\n\n");
             }

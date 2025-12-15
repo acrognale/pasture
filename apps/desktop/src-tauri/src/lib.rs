@@ -158,6 +158,7 @@ pub fn run() {
             commands::auth::get_auth_state,
             commands::update::check_for_update,
             commands::update::install_update,
+            commands::turns::review_map_conversation,
         ])
         .on_menu_event(|app, event| {
             menu::handle_menu_event(app, event);

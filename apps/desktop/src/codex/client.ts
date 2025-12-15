@@ -31,6 +31,7 @@ import type {
   NewThreadResponse,
   RemoveConversationListenerParams,
   RespondApprovalParams,
+  ReviewMapConversationParams,
   SavePastedImageParams,
   SavePastedImageResponse,
   SearchThreadsParams,
@@ -167,6 +168,12 @@ export namespace Codex {
     params: CompactConversationParams
   ): Promise<void> {
     return await invoke<void>('compact_conversation', { params });
+  }
+
+  export async function reviewMapConversation(
+    params: ReviewMapConversationParams
+  ): Promise<void> {
+    return await invoke<void>('review_map_conversation', { params });
   }
 
   export async function handoffConversation(

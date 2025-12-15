@@ -59,6 +59,7 @@ pub use model_provider_info::create_oss_provider_with_base_url;
 mod conversation_manager;
 mod event_mapping;
 pub mod review_format;
+mod review_map_context;
 pub mod review_prompts;
 pub use codex_protocol::protocol::InitialHistory;
 pub use conversation_manager::ConversationManager;
@@ -113,6 +114,7 @@ pub use codex_protocol::config_types as protocol_config_types;
 
 pub use client::ModelClient;
 pub use client_common::Prompt;
+pub use client_common::REVIEW_MAP_PROMPT;
 pub use client_common::REVIEW_PROMPT;
 pub use client_common::ResponseEvent;
 pub use client_common::ResponseStream;

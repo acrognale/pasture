@@ -61,6 +61,13 @@ export const useConversationComposerLimits = (conversationId: string | null) =>
     shallow
   );
 
+export const useConversationReviewMap = (conversationId: string | null) =>
+  useConversationSelector(
+    conversationId,
+    (state) => state.conversation.reviewMap,
+    shallow
+  );
+
 export const useConversationLoadState = (conversationId: string | null) =>
   useConversationSelector(
     conversationId,

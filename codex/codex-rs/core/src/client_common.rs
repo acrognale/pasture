@@ -18,6 +18,9 @@ use tokio::sync::mpsc;
 /// Review thread system prompt. Edit `core/src/review_prompt.md` to customize.
 pub const REVIEW_PROMPT: &str = include_str!("../review_prompt.md");
 
+/// Review-map thread system prompt. Edit `core/src/review_map_prompt.md` to customize.
+pub const REVIEW_MAP_PROMPT: &str = include_str!("../review_map_prompt.md");
+
 // Centralized templates for review-related user messages
 pub const REVIEW_EXIT_SUCCESS_TMPL: &str = include_str!("../templates/review/exit_success.xml");
 pub const REVIEW_EXIT_INTERRUPTED_TMPL: &str =

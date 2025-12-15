@@ -26,6 +26,7 @@ import { ConversationCommentFeedbackFooter } from './components/ConversationComm
 import { ConversationDevCommandMenu } from './components/ConversationDevCommandMenu';
 import { ConversationPaneHeader } from './components/ConversationPaneHeader';
 import { ConversationReviewOverlay } from './components/ConversationReviewOverlay';
+import { ConversationReviewMapOverlay } from './components/ConversationReviewMapOverlay';
 import {
   type ConversationTranscriptHandle,
   ConversationTranscriptSection,
@@ -33,7 +34,9 @@ import {
 import { StatusIndicator } from './components/StatusIndicator';
 import {
   OPEN_REVIEW_OVERLAY_EVENT,
+  OPEN_REVIEW_MAP_OVERLAY_EVENT,
   type OpenReviewOverlayDetail,
+  type OpenReviewMapOverlayDetail,
 } from './events';
 import { setHandoffDraft, takeHandoffDraft } from './handoffDraftStore';
 import { useInterruptConversation } from './hooks/useInterruptConversation';
@@ -77,6 +80,7 @@ function ConversationPaneContent({
     useState<ComposerBarControls | null>(null);
   const interruptRequestedRef = useRef(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isReviewMapOpen, setIsReviewMapOpen] = useState(false);
   const [reviewFocusFilePath, setReviewFocusFilePath] = useState<string | null>(
     null
   );
@@ -468,15 +472,32 @@ function ConversationPaneContent({
       setIsReviewOpen(true);
     };
 
+    const handleOpenReviewMap = (
+      event: CustomEvent<OpenReviewMapOverlayDetail>
+    ) => {
+      if (event.detail.conversationId !== conversationId) {
+        return;
+      }
+      setIsReviewMapOpen(true);
+    };
+
     window.addEventListener(
       OPEN_REVIEW_OVERLAY_EVENT,
       handleOpenReview as EventListener
+    );
+    window.addEventListener(
+      OPEN_REVIEW_MAP_OVERLAY_EVENT,
+      handleOpenReviewMap as EventListener
     );
 
     return () => {
       window.removeEventListener(
         OPEN_REVIEW_OVERLAY_EVENT,
         handleOpenReview as EventListener
+      );
+      window.removeEventListener(
+        OPEN_REVIEW_MAP_OVERLAY_EVENT,
+        handleOpenReviewMap as EventListener
       );
     };
   }, [conversationId]);
@@ -596,6 +617,12 @@ function ConversationPaneContent({
           </div>
         </div>
       </div>
+
+      <ConversationReviewMapOverlay
+        conversationId={conversationId}
+        open={isReviewMapOpen}
+        onClose={() => setIsReviewMapOpen(false)}
+      />
 
       <ConversationDevCommandMenu
         open={isCommandMenuOpen}

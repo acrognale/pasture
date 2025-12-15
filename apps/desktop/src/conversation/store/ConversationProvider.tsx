@@ -40,6 +40,7 @@ import {
 import type { WorkspaceConversationsState } from '~/workspace/conversations';
 
 import type { ConversationSideEffect } from './reducer';
+import { dispatchOpenReviewMapOverlayEvent } from '../events';
 
 type ConversationProviderProps = {
   workspacePath: string;
@@ -317,6 +318,11 @@ export function ConversationProvider({
 
 const runSideEffects = (effects: ConversationSideEffect[]) => {
   effects.forEach((effect) => {
+    if (effect.type === 'openReviewMapOverlay') {
+      dispatchOpenReviewMapOverlayEvent(effect.conversationId);
+      return;
+    }
+
     const description = effect.description;
     if (effect.variant === 'error') {
       toast.error(effect.title, { description });

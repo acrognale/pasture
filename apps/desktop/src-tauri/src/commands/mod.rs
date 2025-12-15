@@ -84,6 +84,10 @@ codex_command_descriptors! {
         params: turns::CompactConversationParams,
         result: (),
     },
+    turns::review_map_conversation {
+        params: turns::ReviewMapConversationParams,
+        result: (),
+    },
     turns::handoff_conversation {
         params: turns::HandoffConversationParams,
         result: turns::HandoffConversationResponse,
@@ -162,6 +166,10 @@ codex_command_descriptors! {
     },
     update::install_update {
         params: (),
+        result: (),
+    },
+    review::review_map_conversation {
+        params: turns::ReviewMapConversationParams,
         result: (),
     },
 }

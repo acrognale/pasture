@@ -6,6 +6,8 @@ use codex_protocol::config_types::SandboxMode;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::AskForApproval;
 use codex_protocol::protocol::Op;
+use codex_protocol::protocol::ReviewMapRequest;
+use codex_protocol::protocol::ReviewTarget;
 use codex_protocol::protocol::TurnAbortReason;
 use codex_protocol::user_input::UserInput as CoreUserInput;
 use sea_orm::EntityTrait;
@@ -95,6 +97,17 @@ pub struct HandoffConversationResponse {
 #[serde(rename_all = "camelCase")]
 pub struct InterruptConversationParams {
     pub conversation_id: String,
+}
+
+/// Parameters accepted when triggering a review-map op.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewMapConversationParams {
+    pub conversation_id: String,
+    pub target: ReviewTarget,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub user_facing_hint: Option<String>,
 }
 
 /// Response returned when interrupting a conversation.
@@ -219,6 +232,49 @@ pub async fn compact_conversation(
         app_handle,
     )
     .await?;
+
+    Ok(())
+}
+
+/// Trigger a structured review-map operation for a conversation.
+#[tauri::command]
+pub async fn review_map_conversation(
+    params: ReviewMapConversationParams,
+    app: State<'_, AppState>,
+    app_handle: AppHandle,
+) -> AppResult<()> {
+    let conversation_id =
+        ConversationId::from_string(&params.conversation_id).map_err(|e| AppError::Validation {
+            message: format!("Invalid conversation ID: {}", e),
+        })?;
+
+    // Ensure subscription so the renderer receives Entered/ExitedReviewMapMode events.
+    let conversation = app
+        .conversations
+        .get_conversation(conversation_id)
+        .await
+        .map_err(|_| AppError::NotFound {
+            entity: "conversation",
+        })?;
+    let _ = app
+        .events
+        .ensure_subscription(
+            conversation_id,
+            conversation.clone(),
+            app_handle.clone(),
+            params.conversation_id.clone(),
+        )
+        .await;
+
+    conversation
+        .submit(Op::ReviewMap {
+            review_map_request: ReviewMapRequest {
+                target: params.target,
+                user_facing_hint: params.user_facing_hint,
+            },
+        })
+        .await
+        .map_err(|e| AppError::Codex(format!("Failed to run review map: {}", e)))?;
 
     Ok(())
 }

@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import type { ReviewTarget } from '@pasture/protocol';
 import { Codex } from '~/codex/client';
 
 export type SlashCommandInvocation = {
@@ -41,6 +42,25 @@ const COMMANDS: readonly SlashCommandDefinition[] = [
     run: async ({ conversationId }) => {
       // NOTE: Status updates now come from backend events via ConversationStoreProvider
       await Codex.compactConversation({ conversationId });
+      return { type: 'noop' as const };
+    },
+  },
+  {
+    id: 'review-map',
+    label: 'Review map',
+    description: 'Generate a structured review map (concept graph + reading order)',
+    availableDuringTurn: false,
+    run: async ({ conversationId, args }) => {
+      const target: ReviewTarget =
+        args && args.trim().length > 0
+          ? { type: 'custom', instructions: args.trim() }
+          : { type: 'uncommittedChanges' };
+
+      await Codex.reviewMapConversation({
+        conversationId,
+        target,
+      });
+
       return { type: 'noop' as const };
     },
   },

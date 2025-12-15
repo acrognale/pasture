@@ -18,6 +18,7 @@ import type { ExecApprovalRequestEvent } from './ExecApprovalRequestEvent';
 import type { ExecCommandBeginEvent } from './ExecCommandBeginEvent';
 import type { ExecCommandEndEvent } from './ExecCommandEndEvent';
 import type { ExecCommandOutputDeltaEvent } from './ExecCommandOutputDeltaEvent';
+import type { ExitedReviewMapModeEvent } from './ExitedReviewMapModeEvent';
 import type { ExitedReviewModeEvent } from './ExitedReviewModeEvent';
 import type { GetHistoryEntryResponseEvent } from './GetHistoryEntryResponseEvent';
 import type { HandoffPlanEvent } from './HandoffPlanEvent';
@@ -35,6 +36,7 @@ import type { RawResponseItemEvent } from './RawResponseItemEvent';
 import type { ReadThreadEndEvent } from './ReadThreadEndEvent';
 import type { ReasoningContentDeltaEvent } from './ReasoningContentDeltaEvent';
 import type { ReasoningRawContentDeltaEvent } from './ReasoningRawContentDeltaEvent';
+import type { ReviewMapRequest } from './ReviewMapRequest';
 import type { ReviewRequest } from './ReviewRequest';
 import type { SessionConfiguredEvent } from './SessionConfiguredEvent';
 import type { StreamErrorEvent } from './StreamErrorEvent';
@@ -108,6 +110,8 @@ export type EventMsg =
   | { type: 'shutdown_complete' }
   | ({ type: 'entered_review_mode' } & ReviewRequest)
   | ({ type: 'exited_review_mode' } & ExitedReviewModeEvent)
+  | ({ type: 'entered_review_map_mode' } & ReviewMapRequest)
+  | ({ type: 'exited_review_map_mode' } & ExitedReviewMapModeEvent)
   | ({ type: 'raw_response_item' } & RawResponseItemEvent)
   | ({ type: 'item_started' } & ItemStartedEvent)
   | ({ type: 'item_completed' } & ItemCompletedEvent)

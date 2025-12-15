@@ -3,6 +3,7 @@ mod ghost_snapshot;
 mod handoff;
 mod regular;
 mod review;
+mod review_map;
 mod undo;
 mod user_shell;
 
@@ -35,6 +36,7 @@ pub(crate) use ghost_snapshot::GhostSnapshotTask;
 pub(crate) use handoff::HandoffTask;
 pub(crate) use regular::RegularTask;
 pub(crate) use review::ReviewTask;
+pub(crate) use review_map::ReviewMapTask;
 pub(crate) use undo::UndoTask;
 pub(crate) use user_shell::UserShellCommandTask;
 

@@ -1582,6 +1582,9 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
             Op::Review { review_request } => {
                 handlers::review(&sess, &config, sub.id.clone(), review_request).await;
             }
+            Op::ReviewMap { review_map_request } => {
+                handlers::review_map(&sess, &config, sub.id.clone(), review_map_request).await;
+            }
             _ => {} // Ignore unknown ops; enum is non_exhaustive to allow extensions.
         }
     }
@@ -1594,6 +1597,7 @@ mod handlers {
     use crate::codex::SessionSettingsUpdate;
     use crate::codex::TurnContext;
 
+    use crate::codex::spawn_review_map_thread;
     use crate::codex::spawn_review_thread;
     use crate::config::Config;
     use crate::mcp::auth::compute_auth_statuses;
@@ -1612,6 +1616,7 @@ mod handlers {
     use codex_protocol::protocol::ListCustomPromptsResponseEvent;
     use codex_protocol::protocol::Op;
     use codex_protocol::protocol::ReviewDecision;
+    use codex_protocol::protocol::ReviewMapRequest;
     use codex_protocol::protocol::ReviewRequest;
     use codex_protocol::protocol::TurnAbortReason;
     use codex_protocol::protocol::WarningEvent;
@@ -1959,6 +1964,24 @@ mod handlers {
             }
         }
     }
+
+    pub async fn review_map(
+        sess: &Arc<Session>,
+        _config: &Arc<Config>,
+        sub_id: String,
+        review_map_request: ReviewMapRequest,
+    ) {
+        info!(
+            sub_id,
+            target = ?review_map_request.target,
+            user_facing_hint = ?review_map_request.user_facing_hint,
+            "review-map requested"
+        );
+        let turn_context = sess
+            .new_turn_with_sub_id(sub_id.clone(), SessionSettingsUpdate::default())
+            .await;
+        spawn_review_map_thread(Arc::clone(sess), turn_context.clone(), review_map_request).await;
+    }
 }
 
 /// Spawn a review thread using the given prompt.
@@ -2051,6 +2074,54 @@ async fn spawn_review_thread(
     };
     sess.send_event(&tc, EventMsg::EnteredReviewMode(review_request))
         .await;
+}
+
+/// Spawn a review-map thread using the given prompt.
+async fn spawn_review_map_thread(
+    sess: Arc<Session>,
+    parent_turn_context: Arc<TurnContext>,
+    review_map_request: codex_protocol::protocol::ReviewMapRequest,
+) {
+    let user_facing_hint = review_map_request
+        .user_facing_hint
+        .clone()
+        .unwrap_or_else(|| "review map".to_string());
+
+    let review_prompt = format!("Build a review map for {user_facing_hint}.");
+    let delegate_config = crate::review_map_context::build_review_map_delegate_config(
+        parent_turn_context.client.config().as_ref(),
+    );
+
+    info!(
+        sub_id = parent_turn_context.sub_id,
+        target = ?review_map_request.target,
+        user_facing_hint,
+        "spawning review-map task"
+    );
+
+    let input: Vec<UserInput> = vec![UserInput::Text {
+        text: review_prompt,
+    }];
+    sess.spawn_task(
+        parent_turn_context.clone(),
+        input,
+        crate::tasks::ReviewMapTask::new(delegate_config),
+    )
+    .await;
+
+    let review_map_request = codex_protocol::protocol::ReviewMapRequest {
+        target: review_map_request.target,
+        user_facing_hint: Some(user_facing_hint),
+    };
+    info!(
+        sub_id = parent_turn_context.sub_id,
+        "emitting entered_review_map_mode"
+    );
+    sess.send_event(
+        parent_turn_context.as_ref(),
+        EventMsg::EnteredReviewMapMode(review_map_request),
+    )
+    .await;
 }
 
 fn skill_load_outcome_for_client(

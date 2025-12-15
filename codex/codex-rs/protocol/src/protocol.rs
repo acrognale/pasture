@@ -206,6 +206,11 @@ pub enum Op {
     /// Request a code review from the agent.
     Review { review_request: ReviewRequest },
 
+    /// Request a structured "review map" (concept graph + reading order) from the agent.
+    ReviewMap {
+        review_map_request: ReviewMapRequest,
+    },
+
     /// Request to shut down codex instance.
     Shutdown,
 
@@ -589,6 +594,12 @@ pub enum EventMsg {
     /// Exited review mode with an optional final result to apply.
     ExitedReviewMode(ExitedReviewModeEvent),
 
+    /// Entered review-map mode.
+    EnteredReviewMapMode(ReviewMapRequest),
+
+    /// Exited review-map mode with an optional final structured review map.
+    ExitedReviewMapMode(ExitedReviewMapModeEvent),
+
     RawResponseItem(RawResponseItemEvent),
 
     ItemStarted(ItemStartedEvent),
@@ -748,6 +759,11 @@ impl HasLegacyEvent for EventMsg {
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
 pub struct ExitedReviewModeEvent {
     pub review_output: Option<ReviewOutputEvent>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct ExitedReviewMapModeEvent {
+    pub review_map_output: Option<ReviewMapOutputEvent>,
 }
 
 // Individual event payload types matching each `EventMsg` variant.
@@ -1340,6 +1356,15 @@ pub struct ReviewRequest {
     pub user_facing_hint: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+/// Review-map request sent to the review-map session.
+pub struct ReviewMapRequest {
+    pub target: ReviewTarget,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub user_facing_hint: Option<String>,
+}
+
 /// Structured review result produced by a child review session.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
 pub struct ReviewOutputEvent {
@@ -1356,6 +1381,118 @@ impl Default for ReviewOutputEvent {
             overall_correctness: String::default(),
             overall_explanation: String::default(),
             overall_confidence_score: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename_all = "snake_case")]
+pub enum ReviewMapNodeKind {
+    Concept,
+    File,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
+pub struct ReviewMapNodeRef {
+    pub kind: ReviewMapNodeKind,
+    /// Stable identifier within the graph.
+    pub id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, JsonSchema, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename_all = "snake_case")]
+pub enum ReviewMapEdgeType {
+    DependsOn,
+    Implements,
+    Consumes,
+    Emits,
+    Touches,
+    Related,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct ReviewMapEdge {
+    pub from: ReviewMapNodeRef,
+    pub to: ReviewMapNodeRef,
+    #[serde(rename = "type")]
+    pub edge_type: ReviewMapEdgeType,
+    pub rationale: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct ReviewMapConcept {
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    #[serde(default)]
+    pub primary_files: Vec<String>,
+    #[serde(default)]
+    pub risks: Vec<String>,
+    #[serde(default)]
+    pub questions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename_all = "snake_case")]
+pub enum ReviewMapFileChangeType {
+    Added,
+    Modified,
+    Deleted,
+    Renamed,
+    TypeChanged,
+    Unmerged,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct ReviewMapFile {
+    pub path: String,
+    #[serde(default)]
+    #[ts(optional)]
+    pub change_type: Option<ReviewMapFileChangeType>,
+    pub summary: String,
+    #[serde(default)]
+    pub concepts: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct ReviewMapReviewStep {
+    pub node: ReviewMapNodeRef,
+    pub why: String,
+    #[serde(default)]
+    pub suggested_questions: Vec<String>,
+}
+
+/// Structured review map result produced by a child review-map session.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, JsonSchema, TS)]
+pub struct ReviewMapOutputEvent {
+    /// Schema version for forwards-compatible rendering.
+    pub version: u32,
+    pub title: String,
+    pub summary: String,
+    #[serde(default)]
+    pub concepts: Vec<ReviewMapConcept>,
+    #[serde(default)]
+    pub files: Vec<ReviewMapFile>,
+    #[serde(default)]
+    pub edges: Vec<ReviewMapEdge>,
+    #[serde(default)]
+    pub review_order: Vec<ReviewMapReviewStep>,
+}
+
+impl Default for ReviewMapOutputEvent {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            title: String::new(),
+            summary: String::new(),
+            concepts: Vec::new(),
+            files: Vec::new(),
+            edges: Vec::new(),
+            review_order: Vec::new(),
         }
     }
 }

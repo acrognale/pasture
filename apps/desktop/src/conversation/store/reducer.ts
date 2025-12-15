@@ -37,6 +37,9 @@ import type { ViewImageToolCallEvent } from '@pasture/protocol';
 import type { WarningEvent } from '@pasture/protocol';
 import type { WebSearchBeginEvent } from '@pasture/protocol';
 import type { WebSearchEndEvent } from '@pasture/protocol';
+import type { ReviewMapOutputEvent } from '@pasture/protocol';
+import type { ReviewMapRequest } from '@pasture/protocol';
+import type { ExitedReviewMapModeEvent } from '@pasture/protocol';
 import type {
   CellLocation,
   ExecStreamDecoders,
@@ -47,6 +50,7 @@ import type {
   TranscriptExecApprovalCell,
   TranscriptExecCommandCell,
   TranscriptExplorationCall,
+  TranscriptGenericCell,
   TranscriptHandoffCell,
   TranscriptPatchApprovalCell,
   TranscriptPatchCell,
@@ -100,14 +104,28 @@ export type ConversationState = {
   /** Lifecycle state */
   isLoading: boolean;
   error: Error | null;
+
+  /** Review-map state */
+  reviewMap: {
+    status: 'idle' | 'running' | 'complete';
+    request: ReviewMapRequest | null;
+    output: ReviewMapOutputEvent | null;
+    startedAt: string | null;
+    completedAt: string | null;
+  };
 };
 
-export type ConversationSideEffect = {
-  type: 'toast';
-  variant: 'info' | 'warning' | 'error';
-  title: string;
-  description?: string;
-};
+export type ConversationSideEffect =
+  | {
+      type: 'toast';
+      variant: 'info' | 'warning' | 'error';
+      title: string;
+      description?: string;
+    }
+  | {
+      type: 'openReviewMapOverlay';
+      conversationId: string;
+    };
 
 export type ConversationControllerState = {
   conversation: ConversationState;
@@ -144,6 +162,13 @@ export function createInitialConversationState(): ConversationState {
     reasoningSummaryPreference: null,
     isLoading: false,
     error: null,
+    reviewMap: {
+      status: 'idle',
+      request: null,
+      output: null,
+      startedAt: null,
+      completedAt: null,
+    },
   };
 }
 
@@ -1331,6 +1356,68 @@ function onStreamError(
   appendCell(draft, turnId, entry);
 }
 
+function onEnteredReviewMapMode(
+  draft: Draft<ConversationControllerState>,
+  event: ReviewMapRequest & { type: 'entered_review_map_mode' },
+  timestamp: string
+) {
+  draft.conversation.reviewMap.status = 'running';
+  draft.conversation.reviewMap.request = {
+    target: event.target,
+    user_facing_hint: event.user_facing_hint,
+  };
+  draft.conversation.reviewMap.output = null;
+  draft.conversation.reviewMap.startedAt = timestamp;
+  draft.conversation.reviewMap.completedAt = null;
+
+  draft.sideEffects.push({
+    type: 'toast',
+    variant: 'info',
+    title: 'Generating review map…',
+  });
+}
+
+function onExitedReviewMapMode(
+  draft: Draft<ConversationControllerState>,
+  event: ExitedReviewMapModeEvent & { type: 'exited_review_map_mode' },
+  eventId: string,
+  turnId: string,
+  conversationId: string,
+  timestamp: string
+) {
+  draft.conversation.reviewMap.status = 'complete';
+  draft.conversation.reviewMap.output = event.review_map_output ?? null;
+  draft.conversation.reviewMap.completedAt = timestamp;
+
+  const output = event.review_map_output;
+  const cell: TranscriptGenericCell = {
+    id: eventId,
+    kind: 'generic',
+    timestamp,
+    eventIds: [eventId],
+    eventType: 'exited_review_map_mode',
+    payload: {
+      hasOutput: !!output,
+      title: output?.title ?? null,
+      summary: output?.summary ?? null,
+    },
+  };
+  appendCell(draft, turnId, cell);
+
+  if (event.review_map_output) {
+    draft.sideEffects.push({
+      type: 'openReviewMapOverlay',
+      conversationId,
+    });
+  } else {
+    draft.sideEffects.push({
+      type: 'toast',
+      variant: 'warning',
+      title: 'Review map finished without output',
+    });
+  }
+}
+
 type EventApplicationContext = {
   execDecoders: Record<string, ExecStreamDecoders>;
 };
@@ -1482,6 +1569,12 @@ function applyConversationEvent(
       break;
     case 'stream_error':
       onStreamError(draft, event, eventId, turnId, timestamp);
+      break;
+    case 'entered_review_map_mode':
+      onEnteredReviewMapMode(draft, event, timestamp);
+      break;
+    case 'exited_review_map_mode':
+      onExitedReviewMapMode(draft, event, eventId, turnId, conversationId, timestamp);
       break;
     default:
       break;
