@@ -1,13 +1,7 @@
-import { Suspense, lazy, useEffect } from 'react';
-import { Skeleton } from '~/components/ui/skeleton';
+import { useEffect } from 'react';
 
 import { useConversationReviewMap } from '../store/hooks';
-
-const ReviewMapOverlay = lazy(() =>
-  import('~/review-map/ReviewMapOverlay').then((m) => ({
-    default: m.ReviewMapOverlay,
-  }))
-);
+import { ReviewMapOverlay } from '~/review-map/ReviewMapOverlay';
 
 export type ConversationReviewMapOverlayProps = {
   conversationId: string;
@@ -35,23 +29,12 @@ export function ConversationReviewMapOverlay({
   }
 
   return (
-    <Suspense
-      fallback={
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="w-full max-w-4xl space-y-4 p-6">
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-[60vh] w-full" />
-          </div>
-        </div>
-      }
-    >
-      <ReviewMapOverlay
-        open={open}
-        onClose={onClose}
-        status={reviewMap.status}
-        output={reviewMap.output}
-      />
-    </Suspense>
+    <ReviewMapOverlay
+      open={open}
+      onClose={onClose}
+      conversationId={conversationId}
+      status={reviewMap.status}
+      output={reviewMap.output}
+    />
   );
 }
-
