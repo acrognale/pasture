@@ -38,16 +38,17 @@ export function ConversationReviewOverlay({
 }: ConversationReviewOverlayProps) {
   const latestDiff = useConversationLatestTurnDiff(conversationId);
   const history = useConversationTurnDiffHistory(conversationId);
+  const effectiveHasHistory = hasHistory && history.length > 0;
 
   useEffect(() => {
-    if (!hasHistory && open) {
+    if (!effectiveHasHistory && open) {
       onClose();
     }
-  }, [hasHistory, open, onClose]);
+  }, [effectiveHasHistory, open, onClose]);
 
   return (
     <>
-      {open && hasHistory ? (
+      {open && effectiveHasHistory ? (
         <Suspense
           fallback={
             <div className="flex h-full w-full items-center justify-center">

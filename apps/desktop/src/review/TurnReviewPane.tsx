@@ -15,6 +15,7 @@ type TurnReviewPaneProps = {
   focusFilePath?: string | null;
   onFocusFilePathConsumed?: () => void;
   rangeSelector?: ReactNode;
+  emptyStateMessage?: string;
 };
 
 const MIN_SPLIT_WIDTH = 900;
@@ -27,6 +28,7 @@ export function TurnReviewPane({
   focusFilePath,
   onFocusFilePathConsumed,
   rangeSelector = <RangeSelectorSection />,
+  emptyStateMessage,
 }: TurnReviewPaneProps) {
   const { comments, selectedDiff } = useTurnReview();
   const commentCount = comments.length;
@@ -131,6 +133,7 @@ export function TurnReviewPane({
         viewMode={viewMode}
         focusFilePath={focusFilePath}
         onFocusFilePathConsumed={onFocusFilePathConsumed}
+        emptyStateMessage={emptyStateMessage}
       />
     </div>
   );

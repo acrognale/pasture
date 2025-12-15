@@ -4,11 +4,13 @@ import { useMemo } from 'react';
 
 import { TurnReviewProvider } from './TurnReviewContext';
 import { TurnReviewPane } from './TurnReviewPane';
+import { RepoRangeSelector } from './components/RepoRangeSelector';
 import { useRepoDiff } from './queries';
 
 type RepoReviewPaneProps = {
   workspacePath: string;
   params: GetRepoDiffParams;
+  onParamsChange?: (params: GetRepoDiffParams) => void;
   onRequestFeedback?: (prompt: string) => void;
   onClose?: () => void;
   focusFilePath?: string | null;
@@ -25,6 +27,7 @@ function toReviewId(params: GetRepoDiffParams): string {
 export function RepoReviewPane({
   workspacePath,
   params,
+  onParamsChange,
   onRequestFeedback,
   onClose,
   focusFilePath,
@@ -33,6 +36,18 @@ export function RepoReviewPane({
   const { rawDiff, query } = useRepoDiff(params);
 
   const reviewId = useMemo(() => toReviewId(params), [params]);
+  const emptyStateMessage = useMemo(() => {
+    if (query.isPending) {
+      return 'Loading changes…';
+    }
+    if (query.error instanceof Error) {
+      return `Couldn't load changes: ${query.error.message}`;
+    }
+    if (params.includeWorktree && params.baseRef === 'HEAD') {
+      return 'Working tree is clean.';
+    }
+    return 'No changes found for this range.';
+  }, [params.baseRef, params.includeWorktree, query.error, query.isPending]);
 
   const history = useMemo<TranscriptTurnDiff[]>(() => {
     const now = new Date().toISOString();
@@ -60,7 +75,13 @@ export function RepoReviewPane({
         disabled={query.isPending}
         focusFilePath={focusFilePath}
         onFocusFilePathConsumed={onFocusFilePathConsumed}
-        rangeSelector={null}
+        rangeSelector={
+          <RepoRangeSelector
+            params={params}
+            onChange={(nextParams) => onParamsChange?.(nextParams)}
+          />
+        }
+        emptyStateMessage={emptyStateMessage}
       />
     </TurnReviewProvider>
   );

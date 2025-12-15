@@ -11,6 +11,8 @@ type ProcessedFile = {
 type ChangesSidebarContentProps = {
   files: ProcessedFile[];
   onFileClick?: (file: ParsedTurnDiffFile) => void;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
   emptyStateAction?: {
     label: string;
     onClick: () => void;
@@ -69,15 +71,17 @@ function splitPath(path: string): { dir: string; file: string } {
 export function ChangesSidebarContent({
   files,
   onFileClick,
+  emptyStateTitle,
+  emptyStateDescription,
   emptyStateAction,
 }: ChangesSidebarContentProps) {
   if (files.length === 0) {
     return (
       <div className="px-2 py-4 text-center text-xs text-muted-foreground space-y-3">
         <div className="space-y-1">
-          <p>No changes yet</p>
+          <p>{emptyStateTitle ?? 'No changes yet'}</p>
           <p className="text-[10px]">
-            Changes will appear here as files are modified
+            {emptyStateDescription ?? 'Changes will appear here as files are modified'}
           </p>
         </div>
         {emptyStateAction ? (

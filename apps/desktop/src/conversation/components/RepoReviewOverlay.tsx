@@ -1,6 +1,7 @@
 import type { GetRepoDiffParams } from '@pasture/protocol';
 import { Suspense, lazy } from 'react';
 import { Skeleton } from '~/components/ui/skeleton';
+import { dispatchOpenRepoReviewOverlayEvent } from '~/conversation/events';
 
 const RepoReviewPane = lazy(() =>
   import('~/review/RepoReviewPane').then((m) => ({ default: m.RepoReviewPane }))
@@ -8,6 +9,7 @@ const RepoReviewPane = lazy(() =>
 
 export type RepoReviewOverlayProps = {
   workspacePath: string;
+  conversationId: string;
   open: boolean;
   params: GetRepoDiffParams;
   onClose: () => void;
@@ -18,6 +20,7 @@ export type RepoReviewOverlayProps = {
 
 export function RepoReviewOverlay({
   workspacePath,
+  conversationId,
   open,
   params,
   onClose,
@@ -44,6 +47,14 @@ export function RepoReviewOverlay({
       <RepoReviewPane
         workspacePath={workspacePath}
         params={params}
+        onParamsChange={(nextParams) => {
+          dispatchOpenRepoReviewOverlayEvent(conversationId, {
+            workspacePath: nextParams.workspacePath,
+            baseRef: nextParams.baseRef,
+            targetRef: nextParams.targetRef,
+            includeWorktree: nextParams.includeWorktree,
+          });
+        }}
         onRequestFeedback={onRequestFeedback}
         onClose={onClose}
         focusFilePath={focusFilePath}

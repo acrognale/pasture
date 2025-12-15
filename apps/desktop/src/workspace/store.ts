@@ -180,6 +180,19 @@ export const createWorkspaceStore = (
       const events = sessionConfigured.initial_messages
         ? [...sessionConfigured.initial_messages]
         : [];
+
+      if (import.meta.env.DEV) {
+        const typeCounts = new Map<string, number>();
+        for (const event of events) {
+          typeCounts.set(event.type, (typeCounts.get(event.type) ?? 0) + 1);
+        }
+        console.debug('[Workspace] Hydrating initial messages', {
+          conversationId,
+          rolloutPath: sessionConfigured.rollout_path,
+          messageCount: events.length,
+          types: Object.fromEntries(typeCounts.entries()),
+        });
+      }
       type BufferedEvent = { event: (typeof events)[number]; index: number };
       type BufferedTurn = {
         events: BufferedEvent[];
