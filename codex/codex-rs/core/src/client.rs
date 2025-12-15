@@ -58,11 +58,8 @@ use crate::model_provider_info::WireApi;
 use crate::openai_models::model_family::ModelFamily;
 use crate::tools::spec::create_tools_json_for_chat_completions_api;
 use crate::tools::spec::create_tools_json_for_responses_api;
-
-// Claude "extended thinking" requires `max_tokens > thinking.budget_tokens`.
-// Claude Code defaults to 64k output tokens for thinking-capable models.
-const DEFAULT_ANTHROPIC_MAX_TOKENS: u32 = 64_000;
-const DEFAULT_ANTHROPIC_THINKING_BUDGET_TOKENS: u32 = 31_999;
+use codex_provider_anthropic::DEFAULT_ANTHROPIC_MAX_TOKENS;
+use codex_provider_anthropic::DEFAULT_ANTHROPIC_THINKING_BUDGET_TOKENS;
 
 #[derive(Debug, Clone)]
 pub struct ModelClient {

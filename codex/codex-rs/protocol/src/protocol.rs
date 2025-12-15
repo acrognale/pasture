@@ -517,7 +517,6 @@ pub enum EventMsg {
 
     McpToolCallEnd(McpToolCallEndEvent),
 
-    /// Generic tool lifecycle events for tools that do not have dedicated UI events.
     ToolCallBegin(ToolCallBeginEvent),
 
     ToolCallEnd(ToolCallEndEvent),

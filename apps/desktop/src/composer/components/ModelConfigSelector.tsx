@@ -24,7 +24,6 @@ import {
   useContainerQuery,
 } from '~/lib/hooks/useContainerQuery';
 import {
-  type ModelProviderId,
   inferModelProviderId,
   normalizeModelProviderId,
 } from '~/lib/providerInference';
@@ -38,6 +37,10 @@ import {
   getReasoningControlKind,
   normalizeReasoningEffort,
 } from '../model-options';
+import {
+  MODELS_BY_PROVIDER,
+  PROVIDER_DISPLAY_NAMES,
+} from '../model-provider-constants';
 import { type ComposerTurnConfig, createDefaultComposerConfig } from '../types';
 import { SettingsPopover } from './SettingsPopover';
 
@@ -117,25 +120,6 @@ const SIDEBAR_AUTO_COLLAPSE_WIDTH = 876;
 const LEFT_SIDEBAR_WIDTH = 288; // 18rem
 const BASE_APPROVAL_WIDTH = 600;
 const REASONING_OFFSET = 65;
-
-const PROVIDER_DISPLAY_NAMES: Record<ModelProviderId, string> = {
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-};
-
-const MODELS_BY_PROVIDER = (() => {
-  const openaiModels: ModelName[] = [];
-  const anthropicModels: ModelName[] = [];
-  for (const model of MODEL_OPTIONS) {
-    const provider = inferModelProviderId(model);
-    if (provider === 'anthropic') {
-      anthropicModels.push(model);
-    } else {
-      openaiModels.push(model);
-    }
-  }
-  return { openaiModels, anthropicModels };
-})();
 
 const isModelName = (value: string | null | undefined): value is ModelName =>
   value != null && MODEL_OPTIONS.includes(value as ModelName);
