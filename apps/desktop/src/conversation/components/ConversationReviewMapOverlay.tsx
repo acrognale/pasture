@@ -5,6 +5,7 @@ import { ReviewMapOverlay } from '~/review-map/ReviewMapOverlay';
 
 export type ConversationReviewMapOverlayProps = {
   conversationId: string;
+  workspacePath: string;
   open: boolean;
   onClose: () => void;
   selectedStepId: string | null;
@@ -13,6 +14,7 @@ export type ConversationReviewMapOverlayProps = {
 
 export function ConversationReviewMapOverlay({
   conversationId,
+  workspacePath,
   open,
   onClose,
   selectedStepId,
@@ -36,6 +38,7 @@ export function ConversationReviewMapOverlay({
     <ReviewMapOverlay
       onClose={onClose}
       conversationId={conversationId}
+      workspacePath={workspacePath}
       status={reviewMap.status}
       output={reviewMap.output}
       selectedStepId={selectedStepId}

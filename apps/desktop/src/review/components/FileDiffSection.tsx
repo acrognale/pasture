@@ -17,6 +17,7 @@ export type FileDiffSectionProps = {
   onDeleteComment: (id: string) => void;
   isActive: boolean;
   registerRef: (el: HTMLDivElement | null) => void;
+  focusLineRange?: { start: number; end: number } | null;
 };
 
 export function FileDiffSection({
@@ -27,14 +28,16 @@ export function FileDiffSection({
   onDeleteComment,
   isActive,
   registerRef,
+  focusLineRange,
 }: FileDiffSectionProps) {
   // Collapse state is local - resets when component remounts via key
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [userCollapsed, setUserCollapsed] = useState(false);
+  const isCollapsed = userCollapsed && !focusLineRange;
 
   const relativePath = makePathRelative(workspacePath, file.displayPath);
   const highlighting = useFileHighlighting(file);
 
-  const toggleCollapse = () => setIsCollapsed((prev) => !prev);
+  const toggleCollapse = () => setUserCollapsed((prev) => !prev);
 
   return (
     <div
@@ -58,6 +61,7 @@ export function FileDiffSection({
             highlighting={highlighting}
             commentsByLine={commentsByLine}
             onDeleteComment={onDeleteComment}
+            focusLineRange={focusLineRange}
           />
         ) : (
           <UnifiedDiffView
@@ -67,6 +71,7 @@ export function FileDiffSection({
             highlighting={highlighting}
             commentsByLine={commentsByLine}
             onDeleteComment={onDeleteComment}
+            focusLineRange={focusLineRange}
           />
         )
       ) : null}

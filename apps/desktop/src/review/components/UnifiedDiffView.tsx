@@ -14,6 +14,7 @@ export type UnifiedDiffViewProps = {
   highlighting: FileHighlighting;
   commentsByLine: Map<string, TurnReviewComment[]>;
   onDeleteComment: (id: string) => void;
+  focusLineRange?: { start: number; end: number } | null;
 };
 
 export function UnifiedDiffView({
@@ -23,6 +24,7 @@ export function UnifiedDiffView({
   highlighting,
   commentsByLine,
   onDeleteComment,
+  focusLineRange,
 }: UnifiedDiffViewProps) {
   const {
     draftTargetId,
@@ -56,6 +58,7 @@ export function UnifiedDiffView({
         >
           <VirtualizedHunk
             key={hunk.signature}
+            hunkId={hunk.id}
             rows={hunk.lines}
             renderRow={(line) => (
               <DiffLine
@@ -72,6 +75,7 @@ export function UnifiedDiffView({
                 onCancelDraft={cancelDraft}
                 onSubmitDraft={submitDraft}
                 onDeleteComment={onDeleteComment}
+                focusLineRange={focusLineRange}
               />
             )}
             getRowKey={(line) => line.id}

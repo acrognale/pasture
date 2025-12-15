@@ -46,7 +46,8 @@ export function dispatchOpenReviewOverlayEvent(
 export function dispatchOpenRepoReviewOverlayEvent(
   conversationId: string,
   params: RepoReviewOverlayParams,
-  fileDisplayPath?: string
+  fileDisplayPath?: string,
+  lineRange?: ReviewOverlayLineRange
 ) {
   if (typeof window === 'undefined') {
     return;
@@ -54,7 +55,13 @@ export function dispatchOpenRepoReviewOverlayEvent(
 
   window.dispatchEvent(
     new CustomEvent<OpenReviewOverlayDetail>(OPEN_REVIEW_OVERLAY_EVENT, {
-      detail: { conversationId, fileDisplayPath, mode: 'repo', repo: params },
+      detail: {
+        conversationId,
+        fileDisplayPath,
+        lineRange,
+        mode: 'repo',
+        repo: params,
+      },
     })
   );
 }

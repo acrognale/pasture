@@ -14,8 +14,7 @@ type TurnReviewPaneProps = {
   onClose?: () => void;
   focusFilePath?: string | null;
   focusLineRange?: { start: number; end: number } | null;
-  onFocusFilePathConsumed?: () => void;
-  onFocusLineRangeConsumed?: () => void;
+  focusRequestId?: number;
   rangeSelector?: ReactNode;
   emptyStateMessage?: string;
 };
@@ -29,8 +28,7 @@ export function TurnReviewPane({
   onClose,
   focusFilePath,
   focusLineRange,
-  onFocusFilePathConsumed,
-  onFocusLineRangeConsumed,
+  focusRequestId,
   rangeSelector = <RangeSelectorSection />,
   emptyStateMessage,
 }: TurnReviewPaneProps) {
@@ -137,8 +135,7 @@ export function TurnReviewPane({
         viewMode={viewMode}
         focusFilePath={focusFilePath}
         focusLineRange={focusLineRange}
-        onFocusFilePathConsumed={onFocusFilePathConsumed}
-        onFocusLineRangeConsumed={onFocusLineRangeConsumed}
+        focusRequestId={focusRequestId}
         emptyStateMessage={emptyStateMessage}
       />
     </div>

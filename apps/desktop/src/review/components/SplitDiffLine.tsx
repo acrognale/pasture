@@ -25,6 +25,7 @@ export type SplitDiffLineProps = {
   onCancelDraft: () => void;
   onSubmitDraft: () => boolean;
   onDeleteComment: (id: string) => void;
+  focusLineRange?: { start: number; end: number } | null;
 };
 
 export function SplitDiffLine({
@@ -41,6 +42,7 @@ export function SplitDiffLine({
   onCancelDraft,
   onSubmitDraft,
   onDeleteComment,
+  focusLineRange,
 }: SplitDiffLineProps) {
   const leftLine = row.left;
   const rightLine = row.right;
@@ -104,6 +106,7 @@ export function SplitDiffLine({
       <div className="flex gap-6 pl-4">
         <div className="flex-1 isolate">
           <DiffLineCell
+            filePath={filePath}
             line={leftLine}
             primaryLineNumber={leftLine?.oldNumber ?? null}
             cellClass={oldCellClass}
@@ -112,10 +115,13 @@ export function SplitDiffLine({
             tokens={leftIsEmpty ? undefined : highlighting.get(leftLine.id)}
             allowComment={leftAllowComment}
             onOpenDraft={handleOpenLeftDraft}
+            focusLineRange={focusLineRange}
+            lineNumberKind="old"
           />
         </div>
         <div className="flex-1 isolate">
           <DiffLineCell
+            filePath={filePath}
             line={rightLine}
             primaryLineNumber={rightLine?.newNumber ?? null}
             cellClass={newCellClass}
@@ -124,6 +130,8 @@ export function SplitDiffLine({
             tokens={rightIsEmpty ? undefined : highlighting.get(rightLine.id)}
             allowComment={rightAllowComment}
             onOpenDraft={handleOpenRightDraft}
+            focusLineRange={focusLineRange}
+            lineNumberKind="new"
           />
         </div>
       </div>

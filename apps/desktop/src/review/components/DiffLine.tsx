@@ -24,6 +24,7 @@ export type DiffLineProps = {
   onCancelDraft: () => void;
   onSubmitDraft: () => boolean;
   onDeleteComment: (id: string) => void;
+  focusLineRange?: { start: number; end: number } | null;
 };
 
 export function DiffLine({
@@ -40,6 +41,7 @@ export function DiffLine({
   onCancelDraft,
   onSubmitDraft,
   onDeleteComment,
+  focusLineRange,
 }: DiffLineProps) {
   const allowComment = line.kind === 'addition' || line.kind === 'removal';
 
@@ -50,12 +52,14 @@ export function DiffLine({
   return (
     <div className="pl-4">
       <DiffLineCell
+        filePath={filePath}
         line={line}
         tokens={tokens}
         primaryLineNumber={line.oldNumber ?? null}
         secondaryLineNumber={line.newNumber ?? null}
         allowComment={allowComment}
         onOpenDraft={handleOpenDraft}
+        focusLineRange={focusLineRange}
       />
       {comments.length > 0 || isDraftOpen ? (
         <div className="grid grid-cols-[30px_30px_4px_minmax(0,1fr)] items-start gap-x-2">

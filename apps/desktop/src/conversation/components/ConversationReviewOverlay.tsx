@@ -23,8 +23,7 @@ export type ConversationReviewOverlayProps = {
   onRequestFeedback: (prompt: string) => void;
   focusFilePath?: string | null;
   focusLineRange?: { start: number; end: number } | null;
-  onFocusFilePathConsumed?: () => void;
-  onFocusLineRangeConsumed?: () => void;
+  focusRequestId?: number;
 };
 
 export function ConversationReviewOverlay({
@@ -35,8 +34,7 @@ export function ConversationReviewOverlay({
   onRequestFeedback,
   focusFilePath,
   focusLineRange,
-  onFocusFilePathConsumed,
-  onFocusLineRangeConsumed,
+  focusRequestId,
 }: ConversationReviewOverlayProps) {
   const latestDiff = useConversationLatestTurnDiff(conversationId);
   const history = useConversationTurnDiffHistory(conversationId);
@@ -66,8 +64,7 @@ export function ConversationReviewOverlay({
               onClose={onClose}
               focusFilePath={focusFilePath}
               focusLineRange={focusLineRange}
-              onFocusFilePathConsumed={onFocusFilePathConsumed}
-              onFocusLineRangeConsumed={onFocusLineRangeConsumed}
+              focusRequestId={focusRequestId}
               emptyStateMessage="No thread diffs recorded for this thread yet."
             />
           </TurnReviewProvider>

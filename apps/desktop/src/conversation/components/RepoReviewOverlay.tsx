@@ -13,7 +13,8 @@ export type RepoReviewOverlayProps = {
   onClose: () => void;
   onRequestFeedback: (prompt: string) => void;
   focusFilePath?: string | null;
-  onFocusFilePathConsumed?: () => void;
+  focusLineRange?: { start: number; end: number } | null;
+  focusRequestId?: number;
 };
 
 export function RepoReviewOverlay({
@@ -23,7 +24,8 @@ export function RepoReviewOverlay({
   onClose,
   onRequestFeedback,
   focusFilePath,
-  onFocusFilePathConsumed,
+  focusLineRange,
+  focusRequestId,
 }: RepoReviewOverlayProps) {
   if (!open) {
     return null;
@@ -47,7 +49,8 @@ export function RepoReviewOverlay({
         onRequestFeedback={onRequestFeedback}
         onClose={onClose}
         focusFilePath={focusFilePath}
-        onFocusFilePathConsumed={onFocusFilePathConsumed}
+        focusLineRange={focusLineRange}
+        focusRequestId={focusRequestId}
       />
     </Suspense>
   );

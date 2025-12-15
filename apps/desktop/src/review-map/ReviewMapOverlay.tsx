@@ -8,11 +8,15 @@ import type {
 import { cn } from '@pasture/theme';
 import { useMemo, useState } from 'react';
 import { Button } from '~/components/ui/button';
-import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
+import {
+  dispatchOpenRepoReviewOverlayEvent,
+  dispatchOpenReviewOverlayEvent,
+} from '~/conversation/events';
 
 type ReviewMapOverlayProps = {
   onClose: () => void;
   conversationId: string;
+  workspacePath?: string;
   status: 'idle' | 'running' | 'complete';
   output: ReviewMapOutputEvent | null;
   selectedStepId: string | null;
@@ -38,6 +42,7 @@ function traceLabel(trace: ReviewMapTrace): string {
 export function ReviewMapOverlay({
   onClose,
   conversationId,
+  workspacePath,
   status,
   output,
   selectedStepId,
@@ -111,6 +116,32 @@ export function ReviewMapOverlay({
     });
   };
 
+  const openReview = (
+    fileDisplayPath?: string,
+    lineRange?: { start: number; end: number }
+  ) => {
+    // Review Map should target repo diffs (branch vs base) as canonical substrate.
+    // If we don't know workspacePath (older callers), fall back to turn diffs.
+    if (!workspacePath) {
+      dispatchOpenReviewOverlayEvent(conversationId, fileDisplayPath, lineRange);
+      return;
+    }
+
+    const defaultParams = {
+      workspacePath,
+      baseRef: 'main',
+      targetRef: 'HEAD',
+      includeWorktree: false,
+    } as const;
+
+    dispatchOpenRepoReviewOverlayEvent(
+      conversationId,
+      defaultParams,
+      fileDisplayPath,
+      lineRange
+    );
+  };
+
   return (
     <div
       data-review-map-pane="true"
@@ -154,7 +185,7 @@ export function ReviewMapOverlay({
             <Button
               type="button"
               variant="secondary"
-              onClick={() => dispatchOpenReviewOverlayEvent(conversationId)}
+              onClick={() => openReview()}
             >
               Open review
             </Button>
@@ -379,8 +410,7 @@ export function ReviewMapOverlay({
                                     size="sm"
                                     variant="secondary"
                                     onClick={() => {
-                                      dispatchOpenReviewOverlayEvent(
-                                        conversationId,
+                                      openReview(
                                         ref.file_path,
                                         ref.line_range ?? undefined
                                       );

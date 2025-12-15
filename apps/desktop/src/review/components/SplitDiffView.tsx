@@ -15,6 +15,7 @@ export type SplitDiffViewProps = {
   highlighting: FileHighlighting;
   commentsByLine: Map<string, TurnReviewComment[]>;
   onDeleteComment: (id: string) => void;
+  focusLineRange?: { start: number; end: number } | null;
 };
 
 export function SplitDiffView({
@@ -24,6 +25,7 @@ export function SplitDiffView({
   highlighting,
   commentsByLine,
   onDeleteComment,
+  focusLineRange,
 }: SplitDiffViewProps) {
   const {
     draftTargetId,
@@ -57,6 +59,7 @@ export function SplitDiffView({
         >
           <VirtualizedHunk
             key={hunk.signature}
+            hunkId={hunk.id}
             rows={hunk.rows}
             renderRow={(row) => (
               <SplitDiffLine
@@ -73,6 +76,7 @@ export function SplitDiffView({
                 onCancelDraft={cancelDraft}
                 onSubmitDraft={submitDraft}
                 onDeleteComment={onDeleteComment}
+                focusLineRange={focusLineRange}
               />
             )}
             getRowKey={(row) => row.id}

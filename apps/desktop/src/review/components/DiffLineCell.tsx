@@ -7,6 +7,7 @@ import type { HighlightedLine } from '../useFileHighlighting';
 import { HighlightedCode } from './HighlightedCode';
 
 export type DiffLineCellProps = {
+  filePath?: string;
   line: ParsedTurnDiffLine | null;
   primaryLineNumber: number | null;
   secondaryLineNumber?: number | null;
@@ -16,9 +17,12 @@ export type DiffLineCellProps = {
   allowComment: boolean;
   onOpenDraft: () => void;
   cellClass?: string;
+  focusLineRange?: { start: number; end: number } | null;
+  lineNumberKind?: 'old' | 'new' | 'both';
 };
 
 export function DiffLineCell({
+  filePath,
   line,
   primaryLineNumber,
   secondaryLineNumber,
@@ -28,6 +32,8 @@ export function DiffLineCell({
   allowComment,
   onOpenDraft,
   cellClass,
+  focusLineRange,
+  lineNumberKind = 'both',
 }: DiffLineCellProps) {
   const hasSecondaryColumn = secondaryLineNumber !== undefined;
   const resolvedPrefix = prefix ?? line?.prefix ?? null;
@@ -61,6 +67,22 @@ export function DiffLineCell({
       : 'grid-cols-[30px_4px_minmax(0,1fr)]'
   );
 
+  const isInRange = (value: number | null) => {
+    if (!focusLineRange || value == null) {
+      return false;
+    }
+    return value >= focusLineRange.start && value <= focusLineRange.end;
+  };
+
+  const isFocused =
+    lineNumberKind === 'old'
+      ? isInRange(primaryLineNumber)
+      : lineNumberKind === 'new'
+        ? isInRange(primaryLineNumber)
+        : secondaryLineNumber !== undefined
+          ? isInRange(secondaryLineNumber ?? null)
+          : isInRange(primaryLineNumber);
+
   const handleOpen = () => {
     if (line) {
       onOpenDraft();
@@ -68,7 +90,25 @@ export function DiffLineCell({
   };
 
   return (
-    <div className={gridTemplate}>
+    <div
+      className={gridTemplate}
+      data-diff-line="true"
+      data-diff-file-path={filePath}
+      data-diff-old-line={
+        lineNumberKind === 'old' || lineNumberKind === 'both'
+          ? primaryLineNumber ?? undefined
+          : lineNumberKind === 'new'
+            ? undefined
+            : undefined
+      }
+      data-diff-new-line={
+        lineNumberKind === 'new'
+          ? primaryLineNumber ?? undefined
+          : lineNumberKind === 'both'
+            ? secondaryLineNumber ?? undefined
+            : undefined
+      }
+    >
       <div className="select-none text-right font-mono text-transcript-micro text-muted-foreground leading-[20px]">
         {primaryLineNumber ?? ''}
       </div>
@@ -90,7 +130,8 @@ export function DiffLineCell({
         <pre
           className={cn(
             'm-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words px-2 font-mono text-transcript-code leading-[20px] pl-3',
-            cellTheme
+            cellTheme,
+            isFocused ? 'bg-accent/25 ring-1 ring-primary/60' : ''
           )}
           style={{ userSelect: 'contain' }}
           aria-label={ariaLabel}

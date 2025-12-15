@@ -35,6 +35,42 @@ const SIMPLE_UNIFIED_DIFF = [
 ].join('\n');
 
 describe('Turn review pane integration', () => {
+  it('focuses a file and highlights a requested line range', async () => {
+    const history: TranscriptTurnDiff[] = [
+      makeTurnDiff({
+        eventId: 'evt-1',
+        turnId: 'turn-1',
+        turnNumber: 1,
+        unifiedDiff: SIMPLE_UNIFIED_DIFF,
+      }),
+    ];
+    const latestDiff = history[0] ?? null;
+
+    renderWithProviders(
+      <TurnReviewProvider
+        conversationId="conversation-focus"
+        latestDiff={latestDiff}
+        history={history}
+      >
+        <TurnReviewPane
+          workspacePath={WORKSPACE_PATH}
+          focusFilePath="app/main.ts"
+          focusLineRange={{ start: 2, end: 3 }}
+          focusRequestId={1}
+        />
+      </TurnReviewProvider>
+    );
+
+    await waitFor(() => {
+      const highlighted = document.querySelector(
+        '[data-diff-line="true"][data-diff-new-line="2"] pre'
+      );
+      expect(highlighted).toBeTruthy();
+      expect((highlighted as HTMLElement).className).toContain('ring-primary/60');
+    });
+
+  });
+
   it('allows adding comments and submitting consolidated feedback', async () => {
     const history: TranscriptTurnDiff[] = [
       makeTurnDiff({

@@ -86,6 +86,7 @@ function ConversationPaneContent({
     string | null
   >(null);
   const [reviewMode, setReviewMode] = useState<'turn' | 'repo'>('turn');
+  const [reviewFocusRequestId, setReviewFocusRequestId] = useState(0);
   const [reviewFocusFilePath, setReviewFocusFilePath] = useState<string | null>(
     null
   );
@@ -576,6 +577,7 @@ function ConversationPaneContent({
       }
       setReviewFocusFilePath(event.detail.fileDisplayPath ?? null);
       setReviewFocusLineRange(event.detail.lineRange ?? null);
+      setReviewFocusRequestId((current) => current + 1);
       setIsReviewOpen(true);
     };
 
@@ -675,7 +677,8 @@ function ConversationPaneContent({
                     }}
                     onRequestFeedback={handleReviewFeedback}
                     focusFilePath={reviewFocusFilePath}
-                    onFocusFilePathConsumed={() => setReviewFocusFilePath(null)}
+                    focusLineRange={reviewFocusLineRange}
+                    focusRequestId={reviewFocusRequestId}
                   />
                 ) : (
                   <ConversationReviewOverlay
@@ -692,8 +695,7 @@ function ConversationPaneContent({
                     onRequestFeedback={handleReviewFeedback}
                     focusFilePath={reviewFocusFilePath}
                     focusLineRange={reviewFocusLineRange}
-                    onFocusFilePathConsumed={() => setReviewFocusFilePath(null)}
-                    onFocusLineRangeConsumed={() => setReviewFocusLineRange(null)}
+                    focusRequestId={reviewFocusRequestId}
                   />
                 )}
               </div>
@@ -720,6 +722,7 @@ function ConversationPaneContent({
               >
                 <ConversationReviewMapOverlay
                   conversationId={conversationId}
+                  workspacePath={workspacePath}
                   open={isReviewMapOpen}
                   onClose={() => setIsReviewMapOpen(false)}
                   selectedStepId={reviewMapSelectedStepId}

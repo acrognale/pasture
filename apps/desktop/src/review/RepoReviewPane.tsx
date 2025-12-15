@@ -12,7 +12,8 @@ type RepoReviewPaneProps = {
   onRequestFeedback?: (prompt: string) => void;
   onClose?: () => void;
   focusFilePath?: string | null;
-  onFocusFilePathConsumed?: () => void;
+  focusLineRange?: { start: number; end: number } | null;
+  focusRequestId?: number;
 };
 
 function toReviewId(params: GetRepoDiffParams): string {
@@ -28,7 +29,8 @@ export function RepoReviewPane({
   onRequestFeedback,
   onClose,
   focusFilePath,
-  onFocusFilePathConsumed,
+  focusLineRange,
+  focusRequestId,
 }: RepoReviewPaneProps) {
   const { rawDiff, query } = useRepoDiff(params);
 
@@ -71,7 +73,8 @@ export function RepoReviewPane({
         onClose={onClose}
         disabled={query.isPending}
         focusFilePath={focusFilePath}
-        onFocusFilePathConsumed={onFocusFilePathConsumed}
+        focusLineRange={focusLineRange}
+        focusRequestId={focusRequestId}
         emptyStateMessage={emptyStateMessage}
       />
     </TurnReviewProvider>

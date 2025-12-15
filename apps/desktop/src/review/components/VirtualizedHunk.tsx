@@ -13,15 +13,17 @@ type RenderRow<Row> = (row: Row, rowIndex: number) => ReactNode;
 type RowKeyGetter<Row> = (row: Row, rowIndex: number) => string | number;
 
 type VirtualizedHunkProps<Row> = {
+  hunkId: string;
   rows: readonly Row[];
   renderRow: RenderRow<Row>;
   getRowKey: RowKeyGetter<Row>;
 };
 
-const CHUNK_LENGTH = 25;
+export const VIRTUALIZED_HUNK_CHUNK_LENGTH = 25;
 const DEFAULT_CHUNK_HEIGHT = 18;
 
 type ChunkSectionProps<Row> = {
+  hunkId: string;
   chunk: readonly Row[];
   chunkIndex: number;
   offset: number;
@@ -34,6 +36,7 @@ type ChunkSectionProps<Row> = {
 };
 
 export function VirtualizedHunk<Row>({
+  hunkId,
   rows,
   renderRow,
   getRowKey,
@@ -44,7 +47,7 @@ export function VirtualizedHunk<Row>({
     [rows]
   );
   const chunkedRows = useMemo(
-    () => chunkRows(remainingRows, CHUNK_LENGTH),
+    () => chunkRows(remainingRows, VIRTUALIZED_HUNK_CHUNK_LENGTH),
     [remainingRows]
   );
   const chunkCount = chunkedRows.length;
@@ -98,9 +101,10 @@ export function VirtualizedHunk<Row>({
       {chunkedRows.map((chunk, chunkIndex) => (
         <ChunkSection
           key={`chunk-${chunkIndex}`}
+          hunkId={hunkId}
           chunk={chunk}
           chunkIndex={chunkIndex}
-          offset={1 + chunkIndex * CHUNK_LENGTH}
+          offset={1 + chunkIndex * VIRTUALIZED_HUNK_CHUNK_LENGTH}
           isVisible={chunkVisibility[chunkIndex] ?? false}
           measuredHeight={chunkHeights[chunkIndex]}
           onVisibilityChange={handleVisibilityChange}
@@ -114,6 +118,7 @@ export function VirtualizedHunk<Row>({
 }
 
 function ChunkSection<Row>({
+  hunkId,
   chunk,
   chunkIndex,
   offset,
@@ -161,16 +166,28 @@ function ChunkSection<Row>({
 
   if (!isVisible) {
     const placeholderHeight =
-      measuredHeight ?? CHUNK_LENGTH * DEFAULT_CHUNK_HEIGHT;
+      measuredHeight ??
+      VIRTUALIZED_HUNK_CHUNK_LENGTH * DEFAULT_CHUNK_HEIGHT;
     return (
-      <div ref={containerRef} aria-hidden="true" className="flex flex-col">
+      <div
+        ref={containerRef}
+        aria-hidden="true"
+        className="flex flex-col"
+        data-virtualized-hunk-id={hunkId}
+        data-virtualized-chunk-index={chunkIndex}
+      >
         <div style={{ height: placeholderHeight }} />
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="flex flex-col">
+    <div
+      ref={containerRef}
+      className="flex flex-col"
+      data-virtualized-hunk-id={hunkId}
+      data-virtualized-chunk-index={chunkIndex}
+    >
       <div ref={contentRef} className="flex flex-col">
         {chunk.map((row, index) => (
           <Fragment key={getRowKey(row, offset + index)}>
