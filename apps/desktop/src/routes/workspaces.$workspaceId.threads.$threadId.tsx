@@ -1,13 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { MessageCommentDraftProvider } from '~/conversation/comments/MessageCommentDraftContext';
 import { MessageCommentProvider } from '~/conversation/comments/MessageCommentContext';
 import { ConversationThreadPanel } from '~/conversation/panels/ConversationThreadPanel';
 import { ConversationPanelServicesProvider } from '~/conversation/panels/ConversationPanelServices';
 import { registerConversationPanels } from '~/conversation/panels/register';
-import { getConversationHostId } from '~/panels/host-ids';
+import { getConversationThreadHostId } from '~/panels/host-ids';
 import { usePanelManager } from '~/panels/PanelManagerProvider';
 import { PanelHost } from '~/panels/PanelHost';
 import { dockLayoutHasAnyTabs } from '~/panels/layout';
@@ -21,9 +21,8 @@ export const Route = createFileRoute('/workspaces/$workspaceId/threads/$threadId
   component: RouteComponent,
 });
 
-const DEFAULT_TOOLS_WIDTH = 420;
+const DEFAULT_TOOLS_WIDTH = 520;
 const MIN_TOOLS_WIDTH = 280;
-const MAX_TOOLS_WIDTH = 720;
 
 function RouteComponent() {
   const { workspaceId, threadId } = Route.useParams();
@@ -40,6 +39,7 @@ function RouteComponent() {
       try {
         setError(null);
         const existing = getThreadConversationId(threadId);
+        setConversationId(existing ?? null);
         const resolved = await loadThread(threadId, { force: !existing });
         const nextConversationId = resolved ?? getThreadConversationId(threadId);
         if (!cancelled && nextConversationId) {
@@ -101,44 +101,110 @@ function ThreadWithTools({
   conversationId: string;
   onConversationForked: (conversationId: string) => void;
 }) {
-  const hostId = useMemo(() => getConversationHostId(workspacePath), [workspacePath]);
-  const host = usePanelManager((state) => state.hosts[hostId] ?? null);
+  const hostId = useMemo(
+    () => getConversationThreadHostId(workspacePath, threadId),
+    [threadId, workspacePath]
+  );
+  const hasTools = usePanelManager(
+    useCallback(
+      (state) => dockLayoutHasAnyTabs(state.hosts[hostId]?.docks.utility.root ?? null),
+      [hostId]
+    )
+  );
 
-  const hasTools = dockLayoutHasAnyTabs(host?.docks.utility.root ?? null);
-
-  const storageKey = `pasture.tools.width:${workspacePath}`;
-  const [toolsWidth, setToolsWidth] = useState<number>(() => {
-    if (typeof window === 'undefined') return DEFAULT_TOOLS_WIDTH;
+  const storageKey = `pasture.tools.ratio:${workspacePath}`;
+  const legacyStorageKey = `pasture.tools.width:${workspacePath}`;
+  const [toolsRatio, setToolsRatio] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
     try {
       const stored = window.localStorage.getItem(storageKey);
-      const parsed = stored ? Number(stored) : NaN;
-      if (Number.isFinite(parsed)) {
-        return Math.max(MIN_TOOLS_WIDTH, Math.min(MAX_TOOLS_WIDTH, parsed));
+      const parsedRatio = stored ? Number(stored) : NaN;
+      if (Number.isFinite(parsedRatio) && parsedRatio > 0) {
+        return parsedRatio;
       }
     } catch {
       // ignore
     }
-    return DEFAULT_TOOLS_WIDTH;
+    return 0;
+  });
+
+  const [legacyToolsWidth] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const legacyStored = window.localStorage.getItem(legacyStorageKey);
+      const parsedWidth = legacyStored ? Number(legacyStored) : NaN;
+      if (Number.isFinite(parsedWidth) && parsedWidth > 0) {
+        return parsedWidth;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    return 0;
   });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const update = () => {
+      const rect = container.getBoundingClientRect();
+      setContainerWidth(rect.width);
+    };
+
+    update();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
+
+    const observer = new ResizeObserver(() => update());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  const effectiveToolsRatio = useMemo(() => {
+    if (toolsRatio > 0) return toolsRatio;
+    if (containerWidth && legacyToolsWidth) return legacyToolsWidth / containerWidth;
+    return 0;
+  }, [containerWidth, legacyToolsWidth, toolsRatio]);
+
+  const toolsWidth = useMemo(() => {
+    if (!containerWidth) return DEFAULT_TOOLS_WIDTH;
+    const ratio = effectiveToolsRatio > 0 ? effectiveToolsRatio : DEFAULT_TOOLS_WIDTH / containerWidth;
+    const next = containerWidth * ratio;
+    return Math.max(MIN_TOOLS_WIDTH, Math.min(containerWidth, next));
+  }, [containerWidth, effectiveToolsRatio]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     try {
-      window.localStorage.setItem(storageKey, String(toolsWidth));
+      if (effectiveToolsRatio > 0) {
+        window.localStorage.setItem(storageKey, String(effectiveToolsRatio));
+      }
     } catch {
       // ignore
     }
-  }, [storageKey, toolsWidth]);
+  }, [effectiveToolsRatio, storageKey]);
 
   const handleResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
+    const totalWidth = containerWidth || containerRef.current?.getBoundingClientRect().width || 0;
+    if (!totalWidth) return;
     const startX = event.clientX;
     const startWidth = toolsWidth;
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const dx = moveEvent.clientX - startX;
-      const next = Math.max(MIN_TOOLS_WIDTH, Math.min(MAX_TOOLS_WIDTH, startWidth + dx));
-      setToolsWidth(next);
+      const next = Math.max(MIN_TOOLS_WIDTH, startWidth + dx);
+      setToolsRatio(next / totalWidth);
     };
 
     const handleMouseUp = () => {
@@ -151,11 +217,12 @@ function ThreadWithTools({
   };
 
   return (
-    <div className="flex h-full w-full min-w-0">
+    <div ref={containerRef} className="flex h-full w-full min-w-0">
       {hasTools ? (
         <>
           <div className="min-w-0" style={{ width: toolsWidth }}>
             <PanelHost
+              key={hostId}
               hostId={hostId}
               dockId="utility"
               emptyState="No tools"

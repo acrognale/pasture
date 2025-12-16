@@ -50,7 +50,12 @@ export function ChangesSidebarHeader({
                 if (!conversationId) {
                   return;
                 }
-                openReviewTurn({ workspacePath, conversationId });
+                openReviewTurn({
+                  workspacePath,
+                  conversationId,
+                  threadId: null,
+                  threadTitle: null,
+                });
               }}
             >
               Review
