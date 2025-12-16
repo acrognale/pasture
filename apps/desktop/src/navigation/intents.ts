@@ -7,6 +7,7 @@ export type ReviewNavigationIntent = {
   mode: 'turn' | 'repo';
   repoParams?: GetRepoDiffParams;
   focusFilePath?: string | null;
+  threadTitle?: string | null;
 };
 
 export type ThreadSwitcherNavigationIntent = {
@@ -16,4 +17,3 @@ export type ThreadSwitcherNavigationIntent = {
 export type NavigationIntent =
   | ReviewNavigationIntent
   | ThreadSwitcherNavigationIntent;
-

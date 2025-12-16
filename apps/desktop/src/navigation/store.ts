@@ -21,12 +21,14 @@ export type NavigationActions = {
     workspacePath: string;
     conversationId: string;
     focusFilePath?: string | null;
+    threadTitle?: string | null;
   }) => void;
   openReviewRepo: (params: {
     workspacePath: string;
     conversationId: string;
     repoParams: ReviewNavigationIntent['repoParams'];
     focusFilePath?: string | null;
+    threadTitle?: string | null;
   }) => void;
 };
 
@@ -67,13 +69,19 @@ export function createNavigationStore(deps: NavigationDeps): NavigationStore {
         setThreadSwitcherOpen: (open) => {
           set({ threadSwitcherOpen: open });
         },
-        openReviewTurn: ({ workspacePath, conversationId, focusFilePath }) => {
+        openReviewTurn: ({
+          workspacePath,
+          conversationId,
+          focusFilePath,
+          threadTitle,
+        }) => {
           get().actions.navigate({
             target: 'review',
             workspacePath,
             conversationId,
             mode: 'turn',
             focusFilePath: focusFilePath ?? null,
+            threadTitle: threadTitle ?? null,
           });
         },
         openReviewRepo: ({
@@ -81,6 +89,7 @@ export function createNavigationStore(deps: NavigationDeps): NavigationStore {
           conversationId,
           repoParams,
           focusFilePath,
+          threadTitle,
         }) => {
           if (!repoParams) {
             return;
@@ -92,6 +101,7 @@ export function createNavigationStore(deps: NavigationDeps): NavigationStore {
             mode: 'repo',
             repoParams,
             focusFilePath: focusFilePath ?? null,
+            threadTitle: threadTitle ?? null,
           });
         },
       },
