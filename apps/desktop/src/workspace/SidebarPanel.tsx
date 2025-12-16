@@ -43,6 +43,8 @@ import {
   useNavigationActions,
   useNavigationStoreApi,
 } from '~/navigation/NavigationProvider';
+import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
+import { getConversationHostId, getConversationThreadHostId } from '~/panels/host-ids';
 import {
   useConversationIsRunning,
   useConversationLatestTurnDiff,
@@ -58,6 +60,7 @@ import { resolveSessionLabel } from '~/lib/workspaces';
 import { buildFileDiffStats, parseUnifiedDiff } from '~/review/diff';
 import { useRepoDiff } from '~/review/queries';
 import type { ParsedTurnDiffFile } from '~/review/types';
+import { makeRepoReviewKey, makeTurnReviewKey } from '~/review/reviewKeys';
 import { ChangesSidebarContent } from '~/workspace/components/ChangesSidebarContent';
 import { ChangesSidebarTreeContent } from '~/workspace/components/ChangesSidebarTreeContent';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
@@ -453,8 +456,46 @@ function ChangesSidebarSection({
   type ChangesView = 'list' | 'tree';
 
   const conversationLoadState = useConversationLoadState(conversationId ?? '');
-  const { openReviewRepo, openReviewTurn } = useNavigationActions();
+  const { openReviewTurn } = useNavigationActions();
   const navigationStore = useNavigationStoreApi();
+  const panelManagerStore = usePanelManagerStore();
+
+  const turnDiffHistory = useConversationTurnDiffHistory(conversationId ?? '');
+  const latestTurnDiff = useConversationLatestTurnDiff(conversationId ?? '');
+
+  const hostId = useMemo(() => {
+    if (threadId) {
+      return getConversationThreadHostId(workspacePath, threadId);
+    }
+    return getConversationHostId(workspacePath);
+  }, [threadId, workspacePath]);
+
+  const latestSnapshotEventId = useMemo(() => {
+    const entries = [...turnDiffHistory];
+    if (latestTurnDiff && !turnDiffHistory.includes(latestTurnDiff)) {
+      entries.push(latestTurnDiff);
+    }
+    entries.sort((a, b) => a.turnNumber - b.turnNumber);
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const turnId = entries[index]?.turnId ?? null;
+      if (turnId) {
+        return turnId;
+      }
+    }
+    return null;
+  }, [latestTurnDiff, turnDiffHistory]);
+
+  const buildCommentableLines = useCallback((file: ParsedTurnDiffFile): number[] => {
+    const lines = new Set<number>();
+    for (const hunk of file.hunks) {
+      for (const line of hunk.lines) {
+        if (line.kind === 'addition' && line.newNumber != null) {
+          lines.add(line.newNumber);
+        }
+      }
+    }
+    return [...lines].sort((a, b) => a - b);
+  }, []);
 
   const workspaceKey = normalizedWorkspacePath || workspacePath;
   const liveRangeStorageKey = `pasture.changes.liveRange:${workspaceKey}`;
@@ -792,23 +833,59 @@ function ChangesSidebarSection({
                       return;
                     }
                     if (mode === 'repo') {
-                      openReviewRepo({
+                      const repoParams = toRepoParams(liveRepoParams);
+                      const reviewKey = makeRepoReviewKey(repoParams);
+                      panelManagerStore.getState().actions.open(
+                        hostId,
+                        'editor',
+                        'conversation.reviewFile',
+                        {
+                          mode: 'repo',
+                          workspacePath,
+                          repoParams,
+                          reviewKey,
+                          filePath: file.displayPath,
+                          oldPath: file.oldPath,
+                          newPath: file.newPath,
+                          commentableLines: buildCommentableLines(file),
+                        },
+                        { dedupe: true }
+                      );
+                      return;
+                    }
+                    if (!latestSnapshotEventId) {
+                      openReviewTurn({
                         workspacePath,
                         conversationId,
                         threadId,
-                        repoParams: toRepoParams(liveRepoParams),
                         focusFilePath: file.displayPath,
                         threadTitle,
                       });
                       return;
                     }
-                    openReviewTurn({
-                      workspacePath,
+                    const reviewKey = makeTurnReviewKey({
                       conversationId,
-                      threadId,
-                      focusFilePath: file.displayPath,
-                      threadTitle,
+                      baseEventId: null,
+                      targetEventId: latestSnapshotEventId,
                     });
+                    panelManagerStore.getState().actions.open(
+                      hostId,
+                      'editor',
+                      'conversation.reviewFile',
+                      {
+                        mode: 'turn',
+                        workspacePath,
+                        conversationId,
+                        reviewKey,
+                        baseEventId: null,
+                        targetEventId: latestSnapshotEventId,
+                        filePath: file.displayPath,
+                        oldPath: file.oldPath,
+                        newPath: file.newPath,
+                        commentableLines: buildCommentableLines(file),
+                      },
+                      { dedupe: true }
+                    );
                   }}
                 />
               ) : (
@@ -866,23 +943,59 @@ function ChangesSidebarSection({
                       return;
                     }
                     if (mode === 'repo') {
-                      openReviewRepo({
+                      const repoParams = toRepoParams(liveRepoParams);
+                      const reviewKey = makeRepoReviewKey(repoParams);
+                      panelManagerStore.getState().actions.open(
+                        hostId,
+                        'editor',
+                        'conversation.reviewFile',
+                        {
+                          mode: 'repo',
+                          workspacePath,
+                          repoParams,
+                          reviewKey,
+                          filePath: file.displayPath,
+                          oldPath: file.oldPath,
+                          newPath: file.newPath,
+                          commentableLines: buildCommentableLines(file),
+                        },
+                        { dedupe: true }
+                      );
+                      return;
+                    }
+                    if (!latestSnapshotEventId) {
+                      openReviewTurn({
                         workspacePath,
                         conversationId,
                         threadId,
-                        repoParams: toRepoParams(liveRepoParams),
                         focusFilePath: file.displayPath,
                         threadTitle,
                       });
                       return;
                     }
-                    openReviewTurn({
-                      workspacePath,
+                    const reviewKey = makeTurnReviewKey({
                       conversationId,
-                      threadId,
-                      focusFilePath: file.displayPath,
-                      threadTitle,
+                      baseEventId: null,
+                      targetEventId: latestSnapshotEventId,
                     });
+                    panelManagerStore.getState().actions.open(
+                      hostId,
+                      'editor',
+                      'conversation.reviewFile',
+                      {
+                        mode: 'turn',
+                        workspacePath,
+                        conversationId,
+                        reviewKey,
+                        baseEventId: null,
+                        targetEventId: latestSnapshotEventId,
+                        filePath: file.displayPath,
+                        oldPath: file.oldPath,
+                        newPath: file.newPath,
+                        commentableLines: buildCommentableLines(file),
+                      },
+                      { dedupe: true }
+                    );
                   }}
                 />
               )}

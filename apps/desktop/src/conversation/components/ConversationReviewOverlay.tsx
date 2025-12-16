@@ -1,5 +1,7 @@
 import { TurnReviewProvider } from '~/review/TurnReviewContext';
 import { TurnReviewPane } from '~/review/TurnReviewPane';
+import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
+import { getConversationHostId } from '~/panels/host-ids';
 
 import {
   useConversationLatestTurnDiff,
@@ -25,6 +27,8 @@ export function ConversationReviewOverlay({
   focusFilePath,
   onFocusFilePathConsumed,
 }: ConversationReviewOverlayProps) {
+  const panelManagerStore = usePanelManagerStore();
+  const hostId = getConversationHostId(workspacePath);
   const latestDiff = useConversationLatestTurnDiff(conversationId);
   const history = useConversationTurnDiffHistory(conversationId);
 
@@ -43,6 +47,20 @@ export function ConversationReviewOverlay({
             focusFilePath={focusFilePath}
             onFocusFilePathConsumed={onFocusFilePathConsumed}
             emptyStateMessage="No thread diffs recorded for this thread yet."
+            mode="turn"
+            onOpenFile={(request) => {
+              panelManagerStore.getState().actions.open(
+                hostId,
+                'editor',
+                'conversation.reviewFile',
+                {
+                  ...request,
+                  workspacePath,
+                  conversationId,
+                },
+                { dedupe: true }
+              );
+            }}
           />
         </TurnReviewProvider>
       ) : null}

@@ -7,7 +7,9 @@ import type {
   ConversationEventPayload,
   CreateMessageCommentResponse,
   EventMsg,
+  GetRepoReviewFileContentsResponse,
   GetTurnDiffRangeResponse,
+  GetTurnReviewFileContentsResponse,
   HandoffConversationResponse,
   InitializeThreadResponse,
   InterruptConversationResponse,
@@ -173,6 +175,18 @@ const mockCodexNamespace = {
   getTurnDiffRange: defineStub(
     async (): Promise<GetTurnDiffRangeResponse> => ({
       unifiedDiff: '',
+    })
+  ),
+  getTurnReviewFileContents: defineStub(
+    async (): Promise<GetTurnReviewFileContentsResponse> => ({
+      baseText: '',
+      targetText: '',
+    })
+  ),
+  getRepoReviewFileContents: defineStub(
+    async (): Promise<GetRepoReviewFileContentsResponse> => ({
+      baseText: '',
+      targetText: '',
     })
   ),
   listMessageComments: defineStub<[], ListMessageCommentsResponse>(
