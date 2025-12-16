@@ -1,9 +1,12 @@
 import { DiffEditor } from '@monaco-editor/react';
 import type { GetRepoDiffParams } from '@pasture/protocol';
 import { useQuery } from '@tanstack/react-query';
+import { AlignJustifyIcon, Columns2Icon } from 'lucide-react';
 import type * as monaco from 'monaco-editor';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Codex } from '~/codex/client';
+import { Button } from '~/components/ui/button';
+import { cn } from '~/lib/utils';
 
 import { EMPTY_REVIEW_COMMENTS, useReviewComments } from './commentsStore';
 
@@ -137,6 +140,7 @@ export function ReviewFileDiffPane(
   );
   const [draftLineNumber, setDraftLineNumber] = useState<number | null>(null);
   const [editorVersion, setEditorVersion] = useState(0);
+  const [isSplitDiff, setIsSplitDiff] = useState(true);
 
   const actions = useReviewComments((state) => state.actions);
   const commentsForReviewKey = useReviewComments(
@@ -739,9 +743,49 @@ export function ReviewFileDiffPane(
             {props.commentableLines.length === 1 ? '' : 's'}
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {fileComments.length} comment{fileComments.length === 1 ? '' : 's'}
-        </p>
+        <div className="flex items-center justify-end gap-3">
+          <p className="text-xs text-muted-foreground">
+            {fileComments.length} comment{fileComments.length === 1 ? '' : 's'}
+          </p>
+          <div
+            role="group"
+            aria-label="Diff view"
+            className="shrink-0 flex items-center rounded-md border border-border/60 bg-muted/20 p-0.5"
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn(
+                'h-5 w-5 p-0',
+                !isSplitDiff
+                  ? 'bg-background text-foreground hover:bg-background'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-pressed={!isSplitDiff}
+              aria-label="Unified diff"
+              onClick={() => setIsSplitDiff(false)}
+            >
+              <AlignJustifyIcon className="size-3.5" />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn(
+                'h-5 w-5 p-0',
+                isSplitDiff
+                  ? 'bg-background text-foreground hover:bg-background'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+              aria-pressed={isSplitDiff}
+              aria-label="Split diff"
+              onClick={() => setIsSplitDiff(true)}
+            >
+              <Columns2Icon className="size-3.5" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -759,7 +803,7 @@ export function ReviewFileDiffPane(
             onMount={handleEditorMount}
             options={{
               readOnly: true,
-              renderSideBySide: true,
+              renderSideBySide: isSplitDiff,
               useInlineViewWhenSpaceIsLimited: false,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
