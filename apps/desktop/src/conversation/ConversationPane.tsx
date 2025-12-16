@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { HostLayout } from '~/panels/HostLayout';
@@ -40,9 +40,15 @@ type ConversationPaneProps = {
 
 function ConversationPaneContent({
   workspacePath,
-  conversationId,
+  conversationId: conversationIdProp,
   threadId,
 }: ConversationPaneProps) {
+  const [conversationId, setConversationId] = useState(conversationIdProp);
+
+  useEffect(() => {
+    setConversationId(conversationIdProp);
+  }, [conversationIdProp]);
+
   const hostId = useMemo(
     () => getConversationHostId(workspacePath),
     [workspacePath]
@@ -57,6 +63,7 @@ function ConversationPaneContent({
       conversationId,
       threadId,
       threadTitle: null,
+      onConversationForked: setConversationId,
     });
   }, [actions, conversationId, hostId, threadId, workspacePath]);
 

@@ -3,6 +3,8 @@ import {
   createFileRoute,
   useRouterState,
 } from '@tanstack/react-router';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Codex } from '~/codex/client';
@@ -15,7 +17,8 @@ import {
 import { ConversationProvider } from '~/conversation/store';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { NavigationProvider } from '~/navigation/NavigationProvider';
-import { PanelManagerProvider } from '~/panels/PanelManagerProvider';
+import { findActiveInstanceIdInDockLayout } from '~/panels/active-tab';
+import { PanelManagerProvider, usePanelManagerStore } from '~/panels/PanelManagerProvider';
 import { SettingsModal } from '~/settings/SettingsModal';
 import { WorkspaceProvider, useWorkspaceThreadConversationId } from '~/workspace';
 import { RecentConversationSwitcher } from '~/workspace/RecentConversationSwitcher';
@@ -59,6 +62,7 @@ function RouteComponent() {
 function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
   const [isResizing, setIsResizing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const panelManagerStore = usePanelManagerStore();
   const sidebarStorageKey = useMemo(
     () => `pasture.sidebar.width:${workspacePath}`,
     [workspacePath]
@@ -104,6 +108,72 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [clampSidebarWidth]);
+
+  useEffect(() => {
+    if (!isTauriEnvironment()) {
+      return;
+    }
+
+    const handleCloseRequested = async () => {
+      const active = typeof document !== 'undefined' ? document.activeElement : null;
+      const target = active instanceof Element ? active : null;
+      const panelHostElement = target?.closest?.(
+        '[data-panel-host-id][data-panel-dock-id]'
+      );
+
+      if (panelHostElement) {
+        const hostId = panelHostElement.getAttribute('data-panel-host-id');
+        const dockId = panelHostElement.getAttribute('data-panel-dock-id');
+
+        if (hostId && (dockId === 'editor' || dockId === 'utility')) {
+          const state = panelManagerStore.getState();
+          const host = state.hosts[hostId];
+          const dock = host?.docks[dockId] ?? null;
+
+          const instanceId = findActiveInstanceIdInDockLayout(
+            dock?.root ?? null,
+            dock?.focusedGroupId ?? null
+          );
+
+          if (instanceId) {
+            state.actions.close(hostId, instanceId);
+            return;
+          }
+        }
+      }
+
+      {
+        const state = panelManagerStore.getState();
+        const lastFocused = state.lastFocusedDock;
+        if (lastFocused) {
+          const host = state.hosts[lastFocused.hostId];
+          const dock = host?.docks[lastFocused.dockId] ?? null;
+          const instanceId = findActiveInstanceIdInDockLayout(
+            dock?.root ?? null,
+            dock?.focusedGroupId ?? null
+          );
+          if (instanceId) {
+            state.actions.close(lastFocused.hostId, instanceId);
+            return;
+          }
+        }
+      }
+
+      try {
+        await getCurrentWindow().close();
+      } catch (error) {
+        console.warn('Failed to close window after close request', error);
+      }
+    };
+
+    const unlistenPromise = listen('app:close-requested', () => {
+      void handleCloseRequested();
+    });
+
+    return () => {
+      void unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, [panelManagerStore]);
 
   const handleSidebarResizeStart = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {

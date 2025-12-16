@@ -85,6 +85,7 @@ export type PanelManagerActions = {
 
 export type PanelManagerState = {
   hosts: Record<HostId, HostState>;
+  lastFocusedDock: { hostId: HostId; dockId: DockId } | null;
   actions: PanelManagerActions;
 };
 
@@ -178,6 +179,7 @@ function replaceGroup(
 export const createPanelManagerStore = (): PanelManagerStore =>
   createStore<PanelManagerState>((set, get) => ({
     hosts: {},
+    lastFocusedDock: null,
     actions: {
       ensureHost: (hostId) => {
         const state = get();
@@ -249,10 +251,12 @@ export const createPanelManagerStore = (): PanelManagerStore =>
                 activeTabId: instanceId,
               };
               dock.focusedGroupId = groupId;
+              draft.lastFocusedDock = { hostId, dockId };
             } else if (dock.root.type === 'group') {
               dock.root.tabs.push(instanceId);
               dock.root.activeTabId = instanceId;
               dock.focusedGroupId = dock.root.groupId;
+              draft.lastFocusedDock = { hostId, dockId };
             } else {
               const focusedGroup =
                 (dock.focusedGroupId
@@ -270,6 +274,7 @@ export const createPanelManagerStore = (): PanelManagerStore =>
                 };
               });
               dock.focusedGroupId = focusedGroup.groupId;
+              draft.lastFocusedDock = { hostId, dockId };
             }
 
             draftHost.instances[instanceId] = {
@@ -354,6 +359,7 @@ export const createPanelManagerStore = (): PanelManagerStore =>
                 return { ...candidate, activeTabId: instanceId };
               });
               dock.focusedGroupId = group.groupId;
+              draft.lastFocusedDock = { hostId, dockId };
             }
           })
         );
@@ -368,6 +374,7 @@ export const createPanelManagerStore = (): PanelManagerStore =>
             const group = findGroupById(dock.root, groupId);
             if (!group) return;
             dock.focusedGroupId = groupId;
+            draft.lastFocusedDock = { hostId, dockId };
           })
         );
       },

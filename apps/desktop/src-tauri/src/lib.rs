@@ -34,6 +34,7 @@ use codex_core::read_thread_backend::set_read_thread_backend;
 use codex_protocol::protocol::SessionSource;
 use symbol_index::SymbolIndexManager;
 use tauri::Manager;
+use tauri::RunEvent;
 use thread_search::ThreadSearchManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -166,6 +167,27 @@ pub fn run() {
         .on_menu_event(|app, event| {
             menu::handle_menu_event(app, event);
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| match event {
+            RunEvent::ExitRequested { api, .. } => {
+                // Match native macOS behavior: closing the last window does not quit the app.
+                // This also keeps multi-window close actions from terminating the entire process.
+                if app_handle.webview_windows().is_empty() {
+                    api.prevent_exit();
+                }
+            }
+            #[cfg(target_os = "macos")]
+            RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } => {
+                if !has_visible_windows {
+                    if let Err(err) = menu::open_new_window(app_handle) {
+                        log::error!("Failed to open new window on reopen: {}", err);
+                    }
+                }
+            }
+            _ => {}
+        });
 }
