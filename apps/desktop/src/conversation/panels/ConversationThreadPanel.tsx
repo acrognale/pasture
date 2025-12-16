@@ -340,6 +340,7 @@ export function ConversationThreadPanel({
           workspacePath,
           conversationId: resolvedConversationId ?? newConversationId,
           threadId: newThreadId,
+          threadTitle: title,
         });
       })();
     },

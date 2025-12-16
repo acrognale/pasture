@@ -140,10 +140,11 @@ export function WorkspaceConversationSwitcher() {
           workspacePath,
           conversationId,
           threadId,
+          threadTitle: threads.items.find((item) => item.threadId === threadId)?.title ?? null,
         });
       })();
     },
-    [loadThread, panelManagerStore, setThreadSwitcherOpen, workspacePath]
+    [loadThread, panelManagerStore, setThreadSwitcherOpen, threads.items, workspacePath]
   );
 
   const renderSearchSnippet = useCallback((hit: ThreadSearchHit) => {
