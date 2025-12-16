@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useMemo } from 'react';
 import { useStore } from 'zustand';
 
 import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
-import { useWorkspaceActions } from '~/workspace';
+import { getConversationHostId } from '~/panels/host-ids';
 
 import type { ReviewNavigationIntent } from './intents';
 import type { NavigationActions, NavigationStore } from './store';
@@ -12,15 +12,11 @@ import { createNavigationStore } from './store';
 const NavigationContext = createContext<NavigationStore | null>(null);
 
 export function NavigationProvider({ children }: PropsWithChildren) {
-  const workspaceActions = useWorkspaceActions();
   const panelManagerStore = usePanelManagerStore();
 
   const openReview = useCallback(
     (intent: ReviewNavigationIntent) => {
-      const threadId = workspaceActions.getThreadIdForConversation(
-        intent.conversationId
-      );
-      const hostId = `conversation:${intent.workspacePath}:${threadId ?? intent.conversationId}`;
+      const hostId = getConversationHostId(intent.workspacePath);
 
       const focusFilePath = intent.focusFilePath ?? null;
 
@@ -55,7 +51,7 @@ export function NavigationProvider({ children }: PropsWithChildren) {
         { reveal: { focusFilePath } }
       );
     },
-    [panelManagerStore, workspaceActions]
+    [panelManagerStore]
   );
 
   const store = useMemo(

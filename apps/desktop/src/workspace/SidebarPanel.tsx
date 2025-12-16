@@ -2,7 +2,6 @@ import type { NewThreadResponse } from '@pasture/protocol';
 import type { ThreadSummary } from '@pasture/protocol';
 import type { GetRepoDiffParams } from '@pasture/protocol';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter, useRouterState } from '@tanstack/react-router';
 import {
   ChevronDownIcon,
   FolderTreeIcon,
@@ -14,7 +13,7 @@ import {
   XIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FocusEvent } from 'react';
+import type { FocusEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
@@ -51,7 +50,6 @@ import {
 } from '~/conversation/store/hooks';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
-import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { cn, makePathRelative } from '~/lib/utils';
 import { resolveSessionLabel } from '~/lib/workspaces';
@@ -60,12 +58,15 @@ import { useRepoDiff } from '~/review/queries';
 import { ChangesSidebarContent } from '~/workspace/components/ChangesSidebarContent';
 import { ChangesSidebarTreeContent } from '~/workspace/components/ChangesSidebarTreeContent';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
+import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
+import type { DockLayoutNode } from '~/panels/types';
+import { getConversationHostId } from '~/panels/host-ids';
+import { useActiveConversationSelection } from '~/panels/conversation-selection';
 
 import {
   useWorkspace,
   useWorkspaceActions,
   useWorkspaceKeys,
-  useWorkspaceThreadConversationId,
 } from './WorkspaceProvider';
 import {
   type WorkspaceThreadsState,
@@ -77,27 +78,17 @@ export function SidebarPanel({
 }: {
   onOpenSettings?: () => void;
 }) {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
   const { openThreadSwitcher } = useNavigationActions();
+  const panelManagerStore = usePanelManagerStore();
   const keys = useWorkspaceKeys();
   const threads = useOpenWorkspaceThreads();
-  const { closeThread } = useWorkspaceActions();
+  const { closeThread, loadThread } = useWorkspaceActions();
   const now = useNow();
-  const threadMatch = useRouterState({
-    select: (state) =>
-      state.matches.find(
-        (match) =>
-          match.routeId === '/workspaces/$workspaceId/threads/$threadId'
-      ),
-  });
-  const activeThreadId =
-    typeof threadMatch?.params?.threadId === 'string'
-      ? threadMatch.params.threadId
-      : null;
-
-  const activeConversationId = useWorkspaceThreadConversationId(activeThreadId);
+  const active = useActiveConversationSelection(workspacePath);
+  const activeThreadId = active.threadId;
+  const activeConversationId = active.conversationId;
 
   const sessions: ThreadSummary[] = useMemo(
     () => threads.items ?? [],
@@ -107,59 +98,73 @@ export function SidebarPanel({
     threads.query.error instanceof Error ? threads.query.error : null;
 
   const handleThreadClick = useCallback(
-    (threadId: string) => {
-      void router.navigate({
-        to: '/workspaces/$workspaceId/threads/$threadId',
-        params: {
-          workspaceId: encodeWorkspaceId(workspacePath),
-          threadId,
-        },
-      });
-    },
-    [router, workspacePath]
-  );
+    (threadId: string, event: ReactMouseEvent<HTMLButtonElement>) => {
+      void (async () => {
+        const conversationId = await loadThread(threadId);
+        if (!conversationId) {
+          return;
+        }
 
-  const navigateToThread = useCallback(
-    (threadId: string) => {
-      void router.navigate({
-        to: '/workspaces/$workspaceId/threads/$threadId',
-        params: {
-          workspaceId: encodeWorkspaceId(workspacePath),
+        const hostId = getConversationHostId(workspacePath);
+        const state = panelManagerStore.getState();
+        const host = state.hosts[hostId] ?? null;
+        const editorDock = host?.docks.editor ?? null;
+        const root = editorDock?.root ?? null;
+
+        const findFirstGroupId = (node: DockLayoutNode | null): string | null => {
+          if (!node) return null;
+          if (node.type === 'group') return node.groupId;
+          for (const child of node.children) {
+            const found = findFirstGroupId(child);
+            if (found) return found;
+          }
+          return null;
+        };
+
+        const groupId =
+          editorDock?.focusedGroupId ??
+          (root?.type === 'group' ? root.groupId : findFirstGroupId(root));
+
+        if (event.shiftKey && groupId) {
+          state.actions.splitGroup(hostId, 'editor', groupId, 'row', {
+            move: 'none',
+          });
+        }
+
+        state.actions.open(hostId, 'editor', 'conversation.thread', {
+          workspacePath,
+          conversationId,
           threadId,
-        },
-      });
+        });
+      })();
     },
-    [router, workspacePath]
+    [loadThread, panelManagerStore, workspacePath]
   );
 
   const handleCloseThread = useCallback(
     (threadId: string) => {
       closeThread(threadId);
 
-      if (activeThreadId === threadId) {
-        const nextThread = sessions.find(
-          (session: ThreadSummary) => session.threadId !== threadId
-        );
-        if (nextThread) {
-          navigateToThread(nextThread.threadId);
-        } else {
-          void router.navigate({
-            to: '/workspaces/$workspaceId',
-            params: {
-              workspaceId: encodeWorkspaceId(workspacePath),
-            },
-          });
-        }
+      const hostId = getConversationHostId(workspacePath);
+      const state = panelManagerStore.getState();
+      const host = state.hosts[hostId];
+      if (!host) {
+        return;
+      }
+
+      const instanceIds = Object.values(host.instances)
+        .filter((instance) => instance.kindId === 'conversation.thread')
+        .filter((instance) => {
+          const params = instance.params as { threadId?: unknown };
+          return params.threadId === threadId;
+        })
+        .map((instance) => instance.instanceId);
+
+      for (const instanceId of instanceIds) {
+        state.actions.close(hostId, instanceId);
       }
     },
-    [
-      activeThreadId,
-      closeThread,
-      navigateToThread,
-      router,
-      sessions,
-      workspacePath,
-    ]
+    [closeThread, panelManagerStore, workspacePath]
   );
 
   const newThreadMutation = useMutation({
@@ -197,13 +202,16 @@ export function SidebarPanel({
         }
       );
 
-      void router.navigate({
-        to: '/workspaces/$workspaceId/threads/$threadId',
-        params: {
-          workspaceId: encodeWorkspaceId(workspacePath),
+      void (async () => {
+        const conversationId = await loadThread(data.threadId, { force: true });
+        if (!conversationId) return;
+        const hostId = getConversationHostId(workspacePath);
+        panelManagerStore.getState().actions.open(hostId, 'editor', 'conversation.thread', {
+          workspacePath,
+          conversationId,
           threadId: data.threadId,
-        },
-      });
+        });
+      })();
     },
     onError: (error: Error) => {
       const description =
@@ -911,7 +919,7 @@ type SidebarConversationMenuItemProps = {
   session: ThreadSummary;
   isActive: boolean;
   now: Date;
-  onSelect: (threadId: string) => void;
+  onSelect: (threadId: string, event: ReactMouseEvent<HTMLButtonElement>) => void;
   onClose: (threadId: string) => void;
 };
 
@@ -974,7 +982,7 @@ function SidebarConversationMenuItem({
   const menuButton = (
     <SidebarMenuButton
       type="button"
-      onClick={() => onSelect(session.threadId)}
+      onClick={(event) => onSelect(session.threadId, event)}
       isActive={isActive}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

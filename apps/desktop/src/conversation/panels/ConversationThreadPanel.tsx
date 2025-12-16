@@ -1,5 +1,4 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -11,8 +10,9 @@ import type { HandoffCommandResult } from '~/composer/slash-commands';
 import { useMessageComments } from '~/conversation/comments/MessageCommentContext';
 import { buildMessageCommentsPrompt } from '~/conversation/comments/utils';
 import { useNamedShortcut } from '~/keyboard/hooks';
-import { encodeWorkspaceId } from '~/lib/routing';
 import { copyToClipboard } from '~/lib/utils';
+import { getConversationHostId } from '~/panels/host-ids';
+import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
 import {
   sortThreadsByTimestamp,
   useWorkspaceActions,
@@ -53,10 +53,10 @@ export function ConversationThreadPanel({
   onConversationForked,
 }: ConversationThreadPanelParams) {
   const services = useConversationPanelServices();
-  const router = useRouter();
   const queryClient = useQueryClient();
   const keys = useWorkspaceKeys();
-  const { getConversationStore, markThreadOpen } = useWorkspaceActions();
+  const panelManagerStore = usePanelManagerStore();
+  const { getConversationStore, loadThread, markThreadOpen } = useWorkspaceActions();
   const { interruptConversation, isPending: interruptPending } =
     useInterruptConversation(conversationId);
 
@@ -333,21 +333,24 @@ export function ConversationThreadPanel({
 
       setHandoffDraft(newThreadId, composerDraft);
 
-      void router.navigate({
-        to: '/workspaces/$workspaceId/threads/$threadId',
-        params: {
-          workspaceId: encodeWorkspaceId(workspacePath),
+      void (async () => {
+        const resolvedConversationId = await loadThread(newThreadId, { force: true });
+        const hostId = getConversationHostId(workspacePath);
+        panelManagerStore.getState().actions.open(hostId, 'editor', 'conversation.thread', {
+          workspacePath,
+          conversationId: resolvedConversationId ?? newConversationId,
           threadId: newThreadId,
-        },
-      });
+        });
+      })();
     },
     [
+      loadThread,
       conversationId,
       getConversationStore,
       keys,
       markThreadOpen,
+      panelManagerStore,
       queryClient,
-      router,
       workspacePath,
     ]
   );

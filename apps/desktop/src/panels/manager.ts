@@ -66,7 +66,7 @@ export type PanelManagerActions = {
     dockId: DockId,
     groupId: PanelGroupId,
     direction: SplitDirection,
-    options?: { ratio?: number; move?: 'active' | 'all' }
+    options?: { ratio?: number; move?: 'active' | 'all' | 'none' }
   ) => PanelGroupId;
   resizeDockSplit: (
     hostId: HostId,
