@@ -28,8 +28,17 @@ export function registerConversationPanels() {
     kindId: 'conversation.review',
     scope: 'conversation',
     title: (params) => {
-      const p = params as { mode?: 'turn' | 'repo' };
-      return p.mode === 'repo' ? 'Review (Repo)' : 'Review';
+      const p = params as {
+        mode?: 'turn' | 'repo';
+        threadTitle?: string | null;
+        repoParams?: { includeWorktree?: boolean };
+      };
+      if (p.mode === 'repo') {
+        const label = p.repoParams?.includeWorktree ? 'Working tree' : 'Branch';
+        return `Review — ${label}`;
+      }
+      const title = typeof p.threadTitle === 'string' ? p.threadTitle.trim() : '';
+      return `Review — ${title.length > 0 ? title : 'Untitled thread'}`;
     },
     dedupeKey: (params) => {
       const p = params as {

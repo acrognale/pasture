@@ -21,6 +21,7 @@ import { createDefaultComposerConfig } from '~/composer/types';
 import { useConversationTranscriptTurns } from '~/conversation/store/hooks';
 import { copyToClipboard } from '~/lib/utils';
 import { formatWorkspaceLabel } from '~/lib/workspaces';
+import { useNavigationActions } from '~/navigation/NavigationProvider';
 import { useWorkspaceActions, useWorkspaceThreads } from '~/workspace';
 
 type WorkspaceTopBarProps = {
@@ -37,6 +38,7 @@ export function WorkspaceTopBar({
   hasActiveThread = false,
 }: WorkspaceTopBarProps) {
   const { open } = useSidebar();
+  const { openReviewTurn } = useNavigationActions();
   const { getThreadIdForConversation } = useWorkspaceActions();
   const { items: threads } = useWorkspaceThreads();
   const { turns, turnOrder } = useConversationTranscriptTurns(
@@ -74,6 +76,11 @@ export function WorkspaceTopBar({
 
   const canShare =
     Boolean(activeConversationId) && turnOrder && turnOrder.length > 0;
+
+  const activeThreadTitle = useMemo(() => {
+    if (!activeThreadId) return null;
+    return threads.find((item) => item.threadId === activeThreadId)?.title ?? null;
+  }, [activeThreadId, threads]);
 
   const { query: composerQuery } = useComposerConfig(
     workspacePath,
@@ -168,23 +175,42 @@ export function WorkspaceTopBar({
             data-tauri-drag-region="true"
           >
             {hasActiveThread ? (
-              <button
-                type="button"
-                className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition ${
-                  canShare
-                    ? 'font-semibold text-foreground hover:bg-accent/60'
-                    : 'text-muted-foreground cursor-default'
-                }`}
-                onClick={() => {
-                  if (canShare && !isSharing) {
-                    setConfirmShareOpen(true);
-                  }
-                }}
-                disabled={!canShare || isSharing}
-              >
-                <Upload className="h-4 w-4" />
-                {isSharing ? 'Sharing…' : 'Share'}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-accent/60"
+                  onClick={() => {
+                    if (!activeConversationId) {
+                      return;
+                    }
+                    openReviewTurn({
+                      workspacePath,
+                      conversationId: activeConversationId,
+                      threadTitle: activeThreadTitle,
+                    });
+                  }}
+                  disabled={!activeConversationId}
+                >
+                  Review
+                </button>
+                <button
+                  type="button"
+                  className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition ${
+                    canShare
+                      ? 'font-semibold text-foreground hover:bg-accent/60'
+                      : 'text-muted-foreground cursor-default'
+                  }`}
+                  onClick={() => {
+                    if (canShare && !isSharing) {
+                      setConfirmShareOpen(true);
+                    }
+                  }}
+                  disabled={!canShare || isSharing}
+                >
+                  <Upload className="h-4 w-4" />
+                  {isSharing ? 'Sharing…' : 'Share'}
+                </button>
+              </>
             ) : null}
           </div>
         </div>

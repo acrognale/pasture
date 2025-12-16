@@ -15,12 +15,14 @@ export type ConversationReviewPanelParams =
       mode: 'turn';
       workspacePath: string;
       conversationId: string;
+      threadTitle?: string | null;
     }
   | {
       mode: 'repo';
       workspacePath: string;
       conversationId: string;
       repoParams: GetRepoDiffParams;
+      threadTitle?: string | null;
     };
 
 type ReviewReveal = {
@@ -49,6 +51,7 @@ export function ConversationReviewPanel() {
         onClose={runtime.close}
         focusFilePath={focusFilePath}
         onFocusFilePathConsumed={runtime.consumeReveal}
+        headerSubtitle={params.threadTitle ?? null}
       />
     );
   }
@@ -68,6 +71,7 @@ export function ConversationReviewPanel() {
         focusFilePath={focusFilePath}
         onFocusFilePathConsumed={runtime.consumeReveal}
         emptyStateMessage="No thread diffs recorded for this thread yet."
+        headerSubtitle={params.threadTitle ?? null}
       />
     </TurnReviewProvider>
   );

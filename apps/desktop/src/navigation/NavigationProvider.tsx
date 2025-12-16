@@ -19,6 +19,7 @@ export function NavigationProvider({ children }: PropsWithChildren) {
       const hostId = getConversationHostId(intent.workspacePath);
 
       const focusFilePath = intent.focusFilePath ?? null;
+      const threadTitle = intent.threadTitle ?? null;
 
       if (intent.mode === 'repo') {
         if (!intent.repoParams) {
@@ -33,6 +34,7 @@ export function NavigationProvider({ children }: PropsWithChildren) {
             workspacePath: intent.workspacePath,
             conversationId: intent.conversationId,
             repoParams: intent.repoParams,
+            threadTitle,
           },
           { reveal: { focusFilePath } }
         );
@@ -47,6 +49,7 @@ export function NavigationProvider({ children }: PropsWithChildren) {
           mode: 'turn',
           workspacePath: intent.workspacePath,
           conversationId: intent.conversationId,
+          threadTitle,
         },
         { reveal: { focusFilePath } }
       );
