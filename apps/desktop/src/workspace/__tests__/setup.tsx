@@ -6,6 +6,7 @@ import {
   SidebarProvider,
 } from '~/components/ui/sidebar';
 import { ConversationProvider } from '~/conversation/store';
+import { NavigationProvider } from '~/navigation/NavigationProvider';
 import { renderWithProviders } from '~/testing/harness';
 import { WorkspaceProvider, useWorkspaceActions } from '~/workspace';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
@@ -68,16 +69,18 @@ export const renderSidebarPanel = (options: RenderSidebarOptions = {}) => {
 
   return renderWithProviders(
     <WorkspaceProvider workspacePath={workspacePath}>
-      <ConversationProvider workspacePath={workspacePath}>
-        <SidebarProvider>
-          <Sidebar collapsible="none">
-            <SidebarContent>
-              <OpenConversationsInitializer threadIds={openThreadIds} />
-              <SidebarPanel />
-            </SidebarContent>
-          </Sidebar>
-        </SidebarProvider>
-      </ConversationProvider>
+      <NavigationProvider>
+        <ConversationProvider workspacePath={workspacePath}>
+          <SidebarProvider>
+            <Sidebar collapsible="none">
+              <SidebarContent>
+                <OpenConversationsInitializer threadIds={openThreadIds} />
+                <SidebarPanel />
+              </SidebarContent>
+            </Sidebar>
+          </SidebarProvider>
+        </ConversationProvider>
+      </NavigationProvider>
     </WorkspaceProvider>
   );
 };

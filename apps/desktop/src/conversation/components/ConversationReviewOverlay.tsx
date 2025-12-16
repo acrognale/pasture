@@ -1,19 +1,10 @@
-import { Suspense, lazy } from 'react';
-import { Skeleton } from '~/components/ui/skeleton';
+import { TurnReviewProvider } from '~/review/TurnReviewContext';
+import { TurnReviewPane } from '~/review/TurnReviewPane';
 
 import {
   useConversationLatestTurnDiff,
   useConversationTurnDiffHistory,
 } from '../store/hooks';
-
-const TurnReviewPane = lazy(() =>
-  import('~/review/TurnReviewPane').then((m) => ({ default: m.TurnReviewPane }))
-);
-const TurnReviewProvider = lazy(() =>
-  import('~/review/TurnReviewContext').then((m) => ({
-    default: m.TurnReviewProvider,
-  }))
-);
 
 export type ConversationReviewOverlayProps = {
   conversationId: string;
@@ -40,32 +31,20 @@ export function ConversationReviewOverlay({
   return (
     <>
       {open ? (
-        <Suspense
-          fallback={
-            <div className="flex h-full w-full items-center justify-center">
-              <div className="w-full max-w-2xl space-y-4 p-6">
-                <Skeleton className="h-8 w-48" />
-                <Skeleton className="h-64 w-full" />
-                <Skeleton className="h-64 w-full" />
-              </div>
-            </div>
-          }
+        <TurnReviewProvider
+          conversationId={conversationId}
+          latestDiff={latestDiff}
+          history={history}
         >
-          <TurnReviewProvider
-            conversationId={conversationId}
-            latestDiff={latestDiff}
-            history={history}
-          >
-            <TurnReviewPane
-              workspacePath={workspacePath}
-              onRequestFeedback={onRequestFeedback}
-              onClose={onClose}
-              focusFilePath={focusFilePath}
-              onFocusFilePathConsumed={onFocusFilePathConsumed}
-              emptyStateMessage="No thread diffs recorded for this thread yet."
-            />
-          </TurnReviewProvider>
-        </Suspense>
+          <TurnReviewPane
+            workspacePath={workspacePath}
+            onRequestFeedback={onRequestFeedback}
+            onClose={onClose}
+            focusFilePath={focusFilePath}
+            onFocusFilePathConsumed={onFocusFilePathConsumed}
+            emptyStateMessage="No thread diffs recorded for this thread yet."
+          />
+        </TurnReviewProvider>
       ) : null}
     </>
   );

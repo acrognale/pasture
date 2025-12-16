@@ -18,12 +18,10 @@ import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { cn } from '~/lib/utils';
 import { formatSessionPreview, resolveSessionLabel } from '~/lib/workspaces';
+import { useNavigation, useNavigationActions } from '~/navigation/NavigationProvider';
 
 import { useWorkspace } from './WorkspaceProvider';
 import { useWorkspaceThreads } from './hooks/useWorkspaceThreads';
-
-export const OPEN_WORKSPACE_THREAD_SWITCHER_EVENT =
-  'workspace-thread-switcher-open';
 
 type ThreadRowData = {
   threadId: string;
@@ -74,7 +72,8 @@ const ThreadRow = memo(function ThreadRow({ thread, now }: ThreadRowProps) {
 });
 
 export function WorkspaceConversationSwitcher() {
-  const [open, setOpen] = useState(false);
+  const open = useNavigation((state) => state.threadSwitcherOpen);
+  const { openThreadSwitcher, setThreadSwitcherOpen } = useNavigationActions();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const router = useRouter();
@@ -96,24 +95,8 @@ export function WorkspaceConversationSwitcher() {
   );
 
   const handleOpen = useCallback(() => {
-    setOpen(true);
-    return true;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const handleEvent = () => setOpen(true);
-    window.addEventListener(OPEN_WORKSPACE_THREAD_SWITCHER_EVENT, handleEvent);
-    return () => {
-      window.removeEventListener(
-        OPEN_WORKSPACE_THREAD_SWITCHER_EVENT,
-        handleEvent
-      );
-    };
-  }, []);
+    return openThreadSwitcher();
+  }, [openThreadSwitcher]);
 
   useNamedShortcut('workspace.openThreadSwitcher', undefined, handleOpen);
 
@@ -149,7 +132,7 @@ export function WorkspaceConversationSwitcher() {
 
   const handleSelectConversation = useCallback(
     (threadId: string) => {
-      setOpen(false);
+      setThreadSwitcherOpen(false);
       setQuery('');
       setDebouncedQuery('');
       void router.navigate({
@@ -160,7 +143,7 @@ export function WorkspaceConversationSwitcher() {
         },
       });
     },
-    [router, workspaceId]
+    [router, setThreadSwitcherOpen, workspaceId]
   );
 
   const renderSearchSnippet = useCallback((hit: ThreadSearchHit) => {
@@ -181,7 +164,7 @@ export function WorkspaceConversationSwitcher() {
     <CommandDialog
       open={open}
       onOpenChange={(nextOpen) => {
-        setOpen(nextOpen);
+        setThreadSwitcherOpen(nextOpen);
         if (!nextOpen) {
           setQuery('');
           setDebouncedQuery('');

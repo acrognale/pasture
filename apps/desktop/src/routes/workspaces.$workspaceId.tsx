@@ -13,6 +13,8 @@ import {
 } from '~/components/ui/sidebar';
 import { ConversationProvider } from '~/conversation/store';
 import { decodeWorkspaceId } from '~/lib/routing';
+import { NavigationProvider } from '~/navigation/NavigationProvider';
+import { PanelManagerProvider } from '~/panels/PanelManagerProvider';
 import { SettingsModal } from '~/settings/SettingsModal';
 import {
   WorkspaceProvider,
@@ -43,9 +45,13 @@ function RouteComponent() {
 
   return (
     <WorkspaceProvider workspacePath={workspacePath}>
-      <ConversationProvider workspacePath={workspacePath}>
-        <WorkspaceShell workspacePath={workspacePath} />
-      </ConversationProvider>
+      <PanelManagerProvider>
+        <NavigationProvider>
+          <ConversationProvider workspacePath={workspacePath}>
+            <WorkspaceShell workspacePath={workspacePath} />
+          </ConversationProvider>
+        </NavigationProvider>
+      </PanelManagerProvider>
     </WorkspaceProvider>
   );
 }

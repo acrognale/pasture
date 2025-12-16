@@ -7,9 +7,9 @@ import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
 import { encodeWorkspaceId } from '~/lib/routing';
+import { useNavigationActions } from '~/navigation/NavigationProvider';
 import { useWorkspace, useWorkspaceKeys } from '~/workspace';
 import type { WorkspaceThreadsState } from '~/workspace';
-import { OPEN_WORKSPACE_THREAD_SWITCHER_EVENT } from '~/workspace/WorkspaceConversationSwitcher';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
 
 export const Route = createFileRoute('/workspaces/$workspaceId/')({
@@ -21,6 +21,7 @@ function RouteComponent() {
   const queryClient = useQueryClient();
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
   const keys = useWorkspaceKeys();
+  const { openThreadSwitcher } = useNavigationActions();
 
   const newThreadMutation = useMutation({
     mutationFn: async (): Promise<NewThreadResponse> => {
@@ -84,11 +85,8 @@ function RouteComponent() {
   }, [newThreadMutation]);
 
   const handleOpenConversationSelector = useCallback(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.dispatchEvent(new Event(OPEN_WORKSPACE_THREAD_SWITCHER_EVENT));
-  }, []);
+    openThreadSwitcher();
+  }, [openThreadSwitcher]);
 
   return (
     <div className="relative flex h-full flex-1 flex-col items-center justify-center overflow-hidden bg-background px-6 py-8 text-foreground">

@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { dispatchOpenReviewOverlayEvent } from '~/conversation/events';
+import { useNavigationActions } from '~/navigation/NavigationProvider';
+import { useWorkspace } from '~/workspace';
 
 type ChangesSidebarHeaderProps = {
   conversationId: string | null;
@@ -16,6 +17,9 @@ export function ChangesSidebarHeader({
   isCollapsed,
   onToggleCollapse,
 }: ChangesSidebarHeaderProps) {
+  const { workspacePath } = useWorkspace();
+  const { openReviewTurn } = useNavigationActions();
+
   return (
     <div className="flex items-center gap-2 px-4 py-3 text-xs border-b border-border/60">
       <button
@@ -43,9 +47,10 @@ export function ChangesSidebarHeader({
               type="button"
               className="ml-auto text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors normal-case tracking-normal"
               onClick={() => {
-                if (conversationId) {
-                  dispatchOpenReviewOverlayEvent(conversationId);
+                if (!conversationId) {
+                  return;
                 }
+                openReviewTurn({ workspacePath, conversationId });
               }}
             >
               Review
