@@ -795,6 +795,7 @@ function ChangesSidebarSection({
                       openReviewRepo({
                         workspacePath,
                         conversationId,
+                        threadId,
                         repoParams: toRepoParams(liveRepoParams),
                         focusFilePath: file.displayPath,
                         threadTitle,
@@ -804,6 +805,7 @@ function ChangesSidebarSection({
                     openReviewTurn({
                       workspacePath,
                       conversationId,
+                      threadId,
                       focusFilePath: file.displayPath,
                       threadTitle,
                     });
@@ -867,6 +869,7 @@ function ChangesSidebarSection({
                       openReviewRepo({
                         workspacePath,
                         conversationId,
+                        threadId,
                         repoParams: toRepoParams(liveRepoParams),
                         focusFilePath: file.displayPath,
                         threadTitle,
@@ -876,6 +879,7 @@ function ChangesSidebarSection({
                     openReviewTurn({
                       workspacePath,
                       conversationId,
+                      threadId,
                       focusFilePath: file.displayPath,
                       threadTitle,
                     });

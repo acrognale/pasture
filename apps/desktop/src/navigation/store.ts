@@ -20,12 +20,14 @@ export type NavigationActions = {
   openReviewTurn: (params: {
     workspacePath: string;
     conversationId: string;
+    threadId?: string | null;
     focusFilePath?: string | null;
     threadTitle?: string | null;
   }) => void;
   openReviewRepo: (params: {
     workspacePath: string;
     conversationId: string;
+    threadId?: string | null;
     repoParams: ReviewNavigationIntent['repoParams'];
     focusFilePath?: string | null;
     threadTitle?: string | null;
@@ -72,6 +74,7 @@ export function createNavigationStore(deps: NavigationDeps): NavigationStore {
         openReviewTurn: ({
           workspacePath,
           conversationId,
+          threadId,
           focusFilePath,
           threadTitle,
         }) => {
@@ -79,6 +82,7 @@ export function createNavigationStore(deps: NavigationDeps): NavigationStore {
             target: 'review',
             workspacePath,
             conversationId,
+            threadId: threadId ?? null,
             mode: 'turn',
             focusFilePath: focusFilePath ?? null,
             threadTitle: threadTitle ?? null,
@@ -87,6 +91,7 @@ export function createNavigationStore(deps: NavigationDeps): NavigationStore {
         openReviewRepo: ({
           workspacePath,
           conversationId,
+          threadId,
           repoParams,
           focusFilePath,
           threadTitle,
@@ -98,6 +103,7 @@ export function createNavigationStore(deps: NavigationDeps): NavigationStore {
             target: 'review',
             workspacePath,
             conversationId,
+            threadId: threadId ?? null,
             mode: 'repo',
             repoParams,
             focusFilePath: focusFilePath ?? null,

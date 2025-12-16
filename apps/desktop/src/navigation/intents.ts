@@ -4,6 +4,7 @@ export type ReviewNavigationIntent = {
   target: 'review';
   conversationId: string;
   workspacePath: string;
+  threadId?: string | null;
   mode: 'turn' | 'repo';
   repoParams?: GetRepoDiffParams;
   focusFilePath?: string | null;
