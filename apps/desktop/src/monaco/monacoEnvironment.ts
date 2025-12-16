@@ -1,3 +1,9 @@
+import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker.js?worker';
+import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker.js?worker';
+import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker.js?worker';
+import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker.js?worker';
+import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker.js?worker';
+
 export function ensureMonacoEnvironment() {
   if (typeof window === 'undefined') {
     return;
@@ -10,33 +16,18 @@ export function ensureMonacoEnvironment() {
   window.MonacoEnvironment = {
     getWorker(_moduleId, label) {
       if (label === 'json') {
-        return new Worker(
-          new URL('monaco-editor/esm/vs/language/json/json.worker?worker', import.meta.url),
-          { type: 'module' }
-        );
+        return new JsonWorker();
       }
       if (label === 'css' || label === 'scss' || label === 'less') {
-        return new Worker(
-          new URL('monaco-editor/esm/vs/language/css/css.worker?worker', import.meta.url),
-          { type: 'module' }
-        );
+        return new CssWorker();
       }
       if (label === 'html' || label === 'handlebars' || label === 'razor') {
-        return new Worker(
-          new URL('monaco-editor/esm/vs/language/html/html.worker?worker', import.meta.url),
-          { type: 'module' }
-        );
+        return new HtmlWorker();
       }
       if (label === 'typescript' || label === 'javascript') {
-        return new Worker(
-          new URL('monaco-editor/esm/vs/language/typescript/ts.worker?worker', import.meta.url),
-          { type: 'module' }
-        );
+        return new TsWorker();
       }
-      return new Worker(
-        new URL('monaco-editor/esm/vs/editor/editor.worker?worker', import.meta.url),
-        { type: 'module' }
-      );
+      return new EditorWorker();
     },
   };
 }
