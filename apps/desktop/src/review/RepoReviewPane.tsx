@@ -1,5 +1,6 @@
 import type { GetRepoDiffParams } from '@pasture/protocol';
 import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
+import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 
 import { TurnReviewProvider } from './TurnReviewContext';
@@ -14,6 +15,7 @@ type RepoReviewPaneProps = {
   focusFilePath?: string | null;
   onFocusFilePathConsumed?: () => void;
   headerSubtitle?: string | null;
+  onOpenFile?: ComponentProps<typeof TurnReviewPane>['onOpenFile'];
 };
 
 function toReviewId(params: GetRepoDiffParams): string {
@@ -31,6 +33,7 @@ export function RepoReviewPane({
   focusFilePath,
   onFocusFilePathConsumed,
   headerSubtitle,
+  onOpenFile,
 }: RepoReviewPaneProps) {
   const { rawDiff, query } = useRepoDiff(params);
 
@@ -76,6 +79,9 @@ export function RepoReviewPane({
         onFocusFilePathConsumed={onFocusFilePathConsumed}
         emptyStateMessage={emptyStateMessage}
         headerSubtitle={headerSubtitle}
+        mode="repo"
+        repoParams={params}
+        onOpenFile={onOpenFile}
       />
     </TurnReviewProvider>
   );

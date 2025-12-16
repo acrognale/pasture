@@ -1,5 +1,5 @@
 import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { mockCodex } from '~/testing/codex';
@@ -7,6 +7,8 @@ import { renderWithProviders } from '~/testing/harness';
 
 import { TurnReviewProvider } from '../TurnReviewContext';
 import { TurnReviewPane } from '../TurnReviewPane';
+import { reviewCommentStore } from '../commentsStore';
+import { makeTurnReviewKey } from '../reviewKeys';
 
 const WORKSPACE_PATH = '/tmp/workspace';
 
@@ -49,6 +51,8 @@ describe('Turn review pane integration', () => {
     const onRequestFeedback = vi.fn();
     const onClose = vi.fn();
 
+    reviewCommentStore.getState().actions.reset();
+
     renderWithProviders(
       <TurnReviewProvider
         conversationId="conversation-1"
@@ -63,20 +67,24 @@ describe('Turn review pane integration', () => {
       </TurnReviewProvider>
     );
 
-    // Open a draft on the first commentable line
-    const addButtons = await screen.findAllByRole('button', { name: '+' });
-    expect(addButtons.length).toBeGreaterThan(0);
-    await userEvent.click(addButtons[0] as HTMLButtonElement);
+    const reviewKey = makeTurnReviewKey({
+      conversationId: 'conversation-1',
+      baseEventId: null,
+      targetEventId: 'turn-1',
+    });
 
-    const textarea = await screen.findByRole('textbox');
-    await userEvent.type(textarea, 'Please update this line');
-
-    const saveButton = screen.getByRole('button', { name: /save comment/i });
-    await userEvent.click(saveButton);
+    act(() => {
+      reviewCommentStore.getState().actions.addComment({
+        reviewKey,
+        filePath: 'app/main.ts',
+        side: 'modified',
+        lineNumber: 2,
+        text: 'Please update this line',
+      });
+    });
 
     // Comment thread is rendered and header shows updated count
     await screen.findByText('1 comment');
-    expect(screen.getByText('Please update this line')).toBeInTheDocument();
 
     const submitButton = screen.getByRole('button', { name: /submit/i });
     expect(submitButton).toBeEnabled();
@@ -89,6 +97,7 @@ describe('Turn review pane integration', () => {
     expect(prompt).toMatch(/Here is my consolidated review of turn 1/i);
     expect(prompt).toMatch(/app\/main\.ts/);
     expect(prompt).toMatch(/Please update this line/);
+    expect(prompt).toMatch(/line 2/);
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -183,24 +192,24 @@ describe('Turn review pane integration', () => {
       targetEventId: 'turn-2',
     });
 
-    await screen.findByText(/range diff content/i);
-    expect(screen.queryByText(/fallback line/i)).not.toBeInTheDocument();
+    await screen.findByRole('button', { name: /range\.txt/i });
+    expect(screen.queryByRole('button', { name: /fallback\.txt/i })).toBeNull();
   });
 
   it('refetches diffs when the range selection changes', async () => {
     const initialRangeDiff = [
-      'diff --git a/range.txt b/range.txt',
-      '--- a/range.txt',
-      '+++ b/range.txt',
+      'diff --git a/start.txt b/start.txt',
+      '--- a/start.txt',
+      '+++ b/start.txt',
       '@@ -1 +1 @@',
       '-old range line',
       '+range diff from workspace start',
     ].join('\n');
 
     const updatedRangeDiff = [
-      'diff --git a/range.txt b/range.txt',
-      '--- a/range.txt',
-      '+++ b/range.txt',
+      'diff --git a/turn2.txt b/turn2.txt',
+      '--- a/turn2.txt',
+      '+++ b/turn2.txt',
       '@@ -1 +1 @@',
       '-old range line',
       '+range diff from turn 2',
@@ -266,7 +275,7 @@ describe('Turn review pane integration', () => {
       targetEventId: 'turn-3',
     });
 
-    await screen.findByText(/range diff from workspace start/i);
+    await screen.findByRole('button', { name: /start\.txt/i });
 
     const baseButton = screen.getByRole('button', {
       name: /workspace start/i,
@@ -286,26 +295,24 @@ describe('Turn review pane integration', () => {
       targetEventId: 'turn-3',
     });
 
-    await screen.findByText(/range diff from turn 2/i);
-    expect(
-      screen.queryByText(/range diff from workspace start/i)
-    ).not.toBeInTheDocument();
+    await screen.findByRole('button', { name: /turn2\.txt/i });
+    expect(screen.queryByRole('button', { name: /start\.txt/i })).toBeNull();
   });
 
   it('refetches diffs when the target turn selection changes', async () => {
     const turn3RangeDiff = [
-      'diff --git a/range.txt b/range.txt',
-      '--- a/range.txt',
-      '+++ b/range.txt',
+      'diff --git a/turn3.txt b/turn3.txt',
+      '--- a/turn3.txt',
+      '+++ b/turn3.txt',
       '@@ -1 +1 @@',
       '-old range line',
       '+range diff for turn 3',
     ].join('\n');
 
     const turn2RangeDiff = [
-      'diff --git a/range.txt b/range.txt',
-      '--- a/range.txt',
-      '+++ b/range.txt',
+      'diff --git a/turn2.txt b/turn2.txt',
+      '--- a/turn2.txt',
+      '+++ b/turn2.txt',
       '@@ -1 +1 @@',
       '-old range line',
       '+range diff for turn 2',
@@ -371,7 +378,7 @@ describe('Turn review pane integration', () => {
       targetEventId: 'turn-3',
     });
 
-    await screen.findByText(/range diff for turn 3/i);
+    await screen.findByRole('button', { name: /turn3\.txt/i });
 
     const turnButton = screen.getByRole('button', {
       name: /Turn 3/i,
@@ -391,9 +398,7 @@ describe('Turn review pane integration', () => {
       targetEventId: 'turn-2',
     });
 
-    await screen.findByText(/range diff for turn 2/i);
-    expect(
-      screen.queryByText(/range diff for turn 3/i)
-    ).not.toBeInTheDocument();
+    await screen.findByRole('button', { name: /turn2\.txt/i });
+    expect(screen.queryByRole('button', { name: /turn3\.txt/i })).toBeNull();
   });
 });

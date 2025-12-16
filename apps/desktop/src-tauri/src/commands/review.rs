@@ -15,6 +15,48 @@ use crate::state::AppState;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
 #[serde(rename_all = "camelCase")]
+pub struct GetRepoReviewFileContentsParams {
+    pub workspace_path: String,
+    pub base_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_ref: Option<String>,
+    /// When true, read the modified contents from the working tree (ignores `target_ref`).
+    pub include_worktree: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_path: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct GetRepoReviewFileContentsResponse {
+    pub base_text: String,
+    pub target_text: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct GetTurnReviewFileContentsParams {
+    pub conversation_id: ConversationId,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_event_id: Option<String>,
+    pub target_event_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_path: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
+pub struct GetTurnReviewFileContentsResponse {
+    pub base_text: String,
+    pub target_text: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, TS)]
+#[serde(rename_all = "camelCase")]
 pub struct GetRepoDiffParams {
     pub workspace_path: String,
     pub base_ref: String,
@@ -67,6 +109,32 @@ pub struct ListTurnSnapshotsResponse {
     pub snapshots: Vec<TurnSnapshotDescriptor>,
 }
 
+fn is_safe_repo_relative_path(value: &str) -> bool {
+    let path = std::path::Path::new(value);
+    if path.is_absolute() {
+        return false;
+    }
+    path.components().all(|component| match component {
+        std::path::Component::Normal(_) => true,
+        std::path::Component::CurDir => true,
+        _ => false,
+    })
+}
+
+fn resolve_git_paths(
+    old_path: Option<String>,
+    new_path: Option<String>,
+) -> (Option<String>, Option<String>) {
+    let base = old_path.clone().or_else(|| new_path.clone());
+    let target = new_path.or_else(|| old_path);
+    (base, target)
+}
+
+fn looks_like_missing_path_error(stderr: &str) -> bool {
+    let stderr = stderr.to_lowercase();
+    stderr.contains("does not exist in") || stderr.contains("exists on disk, but not in")
+}
+
 #[tauri::command]
 pub async fn get_turn_diff_range(
     params: GetTurnDiffRangeParams,
@@ -107,6 +175,84 @@ pub async fn get_turn_diff_range(
 }
 
 #[tauri::command]
+pub async fn get_turn_review_file_contents(
+    params: GetTurnReviewFileContentsParams,
+    app: State<'_, AppState>,
+) -> AppResult<GetTurnReviewFileContentsResponse> {
+    let commits = review::commits_for_range(
+        &app.db,
+        &params.conversation_id,
+        params.base_event_id.as_deref(),
+        &params.target_event_id,
+    )
+    .await?;
+
+    let (cwd, base_commit, target_commit) = commits.ok_or(AppError::Validation {
+        message: "Snapshot data unavailable for requested range".to_string(),
+    })?;
+
+    let (base_path, target_path) = resolve_git_paths(params.old_path, params.new_path);
+
+    let response =
+        tokio::task::spawn_blocking(move || -> AnyResult<GetTurnReviewFileContentsResponse> {
+            fn run_git(args: &[&str], cwd: &std::path::Path) -> AnyResult<std::process::Output> {
+                Command::new("git")
+                    .current_dir(cwd)
+                    .args(args)
+                    .output()
+                    .with_context(|| format!("failed to execute git {}", args.join(" ")))
+            }
+
+            fn git_show_or_empty(
+                cwd: &std::path::Path,
+                commit: &str,
+                path: &str,
+            ) -> AnyResult<String> {
+                let spec = format!("{commit}:{path}");
+                let output = run_git(&["show", &spec], cwd)?;
+                if output.status.success() {
+                    return String::from_utf8(output.stdout)
+                        .context("git show produced invalid UTF-8");
+                }
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if looks_like_missing_path_error(&stderr) {
+                    return Ok(String::new());
+                }
+                Err(anyhow::anyhow!("git show failed: {}", stderr.trim()))
+            }
+
+            let base_text = if let Some(path) = base_path.as_deref() {
+                if !is_safe_repo_relative_path(path) {
+                    return Err(anyhow::anyhow!("unsafe file path: {path}"));
+                }
+                git_show_or_empty(&cwd, &base_commit, path)?
+            } else {
+                String::new()
+            };
+
+            let target_text = if let Some(path) = target_path.as_deref() {
+                if !is_safe_repo_relative_path(path) {
+                    return Err(anyhow::anyhow!("unsafe file path: {path}"));
+                }
+                git_show_or_empty(&cwd, &target_commit, path)?
+            } else {
+                String::new()
+            };
+
+            Ok(GetTurnReviewFileContentsResponse {
+                base_text,
+                target_text,
+            })
+        })
+        .await?
+        .map_err(|error| AppError::Validation {
+            message: error.to_string(),
+        })?;
+
+    Ok(response)
+}
+
+#[tauri::command]
 pub async fn list_turn_snapshots(
     params: ListTurnSnapshotsParams,
     app: State<'_, AppState>,
@@ -126,6 +272,136 @@ pub async fn list_turn_snapshots(
             })
             .collect(),
     };
+
+    Ok(response)
+}
+
+#[tauri::command]
+pub async fn get_repo_review_file_contents(
+    params: GetRepoReviewFileContentsParams,
+) -> AppResult<GetRepoReviewFileContentsResponse> {
+    let workspace_path = params.workspace_path;
+    let base_ref = params.base_ref;
+    let target_ref = params.target_ref;
+    let include_worktree = params.include_worktree;
+    let (base_path, target_path) = resolve_git_paths(params.old_path, params.new_path);
+
+    let response =
+        tokio::task::spawn_blocking(move || -> AnyResult<GetRepoReviewFileContentsResponse> {
+            fn run_git(args: &[&str], cwd: &str) -> AnyResult<std::process::Output> {
+                Command::new("git")
+                    .current_dir(cwd)
+                    .args(args)
+                    .output()
+                    .with_context(|| format!("failed to execute git {}", args.join(" ")))
+            }
+
+            fn ref_exists(repo_root: &str, rev: &str) -> AnyResult<bool> {
+                let spec = format!("{rev}^{{commit}}");
+                let output = Command::new("git")
+                    .current_dir(repo_root)
+                    .args(["rev-parse", "--verify", &spec])
+                    .output()
+                    .with_context(|| format!("failed to execute git rev-parse --verify {spec}"))?;
+                Ok(output.status.success())
+            }
+
+            fn git_show_or_empty(repo_root: &str, commit: &str, path: &str) -> AnyResult<String> {
+                let spec = format!("{commit}:{path}");
+                let output = run_git(&["show", &spec], repo_root)?;
+                if output.status.success() {
+                    return String::from_utf8(output.stdout)
+                        .context("git show produced invalid UTF-8");
+                }
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if looks_like_missing_path_error(&stderr) {
+                    return Ok(String::new());
+                }
+                Err(anyhow::anyhow!("git show failed: {}", stderr.trim()))
+            }
+
+            fn read_worktree_file(repo_root: &str, path: &str) -> AnyResult<String> {
+                if !is_safe_repo_relative_path(path) {
+                    return Err(anyhow::anyhow!("unsafe file path: {path}"));
+                }
+                let full = std::path::Path::new(repo_root).join(path);
+                match std::fs::read(&full) {
+                    Ok(bytes) => String::from_utf8(bytes)
+                        .with_context(|| format!("file is not valid UTF-8: {}", full.display())),
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+                    Err(err) => {
+                        Err(err).with_context(|| format!("failed to read {}", full.display()))
+                    }
+                }
+            }
+
+            let repo_root = {
+                let output = run_git(&["rev-parse", "--show-toplevel"], &workspace_path)?;
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let stderr = stderr.trim();
+                    if stderr.is_empty() {
+                        return Err(anyhow::anyhow!("workspace is not a git repository"));
+                    }
+                    return Err(anyhow::anyhow!(
+                        "workspace is not a git repository: {stderr}"
+                    ));
+                }
+                String::from_utf8(output.stdout)
+                    .context("git rev-parse produced invalid UTF-8")?
+                    .trim()
+                    .to_string()
+            };
+
+            let base_text = if let Some(path) = base_path.as_deref() {
+                if !is_safe_repo_relative_path(path) {
+                    return Err(anyhow::anyhow!("unsafe file path: {path}"));
+                }
+                if include_worktree {
+                    if ref_exists(&repo_root, &base_ref)? {
+                        git_show_or_empty(&repo_root, &base_ref, path)?
+                    } else if base_ref == "HEAD" {
+                        String::new()
+                    } else {
+                        return Err(anyhow::anyhow!("unknown base ref: {base_ref}"));
+                    }
+                } else {
+                    if !ref_exists(&repo_root, &base_ref)? {
+                        return Err(anyhow::anyhow!("unknown base ref: {base_ref}"));
+                    }
+                    git_show_or_empty(&repo_root, &base_ref, path)?
+                }
+            } else {
+                String::new()
+            };
+
+            let target_text = if let Some(path) = target_path.as_deref() {
+                if include_worktree {
+                    read_worktree_file(&repo_root, path)?
+                } else {
+                    let target_ref =
+                        target_ref.ok_or_else(|| anyhow::anyhow!("targetRef is required"))?;
+                    if !ref_exists(&repo_root, &target_ref)? {
+                        return Err(anyhow::anyhow!("unknown target ref: {target_ref}"));
+                    }
+                    if !is_safe_repo_relative_path(path) {
+                        return Err(anyhow::anyhow!("unsafe file path: {path}"));
+                    }
+                    git_show_or_empty(&repo_root, &target_ref, path)?
+                }
+            } else {
+                String::new()
+            };
+
+            Ok(GetRepoReviewFileContentsResponse {
+                base_text,
+                target_text,
+            })
+        })
+        .await?
+        .map_err(|error| AppError::Validation {
+            message: error.to_string(),
+        })?;
 
     Ok(response)
 }
@@ -313,4 +589,62 @@ pub async fn get_repo_diff(params: GetRepoDiffParams) -> AppResult<GetRepoDiffRe
     })?;
 
     Ok(GetRepoDiffResponse { unified_diff: diff })
+}
+
+#[tauri::command]
+pub async fn get_repo_fingerprint(
+    params: GetRepoFingerprintParams,
+) -> AppResult<GetRepoFingerprintResponse> {
+    let workspace_path = params.workspace_path;
+
+    let token = tokio::task::spawn_blocking(move || -> AnyResult<String> {
+        fn run_git(args: &[&str], cwd: &str) -> AnyResult<std::process::Output> {
+            Command::new("git")
+                .current_dir(cwd)
+                .args(args)
+                .output()
+                .with_context(|| format!("failed to execute git {}", args.join(" ")))
+        }
+
+        fn fnv1a_64(bytes: &[u8]) -> u64 {
+            const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+            const FNV_PRIME: u64 = 0x00000100000001B3;
+            let mut hash = FNV_OFFSET_BASIS;
+            for byte in bytes {
+                hash ^= u64::from(*byte);
+                hash = hash.wrapping_mul(FNV_PRIME);
+            }
+            hash
+        }
+
+        let head_output = run_git(&["rev-parse", "--verify", "HEAD"], &workspace_path)?;
+        let head = if head_output.status.success() {
+            String::from_utf8_lossy(&head_output.stdout).trim().to_string()
+        } else {
+            "__UNBORN__".to_string()
+        };
+
+        let branch_output = run_git(&["rev-parse", "--abbrev-ref", "HEAD"], &workspace_path)?;
+        let branch = if branch_output.status.success() {
+            String::from_utf8_lossy(&branch_output.stdout).trim().to_string()
+        } else {
+            "".to_string()
+        };
+
+        let status_output = run_git(
+            &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+            &workspace_path,
+        )?;
+        let status_hash = if status_output.status.success() {
+            fnv1a_64(&status_output.stdout)
+        } else {
+            0
+        };
+
+        Ok(format!("{head}|{branch}|{:016x}", status_hash))
+    })
+    .await?
+    .map_err(AppError::Internal)?;
+
+    Ok(GetRepoFingerprintResponse { token })
 }

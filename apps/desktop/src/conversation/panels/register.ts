@@ -1,6 +1,7 @@
 import { registerPanelKind } from '~/panels/registry';
 
 import { ConversationReviewPanel } from './ConversationReviewPanel';
+import { ConversationReviewFilePanel } from './ConversationReviewFilePanel';
 import { ConversationThreadPanelWrapper } from './ConversationThreadPanelWrapper';
 
 export function registerConversationPanels() {
@@ -71,5 +72,20 @@ export function registerConversationPanels() {
       return `turn:${p.conversationId ?? ''}`;
     },
     Component: ConversationReviewPanel,
+  });
+
+  registerPanelKind({
+    kindId: 'conversation.reviewFile',
+    scope: 'conversation',
+    title: (params) => {
+      const p = params as { filePath?: string };
+      const path = typeof p.filePath === 'string' ? p.filePath : 'File';
+      return path.split('/').pop() ?? path;
+    },
+    dedupeKey: (params) => {
+      const p = params as { reviewKey?: string; filePath?: string; mode?: string };
+      return [p.mode ?? 'unknown', p.reviewKey ?? '', p.filePath ?? ''].join(':');
+    },
+    Component: ConversationReviewFilePanel,
   });
 }
