@@ -48,6 +48,8 @@ const twMerge = extendTailwindMerge({
         'transcript-tool-primary-foreground',
         'transcript-tool-secondary',
         'transcript-tool-secondary-foreground',
+        'transcript-comment',
+        'transcript-comment-foreground',
       ],
     },
   },
