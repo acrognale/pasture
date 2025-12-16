@@ -1,6 +1,32 @@
 import { createStore } from 'zustand/vanilla';
 import type { StoreApi } from 'zustand/vanilla';
 import { useStore } from 'zustand';
+import type { GetRepoDiffParams } from '@pasture/protocol';
+
+export type ReviewCommentNavigation =
+  | {
+      mode: 'turn';
+      workspacePath: string;
+      conversationId: string;
+      reviewKey: string;
+      baseEventId: string | null;
+      targetEventId: string;
+      filePath: string;
+      oldPath: string | null;
+      newPath: string | null;
+      commentableLines: number[];
+    }
+  | {
+      mode: 'repo';
+      workspacePath: string;
+      conversationId: string;
+      repoParams: GetRepoDiffParams;
+      reviewKey: string;
+      filePath: string;
+      oldPath: string | null;
+      newPath: string | null;
+      commentableLines: number[];
+    };
 
 export type ReviewLineComment = {
   id: string;
@@ -10,6 +36,7 @@ export type ReviewLineComment = {
   lineNumber: number;
   text: string;
   createdAt: string;
+  navigation: ReviewCommentNavigation;
 };
 
 export const EMPTY_REVIEW_COMMENTS: readonly ReviewLineComment[] = [];
@@ -21,6 +48,7 @@ type ReviewCommentState = {
     addComment: (input: Omit<ReviewLineComment, 'id' | 'createdAt'>) => ReviewLineComment;
     updateComment: (id: string, text: string) => void;
     removeComment: (id: string) => void;
+    clearReviewKey: (reviewKey: string) => void;
   };
 };
 
@@ -102,6 +130,15 @@ export const reviewCommentStore: StoreApi<ReviewCommentState> =
         if (changed) {
           set({ commentsByReviewKey: updated });
         }
+      },
+      clearReviewKey: (reviewKey) => {
+        const { commentsByReviewKey } = get();
+        if (!Object.prototype.hasOwnProperty.call(commentsByReviewKey, reviewKey)) {
+          return;
+        }
+        const updated = { ...commentsByReviewKey };
+        delete updated[reviewKey];
+        set({ commentsByReviewKey: updated });
       },
     },
   }));

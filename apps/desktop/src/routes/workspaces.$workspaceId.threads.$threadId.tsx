@@ -8,9 +8,10 @@ import { ConversationThreadPanel } from '~/conversation/panels/ConversationThrea
 import { ConversationPanelServicesProvider } from '~/conversation/panels/ConversationPanelServices';
 import { registerConversationPanels } from '~/conversation/panels/register';
 import { getConversationThreadHostId } from '~/panels/host-ids';
-import { usePanelManager } from '~/panels/PanelManagerProvider';
+import { usePanelManager, usePanelManagerStore } from '~/panels/PanelManagerProvider';
 import { PanelHost } from '~/panels/PanelHost';
 import { dockLayoutHasAnyTabs } from '~/panels/layout';
+import type { DockLayoutNode, PanelKindId } from '~/panels/types';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { cn } from '~/lib/utils';
 import { useWorkspaceActions } from '~/workspace';
@@ -23,8 +24,21 @@ export const Route = createFileRoute('/workspaces/$workspaceId/threads/$threadId
 
 const DEFAULT_TOOLS_WIDTH = 520;
 const MIN_TOOLS_WIDTH = 280;
+const DEFAULT_REVIEW_COMMENTS_WIDTH = 375;
 const DEFAULT_EDITOR_WIDTH = 600;
 const MIN_EDITOR_WIDTH = 320;
+
+function dockLayoutHasPanelKind(
+  root: DockLayoutNode | null,
+  instances: Record<string, { kindId: PanelKindId }> | null | undefined,
+  kindId: PanelKindId
+): boolean {
+  if (!root || !instances) return false;
+  if (root.type === 'group') {
+    return root.tabs.some((instanceId) => instances[instanceId]?.kindId === kindId);
+  }
+  return root.children.some((child) => dockLayoutHasPanelKind(child, instances, kindId));
+}
 
 function RouteComponent() {
   const { workspaceId, threadId } = Route.useParams();
@@ -119,6 +133,7 @@ function ThreadWithTools({
       [hostId]
     )
   );
+  const panelManagerStore = usePanelManagerStore();
 
   const storageKey = `pasture.tools.ratio:${workspacePath}`;
   const legacyStorageKey = `pasture.tools.width:${workspacePath}`;
@@ -155,6 +170,10 @@ function ThreadWithTools({
     if (typeof window === 'undefined') return 0;
     return 0;
   });
+  const containerWidthRef = useRef(containerWidth);
+  useEffect(() => {
+    containerWidthRef.current = containerWidth;
+  }, [containerWidth]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -190,6 +209,49 @@ function ThreadWithTools({
     const next = containerWidth * ratio;
     return Math.max(MIN_TOOLS_WIDTH, Math.min(containerWidth, next));
   }, [containerWidth, effectiveToolsRatio]);
+
+  const toolsRatioRef = useRef(toolsRatio);
+  useEffect(() => {
+    toolsRatioRef.current = toolsRatio;
+  }, [toolsRatio]);
+
+  const appliedReviewCommentsDefaultRef = useRef(false);
+  useEffect(() => {
+    const maybeApplyReviewCommentsDefault = (state: ReturnType<typeof panelManagerStore.getState>) => {
+      if (appliedReviewCommentsDefaultRef.current) return true;
+      if (toolsRatioRef.current > 0) return true;
+      if (legacyToolsWidth) return true;
+
+      const host = state.hosts[hostId];
+      if (!host) return false;
+      const hasReviewComments = dockLayoutHasPanelKind(
+        host.docks.utility.root,
+        host.instances,
+        'conversation.reviewComments'
+      );
+      if (!hasReviewComments) return false;
+
+      const width = containerWidthRef.current;
+      if (!width) return false;
+
+      const clampedWidth = Math.max(MIN_TOOLS_WIDTH, Math.min(width, DEFAULT_REVIEW_COMMENTS_WIDTH));
+      setToolsRatio(clampedWidth / width);
+      appliedReviewCommentsDefaultRef.current = true;
+      return true;
+    };
+
+    const attemptApply = () => {
+      maybeApplyReviewCommentsDefault(panelManagerStore.getState());
+    };
+
+    const unsubscribe = panelManagerStore.subscribe(() => {
+      requestAnimationFrame(attemptApply);
+    });
+
+    requestAnimationFrame(attemptApply);
+
+    return unsubscribe;
+  }, [hostId, legacyToolsWidth, panelManagerStore, setToolsRatio]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

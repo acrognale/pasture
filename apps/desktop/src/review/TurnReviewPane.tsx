@@ -1,7 +1,7 @@
 import type { GetRepoDiffParams } from '@pasture/protocol';
 import type { ParsedTurnDiffFile } from './types';
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useTurnReview } from './TurnReviewContext';
 import { RangeSelectorSection } from './components/RangeSelectorSection';
@@ -20,6 +20,8 @@ type TurnReviewPaneProps = {
   onClose?: () => void;
   focusFilePath?: string | null;
   onFocusFilePathConsumed?: () => void;
+  onOpenComments?: (reviewKey: string) => void;
+  onReviewKeyChange?: (reviewKey: string | null) => void;
   rangeSelector?: ReactNode;
   emptyStateMessage?: string;
   headerTitle?: string;
@@ -51,6 +53,8 @@ export function TurnReviewPane({
   onClose,
   focusFilePath,
   onFocusFilePathConsumed,
+  onOpenComments,
+  onReviewKeyChange,
   rangeSelector = <RangeSelectorSection />,
   emptyStateMessage,
   headerTitle,
@@ -88,6 +92,10 @@ export function TurnReviewPane({
           })
         : null;
 
+  useEffect(() => {
+    onReviewKeyChange?.(reviewKey);
+  }, [onReviewKeyChange, reviewKey]);
+
   const comments = useReviewComments((state) =>
     reviewKey
       ? (state.commentsByReviewKey[reviewKey] ?? EMPTY_REVIEW_COMMENTS)
@@ -123,6 +131,9 @@ export function TurnReviewPane({
           subtitle={headerSubtitle}
           canBuildFeedback={canBuildFeedback}
           disabled={disabled}
+          onOpenComments={
+            reviewKey && onOpenComments ? () => onOpenComments(reviewKey) : undefined
+          }
           onGiveFeedback={() => {
             const prompt = buildFeedbackPrompt();
             if (prompt) {

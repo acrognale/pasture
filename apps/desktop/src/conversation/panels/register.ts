@@ -1,6 +1,7 @@
 import { registerPanelKind } from '~/panels/registry';
 
 import { ConversationReviewPanel } from './ConversationReviewPanel';
+import { ConversationReviewCommentsPanel } from './ConversationReviewCommentsPanel';
 import { ConversationReviewFilePanel } from './ConversationReviewFilePanel';
 import { ConversationThreadPanelWrapper } from './ConversationThreadPanelWrapper';
 
@@ -80,5 +81,35 @@ export function registerConversationPanels() {
       return [p.mode ?? 'unknown', p.reviewKey ?? '', p.filePath ?? ''].join(':');
     },
     Component: ConversationReviewFilePanel,
+  });
+
+  registerPanelKind({
+    kindId: 'conversation.reviewComments',
+    scope: 'conversation',
+    title: () => 'Comments',
+    dedupeKey: (params) => {
+      const p = params as {
+        mode?: 'turn' | 'repo';
+        conversationId?: string;
+        repoParams?: {
+          workspacePath?: string;
+          baseRef?: string;
+          targetRef?: string | null;
+          includeWorktree?: boolean;
+        };
+      };
+      if (p.mode === 'repo' && p.repoParams) {
+        return [
+          'repo',
+          p.conversationId ?? '',
+          p.repoParams.workspacePath ?? '',
+          p.repoParams.baseRef ?? '',
+          p.repoParams.targetRef ?? '',
+          p.repoParams.includeWorktree ? '1' : '0',
+        ].join(':');
+      }
+      return `turn:${p.conversationId ?? ''}`;
+    },
+    Component: ConversationReviewCommentsPanel,
   });
 }

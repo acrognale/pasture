@@ -80,6 +80,18 @@ describe('Turn review pane integration', () => {
         side: 'modified',
         lineNumber: 2,
         text: 'Please update this line',
+        navigation: {
+          mode: 'turn',
+          workspacePath: WORKSPACE_PATH,
+          conversationId: 'conversation-1',
+          reviewKey,
+          baseEventId: null,
+          targetEventId: 'turn-1',
+          filePath: 'app/main.ts',
+          oldPath: null,
+          newPath: null,
+          commentableLines: [2],
+        },
       });
     });
 
