@@ -3,6 +3,7 @@ import { render } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { SidebarProvider } from '~/components/ui/sidebar';
 import { ShortcutProvider } from '~/keyboard/ShortcutProvider';
+import { PanelManagerProvider } from '~/panels/PanelManagerProvider';
 
 export const createTestQueryClient = () =>
   new QueryClient({
@@ -31,7 +32,11 @@ export const renderWithProviders = (
   const Wrapper = ({ children }: { children?: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <ShortcutProvider>
-        <SidebarProvider defaultOpen>{children}</SidebarProvider>
+        <SidebarProvider defaultOpen>
+          <PanelManagerProvider>
+            {children}
+          </PanelManagerProvider>
+        </SidebarProvider>
       </ShortcutProvider>
     </QueryClientProvider>
   );

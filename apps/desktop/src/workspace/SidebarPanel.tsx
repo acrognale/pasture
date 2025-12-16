@@ -40,11 +40,9 @@ import {
   TooltipTrigger,
 } from '~/components/ui/tooltip';
 import {
-  OPEN_REVIEW_OVERLAY_EVENT,
-  type OpenReviewOverlayDetail,
-  dispatchOpenRepoReviewOverlayEvent,
-  dispatchOpenReviewOverlayEvent,
-} from '~/conversation/events';
+  useNavigationActions,
+  useNavigationStoreApi,
+} from '~/navigation/NavigationProvider';
 import {
   useConversationIsRunning,
   useConversationLatestTurnDiff,
@@ -63,7 +61,6 @@ import { ChangesSidebarContent } from '~/workspace/components/ChangesSidebarCont
 import { ChangesSidebarTreeContent } from '~/workspace/components/ChangesSidebarTreeContent';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
 
-import { OPEN_WORKSPACE_THREAD_SWITCHER_EVENT } from './WorkspaceConversationSwitcher';
 import {
   useWorkspace,
   useWorkspaceActions,
@@ -83,6 +80,7 @@ export function SidebarPanel({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
+  const { openThreadSwitcher } = useNavigationActions();
   const keys = useWorkspaceKeys();
   const threads = useOpenWorkspaceThreads();
   const { closeThread } = useWorkspaceActions();
@@ -254,11 +252,8 @@ export function SidebarPanel({
   );
 
   const handleOpenConversationSelector = useCallback(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.dispatchEvent(new Event(OPEN_WORKSPACE_THREAD_SWITCHER_EVENT));
-  }, []);
+    openThreadSwitcher();
+  }, [openThreadSwitcher]);
 
   useNamedShortcut('workspace.openSettings', undefined, () => {
     onOpenSettings?.();
@@ -478,6 +473,8 @@ function ChangesSidebarSection({
   type ChangesView = 'list' | 'tree';
 
   const conversationLoadState = useConversationLoadState(conversationId);
+  const { openReviewTurn, openReviewRepo } = useNavigationActions();
+  const navigationStore = useNavigationStoreApi();
 
   const workspaceKey = normalizedWorkspacePath || workspacePath;
   const liveRangeStorageKey = `pasture.changes.liveRange:${workspaceKey}`;
@@ -620,39 +617,34 @@ function ChangesSidebarSection({
   }, [repoDiffQuery.parsedDiff?.files, workspacePath]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const handleOpenReview = (event: CustomEvent<OpenReviewOverlayDetail>) => {
-      if (event.detail.conversationId !== conversationId) {
-        return;
+    return navigationStore.subscribe(
+      (state, prevState) => {
+        const event = state.lastEvent;
+        if (!event || event === prevState.lastEvent) {
+          return;
+        }
+        const intent = event.intent;
+        if (intent.target !== 'review') {
+          return;
+        }
+        if (intent.conversationId !== conversationId) {
+          return;
+        }
+        if (intent.mode !== 'repo' || !intent.repoParams) {
+          return;
+        }
+        setModeAndPersist('repo');
+        setLiveRepoParamsAndPersist({
+          workspacePath,
+          baseRef: intent.repoParams.baseRef,
+          targetRef: intent.repoParams.targetRef ?? null,
+          includeWorktree: intent.repoParams.includeWorktree,
+        });
       }
-      if (event.detail.mode !== 'repo' || !event.detail.repo) {
-        return;
-      }
-      setModeAndPersist('repo');
-      setLiveRepoParamsAndPersist({
-        workspacePath,
-        baseRef: event.detail.repo.baseRef,
-        targetRef: event.detail.repo.targetRef ?? null,
-        includeWorktree: event.detail.repo.includeWorktree,
-      });
-    };
-
-    window.addEventListener(
-      OPEN_REVIEW_OVERLAY_EVENT,
-      handleOpenReview as EventListener
     );
-
-    return () => {
-      window.removeEventListener(
-        OPEN_REVIEW_OVERLAY_EVENT,
-        handleOpenReview as EventListener
-      );
-    };
   }, [
     conversationId,
+    navigationStore,
     setLiveRepoParamsAndPersist,
     setModeAndPersist,
     workspacePath,
@@ -824,17 +816,19 @@ function ChangesSidebarSection({
                   }
                   onFileClick={(file) => {
                     if (mode === 'repo') {
-                      dispatchOpenRepoReviewOverlayEvent(
+                      openReviewRepo({
+                        workspacePath,
                         conversationId,
-                        toRepoParams(liveRepoParams),
-                        file.displayPath
-                      );
+                        repoParams: toRepoParams(liveRepoParams),
+                        focusFilePath: file.displayPath,
+                      });
                       return;
                     }
-                    dispatchOpenReviewOverlayEvent(
+                    openReviewTurn({
+                      workspacePath,
                       conversationId,
-                      file.displayPath
-                    );
+                      focusFilePath: file.displayPath,
+                    });
                   }}
                 />
               ) : (
@@ -889,17 +883,19 @@ function ChangesSidebarSection({
                   }
                   onFileClick={(file) => {
                     if (mode === 'repo') {
-                      dispatchOpenRepoReviewOverlayEvent(
+                      openReviewRepo({
+                        workspacePath,
                         conversationId,
-                        toRepoParams(liveRepoParams),
-                        file.displayPath
-                      );
+                        repoParams: toRepoParams(liveRepoParams),
+                        focusFilePath: file.displayPath,
+                      });
                       return;
                     }
-                    dispatchOpenReviewOverlayEvent(
+                    openReviewTurn({
+                      workspacePath,
                       conversationId,
-                      file.displayPath
-                    );
+                      focusFilePath: file.displayPath,
+                    });
                   }}
                 />
               )}
