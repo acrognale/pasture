@@ -13,6 +13,13 @@ export function makeTurnReviewKey(options: {
   ].join(':');
 }
 
+export function makeRepoConversationId(params: GetRepoDiffParams): string {
+  const targetLabel = params.includeWorktree
+    ? '__WORKTREE__'
+    : (params.targetRef ?? '__TARGET__');
+  return `repo:${params.workspacePath}::${params.baseRef}..${targetLabel}`;
+}
+
 export function makeRepoReviewKey(params: GetRepoDiffParams): string {
   const targetLabel = params.includeWorktree
     ? '__WORKTREE__'
@@ -25,4 +32,3 @@ export function makeRepoReviewKey(params: GetRepoDiffParams): string {
     params.includeWorktree ? '1' : '0',
   ].join(':');
 }
-

@@ -23,6 +23,7 @@ type TurnFileContentsParams = {
 type RepoFileContentsParams = {
   mode: 'repo';
   workspacePath: string;
+  conversationId: string;
   repoParams: GetRepoDiffParams;
   reviewKey: string;
   filePath: string;
@@ -36,6 +37,11 @@ export type ReviewFileDiffPaneProps =
   | RepoFileContentsParams;
 
 type MonacoApi = typeof import('monaco-editor');
+
+type ReviewFileDiffPaneReveal = {
+  lineNumber: number;
+  commentId?: string;
+};
 
 const detectMonacoLanguage = (filePath: string): string | undefined => {
   const filename = filePath.split('/').pop() ?? '';
@@ -79,7 +85,17 @@ const detectMonacoLanguage = (filePath: string): string | undefined => {
   }
 };
 
-export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
+export function ReviewFileDiffPane(
+  props: ReviewFileDiffPaneProps & {
+    reveal?: ReviewFileDiffPaneReveal | null;
+    onRevealHandled?: () => void;
+    onFirstCommentAdded?: (reviewKey: string) => void;
+  }
+) {
+  const reveal = props.reveal;
+  const onRevealHandled = props.onRevealHandled;
+  const onFirstCommentAdded = props.onFirstCommentAdded;
+
   const language = useMemo(
     () => detectMonacoLanguage(props.filePath),
     [props.filePath]
@@ -127,6 +143,7 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
     (state) =>
       state.commentsByReviewKey[props.reviewKey] ?? EMPTY_REVIEW_COMMENTS
   );
+  const reviewCommentCount = commentsForReviewKey.length;
 
   const fileComments = useMemo(() => {
     return commentsForReviewKey
@@ -175,6 +192,8 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
       resizeObserver?: ResizeObserver;
     }>
   >([]);
+  const revealDecorationIdsRef = useRef<string[]>([]);
+  const revealTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     hoveredLineRef.current = hoveredLineNumber;
@@ -204,6 +223,54 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
     },
     [commentableLineSet]
   );
+
+  const turnConversationId =
+    props.mode === 'turn' ? props.conversationId : null;
+  const turnBaseEventId = props.mode === 'turn' ? props.baseEventId : null;
+  const turnTargetEventId = props.mode === 'turn' ? props.targetEventId : null;
+  const repoParams = props.mode === 'repo' ? props.repoParams : null;
+
+  const navigation = useMemo(() => {
+    if (props.mode === 'turn') {
+      return {
+        mode: 'turn',
+        workspacePath: props.workspacePath,
+        conversationId: turnConversationId as string,
+        reviewKey: props.reviewKey,
+        baseEventId: turnBaseEventId,
+        targetEventId: turnTargetEventId as string,
+        filePath: props.filePath,
+        oldPath: props.oldPath,
+        newPath: props.newPath,
+        commentableLines: props.commentableLines,
+      } as const;
+    }
+
+    return {
+      mode: 'repo',
+      workspacePath: props.workspacePath,
+      conversationId: props.conversationId,
+      repoParams: repoParams as NonNullable<typeof repoParams>,
+      reviewKey: props.reviewKey,
+      filePath: props.filePath,
+      oldPath: props.oldPath,
+      newPath: props.newPath,
+      commentableLines: props.commentableLines,
+    } as const;
+  }, [
+    props.mode,
+    props.workspacePath,
+    props.reviewKey,
+    props.filePath,
+    props.oldPath,
+    props.newPath,
+    props.commentableLines,
+    props.conversationId,
+    repoParams,
+    turnBaseEventId,
+    turnConversationId,
+    turnTargetEventId,
+  ]);
 
   const renderCommentZone = useCallback(
     (options: {
@@ -336,14 +403,19 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
           if (!text) {
             return;
           }
+          const wasFirst = reviewCommentCount === 0;
           actions.addComment({
             reviewKey: props.reviewKey,
             filePath: props.filePath,
             side: 'modified',
             lineNumber,
             text,
+            navigation,
           });
           setDraftLineNumber(null);
+          if (wasFirst) {
+            onFirstCommentAdded?.(props.reviewKey);
+          }
         });
 
         actionsRow.appendChild(cancel);
@@ -359,8 +431,76 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
       container.appendChild(outer);
       onRequestLayout();
     },
-    [actions, props.filePath, props.reviewKey]
+    [
+      actions,
+      navigation,
+      onFirstCommentAdded,
+      props.filePath,
+      props.reviewKey,
+      reviewCommentCount,
+    ]
   );
+
+  useEffect(() => {
+    const lineNumber = reveal?.lineNumber ?? null;
+    if (!lineNumber) {
+      return;
+    }
+
+    const modifiedEditor = modifiedEditorRef.current;
+    const monacoApi = monacoRef.current;
+    if (!modifiedEditor || !monacoApi) {
+      return;
+    }
+
+    modifiedEditor.revealLineInCenter(lineNumber);
+    modifiedEditor.setPosition({ lineNumber, column: 1 });
+    modifiedEditor.setSelection(
+      new monacoApi.Range(lineNumber, 1, lineNumber, 1)
+    );
+    modifiedEditor.focus();
+
+    revealDecorationIdsRef.current = modifiedEditor.deltaDecorations(
+      revealDecorationIdsRef.current,
+      [
+        {
+          range: new monacoApi.Range(lineNumber, 1, lineNumber, 1),
+          options: {
+            isWholeLine: true,
+            className: 'monaco-review-comment-reveal-line',
+          },
+        },
+      ]
+    );
+
+    if (revealTimeoutRef.current != null) {
+      window.clearTimeout(revealTimeoutRef.current);
+    }
+    revealTimeoutRef.current = window.setTimeout(() => {
+      const editor = modifiedEditorRef.current;
+      if (!editor) return;
+      revealDecorationIdsRef.current = editor.deltaDecorations(
+        revealDecorationIdsRef.current,
+        []
+      );
+      revealTimeoutRef.current = null;
+    }, 1400);
+
+    onRevealHandled?.();
+    return () => {
+      if (revealTimeoutRef.current != null) {
+        window.clearTimeout(revealTimeoutRef.current);
+        revealTimeoutRef.current = null;
+      }
+      const editor = modifiedEditorRef.current;
+      if (editor) {
+        revealDecorationIdsRef.current = editor.deltaDecorations(
+          revealDecorationIdsRef.current,
+          []
+        );
+      }
+    };
+  }, [editorVersion, onRevealHandled, reveal?.commentId, reveal?.lineNumber]);
 
   useEffect(() => {
     const modifiedEditor = modifiedEditorRef.current;

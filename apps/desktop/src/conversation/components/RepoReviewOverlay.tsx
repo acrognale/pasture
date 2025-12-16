@@ -2,6 +2,7 @@ import type { GetRepoDiffParams } from '@pasture/protocol';
 import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
 import { getConversationHostId } from '~/panels/host-ids';
 import { RepoReviewPane } from '~/review/RepoReviewPane';
+import { makeRepoConversationId } from '~/review/reviewKeys';
 
 export type RepoReviewOverlayProps = {
   workspacePath: string;
@@ -24,6 +25,7 @@ export function RepoReviewOverlay({
 }: RepoReviewOverlayProps) {
   const panelManagerStore = usePanelManagerStore();
   const hostId = getConversationHostId(workspacePath);
+  const conversationId = makeRepoConversationId(params);
 
   if (!open) {
     return null;
@@ -48,6 +50,7 @@ export function RepoReviewOverlay({
           {
             ...request,
             workspacePath,
+            conversationId,
           },
           { dedupe: true }
         );

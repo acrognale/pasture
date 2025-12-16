@@ -209,5 +209,22 @@
 .monaco-review-view-zone-content {
   box-sizing: border-box;
   width: 100%;
-  padding: 8px 12px 8px 0;
+}
+
+@keyframes monaco-review-comment-reveal-flash {
+  0% {
+    background-color: color-mix(
+      in srgb,
+      var(--color-transcript-comment) 18%,
+      transparent
+    );
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+.monaco-review-comment-reveal-line {
+  animation: monaco-review-comment-reveal-flash 1.4s ease-out;
 }

@@ -11,6 +11,7 @@ export type TurnReviewHeaderProps = {
   subtitle?: string | null;
   viewMode?: DiffViewMode;
   onViewModeChange?: (mode: DiffViewMode) => void;
+  onOpenComments?: () => void;
   canBuildFeedback: boolean;
   disabled?: boolean;
   onGiveFeedback: () => void;
@@ -26,6 +27,7 @@ export function TurnReviewHeader({
   subtitle = null,
   viewMode,
   onViewModeChange,
+  onOpenComments,
   canBuildFeedback,
   disabled,
   onGiveFeedback,
@@ -75,6 +77,18 @@ export function TurnReviewHeader({
               onClick={() => onViewModeChange('unified')}
             />
           </div>
+        ) : null}
+        {onOpenComments ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7"
+            disabled={!showPane || disabled}
+            onClick={onOpenComments}
+          >
+            Comments ({commentCount})
+          </Button>
         ) : null}
         <Button
           type="button"
