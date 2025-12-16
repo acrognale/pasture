@@ -1,5 +1,6 @@
 import type { SearchThreadsResponse, ThreadSearchHit } from '@pasture/protocol';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from '@tanstack/react-router';
 import { Loader2Icon } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Codex } from '~/codex/client';
@@ -13,13 +14,11 @@ import {
 } from '~/components/ui/command';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
+import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { cn } from '~/lib/utils';
 import { formatSessionPreview, resolveSessionLabel } from '~/lib/workspaces';
 import { useNavigation, useNavigationActions } from '~/navigation/NavigationProvider';
-import { getConversationHostId } from '~/panels/host-ids';
-import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
-import { useWorkspaceActions } from '~/workspace';
 
 import { useWorkspace } from './WorkspaceProvider';
 import { useWorkspaceThreads } from './hooks/useWorkspaceThreads';
@@ -77,9 +76,8 @@ export function WorkspaceConversationSwitcher() {
   const { openThreadSwitcher, setThreadSwitcherOpen } = useNavigationActions();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const router = useRouter();
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
-  const { loadThread } = useWorkspaceActions();
-  const panelManagerStore = usePanelManagerStore();
   const threads = useWorkspaceThreads();
   const now = useNow();
 
@@ -132,19 +130,12 @@ export function WorkspaceConversationSwitcher() {
       setThreadSwitcherOpen(false);
       setQuery('');
       setDebouncedQuery('');
-      void (async () => {
-        const conversationId = await loadThread(threadId);
-        if (!conversationId) return;
-        const hostId = getConversationHostId(workspacePath);
-        panelManagerStore.getState().actions.open(hostId, 'editor', 'conversation.thread', {
-          workspacePath,
-          conversationId,
-          threadId,
-          threadTitle: threads.items.find((item) => item.threadId === threadId)?.title ?? null,
-        });
-      })();
+      void router.navigate({
+        to: '/workspaces/$workspaceId/threads/$threadId',
+        params: { workspaceId: encodeWorkspaceId(workspacePath), threadId },
+      });
     },
-    [loadThread, panelManagerStore, setThreadSwitcherOpen, threads.items, workspacePath]
+    [router, setThreadSwitcherOpen, workspacePath]
   );
 
   const renderSearchSnippet = useCallback((hit: ThreadSearchHit) => {

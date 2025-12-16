@@ -2,6 +2,7 @@ import type { NewThreadResponse } from '@pasture/protocol';
 import type { ThreadSummary } from '@pasture/protocol';
 import type { GetRepoDiffParams } from '@pasture/protocol';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter, useRouterState } from '@tanstack/react-router';
 import {
   ChevronDownIcon,
   FolderTreeIcon,
@@ -13,7 +14,7 @@ import {
   XIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FocusEvent, MouseEvent as ReactMouseEvent } from 'react';
+import type { FocusEvent } from 'react';
 import { toast } from 'sonner';
 import { Codex } from '~/codex/client';
 import { Button } from '~/components/ui/button';
@@ -42,27 +43,30 @@ import {
   useNavigationActions,
   useNavigationStoreApi,
 } from '~/navigation/NavigationProvider';
-import { useConversationIsRunning } from '~/conversation/store/hooks';
+import {
+  useConversationIsRunning,
+  useConversationLatestTurnDiff,
+  useConversationLoadState,
+  useConversationTurnDiffHistory,
+} from '~/conversation/store/hooks';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
+import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { cn, makePathRelative } from '~/lib/utils';
 import { resolveSessionLabel } from '~/lib/workspaces';
-import { buildFileDiffStats } from '~/review/diff';
+import { buildFileDiffStats, parseUnifiedDiff } from '~/review/diff';
 import { useRepoDiff } from '~/review/queries';
 import type { ParsedTurnDiffFile } from '~/review/types';
 import { ChangesSidebarContent } from '~/workspace/components/ChangesSidebarContent';
 import { ChangesSidebarTreeContent } from '~/workspace/components/ChangesSidebarTreeContent';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
-import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
-import type { DockLayoutNode } from '~/panels/types';
-import { getConversationHostId } from '~/panels/host-ids';
-import { useActiveConversationSelection } from '~/panels/conversation-selection';
 
 import {
   useWorkspace,
   useWorkspaceActions,
   useWorkspaceKeys,
+  useWorkspaceThreadConversationId,
 } from './WorkspaceProvider';
 import {
   type WorkspaceThreadsState,
@@ -75,16 +79,26 @@ export function SidebarPanel({
   onOpenSettings?: () => void;
 }) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
   const { openThreadSwitcher } = useNavigationActions();
-  const panelManagerStore = usePanelManagerStore();
   const keys = useWorkspaceKeys();
   const threads = useOpenWorkspaceThreads();
-  const { closeThread, loadThread } = useWorkspaceActions();
+  const { closeThread } = useWorkspaceActions();
   const now = useNow();
-  const active = useActiveConversationSelection(workspacePath);
-  const activeThreadId = active.threadId;
-  const activeConversationId = active.conversationId;
+
+  const threadMatch = useRouterState({
+    select: (state) =>
+      state.matches.find(
+        (match) => match.routeId === '/workspaces/$workspaceId/threads/$threadId'
+      ),
+  });
+
+  const activeThreadId =
+    typeof threadMatch?.params?.threadId === 'string'
+      ? threadMatch.params.threadId
+      : null;
+  const activeConversationId = useWorkspaceThreadConversationId(activeThreadId);
 
   const sessions: ThreadSummary[] = useMemo(
     () => threads.items ?? [],
@@ -93,78 +107,43 @@ export function SidebarPanel({
   const threadsError =
     threads.query.error instanceof Error ? threads.query.error : null;
 
-  const handleThreadClick = useCallback(
-    (threadId: string, event: ReactMouseEvent<HTMLButtonElement>) => {
-      void (async () => {
-        const conversationId = await loadThread(threadId);
-        if (!conversationId) {
-          return;
-        }
-
-        const threadTitle =
-          sessions.find((item) => item.threadId === threadId)?.title ?? null;
-
-        const hostId = getConversationHostId(workspacePath);
-        const state = panelManagerStore.getState();
-        const host = state.hosts[hostId] ?? null;
-        const editorDock = host?.docks.editor ?? null;
-        const root = editorDock?.root ?? null;
-
-        const findFirstGroupId = (node: DockLayoutNode | null): string | null => {
-          if (!node) return null;
-          if (node.type === 'group') return node.groupId;
-          for (const child of node.children) {
-            const found = findFirstGroupId(child);
-            if (found) return found;
-          }
-          return null;
-        };
-
-        const groupId =
-          editorDock?.focusedGroupId ??
-          (root?.type === 'group' ? root.groupId : findFirstGroupId(root));
-
-        if (event.shiftKey && groupId) {
-          state.actions.splitGroup(hostId, 'editor', groupId, 'row', {
-            move: 'none',
-          });
-        }
-
-        state.actions.open(hostId, 'editor', 'conversation.thread', {
-          workspacePath,
-          conversationId,
-          threadId,
-          threadTitle,
-        });
-      })();
+  const navigateToThread = useCallback(
+    (threadId: string) => {
+      void router.navigate({
+        to: '/workspaces/$workspaceId/threads/$threadId',
+        params: { workspaceId: encodeWorkspaceId(workspacePath), threadId },
+      });
     },
-    [loadThread, panelManagerStore, sessions, workspacePath]
+    [router, workspacePath]
+  );
+
+  const handleThreadClick = useCallback(
+    (threadId: string) => {
+      navigateToThread(threadId);
+    },
+    [navigateToThread]
   );
 
   const handleCloseThread = useCallback(
     (threadId: string) => {
       closeThread(threadId);
 
-      const hostId = getConversationHostId(workspacePath);
-      const state = panelManagerStore.getState();
-      const host = state.hosts[hostId];
-      if (!host) {
+      if (activeThreadId !== threadId) {
         return;
       }
 
-      const instanceIds = Object.values(host.instances)
-        .filter((instance) => instance.kindId === 'conversation.thread')
-        .filter((instance) => {
-          const params = instance.params as { threadId?: unknown };
-          return params.threadId === threadId;
-        })
-        .map((instance) => instance.instanceId);
-
-      for (const instanceId of instanceIds) {
-        state.actions.close(hostId, instanceId);
+      const nextThread = sessions.find((session) => session.threadId !== threadId);
+      if (nextThread) {
+        navigateToThread(nextThread.threadId);
+        return;
       }
+
+      void router.navigate({
+        to: '/workspaces/$workspaceId',
+        params: { workspaceId: encodeWorkspaceId(workspacePath) },
+      });
     },
-    [closeThread, panelManagerStore, workspacePath]
+    [activeThreadId, closeThread, navigateToThread, router, sessions, workspacePath]
   );
 
   const newThreadMutation = useMutation({
@@ -202,17 +181,7 @@ export function SidebarPanel({
         }
       );
 
-      void (async () => {
-        const conversationId = await loadThread(data.threadId, { force: true });
-        if (!conversationId) return;
-        const hostId = getConversationHostId(workspacePath);
-        panelManagerStore.getState().actions.open(hostId, 'editor', 'conversation.thread', {
-          workspacePath,
-          conversationId,
-          threadId: data.threadId,
-          threadTitle: null,
-        });
-      })();
+      navigateToThread(data.threadId);
     },
     onError: (error: Error) => {
       const description =
@@ -268,6 +237,57 @@ export function SidebarPanel({
     onOpenSettings?.();
     return true;
   });
+
+  const conversationIdForDiffs = activeConversationId ?? '';
+  const turnDiffHistory = useConversationTurnDiffHistory(conversationIdForDiffs);
+  const latestDiff = useConversationLatestTurnDiff(conversationIdForDiffs);
+
+  const processedThreadFiles = useMemo<SidebarChangesEntry[]>(() => {
+    if (!activeConversationId) {
+      return [];
+    }
+    if (!turnDiffHistory.length && !latestDiff?.unifiedDiff) {
+      return [];
+    }
+
+    const sortedHistory = [...turnDiffHistory];
+    if (latestDiff && !turnDiffHistory.includes(latestDiff)) {
+      sortedHistory.push(latestDiff);
+    }
+
+    sortedHistory.sort((a, b) => a.turnNumber - b.turnNumber);
+
+    const statsByPath = new Map<string, { added: number; removed: number }>();
+    const latestFileByPath = new Map<
+      string,
+      ReturnType<typeof parseUnifiedDiff>['files'][number]
+    >();
+
+    sortedHistory.forEach((turnDiff) => {
+      if (!turnDiff.unifiedDiff) return;
+      const parsed = parseUnifiedDiff(turnDiff.unifiedDiff);
+      const fileStats = buildFileDiffStats(parsed.files);
+
+      parsed.files.forEach((file) => {
+        const path = file.displayPath;
+        const previous = statsByPath.get(path) ?? { added: 0, removed: 0 };
+        const stats = fileStats.get(file.id) ?? { added: 0, removed: 0 };
+        statsByPath.set(path, {
+          added: previous.added + stats.added,
+          removed: previous.removed + stats.removed,
+        });
+        latestFileByPath.set(path, { ...file, id: path });
+      });
+    });
+
+    return Array.from(latestFileByPath.entries())
+      .map(([path, file]) => ({
+        file,
+        stats: statsByPath.get(path) ?? { added: 0, removed: 0 },
+        relativePath: makePathRelative(workspacePath, path),
+      }))
+      .sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  }, [activeConversationId, latestDiff, turnDiffHistory, workspacePath]);
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -343,9 +363,11 @@ export function SidebarPanel({
         <ChangesSidebarSection
           key={normalizedWorkspacePath || workspacePath}
           conversationId={activeConversationId ?? null}
+          threadId={activeThreadId}
           threadTitle={sessions.find((item) => item.threadId === activeThreadId)?.title ?? null}
           workspacePath={workspacePath}
           normalizedWorkspacePath={normalizedWorkspacePath}
+          threadFilesFromEvents={processedThreadFiles}
           collapsed={isChangesCollapsed}
         />
       </div>
@@ -412,25 +434,47 @@ function getRepoPresetLabel(params: GetRepoDiffParams): string {
 
 function ChangesSidebarSection({
   conversationId,
+  threadId,
   threadTitle,
   workspacePath,
   normalizedWorkspacePath,
+  threadFilesFromEvents,
   collapsed,
 }: {
   conversationId: string | null;
+  threadId: string | null;
   threadTitle: string | null;
   workspacePath: string;
   normalizedWorkspacePath: string | null;
+  threadFilesFromEvents: SidebarChangesEntry[];
   collapsed: boolean;
 }) {
+  type ChangesMode = 'repo' | 'thread';
   type ChangesView = 'list' | 'tree';
 
-  const { openReviewRepo } = useNavigationActions();
+  const conversationLoadState = useConversationLoadState(conversationId ?? '');
+  const { openReviewRepo, openReviewTurn } = useNavigationActions();
   const navigationStore = useNavigationStoreApi();
 
   const workspaceKey = normalizedWorkspacePath || workspacePath;
   const liveRangeStorageKey = `pasture.changes.liveRange:${workspaceKey}`;
-  const viewStorageKey = `pasture.changes.view:${workspaceKey}`;
+  const modeStorageKey = `pasture.changes.mode:${workspaceKey}:${threadId ?? 'none'}`;
+  const viewStorageKey = `pasture.changes.view:${workspaceKey}:${threadId ?? 'none'}`;
+
+  const [mode, setMode] = useState<ChangesMode>(() => {
+    if (typeof window === 'undefined') {
+      return 'repo';
+    }
+    try {
+      const stored = window.localStorage.getItem(modeStorageKey);
+      if (stored === 'repo' || stored === 'thread') {
+        return stored;
+      }
+    } catch {
+      // ignore
+    }
+    return 'repo';
+  });
 
   const [view, setView] = useState<ChangesView>(() => {
     if (typeof window === 'undefined') {
@@ -446,6 +490,21 @@ function ChangesSidebarSection({
     }
     return 'list';
   });
+
+  const setModeAndPersist = useCallback(
+    (next: ChangesMode) => {
+      setMode(next);
+      if (typeof window === 'undefined') {
+        return;
+      }
+      try {
+        window.localStorage.setItem(modeStorageKey, next);
+      } catch {
+        // ignore
+      }
+    },
+    [modeStorageKey]
+  );
 
   const setViewAndPersist = useCallback(
     (next: ChangesView) => {
@@ -565,9 +624,11 @@ function ChangesSidebarSection({
     workspacePath,
   ]);
 
-  const activeCount = repoProcessedFiles.length;
-  const files = repoProcessedFiles;
-  const selectionLabel = getRepoPresetLabel(liveRepoParams);
+  const threadCount = threadFilesFromEvents.length;
+  const repoCount = repoProcessedFiles.length;
+  const activeCount = mode === 'repo' ? repoCount : threadCount;
+  const files = mode === 'repo' ? repoProcessedFiles : threadFilesFromEvents;
+  const selectionLabel = mode === 'repo' ? getRepoPresetLabel(liveRepoParams) : 'Thread';
 
   return (
     <SidebarGroup className="flex min-h-0 flex-1 flex-col pl-2 pr-0 py-2">
@@ -597,7 +658,15 @@ function ChangesSidebarSection({
             >
               <DropdownMenuItem
                 className="text-xs px-3 py-1.5"
+                disabled={!conversationId}
+                onSelect={() => setModeAndPersist('thread')}
+              >
+                Thread
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-xs px-3 py-1.5"
                 onSelect={() => {
+                  setModeAndPersist('repo');
                   setLiveRepoParamsAndPersist({
                     workspacePath,
                     ...REPO_PRESET_UNCOMMITTED,
@@ -609,6 +678,7 @@ function ChangesSidebarSection({
               <DropdownMenuItem
                 className="text-xs px-3 py-1.5"
                 onSelect={() => {
+                  setModeAndPersist('repo');
                   setLiveRepoParamsAndPersist({
                     workspacePath,
                     ...REPO_PRESET_BRANCH,
@@ -671,29 +741,48 @@ function ChangesSidebarSection({
                 <ChangesSidebarTreeContent
                   files={files}
                   emptyStateTitle={
-                    repoDiffQuery.query.isPending
-                      ? 'Loading changes…'
-                      : repoDiffQuery.query.error
-                        ? "Couldn't load changes"
-                        : liveRepoParams.includeWorktree
-                          ? 'No uncommitted changes'
-                          : 'No branch changes'
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? 'Loading changes…'
+                        : repoDiffQuery.query.error
+                          ? "Couldn't load changes"
+                          : liveRepoParams.includeWorktree
+                            ? 'No uncommitted changes'
+                            : 'No branch changes'
+                      : conversationLoadState.isLoading
+                        ? 'Loading changes…'
+                        : 'No thread diffs recorded'
                   }
                   emptyStateDescription={
-                    repoDiffQuery.query.error instanceof Error
-                      ? repoDiffQuery.query.error.message
-                      : liveRepoParams.includeWorktree
-                        ? 'Make an edit to see it here.'
-                        : 'Commits on this branch that are not in main will appear here.'
+                    mode === 'repo'
+                      ? repoDiffQuery.query.error instanceof Error
+                        ? repoDiffQuery.query.error.message
+                        : liveRepoParams.includeWorktree
+                          ? 'Make an edit to see it here.'
+                          : 'Commits on this branch that are not in main will appear here.'
+                      : 'Thread changes are based on agent-emitted diffs.'
                   }
                   emptyStateAction={
-                    repoDiffQuery.query.isPending
-                      ? undefined
-                      : repoDiffQuery.query.error
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? undefined
+                        : repoDiffQuery.query.error
+                          ? {
+                              label: 'Try again',
+                              onClick: () => {
+                                void repoDiffQuery.query.refetch();
+                              },
+                            }
+                          : undefined
+                      : threadCount === 0
                         ? {
-                            label: 'Try again',
+                            label: 'View uncommitted changes',
                             onClick: () => {
-                              void repoDiffQuery.query.refetch();
+                              setModeAndPersist('repo');
+                              setLiveRepoParamsAndPersist({
+                                workspacePath,
+                                ...REPO_PRESET_UNCOMMITTED,
+                              });
                             },
                           }
                         : undefined
@@ -702,10 +791,19 @@ function ChangesSidebarSection({
                     if (!conversationId) {
                       return;
                     }
-                    openReviewRepo({
+                    if (mode === 'repo') {
+                      openReviewRepo({
+                        workspacePath,
+                        conversationId,
+                        repoParams: toRepoParams(liveRepoParams),
+                        focusFilePath: file.displayPath,
+                        threadTitle,
+                      });
+                      return;
+                    }
+                    openReviewTurn({
                       workspacePath,
                       conversationId,
-                      repoParams: toRepoParams(liveRepoParams),
                       focusFilePath: file.displayPath,
                       threadTitle,
                     });
@@ -715,29 +813,48 @@ function ChangesSidebarSection({
                 <ChangesSidebarContent
                   files={files}
                   emptyStateTitle={
-                    repoDiffQuery.query.isPending
-                      ? 'Loading changes…'
-                      : repoDiffQuery.query.error
-                        ? "Couldn't load changes"
-                        : liveRepoParams.includeWorktree
-                          ? 'No uncommitted changes'
-                          : 'No branch changes'
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? 'Loading changes…'
+                        : repoDiffQuery.query.error
+                          ? "Couldn't load changes"
+                          : liveRepoParams.includeWorktree
+                            ? 'No uncommitted changes'
+                            : 'No branch changes'
+                      : conversationLoadState.isLoading
+                        ? 'Loading changes…'
+                        : 'No thread diffs recorded'
                   }
                   emptyStateDescription={
-                    repoDiffQuery.query.error instanceof Error
-                      ? repoDiffQuery.query.error.message
-                      : liveRepoParams.includeWorktree
-                        ? 'Make an edit to see it here.'
-                        : 'Commits on this branch that are not in main will appear here.'
+                    mode === 'repo'
+                      ? repoDiffQuery.query.error instanceof Error
+                        ? repoDiffQuery.query.error.message
+                        : liveRepoParams.includeWorktree
+                          ? 'Make an edit to see it here.'
+                          : 'Commits on this branch that are not in main will appear here.'
+                      : 'Thread changes are based on agent-emitted diffs.'
                   }
                   emptyStateAction={
-                    repoDiffQuery.query.isPending
-                      ? undefined
-                      : repoDiffQuery.query.error
+                    mode === 'repo'
+                      ? repoDiffQuery.query.isPending
+                        ? undefined
+                        : repoDiffQuery.query.error
+                          ? {
+                              label: 'Try again',
+                              onClick: () => {
+                                void repoDiffQuery.query.refetch();
+                              },
+                            }
+                          : undefined
+                      : threadCount === 0
                         ? {
-                            label: 'Try again',
+                            label: 'View uncommitted changes',
                             onClick: () => {
-                              void repoDiffQuery.query.refetch();
+                              setModeAndPersist('repo');
+                              setLiveRepoParamsAndPersist({
+                                workspacePath,
+                                ...REPO_PRESET_UNCOMMITTED,
+                              });
                             },
                           }
                         : undefined
@@ -746,10 +863,19 @@ function ChangesSidebarSection({
                     if (!conversationId) {
                       return;
                     }
-                    openReviewRepo({
+                    if (mode === 'repo') {
+                      openReviewRepo({
+                        workspacePath,
+                        conversationId,
+                        repoParams: toRepoParams(liveRepoParams),
+                        focusFilePath: file.displayPath,
+                        threadTitle,
+                      });
+                      return;
+                    }
+                    openReviewTurn({
                       workspacePath,
                       conversationId,
-                      repoParams: toRepoParams(liveRepoParams),
                       focusFilePath: file.displayPath,
                       threadTitle,
                     });
@@ -768,7 +894,7 @@ type SidebarConversationMenuItemProps = {
   session: ThreadSummary;
   isActive: boolean;
   now: Date;
-  onSelect: (threadId: string, event: ReactMouseEvent<HTMLButtonElement>) => void;
+  onSelect: (threadId: string) => void;
   onClose: (threadId: string) => void;
 };
 
@@ -831,7 +957,7 @@ function SidebarConversationMenuItem({
   const menuButton = (
     <SidebarMenuButton
       type="button"
-      onClick={(event) => onSelect(session.threadId, event)}
+      onClick={() => onSelect(session.threadId)}
       isActive={isActive}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

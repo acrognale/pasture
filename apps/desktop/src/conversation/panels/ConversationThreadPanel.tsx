@@ -1,3 +1,4 @@
+import { useRouter } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -11,8 +12,7 @@ import { useMessageComments } from '~/conversation/comments/MessageCommentContex
 import { buildMessageCommentsPrompt } from '~/conversation/comments/utils';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { copyToClipboard } from '~/lib/utils';
-import { getConversationHostId } from '~/panels/host-ids';
-import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
+import { encodeWorkspaceId } from '~/lib/routing';
 import {
   sortThreadsByTimestamp,
   useWorkspaceActions,
@@ -55,8 +55,8 @@ export function ConversationThreadPanel({
   const services = useConversationPanelServices();
   const queryClient = useQueryClient();
   const keys = useWorkspaceKeys();
-  const panelManagerStore = usePanelManagerStore();
-  const { getConversationStore, loadThread, markThreadOpen } = useWorkspaceActions();
+  const router = useRouter();
+  const { getConversationStore, markThreadOpen } = useWorkspaceActions();
   const { interruptConversation, isPending: interruptPending } =
     useInterruptConversation(conversationId);
 
@@ -333,25 +333,21 @@ export function ConversationThreadPanel({
 
       setHandoffDraft(newThreadId, composerDraft);
 
-      void (async () => {
-        const resolvedConversationId = await loadThread(newThreadId, { force: true });
-        const hostId = getConversationHostId(workspacePath);
-        panelManagerStore.getState().actions.open(hostId, 'editor', 'conversation.thread', {
-          workspacePath,
-          conversationId: resolvedConversationId ?? newConversationId,
+      void router.navigate({
+        to: '/workspaces/$workspaceId/threads/$threadId',
+        params: {
+          workspaceId: encodeWorkspaceId(workspacePath),
           threadId: newThreadId,
-          threadTitle: title,
-        });
-      })();
+        },
+      });
     },
     [
-      loadThread,
       conversationId,
       getConversationStore,
       keys,
       markThreadOpen,
-      panelManagerStore,
       queryClient,
+      router,
       workspacePath,
     ]
   );

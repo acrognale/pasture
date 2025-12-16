@@ -1,5 +1,7 @@
 import {
+  Outlet,
   createFileRoute,
+  useRouterState,
 } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { Codex } from '~/codex/client';
@@ -10,13 +12,11 @@ import {
   SidebarProvider,
 } from '~/components/ui/sidebar';
 import { ConversationProvider } from '~/conversation/store';
-import { WorkspaceConversationHost } from '~/conversation/WorkspaceConversationHost';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { NavigationProvider } from '~/navigation/NavigationProvider';
 import { PanelManagerProvider } from '~/panels/PanelManagerProvider';
 import { SettingsModal } from '~/settings/SettingsModal';
-import { useActiveConversationSelection } from '~/panels/conversation-selection';
-import { WorkspaceProvider } from '~/workspace';
+import { WorkspaceProvider, useWorkspaceThreadConversationId } from '~/workspace';
 import { RecentConversationSwitcher } from '~/workspace/RecentConversationSwitcher';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';
@@ -56,7 +56,20 @@ function RouteComponent() {
 function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
   const [isResizing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const active = useActiveConversationSelection(workspacePath);
+
+  const threadMatch = useRouterState({
+    select: (state) =>
+      state.matches.find(
+        (match) => match.routeId === '/workspaces/$workspaceId/threads/$threadId'
+      ),
+  });
+
+  const activeThreadId =
+    typeof threadMatch?.params?.threadId === 'string'
+      ? threadMatch.params.threadId
+      : null;
+
+  const activeConversationId = useWorkspaceThreadConversationId(activeThreadId);
 
   return (
     <SidebarProvider
@@ -72,8 +85,8 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
       <div className="flex h-full w-full flex-col">
         <WorkspaceTopBar
           workspacePath={workspacePath}
-          activeConversationId={active.conversationId}
-          hasActiveThread={active.threadId !== null}
+          activeConversationId={activeConversationId}
+          hasActiveThread={activeThreadId !== null}
         />
         <div className="flex flex-1 min-h-0">
           <Sidebar
@@ -89,7 +102,7 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
           </Sidebar>
           <SidebarInset className="h-full overflow-hidden">
             <div className="flex h-full flex-col -mx-px">
-              <WorkspaceConversationHost workspacePath={workspacePath} />
+              <Outlet />
             </div>
           </SidebarInset>
         </div>
