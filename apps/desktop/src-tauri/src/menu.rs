@@ -1,4 +1,5 @@
 use crate::commands::workspace::WorkspacePathParams;
+use crate::errors::AppError;
 use crate::errors::AppResult;
 use crate::state::AppState;
 use crate::workspace;
@@ -6,6 +7,7 @@ use log::warn;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
+use tauri::WebviewWindowBuilder;
 use tauri::Wry;
 use tauri::menu::Menu;
 use tauri::menu::MenuBuilder;
@@ -18,6 +20,8 @@ use tauri::menu::SubmenuBuilder;
 const MENU_OPEN_WORKSPACE: &str = "open_workspace";
 const MENU_RECENT_WORKSPACE_PREFIX: &str = "recent_workspace_";
 const MENU_CHECK_FOR_UPDATES: &str = "check_for_updates";
+const MENU_CLOSE_FOCUSED_PANEL_OR_WINDOW: &str = "close_focused_panel_or_window";
+const MENU_NEW_WINDOW: &str = "new_window";
 
 /// Build the native application menu
 pub async fn build_menu(app: &AppHandle) -> Result<Menu<Wry>, tauri::Error> {
@@ -80,6 +84,15 @@ fn build_file_menu(
 ) -> Result<Submenu<Wry>, tauri::Error> {
     let mut file_menu = SubmenuBuilder::new(app, "File");
 
+    // New Window
+    file_menu = file_menu.item(&MenuItem::with_id(
+        app,
+        MENU_NEW_WINDOW,
+        "New Window",
+        true,
+        Some("CmdOrCtrl+Shift+N"),
+    )?);
+
     // Open Workspace
     file_menu = file_menu.item(&MenuItem::with_id(
         app,
@@ -95,13 +108,17 @@ fn build_file_menu(
     // Separator and Close
     file_menu = file_menu.separator();
 
-    #[cfg(target_os = "macos")]
-    {
-        file_menu = file_menu.item(&PredefinedMenuItem::close_window(app, None)?);
-    }
+    file_menu = file_menu.item(&MenuItem::with_id(
+        app,
+        MENU_CLOSE_FOCUSED_PANEL_OR_WINDOW,
+        "Close",
+        true,
+        Some("CmdOrCtrl+W"),
+    )?);
 
     #[cfg(not(target_os = "macos"))]
     {
+        file_menu = file_menu.separator();
         file_menu = file_menu.item(&PredefinedMenuItem::quit(app, None)?);
     }
 
@@ -159,11 +176,6 @@ fn build_window_menu(app: &AppHandle) -> Result<Submenu<Wry>, tauri::Error> {
         // Note: bring_all_to_front is not available in this version
     }
 
-    #[cfg(not(target_os = "macos"))]
-    {
-        window_menu = window_menu.item(&PredefinedMenuItem::close_window(app, None)?);
-    }
-
     window_menu.build()
 }
 
@@ -173,6 +185,24 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
     let app_handle = app.clone();
 
     match event_id {
+        MENU_NEW_WINDOW => {
+            if let Err(err) = open_new_window(&app_handle) {
+                log::error!("Failed to open new window: {}", err);
+            }
+        }
+        MENU_CLOSE_FOCUSED_PANEL_OR_WINDOW => {
+            if let Some((_, window)) = app_handle
+                .webview_windows()
+                .into_iter()
+                .find(|(_, window)| window.is_focused().unwrap_or(false))
+            {
+                if let Err(e) = window.emit("app:close-requested", ()) {
+                    log::error!("Failed to emit close request event: {}", e);
+                }
+            } else if let Err(e) = app_handle.emit("app:close-requested", ()) {
+                log::error!("Failed to emit close request event: {}", e);
+            }
+        }
         MENU_CHECK_FOR_UPDATES => {
             // Emit event for frontend to handle update check
             if let Err(e) = app_handle.emit("update:check-requested", ()) {
@@ -276,5 +306,41 @@ fn format_workspace_label(workspace_path: &str) -> String {
 pub async fn rebuild_menu(app: &AppHandle) -> Result<(), tauri::Error> {
     let menu = build_menu(app).await?;
     app.set_menu(menu)?;
+    Ok(())
+}
+
+pub fn open_new_window(app_handle: &AppHandle) -> AppResult<()> {
+    let label = format!(
+        "window-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    );
+
+    let mut window_config = app_handle
+        .config()
+        .app
+        .windows
+        .first()
+        .cloned()
+        .unwrap_or_default();
+
+    window_config.label = label.clone();
+    window_config.url = tauri::WebviewUrl::App("/".into());
+
+    let builder = WebviewWindowBuilder::from_config(app_handle, &window_config)
+        .map_err(|e| AppError::Internal(anyhow::Error::new(e)))?;
+
+    let window = builder
+        .build()
+        .map_err(|e| AppError::Internal(anyhow::Error::new(e)))?;
+
+    #[cfg(target_os = "macos")]
+    {
+        use tauri_plugin_decorum::WebviewWindowExt;
+        let _ = window.set_traffic_lights_inset(20.0, 22.0);
+    }
+
     Ok(())
 }

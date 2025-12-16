@@ -52,7 +52,11 @@ export function PanelHost({
   }
 
   return (
-    <>
+    <div
+      className="h-full w-full"
+      data-panel-host-id={hostId}
+      data-panel-dock-id={dockId}
+    >
       <DockNodeView
         hostId={hostId}
         dockId={dockId}
@@ -73,7 +77,7 @@ export function PanelHost({
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
