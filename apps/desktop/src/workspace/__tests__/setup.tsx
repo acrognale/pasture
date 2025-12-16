@@ -51,6 +51,7 @@ const OpenConversationsInitializer = ({
           workspacePath,
           conversationId,
           threadId,
+          threadTitle: null,
         });
       }
     })();
@@ -68,6 +69,7 @@ const OpenConversationsInitializer = ({
           workspacePath,
           conversationId,
           threadId,
+          threadTitle: null,
         });
       },
     };

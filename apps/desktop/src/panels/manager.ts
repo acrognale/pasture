@@ -61,6 +61,12 @@ export type PanelManagerActions = {
     instanceId: PanelInstanceId,
     state: unknown
   ) => void;
+  moveTabToGroup: (
+    hostId: HostId,
+    dockId: DockId,
+    instanceId: PanelInstanceId,
+    targetGroupId: PanelGroupId
+  ) => void;
   splitGroup: (
     hostId: HostId,
     dockId: DockId,
@@ -391,6 +397,52 @@ export const createPanelManagerStore = (): PanelManagerStore =>
             const instance = host.instances[instanceId];
             if (!instance) return;
             instance.state = state;
+          })
+        );
+      },
+      moveTabToGroup: (hostId, dockId, instanceId, targetGroupId) => {
+        set(
+          produce<PanelManagerState>((draft) => {
+            const host = draft.hosts[hostId];
+            if (!host) return;
+            const dock = host.docks[dockId];
+            if (!dock?.root) return;
+
+            const sourceGroup = findGroupContainingInstance(dock.root, instanceId);
+            const targetGroup = findGroupById(dock.root, targetGroupId);
+            if (!sourceGroup || !targetGroup) return;
+            if (sourceGroup.groupId === targetGroupId) return;
+
+            dock.root = mapDockLayout(dock.root, (group) => {
+              if (group.groupId === sourceGroup.groupId) {
+                const nextTabs = group.tabs.filter((id) => id !== instanceId);
+                return {
+                  ...group,
+                  tabs: nextTabs,
+                  activeTabId:
+                    group.activeTabId === instanceId
+                      ? nextTabs[nextTabs.length - 1] ?? null
+                      : group.activeTabId,
+                };
+              }
+              if (group.groupId === targetGroupId) {
+                const nextTabs = [...group.tabs.filter((id) => id !== instanceId), instanceId];
+                return { ...group, tabs: nextTabs, activeTabId: instanceId };
+              }
+              return group;
+            });
+
+            dock.root = pruneDockLayout(dock.root);
+            const nextRoot = dock.root;
+            if (!nextRoot || !dockLayoutHasAnyTabs(nextRoot)) {
+              dock.root = null;
+              dock.focusedGroupId = null;
+              return;
+            }
+
+            dock.focusedGroupId = findGroupById(nextRoot, targetGroupId)
+              ? targetGroupId
+              : findFirstGroup(nextRoot)?.groupId ?? null;
           })
         );
       },

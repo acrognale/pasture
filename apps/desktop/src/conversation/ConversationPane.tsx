@@ -56,6 +56,7 @@ function ConversationPaneContent({
       workspacePath,
       conversationId,
       threadId,
+      threadTitle: null,
     });
   }, [actions, conversationId, hostId, threadId, workspacePath]);
 

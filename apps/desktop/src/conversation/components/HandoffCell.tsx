@@ -34,6 +34,7 @@ export function HandoffCell({ cell }: HandoffCellProps) {
         workspacePath,
         conversationId,
         threadId,
+        threadTitle: cell.title ?? null,
       });
     })();
   };

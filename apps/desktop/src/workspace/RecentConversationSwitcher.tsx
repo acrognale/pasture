@@ -54,6 +54,7 @@ export function RecentConversationSwitcher() {
       workspacePath,
       conversationId,
       threadId: target.threadId,
+      threadTitle: target.title,
     });
   }, [activeIndex, close, loadThread, open, panelManagerStore, recent, workspacePath]);
 

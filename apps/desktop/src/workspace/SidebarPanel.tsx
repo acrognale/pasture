@@ -105,6 +105,9 @@ export function SidebarPanel({
           return;
         }
 
+        const threadTitle =
+          sessions.find((item) => item.threadId === threadId)?.title ?? null;
+
         const hostId = getConversationHostId(workspacePath);
         const state = panelManagerStore.getState();
         const host = state.hosts[hostId] ?? null;
@@ -135,10 +138,11 @@ export function SidebarPanel({
           workspacePath,
           conversationId,
           threadId,
+          threadTitle,
         });
       })();
     },
-    [loadThread, panelManagerStore, workspacePath]
+    [loadThread, panelManagerStore, sessions, workspacePath]
   );
 
   const handleCloseThread = useCallback(
@@ -210,6 +214,7 @@ export function SidebarPanel({
           workspacePath,
           conversationId,
           threadId: data.threadId,
+          threadTitle: null,
         });
       })();
     },

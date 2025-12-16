@@ -7,7 +7,13 @@ export function registerConversationPanels() {
   registerPanelKind({
     kindId: 'conversation.thread',
     scope: 'conversation',
-    title: () => 'Thread',
+    title: (params) => {
+      const p = params as { threadTitle?: string | null; threadId?: string | null };
+      if (typeof p.threadTitle === 'string' && p.threadTitle.trim().length > 0) {
+        return p.threadTitle;
+      }
+      return 'Untitled thread';
+    },
     dedupeKey: (params) => {
       const p = params as { threadId?: string | null; conversationId?: string };
       if (p.threadId) {
