@@ -1,17 +1,18 @@
 import { Cell, type TranscriptHandoffCell } from '@pasture/transcript-ui';
-import { useRouter } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '~/components/ui/button';
-import { encodeWorkspaceId } from '~/lib/routing';
-import { useWorkspace } from '~/workspace';
+import { getConversationHostId } from '~/panels/host-ids';
+import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
+import { useWorkspace, useWorkspaceActions } from '~/workspace';
 
 type HandoffCellProps = {
   cell: TranscriptHandoffCell;
 };
 
 export function HandoffCell({ cell }: HandoffCellProps) {
-  const router = useRouter();
   const { workspacePath } = useWorkspace();
+  const { loadThread } = useWorkspaceActions();
+  const panelManagerStore = usePanelManagerStore();
 
   const hasDestination =
     Boolean(cell.targetThreadId) && Boolean(cell.targetConversationId);
@@ -24,13 +25,17 @@ export function HandoffCell({ cell }: HandoffCellProps) {
       return;
     }
 
-    void router.navigate({
-      to: '/workspaces/$workspaceId/threads/$threadId',
-      params: {
-        workspaceId: encodeWorkspaceId(workspacePath),
-        threadId: cell.targetThreadId,
-      },
-    });
+    void (async () => {
+      const threadId = cell.targetThreadId!;
+      const conversationId = await loadThread(threadId);
+      if (!conversationId) return;
+      const hostId = getConversationHostId(workspacePath);
+      panelManagerStore.getState().actions.open(hostId, 'editor', 'conversation.thread', {
+        workspacePath,
+        conversationId,
+        threadId,
+      });
+    })();
   };
 
   return (

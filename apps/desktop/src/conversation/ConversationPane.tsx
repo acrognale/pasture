@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { MessageCommentProvider } from '~/conversation/comments/MessageCommentContext';
-import { MessageCommentDraftProvider } from '~/conversation/comments/MessageCommentDraftContext';
 import { useNamedShortcut } from '~/keyboard/hooks';
-import { dockLayoutHasAnyTabs } from '~/panels/layout';
 import { HostLayout } from '~/panels/HostLayout';
+import { getConversationHostId } from '~/panels/host-ids';
+import { dockLayoutHasAnyTabs } from '~/panels/layout';
 import { usePanelManager } from '~/panels/PanelManagerProvider';
-import type { DockLayoutNode, PanelInstanceId, PanelGroupId } from '~/panels/types';
+import type { DockLayoutNode, PanelGroupId, PanelInstanceId } from '~/panels/types';
 
 import { ConversationPanelServicesProvider } from './panels/ConversationPanelServices';
 import { registerConversationPanels } from './panels/register';
@@ -37,18 +36,16 @@ type ConversationPaneProps = {
   workspacePath: string;
   conversationId: string;
   threadId?: string | null;
-  onConversationForked?: (conversationId: string) => void;
 };
 
 function ConversationPaneContent({
   workspacePath,
   conversationId,
   threadId,
-  onConversationForked,
 }: ConversationPaneProps) {
   const hostId = useMemo(
-    () => `conversation:${workspacePath}:${threadId ?? conversationId}`,
-    [conversationId, threadId, workspacePath]
+    () => getConversationHostId(workspacePath),
+    [workspacePath]
   );
 
   const host = usePanelManager((state) => state.hosts[hostId] ?? null);
@@ -59,9 +56,8 @@ function ConversationPaneContent({
       workspacePath,
       conversationId,
       threadId,
-      onConversationForked,
     });
-  }, [actions, conversationId, hostId, onConversationForked, threadId, workspacePath]);
+  }, [actions, conversationId, hostId, threadId, workspacePath]);
 
   const utilityRoot = host?.docks.utility.root ?? null;
   const utilityHasTabs = dockLayoutHasAnyTabs(utilityRoot);
@@ -104,16 +100,5 @@ function ConversationPaneContent({
 }
 
 export function ConversationPane(props: ConversationPaneProps) {
-  const { conversationId, workspacePath } = props;
-
-  return (
-    <MessageCommentProvider
-      conversationId={conversationId}
-      workspacePath={workspacePath}
-    >
-      <MessageCommentDraftProvider>
-        <ConversationPaneContent {...props} />
-      </MessageCommentDraftProvider>
-    </MessageCommentProvider>
-  );
+  return <ConversationPaneContent {...props} />;
 }

@@ -1,12 +1,14 @@
-import { useRouter, useRouterState } from '@tanstack/react-router';
 import { Clock3Icon, MessagesSquareIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
-import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { cn } from '~/lib/utils';
 import { formatSessionPreview, resolveSessionLabel } from '~/lib/workspaces';
+import { useActiveConversationSelection } from '~/panels/conversation-selection';
+import { getConversationHostId } from '~/panels/host-ids';
+import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
+import { useWorkspaceActions } from '~/workspace';
 
 import { useWorkspace } from './WorkspaceProvider';
 import { useWorkspaceRecentConversations } from './hooks/useWorkspaceRecentConversations';
@@ -14,25 +16,14 @@ import { useWorkspaceRecentConversations } from './hooks/useWorkspaceRecentConve
 type Direction = 1 | -1;
 
 export function RecentConversationSwitcher() {
-  const router = useRouter();
   const { workspacePath } = useWorkspace();
+  const { loadThread } = useWorkspaceActions();
+  const panelManagerStore = usePanelManagerStore();
   const now = useNow();
   const recent = useWorkspaceRecentConversations();
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
-
-  const workspaceId = useMemo(
-    () => encodeWorkspaceId(workspacePath),
-    [workspacePath]
-  );
-
-  const currentThreadId = useRouterState({
-    select: (state) =>
-      state.matches.find(
-        (match) =>
-          match.routeId === '/workspaces/$workspaceId/threads/$threadId'
-      )?.params?.threadId,
-  });
+  const currentThreadId = useActiveConversationSelection(workspacePath).threadId;
 
   const items = recent.slice(0, 15);
   const activeIndex =
@@ -56,14 +47,15 @@ export function RecentConversationSwitcher() {
     }
 
     close();
-    await router.navigate({
-      to: '/workspaces/$workspaceId/threads/$threadId',
-      params: {
-        workspaceId,
-        threadId: target.threadId,
-      },
+    const conversationId = await loadThread(target.threadId);
+    if (!conversationId) return;
+    const hostId = getConversationHostId(workspacePath);
+    panelManagerStore.getState().actions.open(hostId, 'editor', 'conversation.thread', {
+      workspacePath,
+      conversationId,
+      threadId: target.threadId,
     });
-  }, [activeIndex, close, open, recent, router, workspaceId]);
+  }, [activeIndex, close, loadThread, open, panelManagerStore, recent, workspacePath]);
 
   const cycle = useCallback(
     (direction: Direction) => {
