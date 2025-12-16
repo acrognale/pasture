@@ -1,13 +1,9 @@
-import type { GetRepoDiffParams } from '@pasture/protocol';
 import { DiffEditor } from '@monaco-editor/react';
+import type { GetRepoDiffParams } from '@pasture/protocol';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
 import type * as monaco from 'monaco-editor';
-import { Button } from '~/components/ui/button';
-import { Input } from '~/components/ui/input';
-import { Textarea } from '~/components/ui/textarea';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Codex } from '~/codex/client';
-import { cn } from '~/lib/utils';
 
 import { EMPTY_REVIEW_COMMENTS, useReviewComments } from './commentsStore';
 
@@ -35,7 +31,11 @@ type RepoFileContentsParams = {
   commentableLines: number[];
 };
 
-export type ReviewFileDiffPaneProps = TurnFileContentsParams | RepoFileContentsParams;
+export type ReviewFileDiffPaneProps =
+  | TurnFileContentsParams
+  | RepoFileContentsParams;
+
+type MonacoApi = typeof import('monaco-editor');
 
 const detectMonacoLanguage = (filePath: string): string | undefined => {
   const filename = filePath.split('/').pop() ?? '';
@@ -86,7 +86,12 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
   );
 
   const query = useQuery({
-    queryKey: ['reviewFile', props.mode, props.reviewKey, props.filePath] as const,
+    queryKey: [
+      'reviewFile',
+      props.mode,
+      props.reviewKey,
+      props.filePath,
+    ] as const,
     queryFn: async () => {
       if (props.mode === 'turn') {
         return await Codex.getTurnReviewFileContents({
@@ -111,42 +116,475 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
     refetchOnWindowFocus: false,
   });
 
-  const [selectedLineNumber, setSelectedLineNumber] = useState<number>(1);
-  const [draftText, setDraftText] = useState('');
+  const [hoveredLineNumber, setHoveredLineNumber] = useState<number | null>(
+    null
+  );
+  const [draftLineNumber, setDraftLineNumber] = useState<number | null>(null);
+  const [editorVersion, setEditorVersion] = useState(0);
 
   const actions = useReviewComments((state) => state.actions);
   const commentsForReviewKey = useReviewComments(
-    (state) => state.commentsByReviewKey[props.reviewKey] ?? EMPTY_REVIEW_COMMENTS
+    (state) =>
+      state.commentsByReviewKey[props.reviewKey] ?? EMPTY_REVIEW_COMMENTS
   );
 
-  const fileComments = useMemo(
-    () =>
-      commentsForReviewKey
-        .filter((comment) => comment.filePath === props.filePath)
-        .slice()
-        .sort((a, b) => a.lineNumber - b.lineNumber),
-    [commentsForReviewKey, props.filePath]
-  );
+  const fileComments = useMemo(() => {
+    return commentsForReviewKey
+      .filter((comment) => comment.filePath === props.filePath)
+      .slice()
+      .sort((a, b) => a.lineNumber - b.lineNumber);
+  }, [commentsForReviewKey, props.filePath]);
+
+  const commentsByLineNumber = useMemo(() => {
+    const map = new Map<number, typeof fileComments>();
+    for (const comment of fileComments) {
+      const existing = map.get(comment.lineNumber);
+      if (existing) {
+        existing.push(comment);
+      } else {
+        map.set(comment.lineNumber, [comment]);
+      }
+    }
+    return map;
+  }, [fileComments]);
 
   const commentableLineSet = useMemo(
     () => new Set(props.commentableLines),
     [props.commentableLines]
   );
-  const canComment = commentableLineSet.has(selectedLineNumber);
 
-  const handleEditorMount = (
-    _editor: monaco.editor.IStandaloneDiffEditor
-  ) => {
-    const modifiedEditor = _editor.getModifiedEditor();
-    const updateSelection = () => {
-      const pos = modifiedEditor.getPosition();
-      if (pos?.lineNumber) {
-        setSelectedLineNumber(pos.lineNumber);
+  const monacoRef = useRef<MonacoApi | null>(null);
+  const diffEditorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(
+    null
+  );
+  const modifiedEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(
+    null
+  );
+
+  const hoveredLineRef = useRef<number | null>(null);
+
+  const hoverDisposablesRef = useRef<monaco.IDisposable[]>([]);
+  const hoverDecorationIdsRef = useRef<string[]>([]);
+  const draftTextByLineRef = useRef(new Map<number, string>());
+  const viewZonesRef = useRef<
+    Array<{
+      lineNumber: number;
+      zoneId: string;
+      zone: monaco.editor.IViewZone;
+      domNode: HTMLDivElement;
+      resizeObserver?: ResizeObserver;
+    }>
+  >([]);
+
+  useEffect(() => {
+    hoveredLineRef.current = hoveredLineNumber;
+  }, [hoveredLineNumber]);
+
+  const handleEditorMount = useCallback(
+    (editor: monaco.editor.IStandaloneDiffEditor, monacoApi: MonacoApi) => {
+      monacoRef.current = monacoApi;
+      diffEditorRef.current = editor;
+      modifiedEditorRef.current = editor.getModifiedEditor();
+      setEditorVersion((version) => version + 1);
+    },
+    []
+  );
+
+  const openDraftForLine = useCallback(
+    (lineNumber: number) => {
+      if (!commentableLineSet.has(lineNumber)) {
+        return;
       }
+
+      setDraftLineNumber(lineNumber);
+      draftTextByLineRef.current.set(lineNumber, '');
+
+      const modifiedEditor = modifiedEditorRef.current;
+      modifiedEditor?.revealLineInCenterIfOutsideViewport(lineNumber);
+    },
+    [commentableLineSet]
+  );
+
+  const renderCommentZone = useCallback(
+    (options: {
+      container: HTMLDivElement;
+      lineNumber: number;
+      comments: typeof fileComments;
+      isDraftOpen: boolean;
+      onRequestLayout: () => void;
+    }) => {
+      const { container, lineNumber, comments, isDraftOpen, onRequestLayout } =
+        options;
+
+      container.replaceChildren();
+
+      const outer = document.createElement('div');
+      outer.className =
+        'rounded-md border border-border/60 bg-background p-3 text-xs text-foreground';
+
+      outer.addEventListener('mousedown', (event) => event.stopPropagation());
+      outer.addEventListener('click', (event) => event.stopPropagation());
+
+      const header = document.createElement('div');
+      header.className = 'flex items-center justify-between gap-2';
+
+      const title = document.createElement('span');
+      title.className = 'text-xs font-semibold text-foreground';
+      title.textContent = `Line ${lineNumber}`;
+
+      header.appendChild(title);
+      outer.appendChild(header);
+
+      if (comments.length) {
+        const list = document.createElement('div');
+        list.className = 'mt-2 flex flex-col gap-2';
+
+        for (const comment of comments) {
+          const card = document.createElement('div');
+          card.className =
+            'rounded-md border border-border/60 bg-background/95 p-2';
+
+          const text = document.createElement('p');
+          text.className = 'whitespace-pre-wrap text-xs text-foreground';
+          text.textContent = comment.text;
+
+          const footer = document.createElement('div');
+          footer.className = 'mt-2 flex items-center justify-end';
+
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className =
+            'h-6 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground';
+          remove.textContent = 'Remove';
+          remove.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          });
+          remove.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            actions.removeComment(comment.id);
+          });
+
+          footer.appendChild(remove);
+
+          card.appendChild(text);
+          card.appendChild(footer);
+          list.appendChild(card);
+        }
+
+        outer.appendChild(list);
+      }
+
+      if (isDraftOpen) {
+        const form = document.createElement('form');
+        form.className = 'mt-3 flex flex-col gap-3';
+
+        const textarea = document.createElement('textarea');
+        textarea.rows = 3;
+        textarea.placeholder = 'Write a review comment…';
+        textarea.className =
+          'w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50';
+        textarea.value = draftTextByLineRef.current.get(lineNumber) ?? '';
+        textarea.addEventListener('input', () => {
+          draftTextByLineRef.current.set(lineNumber, textarea.value);
+        });
+        textarea.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault();
+            form.requestSubmit();
+          }
+        });
+
+        const actionsRow = document.createElement('div');
+        actionsRow.className = 'flex items-center justify-end gap-2';
+
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className =
+          'h-8 rounded-md px-3 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground';
+        cancel.textContent = 'Cancel';
+        cancel.addEventListener('mousedown', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+        cancel.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setDraftLineNumber(null);
+        });
+
+        const save = document.createElement('button');
+        save.type = 'submit';
+        save.className =
+          'h-8 rounded-md bg-primary px-3 text-xs text-primary-foreground hover:brightness-110 disabled:opacity-50';
+        save.textContent = 'Save comment';
+
+        const updateSaveDisabled = () => {
+          const value = draftTextByLineRef.current.get(lineNumber) ?? '';
+          save.toggleAttribute('disabled', !value.trim());
+        };
+        updateSaveDisabled();
+        textarea.addEventListener('input', updateSaveDisabled);
+
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const text = (
+            draftTextByLineRef.current.get(lineNumber) ?? ''
+          ).trim();
+          if (!text) {
+            return;
+          }
+          actions.addComment({
+            reviewKey: props.reviewKey,
+            filePath: props.filePath,
+            side: 'modified',
+            lineNumber,
+            text,
+          });
+          setDraftLineNumber(null);
+        });
+
+        actionsRow.appendChild(cancel);
+        actionsRow.appendChild(save);
+
+        form.appendChild(textarea);
+        form.appendChild(actionsRow);
+        outer.appendChild(form);
+
+        requestAnimationFrame(() => textarea.focus());
+      }
+
+      container.appendChild(outer);
+      onRequestLayout();
+    },
+    [actions, props.filePath, props.reviewKey]
+  );
+
+  useEffect(() => {
+    const modifiedEditor = modifiedEditorRef.current;
+    const monacoApi = monacoRef.current;
+    if (!modifiedEditor || !monacoApi) {
+      return;
+    }
+
+    hoverDisposablesRef.current.forEach((d) => d.dispose());
+    hoverDisposablesRef.current = [];
+    hoverDecorationIdsRef.current = modifiedEditor.deltaDecorations(
+      hoverDecorationIdsRef.current,
+      []
+    );
+
+    const updateHoveredLine = (lineNumber: number | null) => {
+      const resolved =
+        lineNumber != null && commentableLineSet.has(lineNumber)
+          ? lineNumber
+          : null;
+
+      if (hoveredLineRef.current === resolved) {
+        return;
+      }
+
+      hoveredLineRef.current = resolved;
+      setHoveredLineNumber(resolved);
+
+      hoverDecorationIdsRef.current = modifiedEditor.deltaDecorations(
+        hoverDecorationIdsRef.current,
+        resolved
+          ? [
+              {
+                range: new monacoApi.Range(resolved, 1, resolved, 1),
+                options: {
+                  isWholeLine: true,
+                  glyphMarginClassName: 'monaco-review-comment-glyph',
+                },
+              },
+            ]
+          : []
+      );
     };
-    updateSelection();
-    modifiedEditor.onDidChangeCursorPosition(updateSelection);
-  };
+
+    hoverDisposablesRef.current.push(
+      modifiedEditor.onMouseMove((event) => {
+        const lineNumber = event.target.position?.lineNumber ?? null;
+        updateHoveredLine(lineNumber);
+      }),
+      modifiedEditor.onMouseLeave(() => updateHoveredLine(null)),
+      modifiedEditor.onMouseDown((event) => {
+        if (
+          event.target.type !==
+          monacoApi.editor.MouseTargetType.GUTTER_GLYPH_MARGIN
+        ) {
+          return;
+        }
+        const lineNumber = event.target.position?.lineNumber ?? null;
+        if (lineNumber == null) {
+          return;
+        }
+        if (!commentableLineSet.has(lineNumber)) {
+          return;
+        }
+        openDraftForLine(lineNumber);
+      })
+    );
+
+    return () => {
+      hoverDisposablesRef.current.forEach((d) => d.dispose());
+      hoverDisposablesRef.current = [];
+      hoverDecorationIdsRef.current = modifiedEditor.deltaDecorations(
+        hoverDecorationIdsRef.current,
+        []
+      );
+    };
+  }, [
+    commentableLineSet,
+    editorVersion,
+    openDraftForLine,
+    props.filePath,
+    props.reviewKey,
+  ]);
+
+  const syncViewZones = useCallback(() => {
+    const modifiedEditor = modifiedEditorRef.current;
+    if (!modifiedEditor) {
+      return;
+    }
+
+    const zonesToRender = new Set<number>();
+    for (const lineNumber of commentsByLineNumber.keys()) {
+      zonesToRender.add(lineNumber);
+    }
+    if (draftLineNumber != null) {
+      zonesToRender.add(draftLineNumber);
+    }
+
+    const lineNumbers = [...zonesToRender]
+      .filter((lineNumber) => commentableLineSet.has(lineNumber))
+      .sort((a, b) => a - b);
+
+    const previousZones = viewZonesRef.current;
+    viewZonesRef.current = [];
+
+    modifiedEditor.changeViewZones((accessor) => {
+      for (const entry of previousZones) {
+        entry.resizeObserver?.disconnect();
+        accessor.removeZone(entry.zoneId);
+      }
+
+      for (const lineNumber of lineNumbers) {
+        // Zone container - Monaco sizes this to heightInPx
+        const zoneDom = document.createElement('div');
+        zoneDom.className = 'monaco-review-view-zone';
+
+        // Inner content node - we measure THIS for height
+        const contentDom = document.createElement('div');
+        contentDom.className = 'monaco-review-view-zone-content';
+        zoneDom.appendChild(contentDom);
+
+        // Remove any stale inline width style
+        zoneDom.style.width = '100%';
+
+        const comments = commentsByLineNumber.get(lineNumber) ?? [];
+        const isDraftOpen = draftLineNumber === lineNumber;
+
+        // Track current height for this zone
+        let currentHeight = 200; // Start with reasonable initial height
+
+        const zone: monaco.editor.IViewZone = {
+          afterLineNumber: lineNumber,
+          get heightInPx() {
+            return currentHeight;
+          },
+          domNode: zoneDom,
+          suppressMouseDown: false,
+        };
+
+        const zoneId = accessor.addZone(zone);
+
+        const updateZoneHeight = () => {
+          // Measure the CONTENT node, not the zone container
+          // scrollHeight is more reliable than getBoundingClientRect
+          const next = Math.max(1, Math.ceil(contentDom.scrollHeight));
+          if (Math.abs(currentHeight - next) < 1) {
+            return;
+          }
+          currentHeight = next;
+          modifiedEditor.changeViewZones((innerAccessor) => {
+            innerAccessor.layoutZone(zoneId);
+          });
+        };
+
+        // Use ResizeObserver on the CONTENT node
+        const resizeObserver = new ResizeObserver(() => {
+          updateZoneHeight();
+        });
+        resizeObserver.observe(contentDom);
+
+        // Render into the content node, not the zone container
+        renderCommentZone({
+          container: contentDom,
+          lineNumber,
+          comments,
+          isDraftOpen,
+          onRequestLayout: updateZoneHeight,
+        });
+
+        // Double-rAF to ensure content is painted before measuring
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            updateZoneHeight();
+          });
+        });
+
+        viewZonesRef.current.push({
+          lineNumber,
+          zoneId,
+          zone,
+          domNode: zoneDom,
+          resizeObserver,
+        });
+      }
+    });
+  }, [
+    commentableLineSet,
+    commentsByLineNumber,
+    draftLineNumber,
+    renderCommentZone,
+  ]);
+
+  useEffect(() => {
+    syncViewZones();
+  }, [editorVersion, syncViewZones]);
+
+  // Sync view zones after diff computation completes
+  useEffect(() => {
+    const diffEditor = diffEditorRef.current;
+    if (!diffEditor) {
+      return;
+    }
+    const disposable = diffEditor.onDidUpdateDiff(() => {
+      syncViewZones();
+    });
+    return () => disposable.dispose();
+  }, [syncViewZones]);
+
+  useEffect(() => {
+    return () => {
+      const modifiedEditor = modifiedEditorRef.current;
+      if (!modifiedEditor) {
+        return;
+      }
+      const zones = viewZonesRef.current;
+      viewZonesRef.current = [];
+      modifiedEditor.changeViewZones((accessor) => {
+        zones.forEach((entry) => {
+          entry.resizeObserver?.disconnect();
+          accessor.removeZone(entry.zoneId);
+        });
+      });
+    };
+  }, []);
 
   const baseText = query.data?.baseText ?? '';
   const targetText = query.data?.targetText ?? '';
@@ -161,48 +599,13 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
             {props.commentableLines.length === 1 ? '' : 's'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Line</span>
-          <Input
-            type="number"
-            className="h-7 w-20"
-            min={1}
-            value={Number.isFinite(selectedLineNumber) ? selectedLineNumber : 1}
-            onChange={(event) => {
-              const next = parseInt(event.target.value, 10);
-              setSelectedLineNumber(Number.isFinite(next) ? next : 1);
-            }}
-          />
-          <Button
-            type="button"
-            size="sm"
-            className="h-7"
-            disabled={!canComment || !draftText.trim()}
-            onClick={() => {
-              const text = draftText.trim();
-              if (!text) {
-                return;
-              }
-              if (!commentableLineSet.has(selectedLineNumber)) {
-                return;
-              }
-              actions.addComment({
-                reviewKey: props.reviewKey,
-                filePath: props.filePath,
-                side: 'modified',
-                lineNumber: selectedLineNumber,
-                text,
-              });
-              setDraftText('');
-            }}
-          >
-            Add comment
-          </Button>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          {fileComments.length} comment{fileComments.length === 1 ? '' : 's'}
+        </p>
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <div className="min-h-0 flex-1 border-r border-border/60">
+        <div className="min-h-0 flex-1">
           <DiffEditor
             height="100%"
             original={baseText}
@@ -217,6 +620,7 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
             options={{
               readOnly: true,
               renderSideBySide: true,
+              useInlineViewWhenSpaceIsLimited: false,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
               wordWrap: 'off',
@@ -225,75 +629,15 @@ export function ReviewFileDiffPane(props: ReviewFileDiffPaneProps) {
             }}
           />
         </div>
-
-        <aside className="flex w-96 min-w-0 flex-col gap-3 p-4">
-          <div>
-            <p className="text-xs font-semibold text-foreground">Comment</p>
-            <p
-              className={cn(
-                'mt-1 text-xs',
-                canComment ? 'text-muted-foreground' : 'text-error-foreground'
-              )}
-            >
-              {canComment
-                ? 'Comments are allowed on changed lines.'
-                : 'Select a changed line to comment.'}
-            </p>
-          </div>
-
-          <Textarea
-            value={draftText}
-            rows={4}
-            className="resize-none"
-            placeholder="Write a review comment…"
-            onChange={(event) => setDraftText(event.target.value)}
-          />
-
-          <div className="flex flex-col gap-2">
-            <p className="text-xs font-semibold text-foreground">
-              Comments ({fileComments.length})
-            </p>
-            {fileComments.length ? (
-              <div className="flex flex-col gap-2">
-                {fileComments.map((comment) => (
-                  <div
-                    key={comment.id}
-                    className="rounded-md border border-border/60 bg-background p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] text-muted-foreground">
-                        Line {comment.lineNumber}
-                      </span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 px-1 text-[10px]"
-                        onClick={() => actions.removeComment(comment.id)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    <p className="mt-2 whitespace-pre-wrap text-xs text-foreground">
-                      {comment.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No comments for this file yet.
-              </p>
-            )}
-          </div>
-
-          {query.isError ? (
-            <p className="text-xs text-error-foreground">
-              Failed to load file contents.
-            </p>
-          ) : null}
-        </aside>
       </div>
+
+      {query.isError ? (
+        <div className="border-t border-border/60 px-4 py-2">
+          <p className="text-xs text-error-foreground">
+            Failed to load file contents.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -172,6 +172,8 @@
   --color-transcript-tool-primary-foreground: var(--purple-400);
   --color-transcript-tool-secondary: var(--pink-50);
   --color-transcript-tool-secondary-foreground: var(--pink-400);
+  --color-transcript-comment: var(--blue-500);
+  --color-transcript-comment-foreground: var(--neutral-0);
 
   /* Borders & focus */
   --border: var(--neutral-200);
@@ -312,6 +314,8 @@
   --color-transcript-tool-primary-foreground: var(--purple-400);
   --color-transcript-tool-secondary: var(--pink-800);
   --color-transcript-tool-secondary-foreground: var(--pink-400);
+  --color-transcript-comment: var(--blue-500);
+  --color-transcript-comment-foreground: var(--neutral-0);
 
   /* Borders & focus */
   --border: oklch(1 0 0 / 10%);
@@ -423,7 +427,10 @@
   --color-transcript-tool-secondary-foreground: var(
     --color-transcript-tool-secondary-foreground
   );
-  --color-transcript-comment: var(--color-blue-500);
+  --color-transcript-comment: var(--color-transcript-comment);
+  --color-transcript-comment-foreground: var(
+    --color-transcript-comment-foreground
+  );
 
   /* Radii */
   --radius: var(--radius);

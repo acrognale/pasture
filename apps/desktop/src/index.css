@@ -172,3 +172,42 @@
     @apply bg-background text-foreground select-none;
   }
 }
+
+.monaco-review-comment-glyph {
+  cursor: pointer;
+}
+
+.monaco-review-comment-glyph::before {
+  content: '+';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0 2px;
+  border-radius: 2px;
+  background: var(--color-transcript-comment);
+  color: var(--color-transcript-comment-foreground);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.monaco-review-comment-glyph:hover::before {
+  filter: brightness(1.08);
+}
+
+/* Monaco inline review comment view zones */
+.monaco-review-view-zone {
+  position: relative;
+  z-index: 10;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden; /* Prevent content from spilling outside reserved space */
+  pointer-events: auto;
+}
+
+.monaco-review-view-zone-content {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 12px 8px 0;
+}
