@@ -5,8 +5,20 @@ import type { EventMsg } from '@pasture/protocol';
 import type { ThreadMetadataPayload } from '@pasture/protocol';
 import { type UnlistenFn, listen } from '@tauri-apps/api/event';
 
-export const isTauriEnvironment = (): boolean =>
-  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+export const isTauriEnvironment = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const tauriInternals = (window as unknown as { __TAURI_INTERNALS__?: unknown })
+    .__TAURI_INTERNALS__;
+
+  return (
+    typeof tauriInternals === 'object' &&
+    tauriInternals !== null &&
+    'transformCallback' in tauriInternals
+  );
+};
 
 export const ensureTauriEnvironment = () => {
   if (!isTauriEnvironment()) {
