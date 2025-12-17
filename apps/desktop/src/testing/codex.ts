@@ -343,7 +343,10 @@ const ensureMockTauriInternals = () => {
     };
   };
 
-  if (globalWindow.__TAURI_INTERNALS__ && globalWindow.__TAURI_EVENT_PLUGIN_INTERNALS__) {
+  if (
+    globalWindow.__TAURI_INTERNALS__ &&
+    globalWindow.__TAURI_EVENT_PLUGIN_INTERNALS__
+  ) {
     return;
   }
 

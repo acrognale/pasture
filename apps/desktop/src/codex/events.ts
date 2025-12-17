@@ -10,8 +10,9 @@ export const isTauriEnvironment = (): boolean => {
     return false;
   }
 
-  const tauriInternals = (window as unknown as { __TAURI_INTERNALS__?: unknown })
-    .__TAURI_INTERNALS__;
+  const tauriInternals = (
+    window as unknown as { __TAURI_INTERNALS__?: unknown }
+  ).__TAURI_INTERNALS__;
 
   return (
     typeof tauriInternals === 'object' &&
