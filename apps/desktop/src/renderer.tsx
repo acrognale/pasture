@@ -4,6 +4,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ShortcutProvider } from '~/keyboard/ShortcutProvider';
+import '~/monaco/monacoEnvironment';
 
 import { router } from './app-router';
 import './index.css';

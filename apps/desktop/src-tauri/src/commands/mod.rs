@@ -77,6 +77,10 @@ codex_command_descriptors! {
         params: review::GetTurnDiffRangeParams,
         result: review::GetTurnDiffRangeResponse,
     },
+    review::get_turn_review_file_contents {
+        params: review::GetTurnReviewFileContentsParams,
+        result: review::GetTurnReviewFileContentsResponse,
+    },
     review::list_turn_snapshots {
         params: review::ListTurnSnapshotsParams,
         result: review::ListTurnSnapshotsResponse,
@@ -84,6 +88,10 @@ codex_command_descriptors! {
     review::get_repo_diff {
         params: review::GetRepoDiffParams,
         result: review::GetRepoDiffResponse,
+    },
+    review::get_repo_review_file_contents {
+        params: review::GetRepoReviewFileContentsParams,
+        result: review::GetRepoReviewFileContentsResponse,
     },
     repo_watch::start_repo_watch {
         params: repo_watch::StartRepoWatchParams,

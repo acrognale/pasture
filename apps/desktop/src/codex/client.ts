@@ -13,8 +13,12 @@ import type {
   GetComposerConfigParams,
   GetRepoDiffParams,
   GetRepoDiffResponse,
+  GetRepoReviewFileContentsParams,
+  GetRepoReviewFileContentsResponse,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
+  GetTurnReviewFileContentsParams,
+  GetTurnReviewFileContentsResponse,
   HandoffConversationParams,
   HandoffConversationResponse,
   InitializeThreadParams,
@@ -160,6 +164,15 @@ export namespace Codex {
     });
   }
 
+  export async function getTurnReviewFileContents(
+    params: GetTurnReviewFileContentsParams
+  ): Promise<GetTurnReviewFileContentsResponse> {
+    return await invoke<GetTurnReviewFileContentsResponse>(
+      'get_turn_review_file_contents',
+      { params }
+    );
+  }
+
   export async function listTurnSnapshots(
     params: ListTurnSnapshotsParams
   ): Promise<ListTurnSnapshotsResponse> {
@@ -172,6 +185,15 @@ export namespace Codex {
     params: GetRepoDiffParams
   ): Promise<GetRepoDiffResponse> {
     return await invoke<GetRepoDiffResponse>('get_repo_diff', { params });
+  }
+
+  export async function getRepoReviewFileContents(
+    params: GetRepoReviewFileContentsParams
+  ): Promise<GetRepoReviewFileContentsResponse> {
+    return await invoke<GetRepoReviewFileContentsResponse>(
+      'get_repo_review_file_contents',
+      { params }
+    );
   }
 
   export async function startRepoWatch(

@@ -1,10 +1,12 @@
 import type { GetRepoDiffParams } from '@pasture/protocol';
 import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
+import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 
 import { TurnReviewProvider } from './TurnReviewContext';
 import { TurnReviewPane } from './TurnReviewPane';
 import { useRepoDiff } from './queries';
+import { makeRepoConversationId } from './reviewKeys';
 
 type RepoReviewPaneProps = {
   workspacePath: string;
@@ -14,14 +16,12 @@ type RepoReviewPaneProps = {
   focusFilePath?: string | null;
   onFocusFilePathConsumed?: () => void;
   headerSubtitle?: string | null;
+  onOpenFile?: ComponentProps<typeof TurnReviewPane>['onOpenFile'];
+  onOpenComments?: ComponentProps<typeof TurnReviewPane>['onOpenComments'];
+  onReviewKeyChange?: ComponentProps<
+    typeof TurnReviewPane
+  >['onReviewKeyChange'];
 };
-
-function toReviewId(params: GetRepoDiffParams): string {
-  const targetLabel = params.includeWorktree
-    ? '__WORKTREE__'
-    : (params.targetRef ?? '__TARGET__');
-  return `repo:${params.workspacePath}::${params.baseRef}..${targetLabel}`;
-}
 
 export function RepoReviewPane({
   workspacePath,
@@ -31,10 +31,13 @@ export function RepoReviewPane({
   focusFilePath,
   onFocusFilePathConsumed,
   headerSubtitle,
+  onOpenFile,
+  onOpenComments,
+  onReviewKeyChange,
 }: RepoReviewPaneProps) {
   const { rawDiff, query } = useRepoDiff(params);
 
-  const reviewId = useMemo(() => toReviewId(params), [params]);
+  const reviewId = useMemo(() => makeRepoConversationId(params), [params]);
   const emptyStateMessage = useMemo(() => {
     if (query.isPending) {
       return 'Loading changes…';
@@ -76,6 +79,11 @@ export function RepoReviewPane({
         onFocusFilePathConsumed={onFocusFilePathConsumed}
         emptyStateMessage={emptyStateMessage}
         headerSubtitle={headerSubtitle}
+        mode="repo"
+        repoParams={params}
+        onOpenFile={onOpenFile}
+        onOpenComments={onOpenComments}
+        onReviewKeyChange={onReviewKeyChange}
       />
     </TurnReviewProvider>
   );

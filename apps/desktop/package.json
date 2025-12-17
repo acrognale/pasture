@@ -27,6 +27,7 @@
   "dependencies": {
     "@lexical/history": "^0.38.2",
     "@lexical/react": "^0.38.2",
+    "@monaco-editor/react": "^4.7.0",
     "@pasture/protocol": "workspace:*",
     "@pasture/theme": "workspace:*",
     "@pasture/transcript-ui": "workspace:*",
@@ -53,6 +54,7 @@
     "immer": "^11.0.1",
     "lexical": "^0.38.2",
     "lucide-react": "^0.553.0",
+    "monaco-editor": "^0.52.2",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-grab": "^0.0.67",
