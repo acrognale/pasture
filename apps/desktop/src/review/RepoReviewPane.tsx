@@ -18,7 +18,9 @@ type RepoReviewPaneProps = {
   headerSubtitle?: string | null;
   onOpenFile?: ComponentProps<typeof TurnReviewPane>['onOpenFile'];
   onOpenComments?: ComponentProps<typeof TurnReviewPane>['onOpenComments'];
-  onReviewKeyChange?: ComponentProps<typeof TurnReviewPane>['onReviewKeyChange'];
+  onReviewKeyChange?: ComponentProps<
+    typeof TurnReviewPane
+  >['onReviewKeyChange'];
 };
 
 export function RepoReviewPane({

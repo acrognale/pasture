@@ -1,11 +1,14 @@
 import type { GetRepoDiffParams } from '@pasture/protocol';
 import { useEffect, useMemo } from 'react';
-
 import { Button } from '~/components/ui/button';
+import { cn } from '~/lib/utils';
 import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
 import { usePanelRuntime } from '~/panels/PanelRuntimeContext';
-import { cn } from '~/lib/utils';
-import { EMPTY_REVIEW_COMMENTS, useReviewComments } from '~/review/commentsStore';
+import {
+  EMPTY_REVIEW_COMMENTS,
+  useReviewComments,
+} from '~/review/commentsStore';
+
 import { useConversationPanelServices } from './ConversationPanelServices';
 
 export type ConversationReviewCommentsPanelParams =
@@ -158,7 +161,8 @@ export function ConversationReviewCommentsPanel() {
                           'cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40'
                         )}
                         onClick={() => {
-                          const openActions = panelManagerStore.getState().actions;
+                          const openActions =
+                            panelManagerStore.getState().actions;
                           openActions.open(
                             runtime.hostId,
                             'editor',

@@ -38,7 +38,8 @@ export function ConversationReviewFilePanel() {
   const panelManagerStore = usePanelManagerStore();
   const params = runtime.params as ConversationReviewFilePanelParams;
   const reveal = runtime.reveal as ReviewFileReveal | null;
-  const lineNumber = typeof reveal?.lineNumber === 'number' ? reveal.lineNumber : null;
+  const lineNumber =
+    typeof reveal?.lineNumber === 'number' ? reveal.lineNumber : null;
 
   return (
     <ReviewFileDiffPane
@@ -57,18 +58,28 @@ export function ConversationReviewFilePanel() {
         const existing = Object.values(host?.instances ?? {}).find(
           (instance) =>
             instance.kindId === 'conversation.reviewComments' &&
-            (instance.params as { mode?: string; conversationId?: string } | null)?.mode ===
-              params.mode &&
-            (instance.params as { conversationId?: string } | null)?.conversationId ===
-              params.conversationId
+            (
+              instance.params as {
+                mode?: string;
+                conversationId?: string;
+              } | null
+            )?.mode === params.mode &&
+            (instance.params as { conversationId?: string } | null)
+              ?.conversationId === params.conversationId
         );
 
         const utilityRoot = host?.docks.utility.root;
         if (!existing && utilityRoot?.type === 'group') {
-          actions.splitGroup(runtime.hostId, 'utility', utilityRoot.groupId, 'column', {
-            move: 'none',
-            ratio: 0.45,
-          });
+          actions.splitGroup(
+            runtime.hostId,
+            'utility',
+            utilityRoot.groupId,
+            'column',
+            {
+              move: 'none',
+              ratio: 0.45,
+            }
+          );
         }
 
         if (params.mode === 'repo') {

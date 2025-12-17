@@ -56,11 +56,14 @@ import {
   useNavigationStoreApi,
 } from '~/navigation/NavigationProvider';
 import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
-import { getConversationHostId, getConversationThreadHostId } from '~/panels/host-ids';
+import {
+  getConversationHostId,
+  getConversationThreadHostId,
+} from '~/panels/host-ids';
 import { buildFileDiffStats, parseUnifiedDiff } from '~/review/diff';
 import { useRepoDiff } from '~/review/queries';
-import type { ParsedTurnDiffFile } from '~/review/types';
 import { makeRepoReviewKey, makeTurnReviewKey } from '~/review/reviewKeys';
+import type { ParsedTurnDiffFile } from '~/review/types';
 import { ChangesSidebarContent } from '~/workspace/components/ChangesSidebarContent';
 import { ChangesSidebarTreeContent } from '~/workspace/components/ChangesSidebarTreeContent';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
@@ -500,17 +503,20 @@ function ChangesSidebarSection({
     return null;
   }, [latestTurnDiff, turnDiffHistory]);
 
-  const buildCommentableLines = useCallback((file: ParsedTurnDiffFile): number[] => {
-    const lines = new Set<number>();
-    for (const hunk of file.hunks) {
-      for (const line of hunk.lines) {
-        if (line.kind === 'addition' && line.newNumber != null) {
-          lines.add(line.newNumber);
+  const buildCommentableLines = useCallback(
+    (file: ParsedTurnDiffFile): number[] => {
+      const lines = new Set<number>();
+      for (const hunk of file.hunks) {
+        for (const line of hunk.lines) {
+          if (line.kind === 'addition' && line.newNumber != null) {
+            lines.add(line.newNumber);
+          }
         }
       }
-    }
-    return [...lines].sort((a, b) => a - b);
-  }, []);
+      return [...lines].sort((a, b) => a - b);
+    },
+    []
+  );
 
   const workspaceKey = normalizedWorkspacePath || workspacePath;
   const liveRangeStorageKey = `pasture.changes.liveRange:${workspaceKey}`;

@@ -8,10 +8,13 @@ import { ConversationThreadPanel } from '~/conversation/panels/ConversationThrea
 import { registerConversationPanels } from '~/conversation/panels/register';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { cn } from '~/lib/utils';
+import { PanelHost } from '~/panels/PanelHost';
+import {
+  usePanelManager,
+  usePanelManagerStore,
+} from '~/panels/PanelManagerProvider';
 import { getConversationThreadHostId } from '~/panels/host-ids';
 import { dockLayoutHasAnyTabs } from '~/panels/layout';
-import { PanelHost } from '~/panels/PanelHost';
-import { usePanelManager, usePanelManagerStore } from '~/panels/PanelManagerProvider';
 import type { DockLayoutNode, PanelKindId } from '~/panels/types';
 import { useWorkspaceActions } from '~/workspace';
 
@@ -36,9 +39,13 @@ function dockLayoutHasPanelKind(
 ): boolean {
   if (!root || !instances) return false;
   if (root.type === 'group') {
-    return root.tabs.some((instanceId) => instances[instanceId]?.kindId === kindId);
+    return root.tabs.some(
+      (instanceId) => instances[instanceId]?.kindId === kindId
+    );
   }
-  return root.children.some((child) => dockLayoutHasPanelKind(child, instances, kindId));
+  return root.children.some((child) =>
+    dockLayoutHasPanelKind(child, instances, kindId)
+  );
 }
 
 function RouteComponent() {
@@ -138,7 +145,8 @@ function ThreadWithTools({
   );
   const hasEditor = usePanelManager(
     useCallback(
-      (state) => dockLayoutHasAnyTabs(state.hosts[hostId]?.docks.editor.root ?? null),
+      (state) =>
+        dockLayoutHasAnyTabs(state.hosts[hostId]?.docks.editor.root ?? null),
       [hostId]
     )
   );
@@ -230,7 +238,9 @@ function ThreadWithTools({
 
   const appliedReviewCommentsDefaultRef = useRef(false);
   useEffect(() => {
-    const maybeApplyReviewCommentsDefault = (state: ReturnType<typeof panelManagerStore.getState>) => {
+    const maybeApplyReviewCommentsDefault = (
+      state: ReturnType<typeof panelManagerStore.getState>
+    ) => {
       if (appliedReviewCommentsDefaultRef.current) return true;
       if (toolsRatioRef.current > 0) return true;
       if (legacyToolsWidth) return true;
@@ -247,7 +257,10 @@ function ThreadWithTools({
       const width = containerWidthRef.current;
       if (!width) return false;
 
-      const clampedWidth = Math.max(MIN_TOOLS_WIDTH, Math.min(width, DEFAULT_REVIEW_COMMENTS_WIDTH));
+      const clampedWidth = Math.max(
+        MIN_TOOLS_WIDTH,
+        Math.min(width, DEFAULT_REVIEW_COMMENTS_WIDTH)
+      );
       setToolsRatio(clampedWidth / width);
       appliedReviewCommentsDefaultRef.current = true;
       return true;
@@ -299,7 +312,10 @@ function ThreadWithTools({
 
   const editorWidth = useMemo(() => {
     if (!containerWidth) return DEFAULT_EDITOR_WIDTH;
-    const ratio = effectiveEditorRatio > 0 ? effectiveEditorRatio : DEFAULT_EDITOR_WIDTH / containerWidth;
+    const ratio =
+      effectiveEditorRatio > 0
+        ? effectiveEditorRatio
+        : DEFAULT_EDITOR_WIDTH / containerWidth;
     const next = containerWidth * ratio;
     return Math.max(MIN_EDITOR_WIDTH, Math.min(containerWidth * 0.7, next));
   }, [containerWidth, effectiveEditorRatio]);
@@ -308,7 +324,10 @@ function ThreadWithTools({
     if (typeof window === 'undefined') return;
     try {
       if (effectiveEditorRatio > 0) {
-        window.localStorage.setItem(editorStorageKey, String(effectiveEditorRatio));
+        window.localStorage.setItem(
+          editorStorageKey,
+          String(effectiveEditorRatio)
+        );
       }
     } catch {
       // ignore
@@ -342,7 +361,10 @@ function ThreadWithTools({
 
   const handleEditorResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
-    const totalWidth = containerWidth || containerRef.current?.getBoundingClientRect().width || 0;
+    const totalWidth =
+      containerWidth ||
+      containerRef.current?.getBoundingClientRect().width ||
+      0;
     if (!totalWidth) return;
     const startX = event.clientX;
     const startWidth = editorWidth;

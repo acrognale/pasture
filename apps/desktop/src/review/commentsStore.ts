@@ -1,7 +1,7 @@
+import type { GetRepoDiffParams } from '@pasture/protocol';
+import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import type { StoreApi } from 'zustand/vanilla';
-import { useStore } from 'zustand';
-import type { GetRepoDiffParams } from '@pasture/protocol';
 
 export type ReviewCommentNavigation =
   | {
@@ -45,7 +45,9 @@ type ReviewCommentState = {
   commentsByReviewKey: Record<string, ReviewLineComment[]>;
   actions: {
     reset: () => void;
-    addComment: (input: Omit<ReviewLineComment, 'id' | 'createdAt'>) => ReviewLineComment;
+    addComment: (
+      input: Omit<ReviewLineComment, 'id' | 'createdAt'>
+    ) => ReviewLineComment;
     updateComment: (id: string, text: string) => void;
     removeComment: (id: string) => void;
     clearReviewKey: (reviewKey: string) => void;
@@ -133,7 +135,9 @@ export const reviewCommentStore: StoreApi<ReviewCommentState> =
       },
       clearReviewKey: (reviewKey) => {
         const { commentsByReviewKey } = get();
-        if (!Object.prototype.hasOwnProperty.call(commentsByReviewKey, reviewKey)) {
+        if (
+          !Object.prototype.hasOwnProperty.call(commentsByReviewKey, reviewKey)
+        ) {
           return;
         }
         const updated = { ...commentsByReviewKey };
@@ -147,7 +151,10 @@ export const getCommentsForReviewKey = (reviewKey: string | null) => {
   if (!reviewKey) {
     return EMPTY_REVIEW_COMMENTS;
   }
-  return reviewCommentStore.getState().commentsByReviewKey[reviewKey] ?? EMPTY_REVIEW_COMMENTS;
+  return (
+    reviewCommentStore.getState().commentsByReviewKey[reviewKey] ??
+    EMPTY_REVIEW_COMMENTS
+  );
 };
 
 export function useReviewComments<T>(

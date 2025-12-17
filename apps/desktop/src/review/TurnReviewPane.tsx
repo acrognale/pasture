@@ -1,17 +1,17 @@
 import type { GetRepoDiffParams } from '@pasture/protocol';
-import type { ParsedTurnDiffFile } from './types';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useTurnReview } from './TurnReviewContext';
-import { RangeSelectorSection } from './components/RangeSelectorSection';
-import { TurnReviewHeader } from './components/TurnReviewHeader';
 import { EMPTY_REVIEW_COMMENTS, useReviewComments } from './commentsStore';
-import { makeRepoReviewKey, makeTurnReviewKey } from './reviewKeys';
+import { RangeSelectorSection } from './components/RangeSelectorSection';
 import {
   RepoReviewFilesSection,
   TurnReviewFilesSection,
 } from './components/ReviewFilesSection';
+import { TurnReviewHeader } from './components/TurnReviewHeader';
+import { makeRepoReviewKey, makeTurnReviewKey } from './reviewKeys';
+import type { ParsedTurnDiffFile } from './types';
 
 type TurnReviewPaneProps = {
   workspacePath: string;
@@ -28,22 +28,24 @@ type TurnReviewPaneProps = {
   headerSubtitle?: string | null;
   mode?: 'turn' | 'repo';
   repoParams?: GetRepoDiffParams;
-  onOpenFile?: (request:
-    | {
-        mode: 'turn';
-        reviewKey: string;
-        file: ParsedTurnDiffFile;
-        baseEventId: string | null;
-        targetEventId: string;
-        commentableLines: number[];
-      }
-    | {
-        mode: 'repo';
-        reviewKey: string;
-        file: ParsedTurnDiffFile;
-        repoParams: GetRepoDiffParams;
-        commentableLines: number[];
-      }) => void;
+  onOpenFile?: (
+    request:
+      | {
+          mode: 'turn';
+          reviewKey: string;
+          file: ParsedTurnDiffFile;
+          baseEventId: string | null;
+          targetEventId: string;
+          commentableLines: number[];
+        }
+      | {
+          mode: 'repo';
+          reviewKey: string;
+          file: ParsedTurnDiffFile;
+          repoParams: GetRepoDiffParams;
+          commentableLines: number[];
+        }
+  ) => void;
 };
 
 export function TurnReviewPane({
@@ -132,7 +134,9 @@ export function TurnReviewPane({
           canBuildFeedback={canBuildFeedback}
           disabled={disabled}
           onOpenComments={
-            reviewKey && onOpenComments ? () => onOpenComments(reviewKey) : undefined
+            reviewKey && onOpenComments
+              ? () => onOpenComments(reviewKey)
+              : undefined
           }
           onGiveFeedback={() => {
             const prompt = buildFeedbackPrompt();

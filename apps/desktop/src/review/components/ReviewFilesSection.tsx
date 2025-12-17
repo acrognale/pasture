@@ -1,13 +1,16 @@
-import type { GetRepoDiffParams, GetTurnDiffRangeParams } from '@pasture/protocol';
+import type {
+  GetRepoDiffParams,
+  GetTurnDiffRangeParams,
+} from '@pasture/protocol';
 import type { TranscriptTurnDiff } from '@pasture/transcript-ui';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useTurnReview } from '../TurnReviewContext';
-import { buildFileDiffStats, parseUnifiedDiff } from '../diff';
 import { EMPTY_REVIEW_COMMENTS, useReviewComments } from '../commentsStore';
-import type { ParsedTurnDiff, ParsedTurnDiffFile } from '../types';
-import { makeRepoReviewKey, makeTurnReviewKey } from '../reviewKeys';
+import { buildFileDiffStats, parseUnifiedDiff } from '../diff';
 import { useTurnDiffRange, useTurnSnapshots } from '../queries';
+import { makeRepoReviewKey, makeTurnReviewKey } from '../reviewKeys';
+import type { ParsedTurnDiff, ParsedTurnDiffFile } from '../types';
 import { EmptyReviewState } from './EmptyReviewState';
 import { FileSidebar } from './FileSidebar';
 
@@ -44,13 +47,8 @@ export function TurnReviewFilesSection({
   emptyStateMessage,
   onOpenFile,
 }: TurnReviewFilesSectionProps) {
-  const {
-    conversationId,
-    history,
-    baseTurnId,
-    targetTurnId,
-    selectedDiff,
-  } = useTurnReview();
+  const { conversationId, history, baseTurnId, targetTurnId, selectedDiff } =
+    useTurnReview();
 
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
 
@@ -108,7 +106,10 @@ export function TurnReviewFilesSection({
       setSelectedFileId(null);
       return;
     }
-    if (!selectedFileId || !diffFiles.some((file) => file.id === selectedFileId)) {
+    if (
+      !selectedFileId ||
+      !diffFiles.some((file) => file.id === selectedFileId)
+    ) {
       setSelectedFileId(diffFiles[0]?.id ?? null);
     }
   }, [diffFiles, selectedFileId]);
@@ -152,7 +153,10 @@ export function TurnReviewFilesSection({
       : EMPTY_REVIEW_COMMENTS
   );
 
-  const fileDiffStats = useMemo(() => buildFileDiffStats(diffFiles), [diffFiles]);
+  const fileDiffStats = useMemo(
+    () => buildFileDiffStats(diffFiles),
+    [diffFiles]
+  );
   const commentsByFileId = useMemo(() => {
     const counts = new Map<string, number>();
     const totalsByPath = new Map<string, number>();
@@ -249,7 +253,10 @@ export function RepoReviewFilesSection({
       setSelectedFileId(null);
       return;
     }
-    if (!selectedFileId || !diffFiles.some((file) => file.id === selectedFileId)) {
+    if (
+      !selectedFileId ||
+      !diffFiles.some((file) => file.id === selectedFileId)
+    ) {
       setSelectedFileId(diffFiles[0]?.id ?? null);
     }
   }, [diffFiles, selectedFileId]);
@@ -272,7 +279,10 @@ export function RepoReviewFilesSection({
     (state) => state.commentsByReviewKey[reviewKey] ?? EMPTY_REVIEW_COMMENTS
   );
 
-  const fileDiffStats = useMemo(() => buildFileDiffStats(diffFiles), [diffFiles]);
+  const fileDiffStats = useMemo(
+    () => buildFileDiffStats(diffFiles),
+    [diffFiles]
+  );
   const commentsByFileId = useMemo(() => {
     const counts = new Map<string, number>();
     const totalsByPath = new Map<string, number>();

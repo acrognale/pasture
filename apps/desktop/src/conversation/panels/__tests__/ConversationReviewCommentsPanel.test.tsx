@@ -1,10 +1,12 @@
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
 import { useEffect } from 'react';
-
+import { describe, expect, it, vi } from 'vitest';
 import type { ComposerBarControls } from '~/composer/components/ComposerBar';
-import { ConversationPanelServicesProvider, useConversationPanelServices } from '~/conversation/panels/ConversationPanelServices';
+import {
+  ConversationPanelServicesProvider,
+  useConversationPanelServices,
+} from '~/conversation/panels/ConversationPanelServices';
 import { PanelManagerProvider } from '~/panels/PanelManagerProvider';
 import { PanelRuntimeProvider } from '~/panels/PanelRuntimeContext';
 import { reviewCommentStore } from '~/review/commentsStore';
@@ -15,7 +17,11 @@ import { ConversationReviewCommentsPanel } from '../ConversationReviewCommentsPa
 
 const WORKSPACE_PATH = '/tmp/workspace';
 
-function RegisterComposerControls({ controls }: { controls: ComposerBarControls }) {
+function RegisterComposerControls({
+  controls,
+}: {
+  controls: ComposerBarControls;
+}) {
   const services = useConversationPanelServices();
   useEffect(() => {
     services.registerComposerControls(controls);
@@ -105,7 +111,9 @@ describe('ConversationReviewCommentsPanel', () => {
     await userEvent.click(submitButton);
 
     expect(setDraft).toHaveBeenCalledTimes(1);
-    expect(setDraft.mock.calls[0]?.[0]).toMatch(/Here is my consolidated review of this diff/i);
+    expect(setDraft.mock.calls[0]?.[0]).toMatch(
+      /Here is my consolidated review of this diff/i
+    );
     expect(setDraft.mock.calls[0]?.[0]).toMatch(/app\/main\.ts/);
     expect(setDraft.mock.calls[0]?.[0]).toMatch(/line 2/);
     expect(setDraft.mock.calls[0]?.[0]).toMatch(/Please update this line/);

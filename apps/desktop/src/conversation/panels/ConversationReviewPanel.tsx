@@ -1,8 +1,8 @@
 import type { GetRepoDiffParams } from '@pasture/protocol';
 import type { ComponentProps } from 'react';
 import { useCallback } from 'react';
-import { usePanelRuntime } from '~/panels/PanelRuntimeContext';
 import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
+import { usePanelRuntime } from '~/panels/PanelRuntimeContext';
 import { RepoReviewPane } from '~/review/RepoReviewPane';
 import { TurnReviewProvider } from '~/review/TurnReviewContext';
 import { TurnReviewPane } from '~/review/TurnReviewPane';
@@ -79,7 +79,8 @@ export function ConversationReviewPanel() {
         return (
           repoParams.workspacePath === params.repoParams.workspacePath &&
           repoParams.baseRef === params.repoParams.baseRef &&
-          (repoParams.targetRef ?? null) === (params.repoParams.targetRef ?? null) &&
+          (repoParams.targetRef ?? null) ===
+            (params.repoParams.targetRef ?? null) &&
           repoParams.includeWorktree === params.repoParams.includeWorktree
         );
       }
@@ -109,10 +110,16 @@ export function ConversationReviewPanel() {
 
       const utilityRoot = host?.docks.utility.root;
       if (!existingId && utilityRoot?.type === 'group') {
-        actions.splitGroup(runtime.hostId, 'utility', utilityRoot.groupId, 'column', {
-          move: 'none',
-          ratio: 0.45,
-        });
+        actions.splitGroup(
+          runtime.hostId,
+          'utility',
+          utilityRoot.groupId,
+          'column',
+          {
+            move: 'none',
+            ratio: 0.45,
+          }
+        );
       }
 
       if (params.mode === 'repo') {
