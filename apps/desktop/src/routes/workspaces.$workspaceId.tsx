@@ -17,10 +17,16 @@ import {
 import { ConversationProvider } from '~/conversation/store';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { NavigationProvider } from '~/navigation/NavigationProvider';
+import {
+  PanelManagerProvider,
+  usePanelManagerStore,
+} from '~/panels/PanelManagerProvider';
 import { findActiveInstanceIdInDockLayout } from '~/panels/active-tab';
-import { PanelManagerProvider, usePanelManagerStore } from '~/panels/PanelManagerProvider';
 import { SettingsModal } from '~/settings/SettingsModal';
-import { WorkspaceProvider, useWorkspaceThreadConversationId } from '~/workspace';
+import {
+  WorkspaceProvider,
+  useWorkspaceThreadConversationId,
+} from '~/workspace';
 import { RecentConversationSwitcher } from '~/workspace/RecentConversationSwitcher';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
 import { WorkspaceConversationSwitcher } from '~/workspace/WorkspaceConversationSwitcher';
@@ -70,7 +76,8 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH;
     const max = Math.max(MIN_SIDEBAR_WIDTH, window.innerWidth - 320);
-    const clamp = (width: number) => Math.max(MIN_SIDEBAR_WIDTH, Math.min(max, width));
+    const clamp = (width: number) =>
+      Math.max(MIN_SIDEBAR_WIDTH, Math.min(max, width));
     try {
       const stored = window.localStorage.getItem(sidebarStorageKey);
       const parsed = stored ? Number(stored) : NaN;
@@ -115,7 +122,8 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
     }
 
     const handleCloseRequested = async () => {
-      const active = typeof document !== 'undefined' ? document.activeElement : null;
+      const active =
+        typeof document !== 'undefined' ? document.activeElement : null;
       const target = active instanceof Element ? active : null;
       const panelHostElement = target?.closest?.(
         '[data-panel-host-id][data-panel-dock-id]'
@@ -199,7 +207,8 @@ function WorkspaceShell({ workspacePath }: { workspacePath: string }) {
   const threadMatch = useRouterState({
     select: (state) =>
       state.matches.find(
-        (match) => match.routeId === '/workspaces/$workspaceId/threads/$threadId'
+        (match) =>
+          match.routeId === '/workspaces/$workspaceId/threads/$threadId'
       ),
   });
 

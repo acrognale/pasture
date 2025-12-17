@@ -1,5 +1,5 @@
-import { useRouter } from '@tanstack/react-router';
 import { Cell, type TranscriptHandoffCell } from '@pasture/transcript-ui';
+import { useRouter } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { encodeWorkspaceId } from '~/lib/routing';

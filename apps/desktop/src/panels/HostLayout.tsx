@@ -1,11 +1,10 @@
 import type React from 'react';
 import { Fragment, useCallback, useRef } from 'react';
-
 import { cn } from '~/lib/utils';
 
-import { applyResizeDelta } from './layout';
 import { PanelHost } from './PanelHost';
 import { usePanelManager } from './PanelManagerProvider';
+import { applyResizeDelta } from './layout';
 import type { HostId, HostLayoutNode, SplitId } from './types';
 
 export function HostLayout({
@@ -44,11 +43,7 @@ function HostLayoutNodeView({
   }
 
   return (
-    <HostSplitView
-      hostId={hostId}
-      node={node}
-      responsiveRow={responsiveRow}
-    />
+    <HostSplitView hostId={hostId} node={node} responsiveRow={responsiveRow} />
   );
 }
 
@@ -71,36 +66,39 @@ function HostSplitView({
   }, [node.direction, responsiveRow]);
 
   const handleResizeStart = useCallback(
-    (index: number, splitId: SplitId) => (event: React.MouseEvent<HTMLDivElement>) => {
-      event.preventDefault();
+    (index: number, splitId: SplitId) =>
+      (event: React.MouseEvent<HTMLDivElement>) => {
+        event.preventDefault();
 
-      const startSizes = node.sizes.slice();
-      const startIsRow = shouldUseRow();
-      const startPoint = startIsRow ? event.clientX : event.clientY;
+        const startSizes = node.sizes.slice();
+        const startIsRow = shouldUseRow();
+        const startPoint = startIsRow ? event.clientX : event.clientY;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        const container = containerRef.current;
-        if (!container) return;
-        const rect = container.getBoundingClientRect();
-        const axisSize = startIsRow ? rect.width : rect.height;
-        if (!axisSize) return;
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+          const container = containerRef.current;
+          if (!container) return;
+          const rect = container.getBoundingClientRect();
+          const axisSize = startIsRow ? rect.width : rect.height;
+          if (!axisSize) return;
 
-        const currentPoint = startIsRow ? moveEvent.clientX : moveEvent.clientY;
-        const deltaRatio = (currentPoint - startPoint) / axisSize;
-        const nextSizes = applyResizeDelta(startSizes, index, deltaRatio, {
-          minRatio: 0.08,
-        });
-        actions.resizeHostSplit(hostId, splitId, nextSizes);
-      };
+          const currentPoint = startIsRow
+            ? moveEvent.clientX
+            : moveEvent.clientY;
+          const deltaRatio = (currentPoint - startPoint) / axisSize;
+          const nextSizes = applyResizeDelta(startSizes, index, deltaRatio, {
+            minRatio: 0.08,
+          });
+          actions.resizeHostSplit(hostId, splitId, nextSizes);
+        };
 
-      const handleMouseUp = () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-      };
+        const handleMouseUp = () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+        };
 
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    },
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+      },
     [actions, hostId, node.sizes, shouldUseRow]
   );
 
@@ -123,8 +121,15 @@ function HostSplitView({
         const key = child.type === 'dock' ? child.dockId : child.splitId;
         return (
           <Fragment key={key}>
-            <div className="flex min-h-0 min-w-0" style={{ flexGrow: size, flexBasis: 0 }}>
-              <HostLayoutNodeView hostId={hostId} node={child} responsiveRow={responsiveRow} />
+            <div
+              className="flex min-h-0 min-w-0"
+              style={{ flexGrow: size, flexBasis: 0 }}
+            >
+              <HostLayoutNodeView
+                hostId={hostId}
+                node={child}
+                responsiveRow={responsiveRow}
+              />
             </div>
             {index < node.children.length - 1 ? (
               <div
@@ -137,7 +142,12 @@ function HostSplitView({
                 aria-orientation={isRow ? 'vertical' : 'horizontal'}
                 aria-label="Resize dock split"
               >
-                <div className={cn(isRow ? 'h-full w-px' : 'h-px w-full', 'bg-border/60')} />
+                <div
+                  className={cn(
+                    isRow ? 'h-full w-px' : 'h-px w-full',
+                    'bg-border/60'
+                  )}
+                />
               </div>
             ) : null}
           </Fragment>
@@ -146,4 +156,3 @@ function HostSplitView({
     </div>
   );
 }
-

@@ -1,15 +1,27 @@
+import { XIcon } from 'lucide-react';
 import type React from 'react';
 import type { ReactNode } from 'react';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { XIcon } from 'lucide-react';
-
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { cn } from '~/lib/utils';
 
-import { applyResizeDelta } from './layout';
 import { usePanelManager } from './PanelManagerProvider';
 import { PanelRuntimeProvider } from './PanelRuntimeContext';
+import { applyResizeDelta } from './layout';
 import { getPanelKind } from './registry';
-import type { DockId, DockLayoutNode, HostId, PanelGroupId, PanelInstanceId } from './types';
+import type {
+  DockId,
+  DockLayoutNode,
+  HostId,
+  PanelGroupId,
+  PanelInstanceId,
+} from './types';
 
 export function PanelHost({
   hostId,
@@ -187,7 +199,10 @@ function SplitView({
         const key = child.type === 'group' ? child.groupId : child.splitId;
         return (
           <Fragment key={key}>
-            <div className="flex min-h-0 min-w-0" style={{ flexGrow: size, flexBasis: 0 }}>
+            <div
+              className="flex min-h-0 min-w-0"
+              style={{ flexGrow: size, flexBasis: 0 }}
+            >
               <DockNodeView
                 hostId={hostId}
                 dockId={dockId}
@@ -207,7 +222,12 @@ function SplitView({
                 aria-orientation={isRow ? 'vertical' : 'horizontal'}
                 aria-label="Resize panel split"
               >
-                <div className={cn(isRow ? 'h-full w-px' : 'h-px w-full', 'bg-border/60')} />
+                <div
+                  className={cn(
+                    isRow ? 'h-full w-px' : 'h-px w-full',
+                    'bg-border/60'
+                  )}
+                />
               </div>
             ) : null}
           </Fragment>
@@ -240,8 +260,12 @@ function GroupView({
   }
 
   const activeInstanceId = group.activeTabId;
-  const activeInstance = activeInstanceId ? host.instances[activeInstanceId] ?? null : null;
-  const activeKind = activeInstance ? getPanelKind(activeInstance.kindId) : null;
+  const activeInstance = activeInstanceId
+    ? (host.instances[activeInstanceId] ?? null)
+    : null;
+  const activeKind = activeInstance
+    ? getPanelKind(activeInstance.kindId)
+    : null;
   const ActiveComponent = activeKind?.Component ?? null;
 
   return (
@@ -278,9 +302,14 @@ function GroupView({
                   isActive
                     ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-                  tabDnD.isDraggingTab(instanceId) ? 'cursor-grabbing opacity-60' : 'cursor-grab'
+                  tabDnD.isDraggingTab(instanceId)
+                    ? 'cursor-grabbing opacity-60'
+                    : 'cursor-grab'
                 )}
-                onPointerDown={tabDnD.getTabPointerDownHandler(instanceId, group.groupId)}
+                onPointerDown={tabDnD.getTabPointerDownHandler(
+                  instanceId,
+                  group.groupId
+                )}
                 onClick={(event) => {
                   if (tabDnD.shouldSuppressTabClick()) {
                     event.preventDefault();
@@ -327,9 +356,14 @@ function GroupView({
               params: activeInstance.params,
               state: activeInstance.state,
               setState: (state) =>
-                actions.setInstanceState(hostId, activeInstance.instanceId, state),
+                actions.setInstanceState(
+                  hostId,
+                  activeInstance.instanceId,
+                  state
+                ),
               reveal: host.reveals[activeInstance.instanceId],
-              consumeReveal: () => actions.consumeReveal(hostId, activeInstance.instanceId),
+              consumeReveal: () =>
+                actions.consumeReveal(hostId, activeInstance.instanceId),
               close: () => actions.close(hostId, activeInstance.instanceId),
             }}
           >
@@ -357,7 +391,13 @@ type TabDnD = {
     fromGroupId: PanelGroupId
   ) => (event: React.PointerEvent<HTMLButtonElement>) => void;
   shouldSuppressTabClick: () => boolean;
-  preview: { title: string; x: number; y: number; offsetX: number; offsetY: number } | null;
+  preview: {
+    title: string;
+    x: number;
+    y: number;
+    offsetX: number;
+    offsetY: number;
+  } | null;
 };
 
 function useTabDragBetweenGroups({
@@ -376,7 +416,9 @@ function useTabDragBetweenGroups({
   ) => void;
   getTabTitle: (instanceId: PanelInstanceId) => string;
 }): TabDnD {
-  const [draggingTabId, setDraggingTabId] = useState<PanelInstanceId | null>(null);
+  const [draggingTabId, setDraggingTabId] = useState<PanelInstanceId | null>(
+    null
+  );
   const [fromGroupId, setFromGroupId] = useState<PanelGroupId | null>(null);
   const [overGroupId, setOverGroupId] = useState<PanelGroupId | null>(null);
   const [preview, setPreview] = useState<TabDnD['preview']>(null);
@@ -413,12 +455,17 @@ function useTabDragBetweenGroups({
 
   useEffect(() => clearDrag, [clearDrag]);
 
-  const getGroupIdAtPoint = useCallback((x: number, y: number): PanelGroupId | null => {
-    const element = document.elementFromPoint(x, y);
-    const dropzone = element?.closest?.('[data-panel-group-dropzone]') ?? null;
-    const groupId = dropzone?.getAttribute?.('data-panel-group-dropzone') ?? null;
-    return groupId || null;
-  }, []);
+  const getGroupIdAtPoint = useCallback(
+    (x: number, y: number): PanelGroupId | null => {
+      const element = document.elementFromPoint(x, y);
+      const dropzone =
+        element?.closest?.('[data-panel-group-dropzone]') ?? null;
+      const groupId =
+        dropzone?.getAttribute?.('data-panel-group-dropzone') ?? null;
+      return groupId || null;
+    },
+    []
+  );
 
   const updateOverGroup = useCallback(
     (x: number, y: number) => {
@@ -498,7 +545,10 @@ function useTabDragBetweenGroups({
           if (!candidate) return;
           if (endEvent.pointerId !== candidate.pointerId) return;
 
-          const targetGroupId = getGroupIdAtPoint(endEvent.clientX, endEvent.clientY);
+          const targetGroupId = getGroupIdAtPoint(
+            endEvent.clientX,
+            endEvent.clientY
+          );
           const didDrag = suppressNextClickRef.current;
           const { fromGroupId: sourceGroupId } = candidate;
           clearDrag();
@@ -510,7 +560,8 @@ function useTabDragBetweenGroups({
             }, 250);
           }
 
-          if (!didDrag || !targetGroupId || targetGroupId === sourceGroupId) return;
+          if (!didDrag || !targetGroupId || targetGroupId === sourceGroupId)
+            return;
           moveTabToGroup(hostId, dockId, candidate.instanceId, targetGroupId);
         };
 
@@ -524,7 +575,15 @@ function useTabDragBetweenGroups({
           window.removeEventListener('pointercancel', handlePointerEnd);
         };
       },
-    [clearDrag, dockId, getGroupIdAtPoint, getTabTitle, hostId, moveTabToGroup, updateOverGroup]
+    [
+      clearDrag,
+      dockId,
+      getGroupIdAtPoint,
+      getTabTitle,
+      hostId,
+      moveTabToGroup,
+      updateOverGroup,
+    ]
   );
 
   const shouldSuppressTabClick = useCallback(() => {
@@ -541,7 +600,12 @@ function useTabDragBetweenGroups({
     () => ({
       isDraggingTab: (instanceId) => draggingTabId === instanceId,
       isDropTarget: (groupId) =>
-        Boolean(draggingTabId && fromGroupId && groupId !== fromGroupId && overGroupId === groupId),
+        Boolean(
+          draggingTabId &&
+            fromGroupId &&
+            groupId !== fromGroupId &&
+            overGroupId === groupId
+        ),
       getTabPointerDownHandler,
       shouldSuppressTabClick,
       preview,

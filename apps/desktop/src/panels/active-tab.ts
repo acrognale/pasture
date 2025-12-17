@@ -19,4 +19,3 @@ export function findActiveInstanceIdInDockLayout(
   }
   return null;
 }
-

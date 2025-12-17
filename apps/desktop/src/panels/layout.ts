@@ -100,7 +100,12 @@ export function setDockSplitSizes(
         sizes: normalizeSizes(root.children.length, sizes, { minRatio }),
       };
     }
-    return { ...root, children: root.children.map((child) => setDockSplitSizes(child, splitId, sizes, minRatio)) };
+    return {
+      ...root,
+      children: root.children.map((child) =>
+        setDockSplitSizes(child, splitId, sizes, minRatio)
+      ),
+    };
   }
   return root;
 }
@@ -118,7 +123,12 @@ export function setHostSplitSizes(
         sizes: normalizeSizes(root.children.length, sizes, { minRatio }),
       };
     }
-    return { ...root, children: root.children.map((child) => setHostSplitSizes(child, splitId, sizes, minRatio)) };
+    return {
+      ...root,
+      children: root.children.map((child) =>
+        setHostSplitSizes(child, splitId, sizes, minRatio)
+      ),
+    };
   }
   return root;
 }

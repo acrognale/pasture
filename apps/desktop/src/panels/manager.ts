@@ -54,7 +54,11 @@ export type PanelManagerActions = {
   close: (hostId: HostId, instanceId: PanelInstanceId) => void;
   focus: (hostId: HostId, instanceId: PanelInstanceId) => void;
   focusGroup: (hostId: HostId, dockId: DockId, groupId: PanelGroupId) => void;
-  setReveal: (hostId: HostId, instanceId: PanelInstanceId, reveal: unknown) => void;
+  setReveal: (
+    hostId: HostId,
+    instanceId: PanelInstanceId,
+    reveal: unknown
+  ) => void;
   consumeReveal: (hostId: HostId, instanceId: PanelInstanceId) => void;
   setInstanceState: (
     hostId: HostId,
@@ -91,7 +95,10 @@ export type PanelManagerState = {
 
 export type PanelManagerStore = StoreApi<PanelManagerState>;
 
-const createEmptyDockState = (): DockState => ({ root: null, focusedGroupId: null });
+const createEmptyDockState = (): DockState => ({
+  root: null,
+  focusedGroupId: null,
+});
 
 const createEmptyHostState = (): HostState => ({
   layoutRoot: { type: 'dock', dockId: 'editor' },
@@ -111,7 +118,10 @@ function hostLayoutHasDock(root: HostLayoutNode, dockId: DockId): boolean {
   return root.children.some((child) => hostLayoutHasDock(child, dockId));
 }
 
-function ensureDockInLayout(root: HostLayoutNode, dockId: DockId): HostLayoutNode {
+function ensureDockInLayout(
+  root: HostLayoutNode,
+  dockId: DockId
+): HostLayoutNode {
   if (hostLayoutHasDock(root, dockId)) return root;
   return {
     type: 'split',
@@ -134,7 +144,10 @@ function findFirstGroup(root: DockLayoutNode): GroupNode | null {
   return null;
 }
 
-function findGroupById(root: DockLayoutNode, groupId: PanelGroupId): GroupNode | null {
+function findGroupById(
+  root: DockLayoutNode,
+  groupId: PanelGroupId
+): GroupNode | null {
   if (root.type === 'group') return root.groupId === groupId ? root : null;
   for (const child of root.children) {
     const found = findGroupById(child, groupId);
@@ -162,7 +175,10 @@ function mapDockLayout(
   mapGroup: (group: GroupNode) => GroupNode
 ): DockLayoutNode {
   if (root.type === 'group') return mapGroup(root);
-  return { ...root, children: root.children.map((child) => mapDockLayout(child, mapGroup)) };
+  return {
+    ...root,
+    children: root.children.map((child) => mapDockLayout(child, mapGroup)),
+  };
 }
 
 function replaceGroup(
@@ -173,7 +189,12 @@ function replaceGroup(
   if (root.type === 'group') {
     return root.groupId === groupId ? replaceWith(root) : root;
   }
-  return { ...root, children: root.children.map((child) => replaceGroup(child, groupId, replaceWith)) };
+  return {
+    ...root,
+    children: root.children.map((child) =>
+      replaceGroup(child, groupId, replaceWith)
+    ),
+  };
 }
 
 export const createPanelManagerStore = (): PanelManagerStore =>
@@ -203,7 +224,8 @@ export const createPanelManagerStore = (): PanelManagerStore =>
         }
 
         const kind = getPanelKind(kindId);
-        const dedupeKey = options?.dedupe !== false ? kind.dedupeKey?.(params) : null;
+        const dedupeKey =
+          options?.dedupe !== false ? kind.dedupeKey?.(params) : null;
 
         if (dedupeKey) {
           const existing = Object.values(host.instances).find((instance) => {
@@ -235,7 +257,10 @@ export const createPanelManagerStore = (): PanelManagerStore =>
             const draftHost = draft.hosts[hostId] ?? createEmptyHostState();
             draft.hosts[hostId] = draftHost;
 
-            draftHost.layoutRoot = ensureDockInLayout(draftHost.layoutRoot, dockId);
+            draftHost.layoutRoot = ensureDockInLayout(
+              draftHost.layoutRoot,
+              dockId
+            );
 
             const dock = draftHost.docks[dockId];
             if (!dock) {
@@ -312,7 +337,7 @@ export const createPanelManagerStore = (): PanelManagerStore =>
                   tabs: nextTabs,
                   activeTabId:
                     group.activeTabId === instanceId
-                      ? nextTabs[nextTabs.length - 1] ?? null
+                      ? (nextTabs[nextTabs.length - 1] ?? null)
                       : group.activeTabId,
                 };
               });
@@ -326,7 +351,8 @@ export const createPanelManagerStore = (): PanelManagerStore =>
               }
 
               const focusedStillExists =
-                dock.focusedGroupId && findGroupById(nextRoot, dock.focusedGroupId);
+                dock.focusedGroupId &&
+                findGroupById(nextRoot, dock.focusedGroupId);
               if (!focusedStillExists) {
                 dock.focusedGroupId = findFirstGroup(nextRoot)?.groupId ?? null;
               }
@@ -415,7 +441,10 @@ export const createPanelManagerStore = (): PanelManagerStore =>
             const dock = host.docks[dockId];
             if (!dock?.root) return;
 
-            const sourceGroup = findGroupContainingInstance(dock.root, instanceId);
+            const sourceGroup = findGroupContainingInstance(
+              dock.root,
+              instanceId
+            );
             const targetGroup = findGroupById(dock.root, targetGroupId);
             if (!sourceGroup || !targetGroup) return;
             if (sourceGroup.groupId === targetGroupId) return;
@@ -428,12 +457,15 @@ export const createPanelManagerStore = (): PanelManagerStore =>
                   tabs: nextTabs,
                   activeTabId:
                     group.activeTabId === instanceId
-                      ? nextTabs[nextTabs.length - 1] ?? null
+                      ? (nextTabs[nextTabs.length - 1] ?? null)
                       : group.activeTabId,
                 };
               }
               if (group.groupId === targetGroupId) {
-                const nextTabs = [...group.tabs.filter((id) => id !== instanceId), instanceId];
+                const nextTabs = [
+                  ...group.tabs.filter((id) => id !== instanceId),
+                  instanceId,
+                ];
                 return { ...group, tabs: nextTabs, activeTabId: instanceId };
               }
               return group;
@@ -449,7 +481,7 @@ export const createPanelManagerStore = (): PanelManagerStore =>
 
             dock.focusedGroupId = findGroupById(nextRoot, targetGroupId)
               ? targetGroupId
-              : findFirstGroup(nextRoot)?.groupId ?? null;
+              : (findFirstGroup(nextRoot)?.groupId ?? null);
           })
         );
       },
@@ -486,9 +518,16 @@ export const createPanelManagerStore = (): PanelManagerStore =>
               };
               leftGroup = { ...existing, tabs: [], activeTabId: null };
             } else if (move === 'active') {
-              const active = existing.activeTabId ?? existing.tabs[existing.tabs.length - 1] ?? null;
+              const active =
+                existing.activeTabId ??
+                existing.tabs[existing.tabs.length - 1] ??
+                null;
               if (active) {
-                rightGroup = { ...rightGroup, tabs: [active], activeTabId: active };
+                rightGroup = {
+                  ...rightGroup,
+                  tabs: [active],
+                  activeTabId: active,
+                };
                 const remaining = existing.tabs.filter((id) => id !== active);
                 leftGroup = {
                   ...existing,
@@ -529,7 +568,12 @@ export const createPanelManagerStore = (): PanelManagerStore =>
           produce<PanelManagerState>((draft) => {
             const host = draft.hosts[hostId];
             if (!host) return;
-            host.layoutRoot = setHostSplitSizes(host.layoutRoot, splitId, sizes, 0.08);
+            host.layoutRoot = setHostSplitSizes(
+              host.layoutRoot,
+              splitId,
+              sizes,
+              0.08
+            );
           })
         );
       },

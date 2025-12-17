@@ -8,8 +8,14 @@ export function registerConversationPanels() {
     kindId: 'conversation.thread',
     scope: 'conversation',
     title: (params) => {
-      const p = params as { threadTitle?: string | null; threadId?: string | null };
-      if (typeof p.threadTitle === 'string' && p.threadTitle.trim().length > 0) {
+      const p = params as {
+        threadTitle?: string | null;
+        threadId?: string | null;
+      };
+      if (
+        typeof p.threadTitle === 'string' &&
+        p.threadTitle.trim().length > 0
+      ) {
         return p.threadTitle;
       }
       return 'Untitled thread';
@@ -37,7 +43,8 @@ export function registerConversationPanels() {
         const label = p.repoParams?.includeWorktree ? 'Working tree' : 'Branch';
         return `Review — ${label}`;
       }
-      const title = typeof p.threadTitle === 'string' ? p.threadTitle.trim() : '';
+      const title =
+        typeof p.threadTitle === 'string' ? p.threadTitle.trim() : '';
       return `Review — ${title.length > 0 ? title : 'Untitled thread'}`;
     },
     dedupeKey: (params) => {

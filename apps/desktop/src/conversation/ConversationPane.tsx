@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { HostLayout } from '~/panels/HostLayout';
+import { usePanelManager } from '~/panels/PanelManagerProvider';
 import { getConversationHostId } from '~/panels/host-ids';
 import { dockLayoutHasAnyTabs } from '~/panels/layout';
-import { usePanelManager } from '~/panels/PanelManagerProvider';
-import type { DockLayoutNode, PanelGroupId, PanelInstanceId } from '~/panels/types';
+import type {
+  DockLayoutNode,
+  PanelGroupId,
+  PanelInstanceId,
+} from '~/panels/types';
 
 import { ConversationPanelServicesProvider } from './panels/ConversationPanelServices';
 import { registerConversationPanels } from './panels/register';
@@ -88,7 +91,13 @@ function ConversationPaneContent({
     if (!instanceId) return false;
     actions.close(hostId, instanceId);
     return true;
-  }, [actions, host?.docks.utility.focusedGroupId, hostId, utilityHasTabs, utilityRoot]);
+  }, [
+    actions,
+    host?.docks.utility.focusedGroupId,
+    hostId,
+    utilityHasTabs,
+    utilityRoot,
+  ]);
 
   useNamedShortcut(
     'overlay.conversationReview.close',

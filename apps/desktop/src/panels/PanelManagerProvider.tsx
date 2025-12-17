@@ -30,4 +30,3 @@ export function usePanelManager<T>(
   const store = usePanelManagerStore();
   return useStore(store, selector);
 }
-

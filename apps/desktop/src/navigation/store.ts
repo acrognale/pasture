@@ -1,6 +1,6 @@
+import { subscribeWithSelector } from 'zustand/middleware';
 import { createStore } from 'zustand/vanilla';
 import type { StoreApi } from 'zustand/vanilla';
-import { subscribeWithSelector } from 'zustand/middleware';
 
 import type { NavigationIntent, ReviewNavigationIntent } from './intents';
 

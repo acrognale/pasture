@@ -1,8 +1,7 @@
-import { useRouter } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-
 import {
   ComposerBar,
   type ComposerBarControls,
@@ -11,8 +10,8 @@ import type { HandoffCommandResult } from '~/composer/slash-commands';
 import { useMessageComments } from '~/conversation/comments/MessageCommentContext';
 import { buildMessageCommentsPrompt } from '~/conversation/comments/utils';
 import { useNamedShortcut } from '~/keyboard/hooks';
-import { copyToClipboard } from '~/lib/utils';
 import { encodeWorkspaceId } from '~/lib/routing';
+import { copyToClipboard } from '~/lib/utils';
 import {
   sortThreadsByTimestamp,
   useWorkspaceActions,
@@ -36,7 +35,6 @@ import {
   useConversationQueueActions,
   useConversationQueuedMessages,
 } from '../store/hooks';
-
 import { useConversationPanelServices } from './ConversationPanelServices';
 
 type ConversationThreadPanelParams = {

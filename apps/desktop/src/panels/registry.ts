@@ -16,4 +16,3 @@ export function getPanelKind(kindId: PanelKindId): PanelKindDefinition {
   }
   return kind;
 }
-

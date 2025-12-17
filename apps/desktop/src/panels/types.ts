@@ -9,10 +9,7 @@ export type SplitId = string;
 
 export type PanelScope = 'conversation' | 'workspace' | 'app';
 
-export type PanelKindDefinition<
-  Params = unknown,
-  State = unknown,
-> = {
+export type PanelKindDefinition<Params = unknown, State = unknown> = {
   kindId: PanelKindId;
   scope: PanelScope;
   title: (params: Params, state: State | null) => string;

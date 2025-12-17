@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
-import { registerPanelKind } from '../registry';
 import { createPanelManagerStore } from '../manager';
+import { registerPanelKind } from '../registry';
 import type { PanelComponentProps } from '../types';
 
 function TestPanel(_props: PanelComponentProps) {
@@ -56,4 +56,3 @@ describe('panel manager', () => {
     expect(host.instances[instanceId]).toBeUndefined();
   });
 });
-

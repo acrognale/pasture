@@ -11,9 +11,7 @@ type WorkspaceTopBarProps = {
 
 const TRAFFIC_LIGHT_OFFSET = '72px';
 
-export function WorkspaceTopBar({
-  workspacePath,
-}: WorkspaceTopBarProps) {
+export function WorkspaceTopBar({ workspacePath }: WorkspaceTopBarProps) {
   const { open } = useSidebar();
   const workspaceName = useMemo(
     () => formatWorkspaceLabel(workspacePath),

@@ -63,7 +63,8 @@ const createHarnessRouter = (initialEntries?: string[]) => {
   return createRouter({
     routeTree,
     history: createMemoryHistory({
-      initialEntries: initialEntries && initialEntries.length > 0 ? initialEntries : ['/'],
+      initialEntries:
+        initialEntries && initialEntries.length > 0 ? initialEntries : ['/'],
     }),
   });
 };
@@ -113,8 +114,9 @@ function TestRouterProvider({
     };
   }, [router]);
 
-  const routerForContext =
-    router as unknown as Parameters<typeof RouterContextProvider>[0]['router'];
+  const routerForContext = router as unknown as Parameters<
+    typeof RouterContextProvider
+  >[0]['router'];
 
   return (
     <RouterContextProvider router={routerForContext}>

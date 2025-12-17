@@ -18,7 +18,10 @@ import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { cn } from '~/lib/utils';
 import { formatSessionPreview, resolveSessionLabel } from '~/lib/workspaces';
-import { useNavigation, useNavigationActions } from '~/navigation/NavigationProvider';
+import {
+  useNavigation,
+  useNavigationActions,
+} from '~/navigation/NavigationProvider';
 
 import { useWorkspace } from './WorkspaceProvider';
 import { useWorkspaceThreads } from './hooks/useWorkspaceThreads';

@@ -1,6 +1,6 @@
-import type { ComposerBarControls } from '~/composer/components/ComposerBar';
 import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useMemo, useRef } from 'react';
+import type { ComposerBarControls } from '~/composer/components/ComposerBar';
 
 type ConversationPanelServices = {
   registerComposerControls: (controls: ComposerBarControls | null) => void;
@@ -12,7 +12,9 @@ type ConversationPanelServices = {
 const ConversationPanelServicesContext =
   createContext<ConversationPanelServices | null>(null);
 
-export function ConversationPanelServicesProvider({ children }: PropsWithChildren) {
+export function ConversationPanelServicesProvider({
+  children,
+}: PropsWithChildren) {
   const composerRef = useRef<ComposerBarControls | null>(null);
   const scrollToBottomRef = useRef<(() => void) | null>(null);
 
@@ -74,4 +76,3 @@ export function useConversationPanelServices(): ConversationPanelServices {
   }
   return services;
 }
-

@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { SearchIcon } from 'lucide-react';
-
 import { Button } from '~/components/ui/button';
 import { useNavigationActions } from '~/navigation/NavigationProvider';
 
@@ -18,7 +17,8 @@ function RouteComponent() {
           Open a thread to begin
         </div>
         <div className="text-xs text-muted-foreground">
-          Select an open thread from the sidebar, or search your workspace for an existing one.
+          Select an open thread from the sidebar, or search your workspace for
+          an existing one.
         </div>
         <div className="flex justify-center pt-2">
           <Button
@@ -36,4 +36,3 @@ function RouteComponent() {
     </div>
   );
 }
-

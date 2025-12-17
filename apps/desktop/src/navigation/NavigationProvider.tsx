@@ -1,9 +1,11 @@
 import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import { useStore } from 'zustand';
-
 import { usePanelManagerStore } from '~/panels/PanelManagerProvider';
-import { getConversationHostId, getConversationThreadHostId } from '~/panels/host-ids';
+import {
+  getConversationHostId,
+  getConversationThreadHostId,
+} from '~/panels/host-ids';
 
 import type { ReviewNavigationIntent } from './intents';
 import type { NavigationActions, NavigationStore } from './store';
@@ -16,10 +18,9 @@ export function NavigationProvider({ children }: PropsWithChildren) {
 
   const openReview = useCallback(
     (intent: ReviewNavigationIntent) => {
-      const hostId =
-        intent.threadId
-          ? getConversationThreadHostId(intent.workspacePath, intent.threadId)
-          : getConversationHostId(intent.workspacePath);
+      const hostId = intent.threadId
+        ? getConversationThreadHostId(intent.workspacePath, intent.threadId)
+        : getConversationHostId(intent.workspacePath);
 
       const focusFilePath = intent.focusFilePath ?? null;
       const threadTitle = intent.threadTitle ?? null;

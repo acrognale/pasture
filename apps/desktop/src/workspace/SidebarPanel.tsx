@@ -40,10 +40,6 @@ import {
   TooltipTrigger,
 } from '~/components/ui/tooltip';
 import {
-  useNavigationActions,
-  useNavigationStoreApi,
-} from '~/navigation/NavigationProvider';
-import {
   useConversationIsRunning,
   useConversationLatestTurnDiff,
   useConversationLoadState,
@@ -55,6 +51,10 @@ import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { cn, makePathRelative } from '~/lib/utils';
 import { resolveSessionLabel } from '~/lib/workspaces';
+import {
+  useNavigationActions,
+  useNavigationStoreApi,
+} from '~/navigation/NavigationProvider';
 import { buildFileDiffStats, parseUnifiedDiff } from '~/review/diff';
 import { useRepoDiff } from '~/review/queries';
 import type { ParsedTurnDiffFile } from '~/review/types';
@@ -90,7 +90,8 @@ export function SidebarPanel({
   const threadMatch = useRouterState({
     select: (state) =>
       state.matches.find(
-        (match) => match.routeId === '/workspaces/$workspaceId/threads/$threadId'
+        (match) =>
+          match.routeId === '/workspaces/$workspaceId/threads/$threadId'
       ),
   });
 
@@ -132,7 +133,9 @@ export function SidebarPanel({
         return;
       }
 
-      const nextThread = sessions.find((session) => session.threadId !== threadId);
+      const nextThread = sessions.find(
+        (session) => session.threadId !== threadId
+      );
       if (nextThread) {
         navigateToThread(nextThread.threadId);
         return;
@@ -143,7 +146,14 @@ export function SidebarPanel({
         params: { workspaceId: encodeWorkspaceId(workspacePath) },
       });
     },
-    [activeThreadId, closeThread, navigateToThread, router, sessions, workspacePath]
+    [
+      activeThreadId,
+      closeThread,
+      navigateToThread,
+      router,
+      sessions,
+      workspacePath,
+    ]
   );
 
   const newThreadMutation = useMutation({
@@ -239,7 +249,9 @@ export function SidebarPanel({
   });
 
   const conversationIdForDiffs = activeConversationId ?? '';
-  const turnDiffHistory = useConversationTurnDiffHistory(conversationIdForDiffs);
+  const turnDiffHistory = useConversationTurnDiffHistory(
+    conversationIdForDiffs
+  );
   const latestDiff = useConversationLatestTurnDiff(conversationIdForDiffs);
 
   const processedThreadFiles = useMemo<SidebarChangesEntry[]>(() => {
@@ -364,7 +376,10 @@ export function SidebarPanel({
           key={normalizedWorkspacePath || workspacePath}
           conversationId={activeConversationId ?? null}
           threadId={activeThreadId}
-          threadTitle={sessions.find((item) => item.threadId === activeThreadId)?.title ?? null}
+          threadTitle={
+            sessions.find((item) => item.threadId === activeThreadId)?.title ??
+            null
+          }
           workspacePath={workspacePath}
           normalizedWorkspacePath={normalizedWorkspacePath}
           threadFilesFromEvents={processedThreadFiles}
@@ -597,38 +612,33 @@ function ChangesSidebarSection({
   }, [repoDiffQuery.parsedDiff?.files, workspacePath]);
 
   useEffect(() => {
-    return navigationStore.subscribe(
-      (state, prevState) => {
-        const event = state.lastEvent;
-        if (!event || event === prevState.lastEvent) {
-          return;
-        }
-        const intent = event.intent;
-        if (intent.target !== 'review') {
-          return;
-        }
-        if (intent.mode !== 'repo' || !intent.repoParams) {
-          return;
-        }
-        setLiveRepoParamsAndPersist({
-          workspacePath,
-          baseRef: intent.repoParams.baseRef,
-          targetRef: intent.repoParams.targetRef ?? null,
-          includeWorktree: intent.repoParams.includeWorktree,
-        });
+    return navigationStore.subscribe((state, prevState) => {
+      const event = state.lastEvent;
+      if (!event || event === prevState.lastEvent) {
+        return;
       }
-    );
-  }, [
-    navigationStore,
-    setLiveRepoParamsAndPersist,
-    workspacePath,
-  ]);
+      const intent = event.intent;
+      if (intent.target !== 'review') {
+        return;
+      }
+      if (intent.mode !== 'repo' || !intent.repoParams) {
+        return;
+      }
+      setLiveRepoParamsAndPersist({
+        workspacePath,
+        baseRef: intent.repoParams.baseRef,
+        targetRef: intent.repoParams.targetRef ?? null,
+        includeWorktree: intent.repoParams.includeWorktree,
+      });
+    });
+  }, [navigationStore, setLiveRepoParamsAndPersist, workspacePath]);
 
   const threadCount = threadFilesFromEvents.length;
   const repoCount = repoProcessedFiles.length;
   const activeCount = mode === 'repo' ? repoCount : threadCount;
   const files = mode === 'repo' ? repoProcessedFiles : threadFilesFromEvents;
-  const selectionLabel = mode === 'repo' ? getRepoPresetLabel(liveRepoParams) : 'Thread';
+  const selectionLabel =
+    mode === 'repo' ? getRepoPresetLabel(liveRepoParams) : 'Thread';
 
   return (
     <SidebarGroup className="flex min-h-0 flex-1 flex-col pl-2 pr-0 py-2">

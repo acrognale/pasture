@@ -1,23 +1,24 @@
 import { createFileRoute } from '@tanstack/react-router';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-import { MessageCommentDraftProvider } from '~/conversation/comments/MessageCommentDraftContext';
 import { MessageCommentProvider } from '~/conversation/comments/MessageCommentContext';
-import { ConversationThreadPanel } from '~/conversation/panels/ConversationThreadPanel';
+import { MessageCommentDraftProvider } from '~/conversation/comments/MessageCommentDraftContext';
 import { ConversationPanelServicesProvider } from '~/conversation/panels/ConversationPanelServices';
+import { ConversationThreadPanel } from '~/conversation/panels/ConversationThreadPanel';
 import { registerConversationPanels } from '~/conversation/panels/register';
-import { getConversationThreadHostId } from '~/panels/host-ids';
-import { usePanelManager } from '~/panels/PanelManagerProvider';
-import { PanelHost } from '~/panels/PanelHost';
-import { dockLayoutHasAnyTabs } from '~/panels/layout';
 import { decodeWorkspaceId } from '~/lib/routing';
 import { cn } from '~/lib/utils';
+import { PanelHost } from '~/panels/PanelHost';
+import { usePanelManager } from '~/panels/PanelManagerProvider';
+import { getConversationThreadHostId } from '~/panels/host-ids';
+import { dockLayoutHasAnyTabs } from '~/panels/layout';
 import { useWorkspaceActions } from '~/workspace';
 
 registerConversationPanels();
 
-export const Route = createFileRoute('/workspaces/$workspaceId/threads/$threadId')({
+export const Route = createFileRoute(
+  '/workspaces/$workspaceId/threads/$threadId'
+)({
   component: RouteComponent,
 });
 
@@ -26,7 +27,10 @@ const MIN_TOOLS_WIDTH = 280;
 
 function RouteComponent() {
   const { workspaceId, threadId } = Route.useParams();
-  const workspacePath = useMemo(() => decodeWorkspaceId(workspaceId), [workspaceId]);
+  const workspacePath = useMemo(
+    () => decodeWorkspaceId(workspaceId),
+    [workspaceId]
+  );
   const { loadThread, getThreadConversationId } = useWorkspaceActions();
   const [conversationId, setConversationId] = useState<string | null>(() =>
     getThreadConversationId(threadId)
@@ -41,7 +45,8 @@ function RouteComponent() {
         const existing = getThreadConversationId(threadId);
         setConversationId(existing ?? null);
         const resolved = await loadThread(threadId, { force: !existing });
-        const nextConversationId = resolved ?? getThreadConversationId(threadId);
+        const nextConversationId =
+          resolved ?? getThreadConversationId(threadId);
         if (!cancelled && nextConversationId) {
           setConversationId(nextConversationId);
         }
@@ -76,7 +81,10 @@ function RouteComponent() {
 
   return (
     <ConversationPanelServicesProvider>
-      <MessageCommentProvider conversationId={conversationId} workspacePath={workspacePath}>
+      <MessageCommentProvider
+        conversationId={conversationId}
+        workspacePath={workspacePath}
+      >
         <MessageCommentDraftProvider>
           <ThreadWithTools
             workspacePath={workspacePath}
@@ -107,7 +115,8 @@ function ThreadWithTools({
   );
   const hasTools = usePanelManager(
     useCallback(
-      (state) => dockLayoutHasAnyTabs(state.hosts[hostId]?.docks.utility.root ?? null),
+      (state) =>
+        dockLayoutHasAnyTabs(state.hosts[hostId]?.docks.utility.root ?? null),
       [hostId]
     )
   );
@@ -172,13 +181,17 @@ function ThreadWithTools({
 
   const effectiveToolsRatio = useMemo(() => {
     if (toolsRatio > 0) return toolsRatio;
-    if (containerWidth && legacyToolsWidth) return legacyToolsWidth / containerWidth;
+    if (containerWidth && legacyToolsWidth)
+      return legacyToolsWidth / containerWidth;
     return 0;
   }, [containerWidth, legacyToolsWidth, toolsRatio]);
 
   const toolsWidth = useMemo(() => {
     if (!containerWidth) return DEFAULT_TOOLS_WIDTH;
-    const ratio = effectiveToolsRatio > 0 ? effectiveToolsRatio : DEFAULT_TOOLS_WIDTH / containerWidth;
+    const ratio =
+      effectiveToolsRatio > 0
+        ? effectiveToolsRatio
+        : DEFAULT_TOOLS_WIDTH / containerWidth;
     const next = containerWidth * ratio;
     return Math.max(MIN_TOOLS_WIDTH, Math.min(containerWidth, next));
   }, [containerWidth, effectiveToolsRatio]);
@@ -196,7 +209,10 @@ function ThreadWithTools({
 
   const handleResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
-    const totalWidth = containerWidth || containerRef.current?.getBoundingClientRect().width || 0;
+    const totalWidth =
+      containerWidth ||
+      containerRef.current?.getBoundingClientRect().width ||
+      0;
     if (!totalWidth) return;
     const startX = event.clientX;
     const startWidth = toolsWidth;

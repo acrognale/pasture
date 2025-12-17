@@ -19,7 +19,8 @@ export function RecentConversationSwitcher() {
   const threadMatch = useRouterState({
     select: (state) =>
       state.matches.find(
-        (match) => match.routeId === '/workspaces/$workspaceId/threads/$threadId'
+        (match) =>
+          match.routeId === '/workspaces/$workspaceId/threads/$threadId'
       ),
   });
   const now = useNow();
@@ -27,7 +28,9 @@ export function RecentConversationSwitcher() {
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const currentThreadId =
-    typeof threadMatch?.params?.threadId === 'string' ? threadMatch.params.threadId : null;
+    typeof threadMatch?.params?.threadId === 'string'
+      ? threadMatch.params.threadId
+      : null;
 
   const items = recent.slice(0, 15);
   const activeIndex =
@@ -53,7 +56,10 @@ export function RecentConversationSwitcher() {
     close();
     await router.navigate({
       to: '/workspaces/$workspaceId/threads/$threadId',
-      params: { workspaceId: encodeWorkspaceId(workspacePath), threadId: target.threadId },
+      params: {
+        workspaceId: encodeWorkspaceId(workspacePath),
+        threadId: target.threadId,
+      },
     });
   }, [activeIndex, close, open, recent, router, workspacePath]);
 

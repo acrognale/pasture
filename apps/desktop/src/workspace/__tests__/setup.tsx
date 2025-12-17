@@ -5,6 +5,7 @@ import {
   SidebarContent,
   SidebarProvider,
 } from '~/components/ui/sidebar';
+import { registerConversationPanels } from '~/conversation/panels/register';
 import { ConversationProvider } from '~/conversation/store';
 import { NavigationProvider } from '~/navigation/NavigationProvider';
 import { PanelManagerProvider } from '~/panels/PanelManagerProvider';
@@ -13,8 +14,6 @@ import { getConversationHostId } from '~/panels/host-ids';
 import { renderWithProviders } from '~/testing/harness';
 import { WorkspaceProvider, useWorkspaceActions } from '~/workspace';
 import { SidebarPanel } from '~/workspace/SidebarPanel';
-
-import { registerConversationPanels } from '~/conversation/panels/register';
 
 export const WORKSPACE = '/Users/tester/workspace';
 
@@ -47,12 +46,14 @@ const OpenConversationsInitializer = ({
         const conversationId = await loadThread(threadId, { force: true });
         if (!conversationId) continue;
         const hostId = getConversationHostId(workspacePath);
-        panelManagerStore.getState().actions.open(hostId, 'editor', 'conversation.thread', {
-          workspacePath,
-          conversationId,
-          threadId,
-          threadTitle: null,
-        });
+        panelManagerStore
+          .getState()
+          .actions.open(hostId, 'editor', 'conversation.thread', {
+            workspacePath,
+            conversationId,
+            threadId,
+            threadTitle: null,
+          });
       }
     })();
   }, [panelManagerStore, threadIds, loadThread, workspacePath]);
@@ -65,12 +66,14 @@ const OpenConversationsInitializer = ({
           return;
         }
         const hostId = getConversationHostId(workspacePath);
-        panelManagerStore.getState().actions.open(hostId, 'editor', 'conversation.thread', {
-          workspacePath,
-          conversationId,
-          threadId,
-          threadTitle: null,
-        });
+        panelManagerStore
+          .getState()
+          .actions.open(hostId, 'editor', 'conversation.thread', {
+            workspacePath,
+            conversationId,
+            threadId,
+            threadTitle: null,
+          });
       },
     };
 
