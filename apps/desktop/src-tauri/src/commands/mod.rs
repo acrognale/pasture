@@ -6,6 +6,7 @@ pub mod composer;
 pub mod files;
 pub mod images;
 pub mod message_comments;
+pub mod repo_watch;
 pub mod review;
 pub mod subscriptions;
 pub mod symbols;
@@ -84,9 +85,13 @@ codex_command_descriptors! {
         params: review::GetRepoDiffParams,
         result: review::GetRepoDiffResponse,
     },
-    review::get_repo_fingerprint {
-        params: review::GetRepoFingerprintParams,
-        result: review::GetRepoFingerprintResponse,
+    repo_watch::start_repo_watch {
+        params: repo_watch::StartRepoWatchParams,
+        result: repo_watch::StartRepoWatchResponse,
+    },
+    repo_watch::stop_repo_watch {
+        params: repo_watch::StopRepoWatchParams,
+        result: (),
     },
     turns::compact_conversation {
         params: turns::CompactConversationParams,

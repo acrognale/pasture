@@ -73,6 +73,7 @@ tree-sitter = "0.25.10"
 tree-sitter-rust = "0.24.0"
 tree-sitter-typescript = "0.23.2"
 async-trait = "0.1.89"
+notify = "8"
 
 [dev-dependencies]
 tempfile = "3"

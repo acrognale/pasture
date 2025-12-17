@@ -1,17 +1,16 @@
+import type { RepoChangedPayload } from '@pasture/protocol';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { Codex } from '~/codex/client';
 import { isTauriEnvironment } from '~/codex/events';
 
 import { invalidateRepoDiffQueriesForWorkspace } from './queries';
 
-const POLL_INTERVAL_MS = 1500;
 const INVALIDATE_DEBOUNCE_MS = 250;
 
 export function useRepoDiffAutoRefresh(workspacePath: string) {
   const queryClient = useQueryClient();
-  const previousTokenRef = useRef<string | null>(null);
-  const isPollingRef = useRef(false);
   const invalidateTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -23,6 +22,7 @@ export function useRepoDiffAutoRefresh(workspacePath: string) {
     }
 
     let cancelled = false;
+    let subscriptionId: string | null = null;
 
     const scheduleInvalidate = () => {
       if (invalidateTimerRef.current !== null) {
@@ -33,53 +33,37 @@ export function useRepoDiffAutoRefresh(workspacePath: string) {
       }, INVALIDATE_DEBOUNCE_MS);
     };
 
-    const pollOnce = async () => {
+    const unlistenPromise = listen<RepoChangedPayload>('repo://changed', (event) => {
       if (cancelled) {
         return;
       }
       if (document.visibilityState !== 'visible') {
         return;
       }
-      if (isPollingRef.current) {
+      if (event.payload.workspacePath !== workspacePath) {
         return;
       }
-      isPollingRef.current = true;
-      try {
-        const response = await Codex.getRepoFingerprint({ workspacePath });
+      scheduleInvalidate();
+    });
+
+    void Codex.startRepoWatch({ workspacePath })
+      .then((response) => {
         if (cancelled) {
+          void Codex.stopRepoWatch({ subscriptionId: response.subscriptionId });
           return;
         }
-        const nextToken = response.token;
-        const previousToken = previousTokenRef.current;
-        previousTokenRef.current = nextToken;
-        if (previousToken !== null && previousToken !== nextToken) {
-          scheduleInvalidate();
-        }
-      } catch {
-        // ignore (polling should never crash the UI)
-      } finally {
-        isPollingRef.current = false;
-      }
-    };
-
-    const intervalId = window.setInterval(() => {
-      void pollOnce();
-    }, POLL_INTERVAL_MS);
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void pollOnce();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    void pollOnce();
+        subscriptionId = response.subscriptionId;
+      })
+      .catch(() => {
+        // ignore (watching should never crash the UI)
+      });
 
     return () => {
       cancelled = true;
-      isPollingRef.current = false;
-      window.clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      void unlistenPromise.then((unlisten) => unlisten());
+      if (subscriptionId) {
+        void Codex.stopRepoWatch({ subscriptionId });
+      }
       if (invalidateTimerRef.current !== null) {
         window.clearTimeout(invalidateTimerRef.current);
         invalidateTimerRef.current = null;

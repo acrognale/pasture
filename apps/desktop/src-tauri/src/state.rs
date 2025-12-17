@@ -5,6 +5,7 @@ use codex_core::ConversationManager;
 use codex_core::config::Config;
 use sea_orm::DatabaseConnection;
 
+use crate::repo_watch::RepoWatchManager;
 use crate::router::EventRouter;
 use crate::symbol_index::SymbolIndexManager;
 use crate::thread_search::ThreadSearchManager;
@@ -19,6 +20,7 @@ pub struct AppState {
     pub auth: Arc<AuthManager>,
     pub conversations: Arc<ConversationManager>,
     pub events: Arc<EventRouter>,
+    pub repo_watch: Arc<RepoWatchManager>,
     pub symbol_index: Arc<SymbolIndexManager>,
     pub thread_search: Arc<ThreadSearchManager>,
 }
@@ -30,6 +32,7 @@ impl AppState {
         auth: Arc<AuthManager>,
         conversations: Arc<ConversationManager>,
         events: Arc<EventRouter>,
+        repo_watch: Arc<RepoWatchManager>,
         symbol_index: Arc<SymbolIndexManager>,
         thread_search: Arc<ThreadSearchManager>,
     ) -> Self {
@@ -39,6 +42,7 @@ impl AppState {
             auth,
             conversations,
             events,
+            repo_watch,
             symbol_index,
             thread_search,
         }

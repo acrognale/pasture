@@ -13,8 +13,6 @@ import type {
   GetComposerConfigParams,
   GetRepoDiffParams,
   GetRepoDiffResponse,
-  GetRepoFingerprintParams,
-  GetRepoFingerprintResponse,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
   HandoffConversationParams,
@@ -44,6 +42,9 @@ import type {
   SendUserMessageParams,
   SetMessageCommentsSubmittedParams,
   SetWindowTitleParams,
+  StartRepoWatchParams,
+  StartRepoWatchResponse,
+  StopRepoWatchParams,
   SwitchConversationParams,
   SwitchConversationResponse,
   UpdateComposerConfigParams,
@@ -173,12 +174,16 @@ export namespace Codex {
     return await invoke<GetRepoDiffResponse>('get_repo_diff', { params });
   }
 
-  export async function getRepoFingerprint(
-    params: GetRepoFingerprintParams
-  ): Promise<GetRepoFingerprintResponse> {
-    return await invoke<GetRepoFingerprintResponse>('get_repo_fingerprint', {
-      params,
-    });
+  export async function startRepoWatch(
+    params: StartRepoWatchParams
+  ): Promise<StartRepoWatchResponse> {
+    return await invoke<StartRepoWatchResponse>('start_repo_watch', { params });
+  }
+
+  export async function stopRepoWatch(
+    params: StopRepoWatchParams
+  ): Promise<void> {
+    return await invoke<void>('stop_repo_watch', { params });
   }
 
   export async function compactConversation(
