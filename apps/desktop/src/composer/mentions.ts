@@ -18,12 +18,25 @@ import {
 } from './components/MentionNode';
 
 export const SLASH_TRIGGER: RegExp = /(^|\s)\/([a-z0-9-]*)$/i;
+export const MENTION_TRIGGER: RegExp = /(^|[\s\n])@([A-Za-z0-9_./:-]*)$/;
 export const FILE_MENTION_TEXT_PATTERN: RegExp = /(^|[\s])@([^\s@]*\/[^\s@]+)/g;
 export const SYMBOL_MENTION_TRIGGER: RegExp = /(^|\s)#([^\s#]*)$/;
 export const SYMBOL_MENTION_TEXT_PATTERN: RegExp =
   /(^|[\s])#([^\s#]+)\s+\(([^()]+):(\d+)\)/g;
 export const THREAD_MENTION_TEXT_PATTERN: RegExp =
   /(^|[\s])@thread:([A-Za-z0-9_-]+)/g;
+
+export const matchMentionTrigger = (text: string) => {
+  const match = MENTION_TRIGGER.exec(text);
+  if (!match) {
+    return null;
+  }
+  return {
+    leadOffset: match.index + (match[1]?.length ?? 0),
+    matchingString: match[2] ?? '',
+    replaceableString: (match[0] ?? '').slice(match[1]?.length ?? 0),
+  };
+};
 
 export type MentionKind = 'file' | 'symbol' | 'thread';
 

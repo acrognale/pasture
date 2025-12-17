@@ -2,8 +2,8 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import {
   LexicalTypeaheadMenuPlugin,
   MenuOption,
+  type MenuTextMatch,
   type TypeaheadMenuPluginProps,
-  useBasicTypeaheadTriggerMatch,
 } from '@lexical/react/LexicalTypeaheadMenuPlugin';
 import {
   $createTextNode,
@@ -23,6 +23,7 @@ import {
   type ThreadMention,
   buildFileLabel,
   createMentionNode,
+  matchMentionTrigger,
 } from '../mentions';
 
 type Props = {
@@ -275,11 +276,17 @@ export const MentionPalettePlugin = ({
     [results]
   );
 
-  const checkForMentionTrigger = useBasicTypeaheadTriggerMatch('@', {
-    minLength: 0,
-    maxLength: 128,
-    allowWhitespace: true,
-  });
+  const checkForMentionTrigger = useCallback<
+    NonNullable<TypeaheadMenuPluginProps<MentionOption>['triggerFn']>
+  >(
+    (text: string): MenuTextMatch | null => {
+      if (!menuEnabled) {
+        return null;
+      }
+      return matchMentionTrigger(text);
+    },
+    [menuEnabled]
+  );
 
   const handleMentionSelect = useCallback<
     TypeaheadMenuPluginProps<MentionOption>['onSelectOption']
