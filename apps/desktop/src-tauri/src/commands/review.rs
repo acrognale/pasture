@@ -217,7 +217,10 @@ pub async fn get_repo_diff(params: GetRepoDiffParams) -> AppResult<GetRepoDiffRe
         }
 
         fn untracked_diffs(repo_root: &str) -> AnyResult<String> {
-            let output = run_git(&["ls-files", "--others", "--exclude-standard", "-z"], repo_root)?;
+            let output = run_git(
+                &["ls-files", "--others", "--exclude-standard", "-z"],
+                repo_root,
+            )?;
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 let stderr = stderr.trim();
@@ -251,7 +254,14 @@ pub async fn get_repo_diff(params: GetRepoDiffParams) -> AppResult<GetRepoDiffRe
 
                 // `git diff` does not include untracked files, but `--no-index` against /dev/null does.
                 let diff = output_to_string_allow_exit_1(run_git(
-                    &["diff", "--no-color", "--no-index", "--", "/dev/null", path_str],
+                    &[
+                        "diff",
+                        "--no-color",
+                        "--no-index",
+                        "--",
+                        "/dev/null",
+                        path_str,
+                    ],
                     repo_root,
                 )?)?;
                 chunks.push(diff);
@@ -268,7 +278,9 @@ pub async fn get_repo_diff(params: GetRepoDiffParams) -> AppResult<GetRepoDiffRe
                 if stderr.is_empty() {
                     return Err(anyhow::anyhow!("workspace is not a git repository"));
                 }
-                return Err(anyhow::anyhow!("workspace is not a git repository: {stderr}"));
+                return Err(anyhow::anyhow!(
+                    "workspace is not a git repository: {stderr}"
+                ));
             }
             String::from_utf8(output.stdout)
                 .context("git rev-parse produced invalid UTF-8")?
@@ -278,7 +290,8 @@ pub async fn get_repo_diff(params: GetRepoDiffParams) -> AppResult<GetRepoDiffRe
 
         if include_worktree {
             if ref_exists(&repo_root, &base_ref)? {
-                let tracked = output_to_string(run_git(&["diff", "--no-color", &base_ref], &repo_root)?)?;
+                let tracked =
+                    output_to_string(run_git(&["diff", "--no-color", &base_ref], &repo_root)?)?;
                 let untracked = untracked_diffs(&repo_root)?;
                 return Ok(join_diffs(vec![tracked, untracked]));
             }
@@ -342,14 +355,18 @@ pub async fn get_repo_fingerprint(
 
         let head_output = run_git(&["rev-parse", "--verify", "HEAD"], &workspace_path)?;
         let head = if head_output.status.success() {
-            String::from_utf8_lossy(&head_output.stdout).trim().to_string()
+            String::from_utf8_lossy(&head_output.stdout)
+                .trim()
+                .to_string()
         } else {
             "__UNBORN__".to_string()
         };
 
         let branch_output = run_git(&["rev-parse", "--abbrev-ref", "HEAD"], &workspace_path)?;
         let branch = if branch_output.status.success() {
-            String::from_utf8_lossy(&branch_output.stdout).trim().to_string()
+            String::from_utf8_lossy(&branch_output.stdout)
+                .trim()
+                .to_string()
         } else {
             "".to_string()
         };
