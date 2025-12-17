@@ -24,4 +24,3 @@ export function takeHandoffDraft(
   drafts.delete(threadId);
   return entry.draft;
 }
-

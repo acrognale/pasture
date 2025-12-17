@@ -16,4 +16,3 @@ describe('handoff-draft-store', () => {
     expect(takeHandoffDraft(threadId, conversationId)).toBeNull();
   });
 });
-
