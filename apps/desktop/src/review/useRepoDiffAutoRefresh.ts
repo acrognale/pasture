@@ -1,7 +1,7 @@
 import type { RepoChangedPayload } from '@pasture/protocol';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { useEffect, useRef } from 'react';
 import { Codex } from '~/codex/client';
 import { isTauriEnvironment } from '~/codex/events';
 
@@ -33,18 +33,21 @@ export function useRepoDiffAutoRefresh(workspacePath: string) {
       }, INVALIDATE_DEBOUNCE_MS);
     };
 
-    const unlistenPromise = listen<RepoChangedPayload>('repo://changed', (event) => {
-      if (cancelled) {
-        return;
+    const unlistenPromise = listen<RepoChangedPayload>(
+      'repo://changed',
+      (event) => {
+        if (cancelled) {
+          return;
+        }
+        if (document.visibilityState !== 'visible') {
+          return;
+        }
+        if (event.payload.workspacePath !== workspacePath) {
+          return;
+        }
+        scheduleInvalidate();
       }
-      if (document.visibilityState !== 'visible') {
-        return;
-      }
-      if (event.payload.workspacePath !== workspacePath) {
-        return;
-      }
-      scheduleInvalidate();
-    });
+    );
 
     void Codex.startRepoWatch({ workspacePath })
       .then((response) => {
