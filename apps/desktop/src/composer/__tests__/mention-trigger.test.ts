@@ -28,4 +28,3 @@ describe('matchMentionTrigger', () => {
     expect(matchMentionTrigger('hello @foo)')).toBeNull();
   });
 });
-
