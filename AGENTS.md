@@ -30,6 +30,15 @@ Uses turborepo for monorepo management.
 
 Important: always run `turbo lint` and `turbo typecheck` when you finish making changes to verify there are no errors.
 
+## Git Hygiene (Rebases / Stacked PRs)
+
+- Prefer **non-interactive** rebases/cherry-picks. When continuing a rebase in automation, set `GIT_EDITOR=true` (and `GIT_SEQUENCE_EDITOR=true` for interactive rebases) to prevent hanging on an editor prompt.
+- Before starting a rebase/cherry-pick, ensure there isn’t another Git process running (e.g. an interactive rebase/commit spawned by an IDE). A stuck `git commit` can surface as an `index.lock` error in worktree repos.
+- If you hit an `index.lock` error:
+  - Check for and stop the conflicting Git process, then retry.
+  - Only delete a lock file if you’ve confirmed no Git process is active.
+- Don’t leave half-finished operations: if conflicts can’t be resolved quickly, run `git rebase --abort` (or `git cherry-pick --abort`) and regroup.
+
 ## Design Tokens & Styling
 
 - The single source of truth for colors, typography, radii, and transcript styles is the `@pasture/theme` package:

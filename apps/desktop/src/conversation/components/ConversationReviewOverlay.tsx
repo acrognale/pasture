@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from 'react';
+import { Suspense, lazy } from 'react';
 import { Skeleton } from '~/components/ui/skeleton';
 
 import {
@@ -19,7 +19,6 @@ export type ConversationReviewOverlayProps = {
   conversationId: string;
   workspacePath: string;
   open: boolean;
-  hasHistory: boolean;
   onClose: () => void;
   onRequestFeedback: (prompt: string) => void;
   focusFilePath?: string | null;
@@ -30,7 +29,6 @@ export function ConversationReviewOverlay({
   conversationId,
   workspacePath,
   open,
-  hasHistory,
   onClose,
   onRequestFeedback,
   focusFilePath,
@@ -39,15 +37,9 @@ export function ConversationReviewOverlay({
   const latestDiff = useConversationLatestTurnDiff(conversationId);
   const history = useConversationTurnDiffHistory(conversationId);
 
-  useEffect(() => {
-    if (!hasHistory && open) {
-      onClose();
-    }
-  }, [hasHistory, open, onClose]);
-
   return (
     <>
-      {open && hasHistory ? (
+      {open ? (
         <Suspense
           fallback={
             <div className="flex h-full w-full items-center justify-center">
@@ -70,6 +62,7 @@ export function ConversationReviewOverlay({
               onClose={onClose}
               focusFilePath={focusFilePath}
               onFocusFilePathConsumed={onFocusFilePathConsumed}
+              emptyStateMessage="No thread diffs recorded for this thread yet."
             />
           </TurnReviewProvider>
         </Suspense>

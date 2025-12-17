@@ -1,8 +1,11 @@
 import type {
+  GetRepoDiffParams,
+  GetRepoDiffResponse,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
   ListTurnSnapshotsResponse,
 } from '@pasture/protocol';
+import type { QueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { Codex } from '~/codex/client';
@@ -22,7 +25,24 @@ export const turnReviewKeys = {
       params.baseEventId,
       params.targetEventId,
     ] as const,
+  repoDiff: (params: GetRepoDiffParams) =>
+    [
+      'turnReview',
+      'repoDiff',
+      params.workspacePath,
+      params.baseRef,
+      params.targetRef,
+      params.includeWorktree,
+    ] as const,
 };
+
+export const invalidateRepoDiffQueriesForWorkspace = (
+  queryClient: QueryClient,
+  workspacePath: string
+) =>
+  queryClient.invalidateQueries({
+    queryKey: ['turnReview', 'repoDiff', workspacePath],
+  });
 
 // useTurnDiffRange
 const RETRY_DELAY_MS = 1500;
@@ -58,6 +78,37 @@ export const useTurnDiffRange = (params: GetTurnDiffRangeParams | null) => {
       return failureCount < MAX_RETRIES;
     },
     retryDelay: RETRY_DELAY_MS,
+  });
+
+  const parsedDiff = useMemo<ParsedTurnDiff | null>(() => {
+    const raw = query.data?.unifiedDiff;
+    if (!raw || !raw.trim()) {
+      return null;
+    }
+    return parseUnifiedDiff(raw);
+  }, [query.data?.unifiedDiff]);
+
+  return {
+    rawDiff: query.data?.unifiedDiff ?? null,
+    parsedDiff,
+    query,
+  };
+};
+
+// useRepoDiff
+export const useRepoDiff = (params: GetRepoDiffParams | null) => {
+  const query = useQuery<GetRepoDiffResponse>({
+    queryKey: params
+      ? turnReviewKeys.repoDiff(params)
+      : (['turnReview', 'repoDiff', '__disabled'] as const),
+    queryFn: async () => {
+      if (!params) {
+        throw new Error('params is required');
+      }
+      return Codex.getRepoDiff(params);
+    },
+    enabled: Boolean(params),
+    refetchOnWindowFocus: false,
   });
 
   const parsedDiff = useMemo<ParsedTurnDiff | null>(() => {

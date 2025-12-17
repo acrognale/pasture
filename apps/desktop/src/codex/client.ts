@@ -11,6 +11,8 @@ import type {
   ForkConversationParams,
   ForkConversationResponse,
   GetComposerConfigParams,
+  GetRepoDiffParams,
+  GetRepoDiffResponse,
   GetTurnDiffRangeParams,
   GetTurnDiffRangeResponse,
   HandoffConversationParams,
@@ -40,6 +42,9 @@ import type {
   SendUserMessageParams,
   SetMessageCommentsSubmittedParams,
   SetWindowTitleParams,
+  StartRepoWatchParams,
+  StartRepoWatchResponse,
+  StopRepoWatchParams,
   SwitchConversationParams,
   SwitchConversationResponse,
   UpdateComposerConfigParams,
@@ -161,6 +166,24 @@ export namespace Codex {
     return await invoke<ListTurnSnapshotsResponse>('list_turn_snapshots', {
       params,
     });
+  }
+
+  export async function getRepoDiff(
+    params: GetRepoDiffParams
+  ): Promise<GetRepoDiffResponse> {
+    return await invoke<GetRepoDiffResponse>('get_repo_diff', { params });
+  }
+
+  export async function startRepoWatch(
+    params: StartRepoWatchParams
+  ): Promise<StartRepoWatchResponse> {
+    return await invoke<StartRepoWatchResponse>('start_repo_watch', { params });
+  }
+
+  export async function stopRepoWatch(
+    params: StopRepoWatchParams
+  ): Promise<void> {
+    return await invoke<void>('stop_repo_watch', { params });
   }
 
   export async function compactConversation(

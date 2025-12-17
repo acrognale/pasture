@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useTurnReview } from './TurnReviewContext';
@@ -13,6 +14,8 @@ type TurnReviewPaneProps = {
   onClose?: () => void;
   focusFilePath?: string | null;
   onFocusFilePathConsumed?: () => void;
+  rangeSelector?: ReactNode;
+  emptyStateMessage?: string;
 };
 
 const MIN_SPLIT_WIDTH = 900;
@@ -24,6 +27,8 @@ export function TurnReviewPane({
   onClose,
   focusFilePath,
   onFocusFilePathConsumed,
+  rangeSelector = <RangeSelectorSection />,
+  emptyStateMessage,
 }: TurnReviewPaneProps) {
   const { comments, selectedDiff } = useTurnReview();
   const commentCount = comments.length;
@@ -120,7 +125,7 @@ export function TurnReviewPane({
             onClose?.();
           }}
           onClose={onClose}
-          rangeSelector={<RangeSelectorSection />}
+          rangeSelector={rangeSelector}
         />
       </div>
       <DiffContentSection
@@ -128,6 +133,7 @@ export function TurnReviewPane({
         viewMode={viewMode}
         focusFilePath={focusFilePath}
         onFocusFilePathConsumed={onFocusFilePathConsumed}
+        emptyStateMessage={emptyStateMessage}
       />
     </div>
   );

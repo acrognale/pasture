@@ -16,6 +16,7 @@ export type DiffContentSectionProps = {
   viewMode: DiffViewMode;
   focusFilePath?: string | null;
   onFocusFilePathConsumed?: () => void;
+  emptyStateMessage?: string;
 };
 
 export function DiffContentSection({
@@ -23,6 +24,7 @@ export function DiffContentSection({
   viewMode,
   focusFilePath,
   onFocusFilePathConsumed,
+  emptyStateMessage,
 }: DiffContentSectionProps) {
   const {
     conversationId,
@@ -210,7 +212,7 @@ export function DiffContentSection({
           </div>
         </DraftCommentProvider>
       ) : (
-        <EmptyReviewState />
+        <EmptyReviewState message={emptyStateMessage} />
       )}
     </div>
   );

@@ -23,6 +23,7 @@ import type {
   SearchWorkspaceFilesParams,
   SearchWorkspaceSymbolsParams,
   SessionConfiguredEvent,
+  StartRepoWatchResponse,
   WorkspaceFileHit,
   WorkspaceSettings,
   WorkspaceSymbolHit,
@@ -110,6 +111,10 @@ const createDefaultAddConversationSubscriptionResponse =
     subscriptionId: 'mock-subscription',
   });
 
+const createDefaultStartRepoWatchResponse = (): StartRepoWatchResponse => ({
+  subscriptionId: 'mock-repo-watch',
+});
+
 const mockCodexNamespace = {
   listThreads: defineStub<[], ListThreadsResponse>(async () => ({
     items: [],
@@ -154,6 +159,8 @@ const mockCodexNamespace = {
     createDefaultComposerConfigPayload()
   ),
   updateComposerConfig: defineStub(async (_params) => undefined),
+  startRepoWatch: defineStub(async () => createDefaultStartRepoWatchResponse()),
+  stopRepoWatch: defineStub(async () => undefined),
   getWorkspaceComposerDefaults: defineStub(
     async (): Promise<WorkspaceSettings> => ({
       model: null,
@@ -315,11 +322,63 @@ export const mockEvents = {
 
 let installed = false;
 
+const ensureMockTauriInternals = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const globalWindow = window as unknown as {
+    __TAURI_INTERNALS__?: {
+      transformCallback?: (callback: unknown, once?: boolean) => string;
+      unregisterCallback?: (id: string) => void;
+      invoke?: (
+        cmd: string,
+        args?: unknown,
+        options?: unknown
+      ) => Promise<unknown>;
+      convertFileSrc?: (filePath: string, protocol?: string) => string;
+    };
+    __TAURI_EVENT_PLUGIN_INTERNALS__?: {
+      unregisterListener?: (event: string, eventId: number) => void;
+    };
+  };
+
+  if (
+    globalWindow.__TAURI_INTERNALS__ &&
+    globalWindow.__TAURI_EVENT_PLUGIN_INTERNALS__
+  ) {
+    return;
+  }
+
+  let nextCallbackId = 0;
+
+  globalWindow.__TAURI_INTERNALS__ = {
+    transformCallback: () => `mock-callback-${(nextCallbackId += 1)}`,
+    unregisterCallback: () => undefined,
+    invoke: async (cmd: string) => {
+      if (cmd === 'plugin:event|listen') {
+        return Math.floor(Math.random() * 100000);
+      }
+      if (cmd === 'plugin:event|unlisten') {
+        return undefined;
+      }
+      return undefined;
+    },
+    convertFileSrc: (filePath: string, protocol = 'asset') =>
+      `${protocol}://${filePath}`,
+  };
+
+  globalWindow.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+    unregisterListener: () => undefined,
+  };
+};
+
 export const installTestingEnvironment = () => {
   if (!installed) {
     installed = true;
   }
 
+  ensureMockTauriInternals();
   mockCodex.reset();
   mockEvents.reset();
 };

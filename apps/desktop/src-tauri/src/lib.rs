@@ -11,6 +11,7 @@ mod handoff;
 mod menu;
 mod message_comments;
 mod read_thread_backend;
+mod repo_watch;
 mod review;
 mod rollout;
 mod router;
@@ -32,6 +33,7 @@ use codex_core::config::Config;
 use codex_core::config::ConfigOverrides;
 use codex_core::read_thread_backend::set_read_thread_backend;
 use codex_protocol::protocol::SessionSource;
+use repo_watch::RepoWatchManager;
 use symbol_index::SymbolIndexManager;
 use tauri::Manager;
 use thread_search::ThreadSearchManager;
@@ -95,6 +97,7 @@ pub fn run() {
             ));
 
             let event_router = Arc::new(router::EventRouter::new());
+            let repo_watch = Arc::new(RepoWatchManager::new());
             let symbol_index = Arc::new(SymbolIndexManager::new());
             let thread_search = Arc::new(ThreadSearchManager::new(app_data_dir.clone()));
 
@@ -104,6 +107,7 @@ pub fn run() {
                 auth_manager,
                 conversation_manager,
                 event_router,
+                repo_watch,
                 symbol_index,
                 thread_search,
             );
@@ -142,6 +146,9 @@ pub fn run() {
             commands::composer::update_composer_config,
             commands::review::get_turn_diff_range,
             commands::review::list_turn_snapshots,
+            commands::review::get_repo_diff,
+            commands::repo_watch::start_repo_watch,
+            commands::repo_watch::stop_repo_watch,
             commands::subscriptions::add_conversation_listener,
             commands::subscriptions::remove_conversation_listener,
             commands::approvals::respond_approval,
