@@ -10,8 +10,8 @@ type HandoffCellProps = {
 };
 
 export function HandoffCell({ cell }: HandoffCellProps) {
-  const router = useRouter();
   const { workspacePath } = useWorkspace();
+  const router = useRouter();
 
   const hasDestination =
     Boolean(cell.targetThreadId) && Boolean(cell.targetConversationId);
@@ -28,7 +28,7 @@ export function HandoffCell({ cell }: HandoffCellProps) {
       to: '/workspaces/$workspaceId/threads/$threadId',
       params: {
         workspaceId: encodeWorkspaceId(workspacePath),
-        threadId: cell.targetThreadId,
+        threadId: cell.targetThreadId!,
       },
     });
   };

@@ -2,49 +2,13 @@ import type { InitializeThreadResponse } from '@pasture/protocol';
 import type { ListThreadsResponse } from '@pasture/protocol';
 import type { ThreadSummary } from '@pasture/protocol';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { encodeWorkspaceId } from '~/lib/routing';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { mockCodex, mockEvents } from '~/testing/codex';
 
-import {
-  getActiveConversationId,
-  mockNavigate,
-  resetActiveConversationId,
-  setActiveConversationId,
-} from './routerTestUtils';
 import { WORKSPACE, markThreadOpenInTest, renderSidebarPanel } from './setup';
 
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@tanstack/react-router')>();
-  return {
-    ...actual,
-    useRouter: () => ({ navigate: mockNavigate }),
-    useRouterState: ({ select }: { select: (state: unknown) => unknown }) => {
-      const state = {
-        matches: [
-          {
-            routeId: '/workspaces/$workspaceId/threads/$threadId',
-            params: { threadId: getActiveConversationId() },
-          },
-        ],
-      };
-      return select(state as never);
-    },
-  };
-});
-
 beforeEach(() => {
-  resetActiveConversationId();
-  mockNavigate.mockReset();
-  mockNavigate.mockImplementation(
-    ({ params }: { params?: { threadId?: string | null } }) => {
-      if (params && typeof params.threadId !== 'undefined') {
-        setActiveConversationId(params.threadId ?? null);
-      }
-      return Promise.resolve();
-    }
-  );
+  // No router navigation in panel-based workspace.
 });
 
 const ACTIVE_THREAD_ID = 'thread-active';
@@ -98,8 +62,6 @@ describe('SidebarPanel sessions', () => {
       reasoningSummary: 'auto',
     });
 
-    setActiveConversationId(ACTIVE_THREAD_ID);
-
     renderSidebarPanel({ openThreadIds: [ACTIVE_THREAD_ID] });
 
     await screen.findByRole('button', { name: /Existing session/i });
@@ -114,16 +76,8 @@ describe('SidebarPanel sessions', () => {
     });
 
     expect(newSessionButton).toBeInTheDocument();
-
-    const expectedWorkspaceId = encodeWorkspaceId(WORKSPACE);
-
     await waitFor(() => {
-      const [payload] = mockNavigate.mock.calls.at(-1) ?? [];
-      expect(payload?.to).toBe('/workspaces/$workspaceId/threads/$threadId');
-      expect(payload?.params).toMatchObject({
-        workspaceId: expectedWorkspaceId,
-        threadId: NEW_THREAD_ID,
-      });
+      expect(newSessionButton).toHaveAttribute('data-active', 'true');
     });
   });
 
@@ -171,8 +125,6 @@ describe('SidebarPanel sessions', () => {
       },
       reasoningSummary: 'auto',
     });
-
-    setActiveConversationId(ACTIVE_THREAD_ID);
 
     renderSidebarPanel({ openThreadIds: [ACTIVE_THREAD_ID] });
 
@@ -234,8 +186,6 @@ describe('SidebarPanel sessions', () => {
     );
 
     mockCodex.stub.listThreads.mockResolvedValue({ items: initialSessions });
-
-    setActiveConversationId(ACTIVE_THREAD_ID);
 
     renderSidebarPanel({
       openThreadIds: [ACTIVE_THREAD_ID, 'thread-01'],

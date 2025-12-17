@@ -1,6 +1,6 @@
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import { Clock3Icon, MessagesSquareIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNamedShortcut } from '~/keyboard/hooks';
 import { useNow } from '~/lib/hooks/useNow';
 import { encodeWorkspaceId } from '~/lib/routing';
@@ -14,25 +14,23 @@ import { useWorkspaceRecentConversations } from './hooks/useWorkspaceRecentConve
 type Direction = 1 | -1;
 
 export function RecentConversationSwitcher() {
-  const router = useRouter();
   const { workspacePath } = useWorkspace();
-  const now = useNow();
-  const recent = useWorkspaceRecentConversations();
-  const [open, setOpen] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(0);
-
-  const workspaceId = useMemo(
-    () => encodeWorkspaceId(workspacePath),
-    [workspacePath]
-  );
-
-  const currentThreadId = useRouterState({
+  const router = useRouter();
+  const threadMatch = useRouterState({
     select: (state) =>
       state.matches.find(
         (match) =>
           match.routeId === '/workspaces/$workspaceId/threads/$threadId'
-      )?.params?.threadId,
+      ),
   });
+  const now = useNow();
+  const recent = useWorkspaceRecentConversations();
+  const [open, setOpen] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const currentThreadId =
+    typeof threadMatch?.params?.threadId === 'string'
+      ? threadMatch.params.threadId
+      : null;
 
   const items = recent.slice(0, 15);
   const activeIndex =
@@ -59,11 +57,11 @@ export function RecentConversationSwitcher() {
     await router.navigate({
       to: '/workspaces/$workspaceId/threads/$threadId',
       params: {
-        workspaceId,
+        workspaceId: encodeWorkspaceId(workspacePath),
         threadId: target.threadId,
       },
     });
-  }, [activeIndex, close, open, recent, router, workspaceId]);
+  }, [activeIndex, close, open, recent, router, workspacePath]);
 
   const cycle = useCallback(
     (direction: Direction) => {

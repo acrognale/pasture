@@ -3,6 +3,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo } from 'react';
 import { createAppQueryClient } from '~/lib/queryClient';
+import { NavigationProvider } from '~/navigation/NavigationProvider';
+import { PanelManagerProvider } from '~/panels/PanelManagerProvider';
 import { WorkspaceProvider } from '~/workspace';
 
 import { mockCodexControls, sampleWorkspacePath } from './state';
@@ -39,7 +41,9 @@ export const StorybookProviders = ({
   return (
     <QueryClientProvider client={queryClient}>
       <WorkspaceProvider workspacePath={workspacePath}>
-        {children}
+        <PanelManagerProvider>
+          <NavigationProvider>{children}</NavigationProvider>
+        </PanelManagerProvider>
       </WorkspaceProvider>
     </QueryClientProvider>
   );

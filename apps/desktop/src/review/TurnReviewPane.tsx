@@ -16,6 +16,8 @@ type TurnReviewPaneProps = {
   onFocusFilePathConsumed?: () => void;
   rangeSelector?: ReactNode;
   emptyStateMessage?: string;
+  headerTitle?: string;
+  headerSubtitle?: string | null;
 };
 
 const MIN_SPLIT_WIDTH = 900;
@@ -29,6 +31,8 @@ export function TurnReviewPane({
   onFocusFilePathConsumed,
   rangeSelector = <RangeSelectorSection />,
   emptyStateMessage,
+  headerTitle,
+  headerSubtitle,
 }: TurnReviewPaneProps) {
   const { comments, selectedDiff } = useTurnReview();
   const commentCount = comments.length;
@@ -113,6 +117,8 @@ export function TurnReviewPane({
           showPane={true}
           commentCount={commentCount}
           turnNumber={turnNumber}
+          title={headerTitle}
+          subtitle={headerSubtitle}
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
           canBuildFeedback={canBuildFeedback}

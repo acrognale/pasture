@@ -257,14 +257,10 @@ describe('Thread version selector integration', () => {
 });
 
 const ConversationUnderTest = () => {
-  const [activeConversationId, setActiveConversationId] =
-    React.useState(FORK_CONVERSATION_ID);
-
   return (
     <ConversationPane
       workspacePath={WORKSPACE}
-      conversationId={activeConversationId}
-      onConversationForked={setActiveConversationId}
+      conversationId={FORK_CONVERSATION_ID}
     />
   );
 };

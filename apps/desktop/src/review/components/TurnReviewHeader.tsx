@@ -7,6 +7,8 @@ export type TurnReviewHeaderProps = {
   showPane: boolean;
   commentCount: number;
   turnNumber?: number;
+  title?: string;
+  subtitle?: string | null;
   viewMode: DiffViewMode;
   onViewModeChange: (mode: DiffViewMode) => void;
   canBuildFeedback: boolean;
@@ -20,6 +22,8 @@ export function TurnReviewHeader({
   showPane,
   commentCount,
   turnNumber,
+  title = 'Review',
+  subtitle = null,
   viewMode,
   onViewModeChange,
   canBuildFeedback,
@@ -32,7 +36,7 @@ export function TurnReviewHeader({
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap items-center gap-6">
         <div>
-          <p className="text-sm font-semibold">Review</p>
+          <p className="text-sm font-semibold">{title}</p>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {showPane ? (
               <>
@@ -42,6 +46,11 @@ export function TurnReviewHeader({
                 {turnNumber !== undefined ? (
                   <span className="text-muted-foreground/70">
                     Turn {turnNumber}
+                  </span>
+                ) : null}
+                {subtitle ? (
+                  <span className="text-muted-foreground/70 truncate max-w-[360px]">
+                    {subtitle}
                   </span>
                 ) : null}
               </>

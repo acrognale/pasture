@@ -40,12 +40,6 @@ import {
   TooltipTrigger,
 } from '~/components/ui/tooltip';
 import {
-  OPEN_REVIEW_OVERLAY_EVENT,
-  type OpenReviewOverlayDetail,
-  dispatchOpenRepoReviewOverlayEvent,
-  dispatchOpenReviewOverlayEvent,
-} from '~/conversation/events';
-import {
   useConversationIsRunning,
   useConversationLatestTurnDiff,
   useConversationLoadState,
@@ -57,13 +51,17 @@ import { encodeWorkspaceId } from '~/lib/routing';
 import { formatSessionPreviewTimestamp } from '~/lib/time';
 import { cn, makePathRelative } from '~/lib/utils';
 import { resolveSessionLabel } from '~/lib/workspaces';
+import {
+  useNavigationActions,
+  useNavigationStoreApi,
+} from '~/navigation/NavigationProvider';
 import { buildFileDiffStats, parseUnifiedDiff } from '~/review/diff';
 import { useRepoDiff } from '~/review/queries';
+import type { ParsedTurnDiffFile } from '~/review/types';
 import { ChangesSidebarContent } from '~/workspace/components/ChangesSidebarContent';
 import { ChangesSidebarTreeContent } from '~/workspace/components/ChangesSidebarTreeContent';
 import { sortThreadsByTimestamp } from '~/workspace/conversations';
 
-import { OPEN_WORKSPACE_THREAD_SWITCHER_EVENT } from './WorkspaceConversationSwitcher';
 import {
   useWorkspace,
   useWorkspaceActions,
@@ -80,13 +78,15 @@ export function SidebarPanel({
 }: {
   onOpenSettings?: () => void;
 }) {
-  const router = useRouter();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const { workspacePath, normalizedWorkspacePath } = useWorkspace();
+  const { openThreadSwitcher } = useNavigationActions();
   const keys = useWorkspaceKeys();
   const threads = useOpenWorkspaceThreads();
   const { closeThread } = useWorkspaceActions();
   const now = useNow();
+
   const threadMatch = useRouterState({
     select: (state) =>
       state.matches.find(
@@ -94,11 +94,11 @@ export function SidebarPanel({
           match.routeId === '/workspaces/$workspaceId/threads/$threadId'
       ),
   });
+
   const activeThreadId =
     typeof threadMatch?.params?.threadId === 'string'
       ? threadMatch.params.threadId
       : null;
-
   const activeConversationId = useWorkspaceThreadConversationId(activeThreadId);
 
   const sessions: ThreadSummary[] = useMemo(
@@ -108,51 +108,43 @@ export function SidebarPanel({
   const threadsError =
     threads.query.error instanceof Error ? threads.query.error : null;
 
-  const handleThreadClick = useCallback(
+  const navigateToThread = useCallback(
     (threadId: string) => {
       void router.navigate({
         to: '/workspaces/$workspaceId/threads/$threadId',
-        params: {
-          workspaceId: encodeWorkspaceId(workspacePath),
-          threadId,
-        },
+        params: { workspaceId: encodeWorkspaceId(workspacePath), threadId },
       });
     },
     [router, workspacePath]
   );
 
-  const navigateToThread = useCallback(
+  const handleThreadClick = useCallback(
     (threadId: string) => {
-      void router.navigate({
-        to: '/workspaces/$workspaceId/threads/$threadId',
-        params: {
-          workspaceId: encodeWorkspaceId(workspacePath),
-          threadId,
-        },
-      });
+      navigateToThread(threadId);
     },
-    [router, workspacePath]
+    [navigateToThread]
   );
 
   const handleCloseThread = useCallback(
     (threadId: string) => {
       closeThread(threadId);
 
-      if (activeThreadId === threadId) {
-        const nextThread = sessions.find(
-          (session: ThreadSummary) => session.threadId !== threadId
-        );
-        if (nextThread) {
-          navigateToThread(nextThread.threadId);
-        } else {
-          void router.navigate({
-            to: '/workspaces/$workspaceId',
-            params: {
-              workspaceId: encodeWorkspaceId(workspacePath),
-            },
-          });
-        }
+      if (activeThreadId !== threadId) {
+        return;
       }
+
+      const nextThread = sessions.find(
+        (session) => session.threadId !== threadId
+      );
+      if (nextThread) {
+        navigateToThread(nextThread.threadId);
+        return;
+      }
+
+      void router.navigate({
+        to: '/workspaces/$workspaceId',
+        params: { workspaceId: encodeWorkspaceId(workspacePath) },
+      });
     },
     [
       activeThreadId,
@@ -199,13 +191,7 @@ export function SidebarPanel({
         }
       );
 
-      void router.navigate({
-        to: '/workspaces/$workspaceId/threads/$threadId',
-        params: {
-          workspaceId: encodeWorkspaceId(workspacePath),
-          threadId: data.threadId,
-        },
-      });
+      navigateToThread(data.threadId);
     },
     onError: (error: Error) => {
       const description =
@@ -254,11 +240,8 @@ export function SidebarPanel({
   );
 
   const handleOpenConversationSelector = useCallback(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.dispatchEvent(new Event(OPEN_WORKSPACE_THREAD_SWITCHER_EVENT));
-  }, []);
+    openThreadSwitcher();
+  }, [openThreadSwitcher]);
 
   useNamedShortcut('workspace.openSettings', undefined, () => {
     onOpenSettings?.();
@@ -271,7 +254,10 @@ export function SidebarPanel({
   );
   const latestDiff = useConversationLatestTurnDiff(conversationIdForDiffs);
 
-  const processedFiles = useMemo(() => {
+  const processedThreadFiles = useMemo<SidebarChangesEntry[]>(() => {
+    if (!activeConversationId) {
+      return [];
+    }
     if (!turnDiffHistory.length && !latestDiff?.unifiedDiff) {
       return [];
     }
@@ -313,7 +299,7 @@ export function SidebarPanel({
         relativePath: makePathRelative(workspacePath, path),
       }))
       .sort((a, b) => a.relativePath.localeCompare(b.relativePath));
-  }, [latestDiff, turnDiffHistory, workspacePath]);
+  }, [activeConversationId, latestDiff, turnDiffHistory, workspacePath]);
 
   return (
     <div className="flex h-full min-w-0 flex-col">
@@ -386,17 +372,19 @@ export function SidebarPanel({
             ) : null}
           </SidebarGroupContent>
         </SidebarGroup>
-        {activeConversationId ? (
-          <ChangesSidebarSection
-            key={activeThreadId ?? activeConversationId}
-            conversationId={activeConversationId}
-            threadId={activeThreadId}
-            workspacePath={workspacePath}
-            normalizedWorkspacePath={normalizedWorkspacePath}
-            threadFilesFromEvents={processedFiles}
-            collapsed={isChangesCollapsed}
-          />
-        ) : null}
+        <ChangesSidebarSection
+          key={normalizedWorkspacePath || workspacePath}
+          conversationId={activeConversationId ?? null}
+          threadId={activeThreadId}
+          threadTitle={
+            sessions.find((item) => item.threadId === activeThreadId)?.title ??
+            null
+          }
+          workspacePath={workspacePath}
+          normalizedWorkspacePath={normalizedWorkspacePath}
+          threadFilesFromEvents={processedThreadFiles}
+          collapsed={isChangesCollapsed}
+        />
       </div>
       <div className="border-t border-border/60 px-3 py-2 flex justify-end">
         <Tooltip>
@@ -422,7 +410,7 @@ export function SidebarPanel({
 }
 
 type SidebarChangesEntry = {
-  file: ReturnType<typeof parseUnifiedDiff>['files'][number];
+  file: ParsedTurnDiffFile;
   stats: { added: number; removed: number };
   relativePath: string;
 };
@@ -462,13 +450,15 @@ function getRepoPresetLabel(params: GetRepoDiffParams): string {
 function ChangesSidebarSection({
   conversationId,
   threadId,
+  threadTitle,
   workspacePath,
   normalizedWorkspacePath,
   threadFilesFromEvents,
   collapsed,
 }: {
-  conversationId: string;
+  conversationId: string | null;
   threadId: string | null;
+  threadTitle: string | null;
   workspacePath: string;
   normalizedWorkspacePath: string | null;
   threadFilesFromEvents: SidebarChangesEntry[];
@@ -477,12 +467,14 @@ function ChangesSidebarSection({
   type ChangesMode = 'repo' | 'thread';
   type ChangesView = 'list' | 'tree';
 
-  const conversationLoadState = useConversationLoadState(conversationId);
+  const conversationLoadState = useConversationLoadState(conversationId ?? '');
+  const { openReviewRepo, openReviewTurn } = useNavigationActions();
+  const navigationStore = useNavigationStoreApi();
 
   const workspaceKey = normalizedWorkspacePath || workspacePath;
   const liveRangeStorageKey = `pasture.changes.liveRange:${workspaceKey}`;
-  const modeStorageKey = `pasture.changes.mode:${workspaceKey}:${threadId ?? conversationId}`;
-  const viewStorageKey = `pasture.changes.view:${workspaceKey}:${threadId ?? conversationId}`;
+  const modeStorageKey = `pasture.changes.mode:${workspaceKey}:${threadId ?? 'none'}`;
+  const viewStorageKey = `pasture.changes.view:${workspaceKey}:${threadId ?? 'none'}`;
 
   const [mode, setMode] = useState<ChangesMode>(() => {
     if (typeof window === 'undefined') {
@@ -620,49 +612,31 @@ function ChangesSidebarSection({
   }, [repoDiffQuery.parsedDiff?.files, workspacePath]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const handleOpenReview = (event: CustomEvent<OpenReviewOverlayDetail>) => {
-      if (event.detail.conversationId !== conversationId) {
+    return navigationStore.subscribe((state, prevState) => {
+      const event = state.lastEvent;
+      if (!event || event === prevState.lastEvent) {
         return;
       }
-      if (event.detail.mode !== 'repo' || !event.detail.repo) {
+      const intent = event.intent;
+      if (intent.target !== 'review') {
         return;
       }
-      setModeAndPersist('repo');
+      if (intent.mode !== 'repo' || !intent.repoParams) {
+        return;
+      }
       setLiveRepoParamsAndPersist({
         workspacePath,
-        baseRef: event.detail.repo.baseRef,
-        targetRef: event.detail.repo.targetRef ?? null,
-        includeWorktree: event.detail.repo.includeWorktree,
+        baseRef: intent.repoParams.baseRef,
+        targetRef: intent.repoParams.targetRef ?? null,
+        includeWorktree: intent.repoParams.includeWorktree,
       });
-    };
+    });
+  }, [navigationStore, setLiveRepoParamsAndPersist, workspacePath]);
 
-    window.addEventListener(
-      OPEN_REVIEW_OVERLAY_EVENT,
-      handleOpenReview as EventListener
-    );
-
-    return () => {
-      window.removeEventListener(
-        OPEN_REVIEW_OVERLAY_EVENT,
-        handleOpenReview as EventListener
-      );
-    };
-  }, [
-    conversationId,
-    setLiveRepoParamsAndPersist,
-    setModeAndPersist,
-    workspacePath,
-  ]);
-
-  const liveCount = repoProcessedFiles.length;
-  const threadFiles = threadFilesFromEvents;
-  const threadCount = threadFiles.length;
-  const activeCount = mode === 'repo' ? liveCount : threadCount;
-  const files = mode === 'repo' ? repoProcessedFiles : threadFiles;
+  const threadCount = threadFilesFromEvents.length;
+  const repoCount = repoProcessedFiles.length;
+  const activeCount = mode === 'repo' ? repoCount : threadCount;
+  const files = mode === 'repo' ? repoProcessedFiles : threadFilesFromEvents;
   const selectionLabel =
     mode === 'repo' ? getRepoPresetLabel(liveRepoParams) : 'Thread';
 
@@ -694,6 +668,7 @@ function ChangesSidebarSection({
             >
               <DropdownMenuItem
                 className="text-xs px-3 py-1.5"
+                disabled={!conversationId}
                 onSelect={() => setModeAndPersist('thread')}
               >
                 Thread
@@ -823,18 +798,27 @@ function ChangesSidebarSection({
                         : undefined
                   }
                   onFileClick={(file) => {
-                    if (mode === 'repo') {
-                      dispatchOpenRepoReviewOverlayEvent(
-                        conversationId,
-                        toRepoParams(liveRepoParams),
-                        file.displayPath
-                      );
+                    if (!conversationId) {
                       return;
                     }
-                    dispatchOpenReviewOverlayEvent(
+                    if (mode === 'repo') {
+                      openReviewRepo({
+                        workspacePath,
+                        conversationId,
+                        threadId,
+                        repoParams: toRepoParams(liveRepoParams),
+                        focusFilePath: file.displayPath,
+                        threadTitle,
+                      });
+                      return;
+                    }
+                    openReviewTurn({
+                      workspacePath,
                       conversationId,
-                      file.displayPath
-                    );
+                      threadId,
+                      focusFilePath: file.displayPath,
+                      threadTitle,
+                    });
                   }}
                 />
               ) : (
@@ -888,18 +872,27 @@ function ChangesSidebarSection({
                         : undefined
                   }
                   onFileClick={(file) => {
-                    if (mode === 'repo') {
-                      dispatchOpenRepoReviewOverlayEvent(
-                        conversationId,
-                        toRepoParams(liveRepoParams),
-                        file.displayPath
-                      );
+                    if (!conversationId) {
                       return;
                     }
-                    dispatchOpenReviewOverlayEvent(
+                    if (mode === 'repo') {
+                      openReviewRepo({
+                        workspacePath,
+                        conversationId,
+                        threadId,
+                        repoParams: toRepoParams(liveRepoParams),
+                        focusFilePath: file.displayPath,
+                        threadTitle,
+                      });
+                      return;
+                    }
+                    openReviewTurn({
+                      workspacePath,
                       conversationId,
-                      file.displayPath
-                    );
+                      threadId,
+                      focusFilePath: file.displayPath,
+                      threadTitle,
+                    });
                   }}
                 />
               )}
