@@ -200,7 +200,7 @@ export const createWorkspaceStore = (
         }
         console.debug('[Workspace] Hydrating initial messages', {
           conversationId,
-          rolloutPath: sessionConfigured.rollout_path,
+          rolloutPath: sessionConfigured?.rollout_path,
           messageCount: events.length,
           types: Object.fromEntries(typeCounts.entries()),
         });
