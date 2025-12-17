@@ -13,8 +13,6 @@ import type {
   GetComposerConfigParams,
   GetRepoDiffParams,
   GetRepoDiffResponse,
-  GetRepoFingerprintParams,
-  GetRepoFingerprintResponse,
   GetRepoReviewFileContentsParams,
   GetRepoReviewFileContentsResponse,
   GetTurnDiffRangeParams,
@@ -196,14 +194,6 @@ export namespace Codex {
       'get_repo_review_file_contents',
       { params }
     );
-  }
-
-  export async function getRepoFingerprint(
-    params: GetRepoFingerprintParams
-  ): Promise<GetRepoFingerprintResponse> {
-    return await invoke<GetRepoFingerprintResponse>('get_repo_fingerprint', {
-      params,
-    });
   }
 
   export async function startRepoWatch(

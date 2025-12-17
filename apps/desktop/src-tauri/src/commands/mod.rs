@@ -93,10 +93,6 @@ codex_command_descriptors! {
         params: review::GetRepoReviewFileContentsParams,
         result: review::GetRepoReviewFileContentsResponse,
     },
-    review::get_repo_fingerprint {
-        params: review::GetRepoFingerprintParams,
-        result: review::GetRepoFingerprintResponse,
-    },
     repo_watch::start_repo_watch {
         params: repo_watch::StartRepoWatchParams,
         result: repo_watch::StartRepoWatchResponse,

@@ -58,8 +58,6 @@ export type { GetComposerConfigParams } from './GetComposerConfigParams';
 export type { GetHistoryEntryResponseEvent } from './GetHistoryEntryResponseEvent';
 export type { GetRepoDiffParams } from './GetRepoDiffParams';
 export type { GetRepoDiffResponse } from './GetRepoDiffResponse';
-export type { GetRepoFingerprintParams } from './GetRepoFingerprintParams';
-export type { GetRepoFingerprintResponse } from './GetRepoFingerprintResponse';
 export type { GetRepoReviewFileContentsParams } from './GetRepoReviewFileContentsParams';
 export type { GetRepoReviewFileContentsResponse } from './GetRepoReviewFileContentsResponse';
 export type { GetTurnDiffRangeParams } from './GetTurnDiffRangeParams';
