@@ -26,7 +26,7 @@ import {
   ConversationTranscriptSection,
 } from '../components/ConversationTranscriptSection';
 import { StatusIndicator } from '../components/StatusIndicator';
-import { setHandoffDraft, takeHandoffDraft } from '../handoffDraftStore';
+import { setHandoffDraft, takeHandoffDraft } from '../handoff-draft-store';
 import { useInterruptConversation } from '../hooks/useInterruptConversation';
 import { useQueueableSendMessage } from '../hooks/useQueueableSendMessage';
 import { useReplay } from '../replay';
@@ -329,7 +329,7 @@ export function ConversationThreadPanel({
         title,
       });
 
-      setHandoffDraft(newThreadId, composerDraft);
+      setHandoffDraft(newThreadId, newConversationId, composerDraft);
 
       void router.navigate({
         to: '/workspaces/$workspaceId/threads/$threadId',
@@ -381,7 +381,7 @@ export function ConversationThreadPanel({
       return;
     }
 
-    const draft = takeHandoffDraft(threadId);
+    const draft = takeHandoffDraft(threadId, conversationId);
     if (!draft) {
       return;
     }
@@ -391,7 +391,7 @@ export function ConversationThreadPanel({
     composerControls.setDraft(next);
     composerControls.focus();
     handleScrollToBottom();
-  }, [composerControls, handleScrollToBottom, threadId]);
+  }, [composerControls, conversationId, handleScrollToBottom, threadId]);
 
   useEffect(() => {
     services.registerComposerControls(composerControls);
