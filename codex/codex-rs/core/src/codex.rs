@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use crate::AuthManager;
 use crate::SandboxState;
@@ -59,17 +61,26 @@ use tokio::sync::Mutex;
 use tokio::sync::RwLock;
 use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
+use tracing::Instrument;
 use tracing::debug;
 use tracing::error;
+use tracing::field;
 use tracing::info;
+use tracing::instrument;
+use tracing::trace_span;
 use tracing::warn;
 
 use crate::ModelProviderInfo;
+use crate::WireApi;
 use crate::client::ModelClient;
 use crate::client_common::Prompt;
 use crate::client_common::ResponseEvent;
 use crate::compact::collect_user_messages;
 use crate::config::Config;
+use crate::config::Constrained;
+use crate::config::ConstraintError;
+use crate::config::ConstraintResult;
+use crate::config::GhostSnapshotConfig;
 use crate::config::types::ShellEnvironmentPolicy;
 use crate::context_manager::ContextManager;
 use crate::environment_context::EnvironmentContext;
@@ -80,6 +91,7 @@ use crate::exec::StreamOutput;
 use crate::exec_policy::ExecPolicyUpdateError;
 use crate::mcp::auth::compute_auth_statuses;
 use crate::mcp_connection_manager::McpConnectionManager;
+use crate::model_provider_info::CHAT_WIRE_API_DEPRECATION_SUMMARY;
 use crate::project_doc::get_user_instructions;
 use crate::protocol::AgentMessageContentDeltaEvent;
 use crate::protocol::AgentReasoningSectionBreakEvent;
@@ -87,6 +99,7 @@ use crate::protocol::ApplyPatchApprovalRequestEvent;
 use crate::protocol::AskForApproval;
 use crate::protocol::BackgroundEventEvent;
 use crate::protocol::DeprecationNoticeEvent;
+use crate::protocol::ErrorEvent;
 use crate::protocol::Event;
 use crate::protocol::EventMsg;
 use crate::protocol::ExecApprovalRequestEvent;
@@ -98,8 +111,7 @@ use crate::protocol::ReviewDecision;
 use crate::protocol::SandboxPolicy;
 use crate::protocol::SessionConfiguredEvent;
 use crate::protocol::SkillErrorInfo;
-use crate::protocol::SkillInfo;
-use crate::protocol::SkillLoadOutcomeInfo;
+use crate::protocol::SkillMetadata as ProtocolSkillMetadata;
 use crate::protocol::StreamErrorEvent;
 use crate::protocol::Submission;
 use crate::protocol::TokenCountEvent;
@@ -112,10 +124,11 @@ use crate::rollout::RolloutRecorderParams;
 use crate::rollout::map_session_init_error;
 use crate::shell;
 use crate::shell_snapshot::ShellSnapshot;
+use crate::skills::SkillError;
 use crate::skills::SkillInjections;
-use crate::skills::SkillLoadOutcome;
+use crate::skills::SkillMetadata;
+use crate::skills::SkillsManager;
 use crate::skills::build_skill_injections;
-use crate::skills::load_skills;
 use crate::state::ActiveTurn;
 use crate::state::SessionServices;
 use crate::state::SessionState;
@@ -137,7 +150,7 @@ use crate::user_notification::UserNotification;
 use crate::util::backoff;
 use codex_async_utils::OrCancelExt;
 use codex_execpolicy::Policy as ExecPolicy;
-use codex_otel::otel_event_manager::OtelEventManager;
+use codex_otel::otel_manager::OtelManager;
 use codex_protocol::config_types::ReasoningSummary as ReasoningSummaryConfig;
 use codex_protocol::models::ContentItem;
 use codex_protocol::models::ResponseInputItem;
@@ -167,6 +180,31 @@ pub struct CodexSpawnOk {
 
 pub(crate) const INITIAL_SUBMIT_ID: &str = "";
 pub(crate) const SUBMISSION_CHANNEL_CAPACITY: usize = 64;
+static CHAT_WIRE_API_DEPRECATION_EMITTED: AtomicBool = AtomicBool::new(false);
+
+fn maybe_push_chat_wire_api_deprecation(
+    config: &Config,
+    post_session_configured_events: &mut Vec<Event>,
+) {
+    if config.model_provider.wire_api != WireApi::Chat {
+        return;
+    }
+
+    if CHAT_WIRE_API_DEPRECATION_EMITTED
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return;
+    }
+
+    post_session_configured_events.push(Event {
+        id: INITIAL_SUBMIT_ID.to_owned(),
+        msg: EventMsg::DeprecationNotice(DeprecationNoticeEvent {
+            summary: CHAT_WIRE_API_DEPRECATION_SUMMARY.to_string(),
+            details: None,
+        }),
+    });
+}
 
 impl Codex {
     /// Spawn a new [`Codex`] and initialize the session.
@@ -174,17 +212,17 @@ impl Codex {
         config: Config,
         auth_manager: Arc<AuthManager>,
         models_manager: Arc<ModelsManager>,
+        skills_manager: Arc<SkillsManager>,
         conversation_history: InitialHistory,
         session_source: SessionSource,
     ) -> CodexResult<CodexSpawnOk> {
         let (tx_sub, rx_sub) = async_channel::bounded(SUBMISSION_CHANNEL_CAPACITY);
         let (tx_event, rx_event) = async_channel::unbounded();
 
-        let loaded_skills = if config.features.enabled(Feature::Skills) {
-            Some(load_skills(&config))
-        } else {
-            None
-        };
+        let loaded_skills = config
+            .features
+            .enabled(Feature::Skills)
+            .then(|| skills_manager.skills_for_cwd(&config.cwd));
 
         if let Some(outcome) = &loaded_skills {
             for err in &outcome.errors {
@@ -196,11 +234,9 @@ impl Codex {
             }
         }
 
-        let skills_outcome = loaded_skills.clone();
-
         let user_instructions = get_user_instructions(
             &config,
-            skills_outcome
+            loaded_skills
                 .as_ref()
                 .map(|outcome| outcome.skills.as_slice()),
         )
@@ -227,7 +263,7 @@ impl Codex {
             user_instructions,
             base_instructions: config.base_instructions.clone(),
             compact_prompt: config.compact_prompt.clone(),
-            approval_policy: config.approval_policy,
+            approval_policy: config.approval_policy.clone(),
             sandbox_policy: config.sandbox_policy.clone(),
             cwd: config.cwd.clone(),
             original_config_do_not_use: Arc::clone(&config),
@@ -246,7 +282,7 @@ impl Codex {
             tx_event.clone(),
             conversation_history,
             session_source_clone,
-            skills_outcome.clone(),
+            skills_manager,
         )
         .await
         .map_err(|e| {
@@ -332,6 +368,7 @@ pub(crate) struct TurnContext {
     pub(crate) sandbox_policy: SandboxPolicy,
     pub(crate) shell_environment_policy: ShellEnvironmentPolicy,
     pub(crate) tools_config: ToolsConfig,
+    pub(crate) ghost_snapshot: GhostSnapshotConfig,
     pub(crate) final_output_json_schema: Option<Value>,
     pub(crate) codex_linux_sandbox_exe: Option<PathBuf>,
     pub(crate) tool_call_gate: Arc<ReadinessFlag>,
@@ -377,7 +414,7 @@ pub(crate) struct SessionConfiguration {
     compact_prompt: Option<String>,
 
     /// When to escalate for approval for execution
-    approval_policy: AskForApproval,
+    approval_policy: Constrained<AskForApproval>,
     /// How to sandbox commands executed in the system
     sandbox_policy: SandboxPolicy,
 
@@ -400,7 +437,7 @@ pub(crate) struct SessionConfiguration {
 }
 
 impl SessionConfiguration {
-    pub(crate) fn apply(&self, updates: &SessionSettingsUpdate) -> Self {
+    pub(crate) fn apply(&self, updates: &SessionSettingsUpdate) -> ConstraintResult<Self> {
         let mut next_configuration = self.clone();
         if let Some(model) = updates.model.clone() {
             next_configuration.model = model;
@@ -412,7 +449,7 @@ impl SessionConfiguration {
             next_configuration.model_reasoning_summary = summary;
         }
         if let Some(approval_policy) = updates.approval_policy {
-            next_configuration.approval_policy = approval_policy;
+            next_configuration.approval_policy.set(approval_policy)?;
         }
         if let Some(sandbox_policy) = updates.sandbox_policy.clone() {
             next_configuration.sandbox_policy = sandbox_policy;
@@ -420,7 +457,7 @@ impl SessionConfiguration {
         if let Some(cwd) = updates.cwd.clone() {
             next_configuration.cwd = cwd;
         }
-        next_configuration
+        Ok(next_configuration)
     }
 }
 
@@ -450,7 +487,7 @@ impl Session {
     #[allow(clippy::too_many_arguments)]
     fn make_turn_context(
         auth_manager: Option<Arc<AuthManager>>,
-        otel_event_manager: &OtelEventManager,
+        otel_manager: &OtelManager,
         provider: ModelProviderInfo,
         session_configuration: &SessionConfiguration,
         per_turn_config: Config,
@@ -458,7 +495,7 @@ impl Session {
         conversation_id: ConversationId,
         sub_id: String,
     ) -> TurnContext {
-        let otel_event_manager = otel_event_manager.clone().with_model(
+        let otel_manager = otel_manager.clone().with_model(
             session_configuration.model.as_str(),
             model_family.get_model_slug(),
         );
@@ -468,7 +505,7 @@ impl Session {
             per_turn_config.clone(),
             auth_manager,
             model_family.clone(),
-            otel_event_manager,
+            otel_manager,
             provider,
             session_configuration.model_reasoning_effort,
             session_configuration.model_reasoning_summary,
@@ -489,10 +526,11 @@ impl Session {
             base_instructions: session_configuration.base_instructions.clone(),
             compact_prompt: session_configuration.compact_prompt.clone(),
             user_instructions: session_configuration.user_instructions.clone(),
-            approval_policy: session_configuration.approval_policy,
+            approval_policy: session_configuration.approval_policy.value(),
             sandbox_policy: session_configuration.sandbox_policy.clone(),
             shell_environment_policy: per_turn_config.shell_environment_policy.clone(),
             tools_config,
+            ghost_snapshot: per_turn_config.ghost_snapshot.clone(),
             final_output_json_schema: None,
             codex_linux_sandbox_exe: per_turn_config.codex_linux_sandbox_exe.clone(),
             tool_call_gate: Arc::new(ReadinessFlag::new()),
@@ -513,7 +551,7 @@ impl Session {
         tx_event: Sender<Event>,
         initial_history: InitialHistory,
         session_source: SessionSource,
-        skills: Option<SkillLoadOutcome>,
+        skills_manager: Arc<SkillsManager>,
     ) -> anyhow::Result<Arc<Self>> {
         debug!(
             "Configuring session: model={}; provider={:?}",
@@ -584,9 +622,10 @@ impl Session {
                 msg: EventMsg::DeprecationNotice(DeprecationNoticeEvent { summary, details }),
             });
         }
+        maybe_push_chat_wire_api_deprecation(&config, &mut post_session_configured_events);
 
         // todo(aibrahim): why are we passing model here while it can change?
-        let otel_event_manager = OtelEventManager::new(
+        let otel_manager = OtelManager::new(
             conversation_id,
             session_configuration.model.as_str(),
             session_configuration.model.as_str(),
@@ -595,15 +634,16 @@ impl Session {
             auth_manager.auth().map(|a| a.mode),
             config.otel.log_user_prompt,
             terminal::user_agent(),
+            session_configuration.session_source.clone(),
         );
 
-        otel_event_manager.conversation_starts(
+        otel_manager.conversation_starts(
             config.model_provider.name.as_str(),
             config.model_reasoning_effort,
             config.model_reasoning_summary,
             config.model_context_window,
             config.model_auto_compact_token_limit,
-            config.approval_policy,
+            config.approval_policy.value(),
             config.sandbox_policy.clone(),
             config.mcp_servers.keys().map(String::as_str).collect(),
             config.active_profile.clone(),
@@ -628,10 +668,10 @@ impl Session {
             user_shell: Arc::new(default_shell),
             show_raw_agent_reasoning: config.show_raw_agent_reasoning,
             auth_manager: Arc::clone(&auth_manager),
-            otel_event_manager,
+            otel_manager,
             models_manager: Arc::clone(&models_manager),
             tool_approvals: Mutex::new(ApprovalStore::default()),
-            skills: skills.clone(),
+            skills_manager,
         };
 
         let sess = Arc::new(Session {
@@ -647,22 +687,19 @@ impl Session {
         // Dispatch the SessionConfiguredEvent first and then report any errors.
         // If resuming, include converted initial messages in the payload so UIs can render them immediately.
         let initial_messages = initial_history.get_event_msgs();
-        let skill_load_outcome = skill_load_outcome_for_client(skills.as_ref());
-
         let events = std::iter::once(Event {
             id: INITIAL_SUBMIT_ID.to_owned(),
             msg: EventMsg::SessionConfigured(SessionConfiguredEvent {
                 session_id: conversation_id,
                 model: session_configuration.model.clone(),
                 model_provider_id: config.model_provider_id.clone(),
-                approval_policy: session_configuration.approval_policy,
+                approval_policy: session_configuration.approval_policy.value(),
                 sandbox_policy: session_configuration.sandbox_policy.clone(),
                 cwd: session_configuration.cwd.clone(),
                 reasoning_effort: session_configuration.model_reasoning_effort,
                 history_log_id,
                 history_entry_count,
                 initial_messages,
-                skill_load_outcome,
                 rollout_path,
             }),
         })
@@ -670,6 +707,14 @@ impl Session {
         for event in events {
             sess.send_event_raw(event).await;
         }
+
+        // Construct sandbox_state before initialize() so it can be sent to each
+        // MCP server immediately after it becomes ready (avoiding blocking).
+        let sandbox_state = SandboxState {
+            sandbox_policy: session_configuration.sandbox_policy.clone(),
+            codex_linux_sandbox_exe: config.codex_linux_sandbox_exe.clone(),
+            sandbox_cwd: session_configuration.cwd.clone(),
+        };
         sess.services
             .mcp_connection_manager
             .write()
@@ -680,24 +725,9 @@ impl Session {
                 auth_statuses.clone(),
                 tx_event.clone(),
                 sess.services.mcp_startup_cancellation_token.clone(),
+                sandbox_state,
             )
             .await;
-
-        let sandbox_state = SandboxState {
-            sandbox_policy: session_configuration.sandbox_policy.clone(),
-            codex_linux_sandbox_exe: config.codex_linux_sandbox_exe.clone(),
-            sandbox_cwd: session_configuration.cwd.clone(),
-        };
-        if let Err(e) = sess
-            .services
-            .mcp_connection_manager
-            .read()
-            .await
-            .notify_sandbox_state_change(&sandbox_state)
-            .await
-        {
-            tracing::error!("Failed to notify sandbox state change: {e}");
-        }
 
         // record_initial_history can emit events. We record only after the SessionConfiguredEvent is emitted.
         sess.record_initial_history(initial_history).await;
@@ -707,15 +737,6 @@ impl Session {
 
     pub(crate) fn get_tx_event(&self) -> Sender<Event> {
         self.tx_event.clone()
-    }
-
-    pub(crate) async fn codex_home(&self) -> PathBuf {
-        let state = self.state.lock().await;
-        state
-            .session_configuration
-            .original_config_do_not_use
-            .codex_home
-            .clone()
     }
 
     /// Ensure all rollout writes are durably flushed.
@@ -744,7 +765,7 @@ impl Session {
     }
 
     async fn record_initial_history(&self, conversation_history: InitialHistory) {
-        let turn_context = self.new_turn(SessionSettingsUpdate::default()).await;
+        let turn_context = self.new_default_turn().await;
         match conversation_history {
             InitialHistory::New => {
                 // Build and record initial items (user instructions + environment context)
@@ -773,15 +794,15 @@ impl Session {
                             "resuming session with different model: previous={prev}, current={curr}"
                         );
                         self.send_event(
-                                &turn_context,
-                                EventMsg::Warning(WarningEvent {
-                                    message: format!(
-                                        "This session was recorded with model `{prev}` but is resuming with `{curr}`. \
+                            &turn_context,
+                            EventMsg::Warning(WarningEvent {
+                                message: format!(
+                                    "This session was recorded with model `{prev}` but is resuming with `{curr}`. \
                          Consider switching back to `{prev}` as it may affect Codex performance."
-                                    ),
-                                }),
-                            )
-                                .await;
+                                ),
+                            }),
+                        )
+                            .await;
                     }
                 }
 
@@ -803,30 +824,96 @@ impl Session {
         }
     }
 
-    pub(crate) async fn update_settings(&self, updates: SessionSettingsUpdate) {
+    pub(crate) async fn update_settings(
+        &self,
+        updates: SessionSettingsUpdate,
+    ) -> ConstraintResult<()> {
         let mut state = self.state.lock().await;
 
-        state.session_configuration = state.session_configuration.apply(&updates);
-    }
-
-    pub(crate) async fn new_turn(&self, updates: SessionSettingsUpdate) -> Arc<TurnContext> {
-        let sub_id = self.next_internal_sub_id();
-        self.new_turn_with_sub_id(sub_id, updates).await
+        match state.session_configuration.apply(&updates) {
+            Ok(updated) => {
+                state.session_configuration = updated;
+                Ok(())
+            }
+            Err(err) => {
+                let wrapped = ConstraintError {
+                    message: format!("Could not update config: {err}"),
+                };
+                warn!(%wrapped, "rejected session settings update");
+                Err(wrapped)
+            }
+        }
     }
 
     pub(crate) async fn new_turn_with_sub_id(
         &self,
         sub_id: String,
         updates: SessionSettingsUpdate,
-    ) -> Arc<TurnContext> {
-        let session_configuration = {
+    ) -> ConstraintResult<Arc<TurnContext>> {
+        let (session_configuration, sandbox_policy_changed) = {
             let mut state = self.state.lock().await;
-            let session_configuration = state.session_configuration.clone().apply(&updates);
-            state.session_configuration = session_configuration.clone();
-            session_configuration
+            match state.session_configuration.clone().apply(&updates) {
+                Ok(next) => {
+                    let sandbox_policy_changed =
+                        state.session_configuration.sandbox_policy != next.sandbox_policy;
+                    state.session_configuration = next.clone();
+                    (next, sandbox_policy_changed)
+                }
+                Err(err) => {
+                    drop(state);
+                    let wrapped = ConstraintError {
+                        message: format!("Could not update config: {err}"),
+                    };
+                    self.send_event_raw(Event {
+                        id: sub_id.clone(),
+                        msg: EventMsg::Error(ErrorEvent {
+                            message: wrapped.to_string(),
+                            codex_error_info: Some(CodexErrorInfo::BadRequest),
+                        }),
+                    })
+                    .await;
+                    return Err(wrapped);
+                }
+            }
         };
 
+        Ok(self
+            .new_turn_from_configuration(
+                sub_id,
+                session_configuration,
+                updates.final_output_json_schema,
+                sandbox_policy_changed,
+            )
+            .await)
+    }
+
+    async fn new_turn_from_configuration(
+        &self,
+        sub_id: String,
+        session_configuration: SessionConfiguration,
+        final_output_json_schema: Option<Option<Value>>,
+        sandbox_policy_changed: bool,
+    ) -> Arc<TurnContext> {
         let per_turn_config = Self::build_per_turn_config(&session_configuration);
+
+        if sandbox_policy_changed {
+            let sandbox_state = SandboxState {
+                sandbox_policy: per_turn_config.sandbox_policy.clone(),
+                codex_linux_sandbox_exe: per_turn_config.codex_linux_sandbox_exe.clone(),
+                sandbox_cwd: per_turn_config.cwd.clone(),
+            };
+            if let Err(e) = self
+                .services
+                .mcp_connection_manager
+                .read()
+                .await
+                .notify_sandbox_state_change(&sandbox_state)
+                .await
+            {
+                warn!("Failed to notify sandbox state change to MCP servers: {e:#}");
+            }
+        }
+
         let model_family = self
             .services
             .models_manager
@@ -834,7 +921,7 @@ impl Session {
             .await;
         let mut turn_context: TurnContext = Self::make_turn_context(
             Some(Arc::clone(&self.services.auth_manager)),
-            &self.services.otel_event_manager,
+            &self.services.otel_manager,
             session_configuration.provider.clone(),
             &session_configuration,
             per_turn_config,
@@ -842,10 +929,24 @@ impl Session {
             self.conversation_id,
             sub_id,
         );
-        if let Some(final_schema) = updates.final_output_json_schema {
+        if let Some(final_schema) = final_output_json_schema {
             turn_context.final_output_json_schema = final_schema;
         }
         Arc::new(turn_context)
+    }
+
+    pub(crate) async fn new_default_turn(&self) -> Arc<TurnContext> {
+        self.new_default_turn_with_sub_id(self.next_internal_sub_id())
+            .await
+    }
+
+    pub(crate) async fn new_default_turn_with_sub_id(&self, sub_id: String) -> Arc<TurnContext> {
+        let session_configuration = {
+            let state = self.state.lock().await;
+            state.session_configuration.clone()
+        };
+        self.new_turn_from_configuration(sub_id, session_configuration, None, false)
+            .await
     }
 
     fn build_environment_update_item(
@@ -1491,8 +1592,7 @@ impl Session {
 
 async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiver<Submission>) {
     // Seed with context in case there is an OverrideTurnContext first.
-    let mut previous_context: Option<Arc<TurnContext>> =
-        Some(sess.new_turn(SessionSettingsUpdate::default()).await);
+    let mut previous_context: Option<Arc<TurnContext>> = Some(sess.new_default_turn().await);
 
     // To break out of this loop, send Op::Shutdown.
     while let Ok(sub) = rx_sub.recv().await {
@@ -1511,6 +1611,7 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
             } => {
                 handlers::override_turn_context(
                     &sess,
+                    sub.id.clone(),
                     SessionSettingsUpdate {
                         cwd,
                         approval_policy,
@@ -1546,17 +1647,14 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
             Op::ListCustomPrompts => {
                 handlers::list_custom_prompts(&sess, sub.id.clone()).await;
             }
+            Op::ListSkills { cwds, force_reload } => {
+                handlers::list_skills(&sess, sub.id.clone(), cwds, force_reload).await;
+            }
             Op::Undo => {
                 handlers::undo(&sess, sub.id.clone()).await;
             }
             Op::Compact => {
                 handlers::compact(&sess, sub.id.clone()).await;
-            }
-            Op::Handoff {
-                goal,
-                candidate_files,
-            } => {
-                handlers::handoff(&sess, sub.id.clone(), goal, candidate_files).await;
             }
             Op::RunUserShellCommand { command } => {
                 handlers::run_user_shell_command(
@@ -1596,11 +1694,11 @@ mod handlers {
 
     use crate::codex::spawn_review_thread;
     use crate::config::Config;
+    use crate::features::Feature;
     use crate::mcp::auth::compute_auth_statuses;
     use crate::mcp::collect_mcp_snapshot_from_manager;
     use crate::review_prompts::resolve_review_request;
     use crate::tasks::CompactTask;
-    use crate::tasks::HandoffTask;
     use crate::tasks::RegularTask;
     use crate::tasks::UndoTask;
     use crate::tasks::UserShellCommandTask;
@@ -1610,9 +1708,11 @@ mod handlers {
     use codex_protocol::protocol::Event;
     use codex_protocol::protocol::EventMsg;
     use codex_protocol::protocol::ListCustomPromptsResponseEvent;
+    use codex_protocol::protocol::ListSkillsResponseEvent;
     use codex_protocol::protocol::Op;
     use codex_protocol::protocol::ReviewDecision;
     use codex_protocol::protocol::ReviewRequest;
+    use codex_protocol::protocol::SkillsListEntry;
     use codex_protocol::protocol::TurnAbortReason;
     use codex_protocol::protocol::WarningEvent;
 
@@ -1620,6 +1720,7 @@ mod handlers {
     use codex_rmcp_client::ElicitationAction;
     use codex_rmcp_client::ElicitationResponse;
     use mcp_types::RequestId;
+    use std::path::PathBuf;
     use std::sync::Arc;
     use tracing::info;
     use tracing::warn;
@@ -1628,8 +1729,21 @@ mod handlers {
         sess.interrupt_task().await;
     }
 
-    pub async fn override_turn_context(sess: &Session, updates: SessionSettingsUpdate) {
-        sess.update_settings(updates).await;
+    pub async fn override_turn_context(
+        sess: &Session,
+        sub_id: String,
+        updates: SessionSettingsUpdate,
+    ) {
+        if let Err(err) = sess.update_settings(updates).await {
+            sess.send_event_raw(Event {
+                id: sub_id,
+                msg: EventMsg::Error(ErrorEvent {
+                    message: err.to_string(),
+                    codex_error_info: Some(CodexErrorInfo::BadRequest),
+                }),
+            })
+            .await;
+        }
     }
 
     pub async fn user_input_or_turn(
@@ -1664,10 +1778,13 @@ mod handlers {
             _ => unreachable!(),
         };
 
-        let current_context = sess.new_turn_with_sub_id(sub_id, updates).await;
+        let Ok(current_context) = sess.new_turn_with_sub_id(sub_id, updates).await else {
+            // new_turn_with_sub_id already emits the error event.
+            return;
+        };
         current_context
             .client
-            .get_otel_event_manager()
+            .get_otel_manager()
             .user_prompt(&items);
 
         // Attempt to inject input into current task
@@ -1691,9 +1808,7 @@ mod handlers {
         command: String,
         previous_context: &mut Option<Arc<TurnContext>>,
     ) {
-        let turn_context = sess
-            .new_turn_with_sub_id(sub_id, SessionSettingsUpdate::default())
-            .await;
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
         sess.spawn_task(
             Arc::clone(&turn_context),
             Vec::new(),
@@ -1847,18 +1962,56 @@ mod handlers {
         sess.send_event_raw(event).await;
     }
 
+    pub async fn list_skills(
+        sess: &Session,
+        sub_id: String,
+        cwds: Vec<PathBuf>,
+        force_reload: bool,
+    ) {
+        let cwds = if cwds.is_empty() {
+            let state = sess.state.lock().await;
+            vec![state.session_configuration.cwd.clone()]
+        } else {
+            cwds
+        };
+        let skills = if sess.enabled(Feature::Skills) {
+            let skills_manager = &sess.services.skills_manager;
+            cwds.into_iter()
+                .map(|cwd| {
+                    let outcome = skills_manager.skills_for_cwd_with_options(&cwd, force_reload);
+                    let errors = super::errors_to_info(&outcome.errors);
+                    let skills = super::skills_to_info(&outcome.skills);
+                    SkillsListEntry {
+                        cwd,
+                        skills,
+                        errors,
+                    }
+                })
+                .collect()
+        } else {
+            cwds.into_iter()
+                .map(|cwd| SkillsListEntry {
+                    cwd,
+                    skills: Vec::new(),
+                    errors: Vec::new(),
+                })
+                .collect()
+        };
+        let event = Event {
+            id: sub_id,
+            msg: EventMsg::ListSkillsResponse(ListSkillsResponseEvent { skills }),
+        };
+        sess.send_event_raw(event).await;
+    }
+
     pub async fn undo(sess: &Arc<Session>, sub_id: String) {
-        let turn_context = sess
-            .new_turn_with_sub_id(sub_id, SessionSettingsUpdate::default())
-            .await;
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
         sess.spawn_task(turn_context, Vec::new(), UndoTask::new())
             .await;
     }
 
     pub async fn compact(sess: &Arc<Session>, sub_id: String) {
-        let turn_context = sess
-            .new_turn_with_sub_id(sub_id, SessionSettingsUpdate::default())
-            .await;
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
 
         sess.spawn_task(
             Arc::clone(&turn_context),
@@ -1866,27 +2019,6 @@ mod handlers {
                 text: turn_context.compact_prompt().to_string(),
             }],
             CompactTask,
-        )
-        .await;
-    }
-
-    pub async fn handoff(
-        sess: &Arc<Session>,
-        sub_id: String,
-        goal: Option<String>,
-        candidate_files: Vec<String>,
-    ) {
-        let turn_context = sess
-            .new_turn_with_sub_id(sub_id, SessionSettingsUpdate::default())
-            .await;
-
-        let input_goal = goal.unwrap_or_default();
-        let input = vec![UserInput::Text { text: input_goal }];
-
-        sess.spawn_task(
-            Arc::clone(&turn_context),
-            input,
-            HandoffTask::new(candidate_files),
         )
         .await;
     }
@@ -1933,9 +2065,7 @@ mod handlers {
         sub_id: String,
         review_request: ReviewRequest,
     ) {
-        let turn_context = sess
-            .new_turn_with_sub_id(sub_id.clone(), SessionSettingsUpdate::default())
-            .await;
+        let turn_context = sess.new_default_turn_with_sub_id(sub_id.clone()).await;
         match resolve_review_request(review_request, config.cwd.as_path()) {
             Ok(resolved) => {
                 spawn_review_thread(
@@ -1997,20 +2127,17 @@ async fn spawn_review_thread(
     per_turn_config.model_reasoning_summary = ReasoningSummaryConfig::Detailed;
     per_turn_config.features = review_features.clone();
 
-    let otel_event_manager = parent_turn_context
-        .client
-        .get_otel_event_manager()
-        .with_model(
-            config.review_model.as_str(),
-            review_model_family.slug.as_str(),
-        );
+    let otel_manager = parent_turn_context.client.get_otel_manager().with_model(
+        config.review_model.as_str(),
+        review_model_family.slug.as_str(),
+    );
 
     let per_turn_config = Arc::new(per_turn_config);
     let client = ModelClient::new(
         per_turn_config.clone(),
         auth_manager,
         model_family.clone(),
-        otel_event_manager,
+        otel_manager,
         provider,
         per_turn_config.model_reasoning_effort,
         per_turn_config.model_reasoning_summary,
@@ -2022,6 +2149,7 @@ async fn spawn_review_thread(
         sub_id: sub_id.to_string(),
         client,
         tools_config,
+        ghost_snapshot: parent_turn_context.ghost_snapshot.clone(),
         developer_instructions: None,
         user_instructions: None,
         base_instructions: Some(base_instructions.clone()),
@@ -2053,28 +2181,26 @@ async fn spawn_review_thread(
         .await;
 }
 
-fn skill_load_outcome_for_client(
-    outcome: Option<&SkillLoadOutcome>,
-) -> Option<SkillLoadOutcomeInfo> {
-    outcome.map(|outcome| SkillLoadOutcomeInfo {
-        skills: outcome
-            .skills
-            .iter()
-            .map(|skill| SkillInfo {
-                name: skill.name.clone(),
-                description: skill.description.clone(),
-                path: skill.path.clone(),
-            })
-            .collect(),
-        errors: outcome
-            .errors
-            .iter()
-            .map(|err| SkillErrorInfo {
-                path: err.path.clone(),
-                message: err.message.clone(),
-            })
-            .collect(),
-    })
+fn skills_to_info(skills: &[SkillMetadata]) -> Vec<ProtocolSkillMetadata> {
+    skills
+        .iter()
+        .map(|skill| ProtocolSkillMetadata {
+            name: skill.name.clone(),
+            description: skill.description.clone(),
+            path: skill.path.clone(),
+            scope: skill.scope,
+        })
+        .collect()
+}
+
+fn errors_to_info(errors: &[SkillError]) -> Vec<SkillErrorInfo> {
+    errors
+        .iter()
+        .map(|err| SkillErrorInfo {
+            path: err.path.clone(),
+            message: err.message.clone(),
+        })
+        .collect()
 }
 
 /// Takes a user message as input and runs a loop where, at each turn, the model
@@ -2100,15 +2226,31 @@ pub(crate) async fn run_task(
     if input.is_empty() {
         return None;
     }
+
+    let auto_compact_limit = turn_context
+        .client
+        .get_model_family()
+        .auto_compact_token_limit()
+        .unwrap_or(i64::MAX);
+    let total_usage_tokens = sess.get_total_token_usage().await;
+    if total_usage_tokens >= auto_compact_limit {
+        run_auto_compact(&sess, &turn_context).await;
+    }
     let event = EventMsg::TaskStarted(TaskStartedEvent {
         model_context_window: turn_context.client.get_model_context_window(),
     });
     sess.send_event(&turn_context, event).await;
 
+    let skills_outcome = sess.enabled(Feature::Skills).then(|| {
+        sess.services
+            .skills_manager
+            .skills_for_cwd(&turn_context.cwd)
+    });
+
     let SkillInjections {
         items: skill_items,
         warnings: skill_warnings,
-    } = build_skill_injections(&input, sess.services.skills.as_ref()).await;
+    } = build_skill_injections(&input, skills_outcome.as_ref()).await;
 
     for message in skill_warnings {
         sess.send_event(&turn_context, EventMsg::Warning(WarningEvent { message }))
@@ -2172,22 +2314,12 @@ pub(crate) async fn run_task(
                     needs_follow_up,
                     last_agent_message: turn_last_agent_message,
                 } = turn_output;
-                let limit = turn_context
-                    .client
-                    .get_model_family()
-                    .auto_compact_token_limit()
-                    .unwrap_or(i64::MAX);
                 let total_usage_tokens = sess.get_total_token_usage().await;
-                let token_limit_reached = total_usage_tokens >= limit;
+                let token_limit_reached = total_usage_tokens >= auto_compact_limit;
 
                 // as long as compaction works well in getting us way below the token limit, we shouldn't worry about being in an infinite loop.
-                if token_limit_reached {
-                    if should_use_remote_compact_task(&sess) {
-                        run_inline_remote_auto_compact_task(sess.clone(), turn_context.clone())
-                            .await;
-                    } else {
-                        run_inline_auto_compact_task(sess.clone(), turn_context.clone()).await;
-                    }
+                if token_limit_reached && needs_follow_up {
+                    run_auto_compact(&sess, &turn_context).await;
                     continue;
                 }
 
@@ -2229,6 +2361,22 @@ pub(crate) async fn run_task(
     last_agent_message
 }
 
+async fn run_auto_compact(sess: &Arc<Session>, turn_context: &Arc<TurnContext>) {
+    if should_use_remote_compact_task(sess.as_ref(), &turn_context.client.get_provider()) {
+        run_inline_remote_auto_compact_task(Arc::clone(sess), Arc::clone(turn_context)).await;
+    } else {
+        run_inline_auto_compact_task(Arc::clone(sess), Arc::clone(turn_context)).await;
+    }
+}
+
+#[instrument(level = "trace",
+    skip_all,
+    fields(
+        turn_id = %turn_context.sub_id,
+        model = %turn_context.client.get_model(),
+        cwd = %turn_context.cwd.display()
+    )
+)]
 async fn run_turn(
     sess: Arc<Session>,
     turn_context: Arc<TurnContext>,
@@ -2361,6 +2509,13 @@ async fn drain_in_flight(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[instrument(level = "trace",
+    skip_all,
+    fields(
+        turn_id = %turn_context.sub_id,
+        model = %turn_context.client.get_model()
+    )
+)]
 async fn try_run_turn(
     router: Arc<ToolRouter>,
     sess: Arc<Session>,
@@ -2383,6 +2538,7 @@ async fn try_run_turn(
         .client
         .clone()
         .stream(prompt)
+        .instrument(trace_span!("stream_request"))
         .or_cancel(&cancellation_token)
         .await??;
 
@@ -2397,8 +2553,23 @@ async fn try_run_turn(
     let mut needs_follow_up = false;
     let mut last_agent_message: Option<String> = None;
     let mut active_item: Option<TurnItem> = None;
+    let mut should_emit_turn_diff = false;
+    let receiving_span = trace_span!("receiving_stream");
     let outcome: CodexResult<TurnRunResult> = loop {
-        let event = match stream.next().or_cancel(&cancellation_token).await {
+        let handle_responses = trace_span!(
+            parent: &receiving_span,
+            "handle_responses",
+            otel.name = field::Empty,
+            tool_name = field::Empty,
+            from = field::Empty,
+        );
+
+        let event = match stream
+            .next()
+            .instrument(trace_span!(parent: &handle_responses, "receiving"))
+            .or_cancel(&cancellation_token)
+            .await
+        {
             Ok(event) => event,
             Err(codex_async_utils::CancelErr::Cancelled) => break Err(CodexErr::TurnAborted),
         };
@@ -2413,6 +2584,10 @@ async fn try_run_turn(
             }
         };
 
+        sess.services
+            .otel_manager
+            .record_responses(&handle_responses, &event);
+
         match event {
             ResponseEvent::Created => {}
             ResponseEvent::OutputItemDone(item) => {
@@ -2424,8 +2599,9 @@ async fn try_run_turn(
                     cancellation_token: cancellation_token.child_token(),
                 };
 
-                let output_result =
-                    handle_output_item_done(&mut ctx, item, previously_active_item).await?;
+                let output_result = handle_output_item_done(&mut ctx, item, previously_active_item)
+                    .instrument(handle_responses)
+                    .await?;
                 if let Some(tool_future) = output_result.tool_future {
                     in_flight.push_back(tool_future);
                 }
@@ -2453,14 +2629,7 @@ async fn try_run_turn(
             } => {
                 sess.update_token_usage_info(&turn_context, token_usage.as_ref())
                     .await;
-                let unified_diff = {
-                    let mut tracker = turn_diff_tracker.lock().await;
-                    tracker.get_unified_diff()
-                };
-                if let Ok(Some(unified_diff)) = unified_diff {
-                    let msg = EventMsg::TurnDiff(TurnDiffEvent { unified_diff });
-                    sess.send_event(&turn_context, msg).await;
-                }
+                should_emit_turn_diff = true;
 
                 break Ok(TurnRunResult {
                     needs_follow_up,
@@ -2534,7 +2703,18 @@ async fn try_run_turn(
         }
     };
 
-    drain_in_flight(&mut in_flight, sess, turn_context).await?;
+    drain_in_flight(&mut in_flight, sess.clone(), turn_context.clone()).await?;
+
+    if should_emit_turn_diff {
+        let unified_diff = {
+            let mut tracker = turn_diff_tracker.lock().await;
+            tracker.get_unified_diff()
+        };
+        if let Ok(Some(unified_diff)) = unified_diff {
+            let msg = EventMsg::TurnDiff(TurnDiffEvent { unified_diff });
+            sess.clone().send_event(&turn_context, msg).await;
+        }
+    }
 
     outcome
 }
@@ -2671,7 +2851,7 @@ mod tests {
             user_instructions: config.user_instructions.clone(),
             base_instructions: config.base_instructions.clone(),
             compact_prompt: config.compact_prompt.clone(),
-            approval_policy: config.approval_policy,
+            approval_policy: config.approval_policy.clone(),
             sandbox_policy: config.sandbox_policy.clone(),
             cwd: config.cwd.clone(),
             original_config_do_not_use: Arc::clone(&config),
@@ -2743,7 +2923,7 @@ mod tests {
             user_instructions: config.user_instructions.clone(),
             base_instructions: config.base_instructions.clone(),
             compact_prompt: config.compact_prompt.clone(),
-            approval_policy: config.approval_policy,
+            approval_policy: config.approval_policy.clone(),
             sandbox_policy: config.sandbox_policy.clone(),
             cwd: config.cwd.clone(),
             original_config_do_not_use: Arc::clone(&config),
@@ -2904,12 +3084,13 @@ mod tests {
         })
     }
 
-    fn otel_event_manager(
+    fn otel_manager(
         conversation_id: ConversationId,
         config: &Config,
         model_family: &ModelFamily,
-    ) -> OtelEventManager {
-        OtelEventManager::new(
+        session_source: SessionSource,
+    ) -> OtelManager {
+        OtelManager::new(
             conversation_id,
             ModelsManager::get_model_offline(config.model.as_deref()).as_str(),
             model_family.slug.as_str(),
@@ -2918,6 +3099,7 @@ mod tests {
             Some(AuthMode::ChatGPT),
             false,
             "test".to_string(),
+            session_source,
         )
     }
 
@@ -2945,7 +3127,7 @@ mod tests {
             user_instructions: config.user_instructions.clone(),
             base_instructions: config.base_instructions.clone(),
             compact_prompt: config.compact_prompt.clone(),
-            approval_policy: config.approval_policy,
+            approval_policy: config.approval_policy.clone(),
             sandbox_policy: config.sandbox_policy.clone(),
             cwd: config.cwd.clone(),
             original_config_do_not_use: Arc::clone(&config),
@@ -2957,10 +3139,15 @@ mod tests {
             session_configuration.model.as_str(),
             &per_turn_config,
         );
-        let otel_event_manager =
-            otel_event_manager(conversation_id, config.as_ref(), &model_family);
+        let otel_manager = otel_manager(
+            conversation_id,
+            config.as_ref(),
+            &model_family,
+            session_configuration.session_source.clone(),
+        );
 
         let state = SessionState::new(session_configuration.clone());
+        let skills_manager = Arc::new(SkillsManager::new(config.codex_home.clone()));
 
         let services = SessionServices {
             mcp_connection_manager: Arc::new(RwLock::new(McpConnectionManager::default())),
@@ -2971,15 +3158,15 @@ mod tests {
             user_shell: Arc::new(default_user_shell()),
             show_raw_agent_reasoning: config.show_raw_agent_reasoning,
             auth_manager: auth_manager.clone(),
-            otel_event_manager: otel_event_manager.clone(),
+            otel_manager: otel_manager.clone(),
             models_manager,
             tool_approvals: Mutex::new(ApprovalStore::default()),
-            skills: None,
+            skills_manager,
         };
 
         let turn_context = Session::make_turn_context(
             Some(Arc::clone(&auth_manager)),
-            &otel_event_manager,
+            &otel_manager,
             session_configuration.provider.clone(),
             &session_configuration,
             per_turn_config,
@@ -3031,7 +3218,7 @@ mod tests {
             user_instructions: config.user_instructions.clone(),
             base_instructions: config.base_instructions.clone(),
             compact_prompt: config.compact_prompt.clone(),
-            approval_policy: config.approval_policy,
+            approval_policy: config.approval_policy.clone(),
             sandbox_policy: config.sandbox_policy.clone(),
             cwd: config.cwd.clone(),
             original_config_do_not_use: Arc::clone(&config),
@@ -3043,10 +3230,15 @@ mod tests {
             session_configuration.model.as_str(),
             &per_turn_config,
         );
-        let otel_event_manager =
-            otel_event_manager(conversation_id, config.as_ref(), &model_family);
+        let otel_manager = otel_manager(
+            conversation_id,
+            config.as_ref(),
+            &model_family,
+            session_configuration.session_source.clone(),
+        );
 
         let state = SessionState::new(session_configuration.clone());
+        let skills_manager = Arc::new(SkillsManager::new(config.codex_home.clone()));
 
         let services = SessionServices {
             mcp_connection_manager: Arc::new(RwLock::new(McpConnectionManager::default())),
@@ -3057,15 +3249,15 @@ mod tests {
             user_shell: Arc::new(default_user_shell()),
             show_raw_agent_reasoning: config.show_raw_agent_reasoning,
             auth_manager: Arc::clone(&auth_manager),
-            otel_event_manager: otel_event_manager.clone(),
+            otel_manager: otel_manager.clone(),
             models_manager,
             tool_approvals: Mutex::new(ApprovalStore::default()),
-            skills: None,
+            skills_manager,
         };
 
         let turn_context = Arc::new(Session::make_turn_context(
             Some(Arc::clone(&auth_manager)),
-            &otel_event_manager,
+            &otel_manager,
             session_configuration.provider.clone(),
             &session_configuration,
             per_turn_config,
