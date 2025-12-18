@@ -700,6 +700,7 @@ impl Session {
                 history_log_id,
                 history_entry_count,
                 initial_messages,
+                skill_load_outcome: None,
                 rollout_path,
             }),
         })

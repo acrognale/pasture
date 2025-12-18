@@ -10,7 +10,7 @@ use codex_core::config::Config;
 use codex_core::content_items_to_text;
 use codex_core::openai_models::model_family::ModelFamily;
 use codex_core::openai_models::models_manager::ModelsManager;
-use codex_otel::otel_event_manager::OtelEventManager;
+use codex_otel::otel_manager::OtelManager;
 use codex_protocol::ConversationId;
 use codex_protocol::openai_models::ReasoningEffort;
 use codex_protocol::protocol::SessionSource;
@@ -116,8 +116,8 @@ fn build_otel_event_manager(
     auth: Option<CodexAuth>,
     conversation_id: ConversationId,
     model_slug: &str,
-) -> OtelEventManager {
-    OtelEventManager::new(
+) -> OtelManager {
+    OtelManager::new(
         conversation_id,
         model_slug,
         model_family.slug.as_str(),
@@ -126,5 +126,6 @@ fn build_otel_event_manager(
         auth.as_ref().map(|a| a.mode),
         config.otel.log_user_prompt,
         TERMINAL_TYPE.to_string(),
+        SessionSource::VSCode,
     )
 }

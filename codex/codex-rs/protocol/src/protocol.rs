@@ -1788,12 +1788,6 @@ pub struct SkillInfo {
     pub path: PathBuf,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
-pub struct SkillErrorInfo {
-    pub path: PathBuf,
-    pub message: String,
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS, Default)]
 pub struct SkillLoadOutcomeInfo {
     pub skills: Vec<SkillInfo>,

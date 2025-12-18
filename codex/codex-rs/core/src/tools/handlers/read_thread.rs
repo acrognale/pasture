@@ -93,8 +93,8 @@ impl ToolHandler for ReadThreadHandler {
                 FunctionCallError::RespondToModel("thread not found for read_thread".to_string())
             })?;
 
-        let codex_home = session.codex_home().await;
-        let rollout_path = find_conversation_path_by_id_str(&codex_home, &conversation_id)
+        let codex_home = session.services.auth_manager.codex_home();
+        let rollout_path = find_conversation_path_by_id_str(codex_home, &conversation_id)
             .await
             .map_err(|err| {
                 FunctionCallError::RespondToModel(format!(
