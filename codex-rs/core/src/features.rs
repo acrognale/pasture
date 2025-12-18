@@ -18,10 +18,39 @@ pub(crate) use legacy::LegacyFeatureToggles;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
     Experimental,
-    Beta,
+    Beta {
+        name: &'static str,
+        menu_description: &'static str,
+        announcement: &'static str,
+    },
     Stable,
     Deprecated,
     Removed,
+}
+
+impl Stage {
+    pub fn beta_menu_name(self) -> Option<&'static str> {
+        match self {
+            Stage::Beta { name, .. } => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn beta_menu_description(self) -> Option<&'static str> {
+        match self {
+            Stage::Beta {
+                menu_description, ..
+            } => Some(menu_description),
+            _ => None,
+        }
+    }
+
+    pub fn beta_announcement(self) -> Option<&'static str> {
+        match self {
+            Stage::Beta { announcement, .. } => Some(announcement),
+            _ => None,
+        }
+    }
 }
 
 /// Unique features toggled via configuration.
@@ -48,20 +77,22 @@ pub enum Feature {
     WebSearchRequest,
     /// Gate the execpolicy enforcement for shell/unified exec.
     ExecPolicy,
-    /// Enable the model-based risk assessments for sandboxed commands.
-    SandboxCommandAssessment,
     /// Enable Windows sandbox (restricted token) on Windows.
     WindowsSandbox,
+    /// Use the elevated Windows sandbox pipeline (setup + runner).
+    WindowsSandboxElevated,
     /// Remote compaction enabled (only for ChatGPT auth)
     RemoteCompaction,
     /// Refresh remote models and emit AppReady once the list is available.
     RemoteModels,
     /// Allow model to call multiple tools in parallel (only for models supporting it).
     ParallelToolCalls,
-    /// Experimental skills injection (CLI flag-driven).
-    Skills,
     /// Experimental shell snapshotting.
     ShellSnapshot,
+    /// Experimental TUI v2 (viewport) implementation.
+    Tui2,
+    /// Enable discovery and injection of skills.
+    Skills,
 }
 
 impl Feature {
@@ -102,7 +133,6 @@ pub struct Features {
 pub struct FeatureOverrides {
     pub include_apply_patch_tool: Option<bool>,
     pub web_search_request: Option<bool>,
-    pub experimental_sandbox_command_assessment: Option<bool>,
 }
 
 impl FeatureOverrides {
@@ -194,7 +224,6 @@ impl Features {
         let mut features = Features::with_defaults();
 
         let base_legacy = LegacyFeatureToggles {
-            experimental_sandbox_command_assessment: cfg.experimental_sandbox_command_assessment,
             experimental_use_freeform_apply_patch: cfg.experimental_use_freeform_apply_patch,
             experimental_use_unified_exec_tool: cfg.experimental_use_unified_exec_tool,
             experimental_use_rmcp_client: cfg.experimental_use_rmcp_client,
@@ -210,8 +239,6 @@ impl Features {
 
         let profile_legacy = LegacyFeatureToggles {
             include_apply_patch_tool: config_profile.include_apply_patch_tool,
-            experimental_sandbox_command_assessment: config_profile
-                .experimental_sandbox_command_assessment,
             experimental_use_freeform_apply_patch: config_profile
                 .experimental_use_freeform_apply_patch,
 
@@ -294,13 +321,34 @@ pub const FEATURES: &[FeatureSpec] = &[
         stage: Stage::Stable,
         default_enabled: true,
     },
-    // Unstable features.
+    FeatureSpec {
+        id: Feature::WebSearchRequest,
+        key: "web_search_request",
+        stage: Stage::Stable,
+        default_enabled: false,
+    },
+    // Beta program. Rendered in the `/experimental` menu for users.
     FeatureSpec {
         id: Feature::UnifiedExec,
         key: "unified_exec",
-        stage: Stage::Experimental,
+        stage: Stage::Beta {
+            name: "Background terminal",
+            menu_description: "Run long-running terminal commands in the background.",
+            announcement: "NEW! Try Background terminals for long running processes. Enable in /experimental!",
+        },
         default_enabled: false,
     },
+    FeatureSpec {
+        id: Feature::ShellSnapshot,
+        key: "shell_snapshot",
+        stage: Stage::Beta {
+            name: "Shell snapshot",
+            menu_description: "Snapshot your shell environment to avoid re-running login scripts for every command.",
+            announcement: "NEW! Try shell snapshotting to make your Codex faster. Enable in /experimental!",
+        },
+        default_enabled: false,
+    },
+    // Unstable features.
     FeatureSpec {
         id: Feature::RmcpClient,
         key: "rmcp_client",
@@ -310,13 +358,7 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::ApplyPatchFreeform,
         key: "apply_patch_freeform",
-        stage: Stage::Beta,
-        default_enabled: false,
-    },
-    FeatureSpec {
-        id: Feature::WebSearchRequest,
-        key: "web_search_request",
-        stage: Stage::Stable,
+        stage: Stage::Experimental,
         default_enabled: false,
     },
     FeatureSpec {
@@ -326,14 +368,14 @@ pub const FEATURES: &[FeatureSpec] = &[
         default_enabled: true,
     },
     FeatureSpec {
-        id: Feature::SandboxCommandAssessment,
-        key: "experimental_sandbox_command_assessment",
+        id: Feature::WindowsSandbox,
+        key: "experimental_windows_sandbox",
         stage: Stage::Experimental,
         default_enabled: false,
     },
     FeatureSpec {
-        id: Feature::WindowsSandbox,
-        key: "enable_experimental_windows_sandbox",
+        id: Feature::WindowsSandboxElevated,
+        key: "elevated_windows_sandbox",
         stage: Stage::Experimental,
         default_enabled: false,
     },
@@ -350,12 +392,6 @@ pub const FEATURES: &[FeatureSpec] = &[
         default_enabled: false,
     },
     FeatureSpec {
-        id: Feature::ParallelToolCalls,
-        key: "parallel",
-        stage: Stage::Experimental,
-        default_enabled: false,
-    },
-    FeatureSpec {
         id: Feature::Skills,
         key: "skills",
         stage: Stage::Experimental,
@@ -364,6 +400,12 @@ pub const FEATURES: &[FeatureSpec] = &[
     FeatureSpec {
         id: Feature::ShellSnapshot,
         key: "shell_snapshot",
+        stage: Stage::Experimental,
+        default_enabled: false,
+    },
+    FeatureSpec {
+        id: Feature::Tui2,
+        key: "tui2",
         stage: Stage::Experimental,
         default_enabled: false,
     },

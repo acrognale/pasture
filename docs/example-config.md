@@ -37,7 +37,7 @@ model_provider = "openai"
 # Reasoning & Verbosity (Responses API capable models)
 ################################################################################
 
-# Reasoning effort: minimal | low | medium | high | xhigh (default: medium; xhigh only on gpt-5.1-codex-max)
+# Reasoning effort: minimal | low | medium | high | xhigh (default: medium; xhigh on gpt-5.1-codex-max and gpt-5.2)
 model_reasoning_effort = "medium"
 
 # Reasoning summary: auto | concise | detailed | none (default: auto)
@@ -218,9 +218,9 @@ rmcp_client = false
 apply_patch_freeform = false
 view_image_tool = true
 web_search_request = false
-experimental_sandbox_command_assessment = false
 ghost_commit = false
 enable_experimental_windows_sandbox = false
+skills = false
 
 ################################################################################
 # Experimental toggles (legacy; prefer [features])
@@ -311,10 +311,9 @@ experimental_use_freeform_apply_patch = false
 # model_reasoning_summary = "auto"
 # model_verbosity = "medium"
 # chatgpt_base_url = "https://chatgpt.com/backend-api/"
-# experimental_compact_prompt_file = "compact_prompt.txt"
+# experimental_compact_prompt_file = "./compact_prompt.txt"
 # include_apply_patch_tool = false
 # experimental_use_freeform_apply_patch = false
-# experimental_sandbox_command_assessment = false
 # tools_web_search = false
 # tools_view_image = true
 # features = { unified_exec = false }

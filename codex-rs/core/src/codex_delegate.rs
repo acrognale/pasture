@@ -49,6 +49,7 @@ pub(crate) async fn run_codex_conversation_interactive(
         config,
         auth_manager,
         models_manager,
+        Arc::clone(&parent_session.services.skills_manager),
         initial_history.unwrap_or(InitialHistory::New),
         SessionSource::SubAgent(SubAgentSource::Review),
     )
@@ -280,7 +281,6 @@ async fn handle_exec_approval(
         event.command,
         event.cwd,
         event.reason,
-        event.risk,
         event.proposed_execpolicy_amendment,
     );
     let decision = await_approval_with_cancel(

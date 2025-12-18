@@ -39,7 +39,6 @@ use codex_protocol::config_types::SandboxMode;
 use codex_protocol::user_input::UserInput;
 use event_processor_with_human_output::EventProcessorWithHumanOutput;
 use event_processor_with_jsonl_output::EventProcessorWithJsonOutput;
-use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use serde_json::Value;
 use std::io::IsTerminal;
 use std::io::Read;
@@ -200,11 +199,11 @@ pub async fn run_main(cli: Cli, codex_linux_sandbox_exe: Option<PathBuf>) -> any
         include_apply_patch_tool: None,
         show_raw_agent_reasoning: oss.then_some(true),
         tools_web_search_request: None,
-        experimental_sandbox_command_assessment: None,
         additional_writable_roots: add_dir,
     };
 
-    let config = Config::load_with_cli_overrides(cli_kv_overrides, overrides).await?;
+    let config =
+        Config::load_with_cli_overrides_and_harness_overrides(cli_kv_overrides, overrides).await?;
 
     if let Err(err) = enforce_login_restrictions(&config).await {
         eprintln!("{err}");
@@ -222,18 +221,15 @@ pub async fn run_main(cli: Cli, codex_linux_sandbox_exe: Option<PathBuf>) -> any
         }
     };
 
-    if let Some(provider) = otel.as_ref() {
-        let otel_layer = OpenTelemetryTracingBridge::new(&provider.logger).with_filter(
-            tracing_subscriber::filter::filter_fn(codex_core::otel_init::codex_export_filter),
-        );
+    let otel_logger_layer = otel.as_ref().and_then(|o| o.logger_layer());
 
-        let _ = tracing_subscriber::registry()
-            .with(fmt_layer)
-            .with(otel_layer)
-            .try_init();
-    } else {
-        let _ = tracing_subscriber::registry().with(fmt_layer).try_init();
-    }
+    let otel_tracing_layer = otel.as_ref().and_then(|o| o.tracing_layer());
+
+    let _ = tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(otel_tracing_layer)
+        .with(otel_logger_layer)
+        .try_init();
 
     let mut event_processor: Box<dyn EventProcessor> = match json_mode {
         true => Box::new(EventProcessorWithJsonOutput::new(last_message_file.clone())),
@@ -262,9 +258,8 @@ pub async fn run_main(cli: Cli, codex_linux_sandbox_exe: Option<PathBuf>) -> any
     }
 
     let default_cwd = config.cwd.to_path_buf();
-    let default_approval_policy = config.approval_policy;
+    let default_approval_policy = config.approval_policy.value();
     let default_sandbox_policy = config.sandbox_policy.clone();
-    let default_model = config.model.clone();
     let default_effort = config.model_reasoning_effort;
     let default_summary = config.model_reasoning_summary;
 
@@ -279,6 +274,10 @@ pub async fn run_main(cli: Cli, codex_linux_sandbox_exe: Option<PathBuf>) -> any
         config.cli_auth_credentials_store_mode,
     );
     let conversation_manager = ConversationManager::new(auth_manager.clone(), SessionSource::Exec);
+    let default_model = conversation_manager
+        .get_models_manager()
+        .get_model(&config.model, &config)
+        .await;
 
     // Handle resume subcommand by resolving a rollout path and using explicit resume API.
     let NewConversation {

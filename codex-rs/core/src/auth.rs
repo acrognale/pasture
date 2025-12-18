@@ -23,7 +23,6 @@ pub use crate::auth::storage::AuthDotJson;
 use crate::auth::storage::AuthStorageBackend;
 use crate::auth::storage::create_auth_storage;
 use crate::config::Config;
-use crate::default_client::CodexHttpClient;
 use crate::error::RefreshTokenFailedError;
 use crate::error::RefreshTokenFailedReason;
 use crate::token_data::KnownPlan as InternalKnownPlan;
@@ -31,9 +30,12 @@ use crate::token_data::PlanType as InternalPlanType;
 use crate::token_data::TokenData;
 use crate::token_data::parse_id_token;
 use crate::util::try_parse_error_message;
+use codex_client::CodexHttpClient;
 use codex_protocol::account::PlanType as AccountPlanType;
+#[cfg(any(test, feature = "test-support"))]
 use once_cell::sync::Lazy;
 use serde_json::Value;
+#[cfg(any(test, feature = "test-support"))]
 use tempfile::TempDir;
 use thiserror::Error;
 
@@ -64,6 +66,7 @@ const REFRESH_TOKEN_UNKNOWN_MESSAGE: &str =
 const REFRESH_TOKEN_URL: &str = "https://auth.openai.com/oauth/token";
 pub const REFRESH_TOKEN_URL_OVERRIDE_ENV_VAR: &str = "CODEX_REFRESH_TOKEN_URL_OVERRIDE";
 
+#[cfg(any(test, feature = "test-support"))]
 static TEST_AUTH_TEMP_DIRS: Lazy<Mutex<Vec<TempDir>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 #[derive(Debug, Error)]
@@ -1103,6 +1106,18 @@ impl AuthManager {
             .lock()
             .expect("lock test codex homes")
             .push(temp_dir);
+        Arc::new(Self {
+            codex_home,
+            inner: RwLock::new(cached),
+            enable_codex_api_key_env: false,
+            auth_credentials_store_mode: AuthCredentialsStoreMode::File,
+        })
+    }
+
+    #[cfg(any(test, feature = "test-support"))]
+    /// Create an AuthManager with a specific CodexAuth and codex home, for testing only.
+    pub fn from_auth_for_testing_with_home(auth: CodexAuth, codex_home: PathBuf) -> Arc<Self> {
+        let cached = CachedAuth { auth: Some(auth) };
         Arc::new(Self {
             codex_home,
             inner: RwLock::new(cached),
