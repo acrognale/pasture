@@ -156,6 +156,9 @@ jobs:
       - name: Initialize codex submodule
         run: git submodule update --init --recursive
 
+      - name: Apply codex patches
+        run: bash scripts/apply_codex_patches.sh
+
       # Cache & install heavy GTK/WebKit deps for Tauri
       - name: Cache apt packages (GTK/WebKit)
         uses: awalsh128/cache-apt-pkgs-action@v1
