@@ -82,7 +82,6 @@ const createDefaultSessionConfiguredEvent = (): SessionConfiguredEvent => ({
   history_log_id: BigInt(0),
   history_entry_count: 0,
   initial_messages: [],
-  skill_load_outcome: null,
   rollout_path: '/tmp/mock-rollout.jsonl',
 });
 

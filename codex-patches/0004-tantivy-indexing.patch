@@ -1,0 +1,29 @@
+From 17372faf2c1c82ce5baad2e813bf986a7b3e011c Mon Sep 17 00:00:00 2001
+From: Anthony Crognale <anthony@acrognale.com>
+Date: Sat, 13 Dec 2025 08:08:40 -0500
+Subject: [PATCH] Implement indexing with Tantivy (#46)
+
+---
+ codex/codex-rs/core/src/openai_models/model_family.rs | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/codex/codex-rs/core/src/openai_models/model_family.rs b/codex/codex-rs/core/src/openai_models/model_family.rs
+index 3fbfa0e09..fa7a43788 100644
+--- a/codex/codex-rs/core/src/openai_models/model_family.rs
++++ b/codex/codex-rs/core/src/openai_models/model_family.rs
+@@ -305,10 +305,11 @@ pub fn find_family_for_model(slug: &str) -> ModelFamily {
+             shell_type: ConfigShellToolType::ShellCommand,
+             supports_parallel_tool_calls: true,
+             context_window: Some(CONTEXT_WINDOW_272K),
++            experimental_supported_tools: Vec::new(),
+         )
+     } else if slug.starts_with("gpt-5.1") {
+         model_family!(
+-            slug, "gpt-5.1",
++                slug, "gpt-5.1",
+             supports_reasoning_summaries: true,
+             apply_patch_tool_type: Some(ApplyPatchToolType::Freeform),
+             support_verbosity: true,
+-- 
+2.49.0
+

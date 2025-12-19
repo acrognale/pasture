@@ -171,7 +171,6 @@ const sessionConfigured = (model: string): EventMsg => ({
   history_log_id: 0n,
   history_entry_count: 0,
   initial_messages: null,
-  skill_load_outcome: null,
   rollout_path: '/tmp/rollout.jsonl',
 });
 

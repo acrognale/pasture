@@ -84,7 +84,7 @@ pub async fn get_composer_defaults(
         settings.sandbox = Some(sandbox_policy_to_mode(&config.sandbox_policy));
     }
     if settings.approval.is_none() {
-        settings.approval = Some(config.approval_policy.clone());
+        settings.approval = Some(config.approval_policy.value());
     }
     if settings.web_search_enabled.is_none() {
         settings.web_search_enabled = Some(config.tools_web_search_request);
@@ -269,5 +269,6 @@ fn sandbox_policy_to_mode(policy: &SandboxPolicy) -> SandboxMode {
         SandboxPolicy::ReadOnly => SandboxMode::ReadOnly,
         SandboxPolicy::WorkspaceWrite { .. } => SandboxMode::WorkspaceWrite,
         SandboxPolicy::DangerFullAccess => SandboxMode::DangerFullAccess,
+        SandboxPolicy::ExternalSandbox { .. } => SandboxMode::WorkspaceWrite,
     }
 }
