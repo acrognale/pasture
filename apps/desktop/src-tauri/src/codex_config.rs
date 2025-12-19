@@ -72,12 +72,10 @@ pub async fn derive_config(
 
     let cli_overrides = options.cli_overrides();
 
-    let mut config = Config::load_with_cli_overrides_and_harness_overrides(
-        cli_overrides,
-        overrides,
-    )
-        .await
-        .map_err(|e| AppError::Codex(format!("Failed to load config: {}", e)))?;
+    let mut config =
+        Config::load_with_cli_overrides_and_harness_overrides(cli_overrides, overrides)
+            .await
+            .map_err(|e| AppError::Codex(format!("Failed to load config: {}", e)))?;
 
     config.cwd = resolved_cwd;
     config.shell_environment_policy = base_config.shell_environment_policy.clone();
