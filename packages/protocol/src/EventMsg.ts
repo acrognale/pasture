@@ -24,6 +24,7 @@ import type { HandoffPlanEvent } from './HandoffPlanEvent';
 import type { ItemCompletedEvent } from './ItemCompletedEvent';
 import type { ItemStartedEvent } from './ItemStartedEvent';
 import type { ListCustomPromptsResponseEvent } from './ListCustomPromptsResponseEvent';
+import type { ListSkillsResponseEvent } from './ListSkillsResponseEvent';
 import type { McpListToolsResponseEvent } from './McpListToolsResponseEvent';
 import type { McpStartupCompleteEvent } from './McpStartupCompleteEvent';
 import type { McpStartupUpdateEvent } from './McpStartupUpdateEvent';
@@ -103,6 +104,8 @@ export type EventMsg =
   | ({ type: 'get_history_entry_response' } & GetHistoryEntryResponseEvent)
   | ({ type: 'mcp_list_tools_response' } & McpListToolsResponseEvent)
   | ({ type: 'list_custom_prompts_response' } & ListCustomPromptsResponseEvent)
+  | ({ type: 'list_skills_response' } & ListSkillsResponseEvent)
+  | { type: 'skills_update_available' }
   | ({ type: 'plan_update' } & UpdatePlanArgs)
   | ({ type: 'turn_aborted' } & TurnAbortedEvent)
   | { type: 'shutdown_complete' }

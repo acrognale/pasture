@@ -9,7 +9,7 @@ fi
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ref="$1"
 
-if [[ ! -d "${root_dir}/codex/.git" ]]; then
+if ! git -C "${root_dir}/codex" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "codex submodule not initialized. Run: git submodule update --init --recursive" >&2
   exit 1
 fi
