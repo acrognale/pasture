@@ -59,7 +59,10 @@ pub fn run() {
             }
 
             let base_config: Arc<Config> = tauri::async_runtime::block_on(async {
-                let mut cfg = Config::load_with_cli_overrides(vec![], ConfigOverrides::default())
+                let mut cfg = Config::load_with_cli_overrides_and_harness_overrides(
+                    vec![],
+                    ConfigOverrides::default(),
+                )
                     .await
                     .map_err(|e| format!("Failed to load config: {}", e))?;
                 env::apply_shell_environment_defaults(&mut cfg).await;

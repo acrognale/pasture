@@ -1,0 +1,485 @@
+diff --git a/codex/codex-rs/protocol/src/protocol.rs b/codex/codex-rs/protocol/src/protocol.rs
+index 3294897b6..56f2dbcb9 100644
+--- a/codex/codex-rs/protocol/src/protocol.rs
++++ b/codex/codex-rs/protocol/src/protocol.rs
+@@ -204,6 +204,17 @@ pub enum Op {
+     /// to generate a summary which will be returned as an AgentMessage event.
+     Compact,
+ 
++    /// Plan a handoff to a new thread using the current conversation context.
++    /// The agent returns a concise prompt and relevant files to seed the new thread.
++    Handoff {
++        /// Optional goal for the new thread provided by the user.
++        #[serde(default, skip_serializing_if = "Option::is_none")]
++        goal: Option<String>,
++        /// Candidate repo files that the planner may choose from.
++        #[serde(default)]
++        candidate_files: Vec<String>,
++    },
++
+     /// Request Codex to undo a turn (turn are stacked so it is the same effect as CMD + Z).
+     Undo,
+ 
+@@ -670,6 +681,9 @@ pub enum EventMsg {
+     AgentMessageContentDelta(AgentMessageContentDeltaEvent),
+     ReasoningContentDelta(ReasoningContentDeltaEvent),
+     ReasoningRawContentDelta(ReasoningRawContentDeltaEvent),
++
++    /// Result of a handoff planning task containing the prompt and relevant files.
++    HandoffPlan(HandoffPlanEvent),
+ }
+ 
+ /// Codex errors that we expose to clients.
+@@ -1165,6 +1179,24 @@ pub struct ResumedHistory {
+     pub rollout_path: PathBuf,
+ }
+ 
++#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
++pub struct HandoffFileRef {
++    pub path: String,
++    #[serde(default)]
++    pub reason: String,
++}
++
++#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
++pub struct HandoffPlanEvent {
++    #[serde(default)]
++    pub title: Option<String>,
++    pub handoff_prompt: String,
++    #[serde(default)]
++    pub preview: Option<String>,
++    #[serde(default)]
++    pub relevant_files: Vec<HandoffFileRef>,
++}
++
+ #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
+ pub enum InitialHistory {
+     New,
+diff --git a/codex/codex-rs/core/src/state/turn.rs b/codex/codex-rs/core/src/state/turn.rs
+index e2fff0554..d88373c2b 100644
+--- a/codex/codex-rs/core/src/state/turn.rs
++++ b/codex/codex-rs/core/src/state/turn.rs
+@@ -35,6 +35,7 @@ pub(crate) enum TaskKind {
+     Regular,
+     Review,
+     Compact,
++    Handoff,
+ }
+ 
+ #[derive(Clone)]
+diff --git a/codex/codex-rs/core/src/tasks/mod.rs b/codex/codex-rs/core/src/tasks/mod.rs
+index b5aaf2999..107f3222a 100644
+--- a/codex/codex-rs/core/src/tasks/mod.rs
++++ b/codex/codex-rs/core/src/tasks/mod.rs
+@@ -1,5 +1,6 @@
+ mod compact;
+ mod ghost_snapshot;
++mod handoff;
+ mod regular;
+ mod review;
+ mod undo;
+@@ -31,6 +32,7 @@ use codex_protocol::user_input::UserInput;
+ 
+ pub(crate) use compact::CompactTask;
+ pub(crate) use ghost_snapshot::GhostSnapshotTask;
++pub(crate) use handoff::HandoffTask;
+ pub(crate) use regular::RegularTask;
+ pub(crate) use review::ReviewTask;
+ pub(crate) use undo::UndoTask;
+diff --git a/codex/codex-rs/core/src/codex.rs b/codex/codex-rs/core/src/codex.rs
+index 27643515e..16aba93ba 100644
+--- a/codex/codex-rs/core/src/codex.rs
++++ b/codex/codex-rs/core/src/codex.rs
+@@ -1665,6 +1665,12 @@ async fn submission_loop(sess: Arc<Session>, config: Arc<Config>, rx_sub: Receiv
+             Op::Compact => {
+                 handlers::compact(&sess, sub.id.clone()).await;
+             }
++            Op::Handoff {
++                goal,
++                candidate_files,
++            } => {
++                handlers::handoff(&sess, sub.id.clone(), goal, candidate_files).await;
++            }
+             Op::RunUserShellCommand { command } => {
+                 handlers::run_user_shell_command(
+                     &sess,
+@@ -1708,6 +1714,7 @@ mod handlers {
+     use crate::mcp::collect_mcp_snapshot_from_manager;
+     use crate::review_prompts::resolve_review_request;
+     use crate::tasks::CompactTask;
++    use crate::tasks::HandoffTask;
+     use crate::tasks::RegularTask;
+     use crate::tasks::UndoTask;
+     use crate::tasks::UserShellCommandTask;
+@@ -2032,6 +2039,25 @@ mod handlers {
+         .await;
+     }
+ 
++    pub async fn handoff(
++        sess: &Arc<Session>,
++        sub_id: String,
++        goal: Option<String>,
++        candidate_files: Vec<String>,
++    ) {
++        let turn_context = sess.new_default_turn_with_sub_id(sub_id).await;
++
++        let input_goal = goal.unwrap_or_default();
++        let input = vec![UserInput::Text { text: input_goal }];
++
++        sess.spawn_task(
++            Arc::clone(&turn_context),
++            input,
++            HandoffTask::new(candidate_files),
++        )
++        .await;
++    }
++
+     pub async fn shutdown(sess: &Arc<Session>, sub_id: String) -> bool {
+         sess.abort_all_tasks(TurnAbortReason::Interrupted).await;
+         sess.services
+diff --git a/codex/codex-rs/core/src/tasks/handoff.rs b/codex/codex-rs/core/src/tasks/handoff.rs
+new file mode 100644
+index 000000000..cc8986f0f
+--- /dev/null
++++ b/codex/codex-rs/core/src/tasks/handoff.rs
+@@ -0,0 +1,302 @@
++use std::sync::Arc;
++
++use super::SessionTask;
++use super::SessionTaskContext;
++use crate::client_common::Prompt;
++use crate::client_common::ResponseEvent;
++use crate::codex::TurnContext;
++use crate::compact::content_items_to_text;
++use crate::protocol::HandoffFileRef;
++use crate::protocol::HandoffPlanEvent;
++use crate::protocol::RolloutItem;
++use crate::state::TaskKind;
++use async_trait::async_trait;
++use codex_protocol::models::ResponseItem;
++use codex_protocol::protocol::TaskStartedEvent;
++use codex_protocol::user_input::UserInput;
++use futures::StreamExt;
++use serde::Deserialize;
++use serde_json::json;
++use tokio_util::sync::CancellationToken;
++
++#[derive(Clone)]
++pub(crate) struct HandoffTask {
++    candidate_files: Vec<String>,
++}
++
++impl HandoffTask {
++    pub(crate) fn new(candidate_files: Vec<String>) -> Self {
++        Self { candidate_files }
++    }
++}
++
++#[async_trait]
++impl SessionTask for HandoffTask {
++    fn kind(&self) -> TaskKind {
++        TaskKind::Handoff
++    }
++
++    async fn run(
++        self: Arc<Self>,
++        session: Arc<SessionTaskContext>,
++        ctx: Arc<TurnContext>,
++        input: Vec<UserInput>,
++        _cancellation_token: CancellationToken,
++    ) -> Option<String> {
++        let sess = session.clone_session();
++
++        // Start event so UIs can show progress.
++        let start_event = codex_protocol::protocol::EventMsg::TaskStarted(TaskStartedEvent {
++            model_context_window: ctx.client.get_model_context_window(),
++        });
++        sess.send_event(&ctx, start_event).await;
++
++        let goal = match input.first() {
++            Some(UserInput::Text { text }) => text.as_str(),
++            _ => "",
++        };
++
++        // Snapshot current history for the prompt payload.
++        let history = sess.clone_history().await.get_history();
++        let transcript = render_transcript(&history);
++
++        let prompt = build_handoff_prompt(goal, &transcript, &self.candidate_files);
++
++        let mut stream = match ctx.client.clone().stream(&prompt).await {
++            Ok(stream) => stream,
++            Err(err) => {
++                let event = codex_protocol::protocol::EventMsg::Error(
++                    codex_protocol::protocol::ErrorEvent {
++                        message: format!("handoff planner failed to start: {err}"),
++                        codex_error_info: Some(codex_protocol::protocol::CodexErrorInfo::Other),
++                    },
++                );
++                sess.send_event(&ctx, event).await;
++                return None;
++            }
++        };
++
++        let mut collected = String::new();
++        let mut final_text: Option<String> = None;
++
++        while let Some(event) = stream.next().await {
++            match event {
++                Ok(ResponseEvent::OutputItemDone(item)) => {
++                    if final_text.is_none() {
++                        if let ResponseItem::Message { content, .. } = item {
++                            final_text = content_items_to_text(&content);
++                        }
++                    }
++                }
++                Ok(ResponseEvent::OutputTextDelta(delta)) => {
++                    collected.push_str(&delta);
++                }
++                Ok(ResponseEvent::RateLimits(snapshot)) => {
++                    sess.update_rate_limits(&ctx, snapshot).await;
++                }
++                Ok(ResponseEvent::Completed { token_usage, .. }) => {
++                    sess.update_token_usage_info(&ctx, token_usage.as_ref())
++                        .await;
++                    break;
++                }
++                Ok(_) => {}
++                Err(err) => {
++                    let event = codex_protocol::protocol::EventMsg::Error(
++                        codex_protocol::protocol::ErrorEvent {
++                            message: format!("handoff planner errored: {err}"),
++                            codex_error_info: Some(codex_protocol::protocol::CodexErrorInfo::Other),
++                        },
++                    );
++                    sess.send_event(&ctx, event).await;
++                    return None;
++                }
++            }
++        }
++
++        let raw_text = final_text
++            .or_else(|| (!collected.is_empty()).then_some(collected.clone()))
++            .unwrap_or_default();
++
++        let plan = parse_handoff_plan(&raw_text, &self.candidate_files);
++
++        // Persist in rollout and emit to clients.
++        let rollout = RolloutItem::EventMsg(codex_protocol::protocol::EventMsg::HandoffPlan(
++            plan.clone(),
++        ));
++        sess.persist_rollout_items(&[rollout]).await;
++        sess.send_event(&ctx, codex_protocol::protocol::EventMsg::HandoffPlan(plan))
++            .await;
++
++        None
++    }
++}
++
++fn render_transcript(items: &[ResponseItem]) -> String {
++    let mut transcript = Vec::new();
++    for item in items {
++        if let ResponseItem::Message { role, content, .. } = item {
++            if let Some(text) = content_items_to_text(content) {
++                let trimmed = text.trim();
++                if trimmed.is_empty() {
++                    continue;
++                }
++                let label = match role.as_str() {
++                    "user" => "User",
++                    "assistant" => "Assistant",
++                    "system" => "System",
++                    "developer" => "Developer",
++                    _ => "Message",
++                };
++                transcript.push(format!("{label}: {trimmed}"));
++            }
++        }
++    }
++    transcript.join("\n\n")
++}
++
++fn build_handoff_prompt(goal: &str, transcript: &str, candidate_files: &[String]) -> Prompt {
++    use codex_protocol::models::ContentItem;
++    use codex_protocol::models::ResponseItem;
++
++    let mut prompt = Prompt::default();
++
++    prompt.input.push(ResponseItem::Message {
++        id: None,
++        role: "developer".to_string(),
++        content: vec![ContentItem::InputText {
++            text: HANDOFF_SYSTEM_PROMPT.to_string(),
++        }],
++    });
++
++    prompt.input.push(ResponseItem::Message {
++        id: None,
++        role: "user".to_string(),
++        content: vec![ContentItem::InputText {
++            text: build_user_payload(goal, transcript, candidate_files),
++        }],
++    });
++
++    prompt.output_schema = Some(json!({
++        "type": "object",
++        "properties": {
++            "title": { "type": "string" },
++            "handoff_prompt": { "type": "string" },
++            "relevant_files": {
++                "type": "array",
++                "items": {
++                    "type": "object",
++                    "properties": {
++                        "path": { "type": "string" },
++                        "reason": { "type": "string" }
++                    },
++                    "required": ["path", "reason"],
++                    "additionalProperties": false
++                }
++            },
++            "preview": { "type": "string" }
++        },
++        "required": ["handoff_prompt", "title", "relevant_files", "preview"],
++        "additionalProperties": false
++    }));
++
++    prompt
++}
++
++fn build_user_payload(goal: &str, transcript: &str, candidate_files: &[String]) -> String {
++    let goal_text = if goal.trim().is_empty() {
++        "(no explicit goal provided; infer from the conversation)".to_string()
++    } else {
++        goal.trim().to_string()
++    };
++
++    let mut payload = String::new();
++    payload.push_str("GOAL FOR NEW THREAD:\n\n");
++    payload.push_str(&goal_text);
++    payload.push_str("\n\nFULL CONVERSATION HISTORY (OLDEST FIRST):\n\n");
++    payload.push_str(transcript.trim());
++    payload.push_str("\n\nCANDIDATE FILES (RELATIVE TO WORKSPACE ROOT):\n");
++
++    if candidate_files.is_empty() {
++        payload.push_str("(none)\n");
++    } else {
++        for path in candidate_files {
++            payload.push_str("- ");
++            payload.push_str(path);
++            payload.push('\n');
++        }
++    }
++
++    payload
++}
++
++fn parse_handoff_plan(text: &str, candidates: &[String]) -> HandoffPlanEvent {
++    #[derive(Debug, Deserialize)]
++    struct PlanFileRef {
++        path: String,
++        #[serde(default)]
++        reason: String,
++    }
++
++    #[derive(Debug, Deserialize)]
++    struct PlanPayload {
++        #[serde(default)]
++        title: Option<String>,
++        #[serde(default)]
++        handoff_prompt: Option<String>,
++        #[serde(default)]
++        preview: Option<String>,
++        #[serde(default)]
++        relevant_files: Vec<PlanFileRef>,
++    }
++
++    let parsed = serde_json::from_str::<PlanPayload>(text);
++
++    let mut title = None;
++    let mut handoff_prompt = None;
++    let mut preview = None;
++    let mut relevant_files: Vec<HandoffFileRef> = Vec::new();
++
++    if let Ok(payload) = parsed {
++        handoff_prompt = payload
++            .handoff_prompt
++            .map(|value| value.trim().to_string())
++            .filter(|value| !value.is_empty());
++
++        title = payload
++            .title
++            .map(|value| value.trim().to_string())
++            .filter(|value| !value.is_empty());
++
++        preview = payload
++            .preview
++            .map(|value| value.trim().to_string())
++            .filter(|value| !value.is_empty());
++
++        let candidate_set: std::collections::HashSet<&String> = candidates.iter().collect();
++        relevant_files = payload
++            .relevant_files
++            .into_iter()
++            .filter_map(|file| {
++                if candidate_set.contains(&file.path) {
++                    Some(HandoffFileRef {
++                        path: file.path,
++                        reason: file.reason,
++                    })
++                } else {
++                    None
++                }
++            })
++            .collect();
++    }
++
++    let handoff_prompt = handoff_prompt.unwrap_or_else(|| text.trim().to_string());
++
++    HandoffPlanEvent {
++        title,
++        handoff_prompt,
++        preview,
++        relevant_files,
++    }
++}
++
++const HANDOFF_SYSTEM_PROMPT: &str = include_str!("../../templates/handoff/prompt.md");
+diff --git a/codex/codex-rs/core/templates/handoff/prompt.md b/codex/codex-rs/core/templates/handoff/prompt.md
+new file mode 100644
+index 000000000..87e146bf1
+--- /dev/null
++++ b/codex/codex-rs/core/templates/handoff/prompt.md
+@@ -0,0 +1,32 @@
++You are a Handoff planner.
++
++A user wants to start a NEW, focused thread that continues work from an existing thread without carrying the full transcript. Your job is to:
++- Understand the user's stated goal for the new thread.
++- Extract only the essential context from the existing conversation.
++- Identify a small set of repository files that matter for the next task.
++- Produce a single user-facing prompt that will be prefilled into the new thread's composer.
++
++You will receive:
++- A short natural-language goal for the new thread (may be empty).
++- The FULL conversation history for the current thread, oldest to newest, as plain text.
++- A list of candidate file paths that were read, edited, or discussed.
++
++You must output a JSON object with this shape:
++- "title": short 3–7 word name for the new thread (for example: "Refactor auth middleware"). Optional but recommended.
++- "handoff_prompt": a plain-text prompt that the user will send as the FIRST message in the new thread.
++  - Write in the first person as if the user is speaking to the agent.
++  - Briefly describe what has already been done in the previous thread.
++  - Clearly state the goal for this new thread and what you want the agent to do first.
++  - Keep it under roughly 400 words.
++- "relevant_files": an array of objects { "path": string, "reason": string } listing the repo files that matter most for this new thread.
++- "preview": a one-line summary or headline for the new thread.
++
++Constraints:
++- Do NOT invent file paths. Each "path" MUST come from the provided candidate file list.
++- Prefer at most 10 entries in "relevant_files", focusing on the highest-signal files.
++- When you mention a file in "handoff_prompt", refer to it using @relative/path.ext so the UI can render it as a file mention.
++- Do NOT include code fences, JSON, or backticks in "handoff_prompt"; it should be plain natural language plus inline @file/path references.
++
++If the user goal is empty, infer the best next goal from the most recent user and assistant messages.
++
++Respond ONLY with the JSON object, with no extra commentary.

@@ -1,0 +1,473 @@
+diff --git a/codex/codex-rs/core/src/codex.rs b/codex/codex-rs/core/src/codex.rs
+index f0d205658..27643515e 100644
+--- a/codex/codex-rs/core/src/codex.rs
++++ b/codex/codex-rs/core/src/codex.rs
+@@ -739,6 +739,15 @@ impl Session {
+         self.tx_event.clone()
+     }
+ 
++    pub(crate) async fn codex_home(&self) -> PathBuf {
++        let state = self.state.lock().await;
++        state
++            .session_configuration
++            .original_config_do_not_use
++            .codex_home
++            .clone()
++    }
++
+     /// Ensure all rollout writes are durably flushed.
+     pub(crate) async fn flush_rollout(&self) {
+         let recorder = {
+diff --git a/codex/codex-rs/core/src/lib.rs b/codex/codex-rs/core/src/lib.rs
+index 4eeb1746b..c5f942bd3 100644
+--- a/codex/codex-rs/core/src/lib.rs
++++ b/codex/codex-rs/core/src/lib.rs
+@@ -71,6 +71,7 @@ pub use auth::AuthManager;
+ pub use auth::CodexAuth;
+ pub mod default_client;
+ pub mod project_doc;
++pub mod read_thread_backend;
+ mod rollout;
+ pub(crate) mod safety;
+ pub mod seatbelt;
+diff --git a/codex/codex-rs/core/src/tools/handlers/mod.rs b/codex/codex-rs/core/src/tools/handlers/mod.rs
+index dcf848e37..f4dd2c692 100644
+--- a/codex/codex-rs/core/src/tools/handlers/mod.rs
++++ b/codex/codex-rs/core/src/tools/handlers/mod.rs
+@@ -5,6 +5,7 @@ mod mcp;
+ mod mcp_resource;
+ mod plan;
+ mod read_file;
++mod read_thread;
+ mod shell;
+ mod test_sync;
+ mod unified_exec;
+@@ -19,6 +20,7 @@ pub use mcp::McpHandler;
+ pub use mcp_resource::McpResourceHandler;
+ pub use plan::PlanHandler;
+ pub use read_file::ReadFileHandler;
++pub use read_thread::ReadThreadHandler;
+ pub use shell::ShellCommandHandler;
+ pub use shell::ShellHandler;
+ pub use test_sync::TestSyncHandler;
+diff --git a/codex/codex-rs/core/src/tools/spec.rs b/codex/codex-rs/core/src/tools/spec.rs
+index 35ebaf736..6993d908d 100644
+--- a/codex/codex-rs/core/src/tools/spec.rs
++++ b/codex/codex-rs/core/src/tools/spec.rs
+@@ -3,7 +3,9 @@ use crate::client_common::tools::ToolSpec;
+ use crate::features::Feature;
+ use crate::features::Features;
+ use crate::openai_models::model_family::ModelFamily;
++use crate::read_thread_backend::read_thread_backend;
+ use crate::tools::handlers::PLAN_TOOL;
++use crate::tools::handlers::ReadThreadHandler;
+ use crate::tools::handlers::apply_patch::create_apply_patch_freeform_tool;
+ use crate::tools::handlers::apply_patch::create_apply_patch_json_tool;
+ use crate::tools::registry::ToolRegistryBuilder;
+@@ -626,6 +628,35 @@ fn create_read_file_tool() -> ToolSpec {
+     })
+ }
+ 
++fn create_read_thread_tool() -> ToolSpec {
++    let mut properties = BTreeMap::new();
++    properties.insert(
++        "ref".to_string(),
++        JsonSchema::String {
++            description: Some("Pasture thread id (UUID) or URL reference.".to_string()),
++        },
++    );
++    properties.insert(
++        "instructions".to_string(),
++        JsonSchema::String {
++            description: Some("What to extract from the thread.".to_string()),
++        },
++    );
++
++    ToolSpec::Function(ResponsesApiTool {
++        name: "read_thread".to_string(),
++        description:
++            "Fetches a prior Codex thread and returns relevant context based on your instructions."
++                .to_string(),
++        strict: false,
++        parameters: JsonSchema::Object {
++            properties,
++            required: Some(vec!["ref".to_string(), "instructions".to_string()]),
++            additional_properties: Some(false.into()),
++        },
++    })
++}
++
+ fn create_list_dir_tool() -> ToolSpec {
+     let mut properties = BTreeMap::new();
+     properties.insert(
+@@ -1074,6 +1105,12 @@ pub(crate) fn build_specs(
+         builder.register_handler("read_file", read_file_handler);
+     }
+ 
++    if read_thread_backend().is_some() {
++        let read_thread_handler = Arc::new(ReadThreadHandler);
++        builder.push_spec_with_parallel_support(create_read_thread_tool(), true);
++        builder.register_handler("read_thread", read_thread_handler);
++    }
++
+     if config
+         .experimental_supported_tools
+         .iter()
+diff --git a/codex/codex-rs/protocol/src/protocol.rs b/codex/codex-rs/protocol/src/protocol.rs
+index 1e03f5ce1..3294897b6 100644
+--- a/codex/codex-rs/protocol/src/protocol.rs
++++ b/codex/codex-rs/protocol/src/protocol.rs
+@@ -629,6 +629,9 @@ pub enum EventMsg {
+     /// Notification that a patch application has finished.
+     PatchApplyEnd(PatchApplyEndEvent),
+ 
++    /// Result of a read_thread tool invocation (single-shot).
++    ReadThreadEnd(ReadThreadEndEvent),
++
+     TurnDiff(TurnDiffEvent),
+ 
+     /// Response to GetHistoryEntryRequest.
+@@ -1590,6 +1593,41 @@ pub struct StreamInfoEvent {
+     pub message: String,
+ }
+ 
++#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
++pub struct ThreadMention {
++    /// Unique identifier for the target thread (UUID string for local threads).
++    pub thread_id: String,
++    /// Human-friendly label shown in the UI (typically the thread title).
++    pub label: String,
++}
++
++#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
++pub struct ReadThreadEndEvent {
++    /// Identifier for the read_thread tool call.
++    pub call_id: String,
++    /// Turn ID that this call belongs to.
++    /// Uses `#[serde(default)]` for backwards compatibility.
++    #[serde(default)]
++    pub turn_id: String,
++    /// The thread reference requested (UUID string for local threads).
++    #[serde(default)]
++    pub thread_ref: String,
++    /// The user-provided instructions (may be truncated in UI if long).
++    #[serde(default)]
++    pub instructions: String,
++    /// Final extracted summary when successful.
++    #[serde(default)]
++    pub summary: String,
++    /// Thread references returned to the UI.
++    #[serde(default)]
++    pub mentions: Vec<ThreadMention>,
++    /// Whether the tool execution succeeded.
++    pub success: bool,
++    /// Error message when `success` is false.
++    #[serde(default)]
++    pub error_message: Option<String>,
++}
++
+ #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, TS)]
+ pub struct PatchApplyBeginEvent {
+     /// Identifier so this can be paired with the PatchApplyEnd event.
+diff --git a/codex/codex-rs/core/src/read_thread_backend.rs b/codex/codex-rs/core/src/read_thread_backend.rs
+new file mode 100644
+index 000000000..887d0da39
+--- /dev/null
++++ b/codex/codex-rs/core/src/read_thread_backend.rs
+@@ -0,0 +1,27 @@
++use std::sync::Arc;
++
++use async_trait::async_trait;
++use once_cell::sync::OnceCell;
++
++/// Host-provided capability for resolving a thread reference to its current
++/// conversation id. Implemented by Pasture (or other hosts) outside codex-core.
++#[async_trait]
++pub trait ReadThreadBackend: Send + Sync {
++    async fn current_conversation_id_for_thread(
++        &self,
++        thread_ref: &str,
++    ) -> anyhow::Result<Option<String>>;
++}
++
++static READ_THREAD_BACKEND: OnceCell<Arc<dyn ReadThreadBackend>> = OnceCell::new();
++
++/// Install the process-wide backend. The first caller wins; subsequent calls
++/// are ignored so initialization races are benign.
++pub fn set_read_thread_backend(backend: Arc<dyn ReadThreadBackend>) {
++    let _ = READ_THREAD_BACKEND.set(backend);
++}
++
++/// Retrieve the backend if one was installed by the host.
++pub fn read_thread_backend() -> Option<Arc<dyn ReadThreadBackend>> {
++    READ_THREAD_BACKEND.get().cloned()
++}
+diff --git a/codex/codex-rs/core/src/tools/handlers/read_thread.rs b/codex/codex-rs/core/src/tools/handlers/read_thread.rs
+new file mode 100644
+index 000000000..b300d5959
+--- /dev/null
++++ b/codex/codex-rs/core/src/tools/handlers/read_thread.rs
+@@ -0,0 +1,263 @@
++use async_trait::async_trait;
++use codex_protocol::models::ContentItem;
++use codex_protocol::models::ResponseItem;
++use codex_protocol::protocol::EventMsg;
++use futures::StreamExt;
++use serde::Deserialize;
++use std::sync::Arc;
++
++use crate::client_common::Prompt;
++use crate::client_common::ResponseEvent;
++use crate::codex::TurnContext;
++use crate::function_tool::FunctionCallError;
++use crate::read_thread_backend::read_thread_backend;
++use crate::rollout::find_conversation_path_by_id_str;
++use crate::rollout::recorder::RolloutRecorder;
++use crate::tools::context::ToolInvocation;
++use crate::tools::context::ToolOutput;
++use crate::tools::context::ToolPayload;
++use crate::tools::registry::ToolHandler;
++use crate::tools::registry::ToolKind;
++use codex_protocol::protocol::ReadThreadEndEvent;
++
++pub struct ReadThreadHandler;
++
++const READ_THREAD_SUMMARY_PROMPT: &str = r#"You are a focused summarizer.
++Given a user's request and the full transcript of a past thread, extract only the information that is directly useful for fulfilling the request.
++
++Guidelines:
++- Be concise but specific; prefer bullet points or short paragraphs.
++- Quote code, commands, or key identifiers exactly when they matter.
++- If the thread lacks information needed for the request, say so explicitly.
++- Do not reproduce the entire transcript; include only the relevant parts."#;
++
++#[derive(Deserialize)]
++struct ReadThreadArgs {
++    #[serde(rename = "ref")]
++    thread_ref: String,
++    instructions: String,
++}
++
++#[async_trait]
++impl ToolHandler for ReadThreadHandler {
++    fn kind(&self) -> ToolKind {
++        ToolKind::Function
++    }
++
++    async fn handle(&self, invocation: ToolInvocation) -> Result<ToolOutput, FunctionCallError> {
++        let ToolInvocation {
++            session,
++            turn,
++            call_id,
++            payload,
++            ..
++        } = invocation;
++
++        let arguments = match payload {
++            ToolPayload::Function { arguments } => arguments,
++            _ => {
++                return Err(FunctionCallError::RespondToModel(
++                    "read_thread handler received unsupported payload".to_string(),
++                ));
++            }
++        };
++
++        let args: ReadThreadArgs = serde_json::from_str(&arguments).map_err(|err| {
++            FunctionCallError::RespondToModel(format!(
++                "failed to parse function arguments: {err:?}"
++            ))
++        })?;
++
++        let _uuid = match uuid::Uuid::parse_str(&args.thread_ref) {
++            Ok(id) => id,
++            Err(_) => {
++                return Err(FunctionCallError::RespondToModel(
++                    "read_thread currently supports only local thread ids (UUID)".to_string(),
++                ));
++            }
++        };
++
++        let backend = read_thread_backend().ok_or_else(|| {
++            FunctionCallError::RespondToModel(
++                "read_thread backend is not configured for this process".to_string(),
++            )
++        })?;
++
++        let conversation_id = backend
++            .current_conversation_id_for_thread(&args.thread_ref)
++            .await
++            .map_err(|err| {
++                FunctionCallError::RespondToModel(format!("failed to look up thread: {err}"))
++            })?
++            .ok_or_else(|| {
++                FunctionCallError::RespondToModel("thread not found for read_thread".to_string())
++            })?;
++
++        let codex_home = session.codex_home().await;
++        let rollout_path = find_conversation_path_by_id_str(&codex_home, &conversation_id)
++            .await
++            .map_err(|err| {
++                FunctionCallError::RespondToModel(format!(
++                    "failed to locate rollout for thread: {err}"
++                ))
++            })?
++            .ok_or_else(|| {
++                FunctionCallError::RespondToModel("thread not found on this machine".to_string())
++            })?;
++
++        let history = RolloutRecorder::get_rollout_history(&rollout_path)
++            .await
++            .map_err(|err| {
++                FunctionCallError::RespondToModel(format!("failed to load thread history: {err}"))
++            })?;
++
++        let events = history.get_event_msgs().unwrap_or_default();
++        let transcript = render_transcript(events);
++        let result = summarize_thread(&turn, &args.instructions, &transcript).await;
++
++        // Emit a single-shot event describing the outcome of this tool call.
++        let (success, summary, error_message) = match &result {
++            Ok(text) => (true, text.clone(), None),
++            Err(err) => (false, String::new(), Some(err.to_string())),
++        };
++
++        session
++            .send_event(
++                &turn,
++                EventMsg::ReadThreadEnd(ReadThreadEndEvent {
++                    call_id: call_id.clone(),
++                    turn_id: turn.sub_id.clone(),
++                    thread_ref: args.thread_ref.clone(),
++                    instructions: args.instructions.clone(),
++                    summary: summary.clone(),
++                    mentions: Vec::new(),
++                    success,
++                    error_message,
++                }),
++            )
++            .await;
++
++        // Propagate the original result back to the model/tool caller.
++        let content = result?;
++
++        Ok(ToolOutput::Function {
++            content,
++            content_items: None,
++            success: Some(true),
++        })
++    }
++}
++
++async fn summarize_thread(
++    turn: &Arc<TurnContext>,
++    instructions: &str,
++    transcript: &str,
++) -> Result<String, FunctionCallError> {
++    let user_prompt = format!(
++        "Extract the parts of the thread that matter for the user's request.\n\nUser request:\n{instructions}\n\nThread transcript (markdown):\n{transcript}"
++    );
++
++    let mut prompt = Prompt::default();
++
++    prompt.input.push(ResponseItem::Message {
++        id: None,
++        role: "developer".to_string(),
++        content: vec![ContentItem::InputText {
++            text: READ_THREAD_SUMMARY_PROMPT.to_string(),
++        }],
++    });
++
++    prompt.input.push(ResponseItem::Message {
++        id: None,
++        role: "user".to_string(),
++        content: vec![ContentItem::InputText { text: user_prompt }],
++    });
++
++    prompt.tools = vec![];
++    prompt.parallel_tool_calls = false;
++    prompt.output_schema = None;
++
++    let mut stream = turn.client.clone().stream(&prompt).await.map_err(|err| {
++        FunctionCallError::RespondToModel(format!("failed to summarize thread: {err}"))
++    })?;
++
++    let mut summary = String::new();
++
++    while let Some(event) = stream.next().await {
++        match event {
++            Ok(ResponseEvent::OutputItemDone(item)) => {
++                if let Some(text) = response_item_text(&item) {
++                    summary = text;
++                }
++            }
++            Ok(ResponseEvent::OutputTextDelta(delta)) => summary.push_str(&delta),
++            Ok(ResponseEvent::Completed { .. }) => break,
++            Ok(ResponseEvent::RateLimits(_)) => {}
++            Ok(_) => {}
++            Err(err) => {
++                return Err(FunctionCallError::RespondToModel(format!(
++                    "failed while streaming summary: {err}"
++                )));
++            }
++        }
++    }
++
++    if summary.trim().is_empty() {
++        return Err(FunctionCallError::RespondToModel(
++            "summarization did not return any content".to_string(),
++        ));
++    }
++
++    Ok(summary)
++}
++
++fn render_transcript(events: Vec<EventMsg>) -> String {
++    let mut out = String::new();
++    for ev in events {
++        match ev {
++            EventMsg::UserMessage(msg) => {
++                out.push_str("### User\n");
++                out.push_str(msg.message.as_str());
++                if let Some(imgs) = msg.images.as_ref() {
++                    if !imgs.is_empty() {
++                        out.push_str("\n\n");
++                        out.push_str(&format!("_[{} image(s) attached]_", imgs.len()));
++                    }
++                }
++                out.push_str("\n\n");
++            }
++            EventMsg::AgentMessage(msg) => {
++                out.push_str("### Assistant\n");
++                out.push_str(msg.message.as_str());
++                out.push_str("\n\n");
++            }
++            _ => {}
++        }
++    }
++    out.trim().to_string()
++}
++
++fn response_item_text(item: &ResponseItem) -> Option<String> {
++    match item {
++        ResponseItem::Message { content, .. } => {
++            let mut buffers: Vec<&str> = Vec::new();
++            for segment in content {
++                match segment {
++                    ContentItem::InputText { text } | ContentItem::OutputText { text } => {
++                        if !text.is_empty() {
++                            buffers.push(text);
++                        }
++                    }
++                    ContentItem::InputImage { .. } => {}
++                }
++            }
++            if buffers.is_empty() {
++                None
++            } else {
++                Some(buffers.join("\n"))
++            }
++        }
++        ResponseItem::FunctionCallOutput { output, .. } => Some(output.content.clone()),
++        _ => None,
++    }
++}
