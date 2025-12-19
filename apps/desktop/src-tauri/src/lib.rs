@@ -63,8 +63,8 @@ pub fn run() {
                     vec![],
                     ConfigOverrides::default(),
                 )
-                    .await
-                    .map_err(|e| format!("Failed to load config: {}", e))?;
+                .await
+                .map_err(|e| format!("Failed to load config: {}", e))?;
                 env::apply_shell_environment_defaults(&mut cfg).await;
                 Ok::<_, String>(Arc::new(cfg))
             })?;
