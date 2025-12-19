@@ -24,6 +24,7 @@ jobs:
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       rust: ${{ steps.filter.outputs.rust }}
+      codex_patches: ${{ steps.filter.outputs.codex_patches }}
       docs_only: ${{ steps.filter.outputs.docs_only }}
     steps:
       - name: Check out (full history for proper diff)
@@ -52,6 +53,12 @@ jobs:
               - 'apps/**/*.rs'
               - 'apps/desktop/Cargo.toml'
               - 'apps/desktop/Cargo.lock'
+            codex_patches:
+              - 'codex'
+              - 'codex/**'
+              - 'codex-patches/**'
+              - 'scripts/apply_codex_patches.sh'
+              - '.gitmodules'
             docs_only:
               - '**/*.md'
               - 'docs/**'
@@ -176,3 +183,16 @@ jobs:
 
       - name: Cargo check
         run: cargo check --workspace --all-targets
+
+  codex-patches:
+    needs: changes
+    if: ${{ needs.changes.outputs.codex_patches == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Apply codex patch series
+        run: bash scripts/apply_codex_patches.sh

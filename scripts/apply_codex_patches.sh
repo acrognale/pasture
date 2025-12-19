@@ -4,15 +4,14 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 patch_dir="${root_dir}/codex-patches"
 codex_dir="${root_dir}/codex"
-codex_marker="${codex_dir}/codex-rs/core/src/codex.rs"
 
 if [[ ! -d "${patch_dir}" ]]; then
   echo "Patch directory not found: ${patch_dir}" >&2
   exit 1
 fi
 
-if [[ ! -f "${codex_marker}" ]]; then
-  echo "codex submodule not found (missing ${codex_marker}). Initialize the submodule before applying patches." >&2
+if ! git -C "${codex_dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "codex submodule not initialized. Run: git submodule update --init --recursive" >&2
   exit 1
 fi
 
