@@ -83,6 +83,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Initialize codex submodule
+        run: git submodule update --init --recursive
+
       - name: Enable corepack
         run: corepack enable
 
@@ -149,6 +152,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Initialize codex submodule
+        run: git submodule update --init --recursive
 
       # Cache & install heavy GTK/WebKit deps for Tauri
       - name: Cache apt packages (GTK/WebKit)

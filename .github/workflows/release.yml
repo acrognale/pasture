@@ -100,6 +100,9 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
+      - name: Initialize codex submodule
+        run: git submodule update --init --recursive
+
       # Cache heavy GTK/WebKit deps on Linux runners
       - name: Cache apt packages (GTK/WebKit)
         if: runner.os == 'Linux'
@@ -149,8 +152,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           mkdir -p ~/.appstoreconnect/private_keys
-          echo "${{ secrets.APPLE_API_KEY_BASE64 }}" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
-          echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" >> $GITHUB_ENV
+          echo "${{ secrets.APPLE_API_KEY_BASE64 }}" | base64 --decode > "$HOME/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8"
+          echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8" >> "$GITHUB_ENV"
 
       - name: Build and upload Tauri bundles
         uses: tauri-apps/tauri-action@v0
